@@ -1,15 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Move, ZoomIn, ZoomOut, Save, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-
-import charHero from "@/assets/char-hero.jpg";
-import charWarrior from "@/assets/char-warrior.jpg";
-import charStudent from "@/assets/char-student.jpg";
-import charDetective from "@/assets/char-detective.jpg";
-import charMagician from "@/assets/char-magician.jpg";
-import charCyberpunk from "@/assets/char-cyberpunk.jpg";
 
 interface CharacterPosition {
   id: string;
@@ -21,12 +14,12 @@ interface CharacterPosition {
 }
 
 const initialCharacters: CharacterPosition[] = [
-  { id: "hero", name: "超级英雄", image: charHero, x: 100, y: 200, scale: 1.2 },
-  { id: "warrior", name: "幻想战士", image: charWarrior, x: 250, y: 180, scale: 1.15 },
-  { id: "student", name: "校园少年", image: charStudent, x: 400, y: 250, scale: 0.9 },
-  { id: "detective", name: "神秘侦探", image: charDetective, x: 550, y: 190, scale: 1.1 },
-  { id: "magician", name: "魔法师", image: charMagician, x: 700, y: 200, scale: 1.0 },
-  { id: "cyberpunk", name: "赛博朋克", image: charCyberpunk, x: 850, y: 220, scale: 1.05 },
+  { id: "hero", name: "超级英雄", image: "/assets/char-hero.jpg", x: 100, y: 200, scale: 1.2 },
+  { id: "warrior", name: "幻想战士", image: "/assets/char-warrior.jpg", x: 250, y: 180, scale: 1.15 },
+  { id: "student", name: "校园少年", image: "/assets/char-student.jpg", x: 400, y: 250, scale: 0.9 },
+  { id: "detective", name: "神秘侦探", image: "/assets/char-detective.jpg", x: 550, y: 190, scale: 1.1 },
+  { id: "magician", name: "魔法师", image: "/assets/char-magician.jpg", x: 700, y: 200, scale: 1.0 },
+  { id: "cyberpunk", name: "赛博朋克", image: "/assets/char-cyberpunk.jpg", x: 850, y: 220, scale: 1.05 },
 ];
 
 interface RelationshipChartProps {

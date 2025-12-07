@@ -1,17 +1,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit2, Trash2, Sparkles, Eye } from "lucide-react";
+import { Plus, Sparkles, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import CharacterDetailView from "./CharacterDetailView";
 import RelationshipChart from "./RelationshipChart";
-
-import charHero from "@/assets/char-hero.jpg";
-import charWarrior from "@/assets/char-warrior.jpg";
-import charStudent from "@/assets/char-student.jpg";
-import charDetective from "@/assets/char-detective.jpg";
-import charMagician from "@/assets/char-magician.jpg";
-import charCyberpunk from "@/assets/char-cyberpunk.jpg";
 
 interface CharacterAsset {
   id: string;
@@ -28,7 +21,7 @@ const defaultCharacters: CharacterAsset[] = [
     id: "hero",
     name: "超级英雄",
     description: "正义凛然，守护城市的勇者",
-    image: charHero,
+    image: "/assets/char-hero.jpg",
     tags: ["英雄", "力量", "披风"],
     trainingStatus: "ready",
     usageCount: 42,
@@ -37,7 +30,7 @@ const defaultCharacters: CharacterAsset[] = [
     id: "warrior",
     name: "幻想战士",
     description: "手持神剑，征战异世界",
-    image: charWarrior,
+    image: "/assets/char-warrior.jpg",
     tags: ["战士", "盔甲", "剑"],
     trainingStatus: "ready",
     usageCount: 38,
@@ -46,7 +39,7 @@ const defaultCharacters: CharacterAsset[] = [
     id: "student",
     name: "校园少年",
     description: "青春洋溢，追逐梦想",
-    image: charStudent,
+    image: "/assets/char-student.jpg",
     tags: ["校园", "青春", "制服"],
     trainingStatus: "ready",
     usageCount: 56,
@@ -55,7 +48,7 @@ const defaultCharacters: CharacterAsset[] = [
     id: "detective",
     name: "神秘侦探",
     description: "洞察一切，揭开真相",
-    image: charDetective,
+    image: "/assets/char-detective.jpg",
     tags: ["侦探", "神秘", "帽子"],
     trainingStatus: "training",
     usageCount: 21,
@@ -64,7 +57,7 @@ const defaultCharacters: CharacterAsset[] = [
     id: "magician",
     name: "魔法师",
     description: "掌控元素，操纵魔法",
-    image: charMagician,
+    image: "/assets/char-magician.jpg",
     tags: ["魔法", "法杖", "斗篷"],
     trainingStatus: "ready",
     usageCount: 33,
@@ -73,7 +66,7 @@ const defaultCharacters: CharacterAsset[] = [
     id: "cyberpunk",
     name: "赛博朋克",
     description: "未来都市的科技战士",
-    image: charCyberpunk,
+    image: "/assets/char-cyberpunk.jpg",
     tags: ["科幻", "赛博", "霓虹"],
     trainingStatus: "ready",
     usageCount: 29,

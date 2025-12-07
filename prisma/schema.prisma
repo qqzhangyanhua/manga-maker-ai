@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               Int       @id @default(autoincrement())
+  email            String    @unique
+  password_hash    String    @default("")
+  name             String?
+  role             String    @default("user")
+  status           String    @default("active")
+  verified         Boolean   @default(false)
+  email_verified_at DateTime? @db.Timestamptz(6)
+  created_at       DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@map("users")
+}
+
+model EmailVerification {
+  id          Int      @id @default(autoincrement())
+  email       String
+  code_hash   String
+  expires_at  DateTime @db.Timestamptz(6)
+  used        Boolean  @default(false)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([email], map: "idx_email_verifications_email")
+  @@map("email_verifications")
+}
+
+model LlmProvider {
+  id            Int      @id @default(autoincrement())
+  provider_type String
+  provider_name String   @default("openai")
+  model         String
+  base_url      String
+  api_key       String   @default("")
+  priority      Int      @default(1)
+  enabled       Boolean  @default(true)
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([provider_type, enabled, priority], map: "idx_llm_providers_type_enabled")
+  @@map("llm_providers")
+}
