@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit2, Trash2, Copy, Sparkles } from "lucide-react";
+import { Plus, Edit2, Trash2, Sparkles, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import CharacterDetailView from "./CharacterDetailView";
+import RelationshipChart from "./RelationshipChart";
 
 import charHero from "@/assets/char-hero.jpg";
 import charWarrior from "@/assets/char-warrior.jpg";
@@ -78,9 +80,12 @@ const defaultCharacters: CharacterAsset[] = [
   },
 ];
 
+type ViewMode = "list" | "detail" | "relationship";
+
 const CharacterLibrary = () => {
   const [characters] = useState<CharacterAsset[]>(defaultCharacters);
   const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
   const { toast } = useToast();
 
   const handleCreateNew = () => {
@@ -90,11 +95,13 @@ const CharacterLibrary = () => {
     });
   };
 
-  const handleUseCharacter = (character: CharacterAsset) => {
-    toast({
-      title: `已选择 ${character.name}`,
-      description: "角色已添加到当前创作中",
-    });
+  const handleViewCharacter = (character: CharacterAsset) => {
+    setSelectedCharacter(character.id);
+    setViewMode("detail");
+  };
+
+  const handleOpenRelationshipChart = () => {
+    setViewMode("relationship");
   };
 
   const getStatusBadge = (status: CharacterAsset["trainingStatus"]) => {
@@ -120,20 +127,52 @@ const CharacterLibrary = () => {
     }
   };
 
+  // Detail View
+  if (viewMode === "detail" && selectedCharacter) {
+    const character = characters.find((c) => c.id === selectedCharacter);
+    if (character) {
+      return (
+        <CharacterDetailView
+          character={character}
+          onBack={() => {
+            setViewMode("list");
+            setSelectedCharacter(null);
+          }}
+        />
+      );
+    }
+  }
+
+  // Relationship Chart View
+  if (viewMode === "relationship") {
+    return (
+      <RelationshipChart
+        onBack={() => setViewMode("list")}
+      />
+    );
+  }
+
+  // List View
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h2 className="font-comic text-2xl text-foreground">角色一致性引擎</h2>
           <p className="text-muted-foreground">
-            训练角色 LoRA，保持角色在不同分镜中的一致性
+            打造"数字演员"，保持角色在不同分镜中的一致性
           </p>
         </div>
-        <Button variant="comic" onClick={handleCreateNew}>
-          <Plus className="w-4 h-4" />
-          创建新角色
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleOpenRelationshipChart}>
+            <Eye className="w-4 h-4" />
+            角色关系图谱
+          </Button>
+          <Button variant="comic" onClick={handleCreateNew}>
+            <Plus className="w-4 h-4" />
+            创建新角色
+          </Button>
+        </div>
       </div>
 
       {/* Character Grid */}
@@ -141,11 +180,8 @@ const CharacterLibrary = () => {
         {characters.map((character) => (
           <div
             key={character.id}
-            className={cn(
-              "comic-card group cursor-pointer transition-all duration-300",
-              selectedCharacter === character.id && "ring-2 ring-primary"
-            )}
-            onClick={() => setSelectedCharacter(character.id)}
+            className="comic-card group cursor-pointer transition-all duration-300 hover:ring-2 hover:ring-primary"
+            onClick={() => handleViewCharacter(character)}
           >
             {/* Image */}
             <div className="aspect-square relative overflow-hidden rounded-t-lg">
@@ -161,21 +197,22 @@ const CharacterLibrary = () => {
                 {getStatusBadge(character.trainingStatus)}
               </div>
 
-              {/* Hover Actions */}
+              {/* Quick Actions */}
               <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                 <Button
                   size="sm"
                   variant="comic"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleUseCharacter(character);
+                    handleViewCharacter(character);
                   }}
                 >
-                  <Sparkles className="w-4 h-4" />
-                  使用
+                  <Eye className="w-4 h-4" />
+                  详情
                 </Button>
                 <Button size="sm" variant="outline">
-                  <Edit2 className="w-4 h-4" />
+                  <Sparkles className="w-4 h-4" />
+                  使用
                 </Button>
               </div>
             </div>
@@ -201,13 +238,17 @@ const CharacterLibrary = () => {
                 ))}
               </div>
 
-              {/* Stats */}
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>使用次数: {character.usageCount}</span>
-                <div className="flex items-center gap-1">
-                  <Copy className="w-3 h-3" />
-                  <span>复制</span>
-                </div>
+              {/* Features indicator */}
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  📷 三视图
+                </span>
+                <span className="flex items-center gap-1">
+                  😊 表情矩阵
+                </span>
+                <span className="flex items-center gap-1">
+                  👕 服装
+                </span>
               </div>
             </div>
           </div>
