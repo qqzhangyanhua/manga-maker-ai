@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Sparkles, FolderOpen } from "lucide-react";
+import { Sparkles, FolderOpen, FileText } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
@@ -18,7 +18,7 @@ const Header = () => {
         </Link>
 
         {/* Nav */}
-        <nav className="hidden md:flex items-center gap-8">
+        <nav className="hidden md:flex items-center gap-6">
           <Link 
             to="/#styles" 
             className={cn(
@@ -35,6 +35,16 @@ const Header = () => {
             角色选择
           </Link>
           <Link 
+            to="/storyboard" 
+            className={cn(
+              "text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1",
+              location.pathname === "/storyboard" && "text-foreground"
+            )}
+          >
+            <FileText className="w-4 h-4" />
+            分镜编辑
+          </Link>
+          <Link 
             to="/assets" 
             className={cn(
               "text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1",
@@ -48,10 +58,10 @@ const Header = () => {
 
         {/* CTA */}
         <div className="flex items-center gap-2">
-          <Link to="/assets">
-            <Button variant="outline" size="sm" className="hidden sm:flex">
-              <FolderOpen className="w-4 h-4" />
-              资产库
+          <Link to="/storyboard" className="hidden sm:block">
+            <Button variant="outline" size="sm">
+              <FileText className="w-4 h-4" />
+              分镜编辑
             </Button>
           </Link>
           <Button variant="glow" size="sm">
