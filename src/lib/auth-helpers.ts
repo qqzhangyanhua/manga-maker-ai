@@ -1,53 +1,20 @@
-import type { NextRequest } from "next/server";
-import { readAuthCookie, verifyAuthToken } from "./auth";
-import { ensureDb, prisma } from "./db";
+import { cookies } from "next/headers";
+import { verifyAuthToken } from "@/lib/auth";
 
-export type AuthUser = {
-  id: string;
-  email: string;
-  name?: string | null;
-  verified: boolean | null;
-  role: string | null;
-};
+// Helper to verify token from cookies
+export async function verifyToken(token: string) {
+  return verifyAuthToken(token);
+}
 
-export const getAuthUser = async (request: NextRequest): Promise<AuthUser | null> => {
-  await ensureDb();
-  const token = readAuthCookie(request);
-  if (!token) return null;
+// Helper to get current user from request
+export async function getCurrentUser() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("token")?.value;
+
+  if (!token) {
+    return null;
+  }
 
   const payload = verifyAuthToken(token);
-  if (!payload) return null;
-
-  const user = await prisma.user.findUnique({
-    where: { id: payload.userId },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      verified: true,
-      role: true,
-    },
-  });
-
-  if (!user) return null;
-  return { ...user, role: user.role || "user", verified: user.verified ?? false };
-};
-
-export const requireAdmin = async (request: NextRequest): Promise<AuthUser> => {
-  const user = await getAuthUser(request);
-  if (!user) {
-    const error = new Error("未登录");
-    // @ts-expect-error 自定义标记
-    error.status = 401;
-    throw error;
-  }
-
-  if ((user.role || "user") !== "admin") {
-    const error = new Error("权限不足，需管理员身份");
-    // @ts-expect-error 自定义标记
-    error.status = 403;
-    throw error;
-  }
-
-  return user;
-};
+  return payload;
+}

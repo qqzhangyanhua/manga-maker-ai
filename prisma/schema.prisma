@@ -52,3 +52,129 @@ model LlmProvider {
   @@index([provider_type, enabled, priority], map: "idx_llm_providers_type_enabled")
   @@map("llm_providers")
 }
+
+// Character Management - "Digital Actor" System
+model Character {
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id           String             @db.Uuid
+  name              String
+  description       String?
+  base_prompt       String             @default("")
+  tags              String[]           @default([])
+  base_image_url    String?
+  lora_model_url    String?
+  lora_trigger_word String?
+  training_status   String             @default("pending") // pending, training, ready, failed
+  training_progress Int                @default(0)
+  usage_count       Int                @default(0)
+  created_at        DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime           @default(now()) @db.Timestamptz(6)
+  
+  views             CharacterView[]
+  expressions       CharacterExpression[]
+  outfits           CharacterOutfit[]
+
+  @@index([user_id, training_status], map: "idx_characters_user_status")
+  @@map("characters")
+}
+
+// Three-view reference images (front, side, back)
+model CharacterView {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  character_id  String    @db.Uuid
+  view_type     String    // front, side, back
+  image_url     String
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  
+  character     Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
+
+  @@unique([character_id, view_type], map: "unique_character_view")
+  @@map("character_views")
+}
+
+// Expression matrix for emotional consistency
+model CharacterExpression {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  character_id  String    @db.Uuid
+  expression_type String  // neutral, happy, sad, angry, surprised, shy, confident, worried, determined
+  image_url     String
+  prompt_suffix String?   // Additional prompt for this expression
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  
+  character     Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
+
+  @@unique([character_id, expression_type], map: "unique_character_expression")
+  @@map("character_expressions")
+}
+
+// Wardrobe system - multiple outfits per character
+model CharacterOutfit {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  character_id    String    @db.Uuid
+  outfit_name     String
+  outfit_type     String    // default, school, battle, casual, formal, sleepwear, custom
+  image_url       String?
+  prompt_modifier String    @default("") // Outfit-specific prompt additions
+  trigger_word    String?   // Optional trigger word for this outfit
+  is_default      Boolean   @default(false)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  
+  character       Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
+
+  @@index([character_id, is_default], map: "idx_outfits_character_default")
+  @@map("character_outfits")
+}
+
+// Project/Work management
+model Project {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String    @db.Uuid
+  title       String
+  description String?
+  style       String?
+  status      String    @default("draft") // draft, in_progress, completed
+  cover_image String?
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime  @default(now()) @db.Timestamptz(6)
+
+  panels      Panel[]
+  
+  @@index([user_id, status], map: "idx_projects_user_status")
+  @@map("projects")
+}
+
+// Individual comic panels
+model Panel {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id      String    @db.Uuid
+  panel_order     Int
+  panel_type      String    // wide, medium, closeup, action, dialogue, transition
+  importance      String    // high, medium, low
+  description     String
+  dialogue        String?
+  character_name  String?
+  emotion         String?
+  generated_image String?
+  prompt_used     String?
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  
+  project         Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@index([project_id, panel_order], map: "idx_panels_project_order")
+  @@map("panels")
+}
+
+// Generated images gallery
+model GeneratedImage {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String    @db.Uuid
+  image_url   String
+  prompt      String
+  style       String?
+  character_id String?  @db.Uuid
+  generation_params Json? // Store model, steps, cfg, etc.
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([user_id, created_at], map: "idx_generated_images_user_time")
+  @@map("generated_images")
+}
