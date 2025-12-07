@@ -23,7 +23,11 @@ const handleError = (error: unknown) => {
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    await requireAdmin(request);
+    const adminCheck = await requireAdmin();
+    if (adminCheck instanceof NextResponse) {
+      return adminCheck; // 返回错误响应
+    }
+
     const userId = params.id;
     if (!userId) {
       return NextResponse.json({ success: false, message: "无效的 id" }, { status: 400 });
@@ -92,7 +96,11 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    await requireAdmin(request);
+    const adminCheck = await requireAdmin();
+    if (adminCheck instanceof NextResponse) {
+      return adminCheck; // 返回错误响应
+    }
+
     const userId = params.id;
     if (!userId) {
       return NextResponse.json({ success: false, message: "无效的 id" }, { status: 400 });

@@ -13,95 +13,41 @@ import DialogueRefiner from "@/components/Storyboard/DialogueRefiner";
 import { PanelData } from "@/components/Storyboard/StoryboardPanel";
 import { useToast } from "@/hooks/use-toast";
 
-const generateSmartPanels = (script: string): PanelData[] => {
-  const hasRain = script.includes("雨") || script.includes("下雨");
-  const hasAction = script.includes("剑") || script.includes("战") || script.includes("跃") || script.includes("拔");
-  const hasDialogue = script.includes('"') || script.includes('"') || script.includes("说");
-  const hasEmotion = script.includes("哭") || script.includes("笑") || script.includes("泪") || script.includes("怒");
-  const hasDistance = script.includes("远处") || script.includes("背影") || script.includes("消失");
-
-  const panels: PanelData[] = [];
-
-  panels.push({
-    id: "panel-1",
-    type: "wide",
-    importance: "high",
-    description: hasRain 
-      ? "远景：昏暗的街道，大雨倾盆，一个渺小的身影跪在地上"
-      : "开场全景：展示故事发生的环境和氛围，建立场景基调",
-  });
-
-  if (hasAction) {
-    panels.push({
-      id: "panel-2",
-      type: "action",
-      importance: "high",
-      description: "动态镜头：激烈的动作场面，使用破格和出血效果强调冲击力",
-      character: "主角",
-      emotion: "愤怒",
-    });
-  } else {
-    panels.push({
-      id: "panel-2",
-      type: "medium",
-      importance: "medium",
-      description: "中景：展示人物的姿态和环境的关系",
-      character: "主角",
-    });
-  }
-
-  if (hasEmotion) {
-    panels.push({
-      id: "panel-3",
-      type: "closeup",
-      importance: "high",
-      description: hasRain 
-        ? "特写：雨水混着泪水，表情痛苦扭曲" 
-        : "特写：捕捉人物情感的微妙变化，眼神中的情绪",
-      character: "主角",
-      emotion: "悲痛",
-    });
-  }
-
-  if (script.includes("项链") || script.includes("手")) {
-    panels.push({
-      id: "panel-4",
-      type: "closeup",
-      importance: "medium",
-      description: "道具特写：湿漉漉的项链，手指紧握发白，细节展示情感",
-    });
-  }
-
-  if (hasDialogue) {
-    panels.push({
-      id: "panel-5",
-      type: "dialogue",
-      importance: "medium",
-      description: "对话场景：人物交流，注意气泡位置不要遮挡表情",
-      dialogue: "这不可能...",
-      character: "主角",
-      emotion: "震惊",
-    });
-  }
-
-  if (hasDistance) {
-    panels.push({
-      id: "panel-6",
-      type: "wide",
-      importance: "medium",
-      description: "背影远景：黑衣人模糊的背影消失在雨幕中，象征离别",
-    });
-  }
-
-  panels.push({
-    id: `panel-${panels.length + 1}`,
-    type: "transition",
-    importance: "low",
-    description: "收尾过渡：余韵留白，为下一个场景做铺垫",
-  });
-
-  return panels;
+// API类型定义
+type ApiPanel = {
+  id: string;
+  panel_order: number;
+  panel_type: string;
+  importance: string;
+  description: string;
+  dialogue: string | null;
+  character_name: string | null;
+  emotion: string | null;
+  prompt_used: string | null;
+  generated_image: string | null;
 };
+
+type ApiProject = {
+  id: string;
+  title: string;
+  description: string | null;
+  style: string | null;
+  status: string;
+  panels: ApiPanel[];
+};
+
+// 转换API数据为前端格式
+const convertApiPanelToLocal = (apiPanel: ApiPanel): PanelData => ({
+  id: apiPanel.id,
+  type: apiPanel.panel_type as PanelData["type"],
+  importance: apiPanel.importance as PanelData["importance"],
+  description: apiPanel.description,
+  dialogue: apiPanel.dialogue || undefined,
+  character: apiPanel.character_name || undefined,
+  emotion: apiPanel.emotion || undefined,
+  generatedImage: apiPanel.generated_image || undefined,
+  englishPrompt: apiPanel.prompt_used || undefined,
+});
 
 const StoryboardEditorPage = () => {
   const [activeTab, setActiveTab] = useState("freeform");
@@ -110,23 +56,52 @@ const StoryboardEditorPage = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [templateData, setTemplateData] = useState<Record<string, string>>({});
+  const [currentProject, setCurrentProject] = useState<ApiProject | null>(null);
   const { toast } = useToast();
 
   const handleGenerate = async (script: string) => {
     setIsGenerating(true);
     setPanels([]);
     setSelectedPanel(null);
+    setCurrentProject(null);
 
-    await new Promise((resolve) => setTimeout(resolve, 2500));
+    try {
+      const response = await fetch("/api/storyboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          story: script,
+          saveToDb: true,
+        }),
+      });
 
-    const generatedPanels = generateSmartPanels(script);
-    setPanels(generatedPanels);
-    setIsGenerating(false);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "生成失败");
+      }
 
-    toast({
-      title: "智能分镜拆解完成",
-      description: `已分析剧本并生成 ${generatedPanels.length} 个分镜格`,
-    });
+      const data = await response.json();
+
+      if (data.project) {
+        setCurrentProject(data.project);
+        const localPanels = data.project.panels.map(convertApiPanelToLocal);
+        setPanels(localPanels);
+
+        toast({
+          title: "智能分镜拆解完成",
+          description: `已生成项目《${data.project.title}》，包含 ${localPanels.length} 个分镜`,
+        });
+      }
+    } catch (error) {
+      console.error("Generate error:", error);
+      toast({
+        title: "生成失败",
+        description: error instanceof Error ? error.message : "未知错误",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleGenerateFromTemplate = async () => {
@@ -153,11 +128,63 @@ const StoryboardEditorPage = () => {
     });
   };
 
-  const handleGenerateImages = () => {
-    toast({
-      title: "生成漫画图像",
-      description: "连接 Lovable Cloud 后可使用 AI 生成每个分镜的图像",
-    });
+  const handleGenerateImages = async () => {
+    if (!currentProject) {
+      toast({
+        title: "请先生成分镜",
+        description: "需要先创建故事板项目才能生成图像",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      toast({
+        title: "开始生成图像",
+        description: `正在为 ${panels.length} 个分镜生成AI图像...`,
+      });
+
+      const response = await fetch("/api/panel/generate-image", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          project_id: currentProject.id,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "生成图像失败");
+      }
+
+      const data = await response.json();
+
+      // 更新panels的图像
+      const updatedPanels = panels.map((panel) => {
+        const updatedPanel = data.panels.find((p: ApiPanel) => p.id === panel.id);
+        if (updatedPanel) {
+          return {
+            ...panel,
+            generatedImage: updatedPanel.generated_image || undefined,
+          };
+        }
+        return panel;
+      });
+
+      setPanels(updatedPanels);
+
+      toast({
+        title: "图像生成完成",
+        description: `成功为 ${data.generated_count} 个分镜生成图像`,
+      });
+    } catch (error) {
+      console.error("Generate images error:", error);
+      toast({
+        title: "图像生成失败",
+        description: error instanceof Error ? error.message : "未知错误",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

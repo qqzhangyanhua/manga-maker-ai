@@ -1,4 +1,4 @@
-// File: /Users/zhangyanhua/AI/manga-maker-ai/src/app/assets/page.tsx
+// File: D:\AI\manga-maker-ai\src\app\assets\page.tsx
 import * as entry from '../../../../src/app/assets/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

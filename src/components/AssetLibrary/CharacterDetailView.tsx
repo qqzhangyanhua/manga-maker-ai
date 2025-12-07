@@ -14,8 +14,8 @@ interface CharacterAsset {
   tags: string[];
   training_status: "pending" | "training" | "ready" | "failed";
   usage_count: number;
-  views?: Array<{ view_type: string; image_url: string }>;
-  expressions?: Array<{ expression_type: string; image_url: string }>;
+  views?: Array<{ id: string; view_type: string; image_url: string }>;
+  expressions?: Array<{ id: string; expression_type: string; image_url: string }>;
   outfits?: Array<{ id: string; outfit_name: string; outfit_type: string; image_url: string | null }>;
 }
 

@@ -15,9 +15,9 @@ interface CharacterAsset {
   tags: string[];
   training_status: "pending" | "training" | "ready" | "failed";
   usage_count: number;
-  views?: Array<{ view_type: string; image_url: string }>;
-  expressions?: Array<{ expression_type: string; image_url: string }>;
-  outfits?: Array<{ outfit_name: string; outfit_type: string; image_url: string | null }>;
+  views?: Array<{ id: string; view_type: string; image_url: string }>;
+  expressions?: Array<{ id: string; expression_type: string; image_url: string }>;
+  outfits?: Array<{ id: string; outfit_name: string; outfit_type: string; image_url: string | null }>;
 }
 
 type ViewMode = "list" | "detail" | "relationship";
@@ -51,7 +51,11 @@ const CharacterLibrary = () => {
     fetchCharacters();
   }, []);
 
-  const handleCreateNew = async (data: { name: string; description: string }) => {
+  const handleCreateNew = async (data: {
+    name: string;
+    description: string;
+    base_image_url?: string;
+  }) => {
     try {
       const response = await fetch("/api/character", {
         method: "POST",
@@ -59,6 +63,7 @@ const CharacterLibrary = () => {
         body: JSON.stringify({
           name: data.name,
           description: data.description || null,
+          base_image_url: data.base_image_url || null,
           tags: [],
         }),
       });

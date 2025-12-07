@@ -24,7 +24,11 @@ const handleError = (error: unknown) => {
 
 export async function GET(request: NextRequest) {
   try {
-    await requireAdmin(request);
+    const adminCheck = await requireAdmin();
+    if (adminCheck instanceof NextResponse) {
+      return adminCheck;
+    }
+
     await ensureDb();
     const users = await prisma.user.findMany({
       select: {
@@ -47,7 +51,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    await requireAdmin(request);
+    const adminCheck = await requireAdmin();
+    if (adminCheck instanceof NextResponse) {
+      return adminCheck;
+    }
+
     const body = await request.json();
     const parsed = userCreateSchema.safeParse(body);
     if (!parsed.success) {

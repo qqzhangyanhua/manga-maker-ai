@@ -23,7 +23,11 @@ const handleError = (error: unknown) => {
 
 export async function GET(request: NextRequest) {
   try {
-    await requireAdmin(request);
+    const adminCheck = await requireAdmin();
+    if (adminCheck instanceof NextResponse) {
+      return adminCheck;
+    }
+
     await ensureDb();
     const providers = await prisma.llmProvider.findMany({
       orderBy: [{ enabled: "desc" }, { priority: "asc" }, { id: "asc" }],
@@ -36,7 +40,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    await requireAdmin(request);
+    const adminCheck = await requireAdmin();
+    if (adminCheck instanceof NextResponse) {
+      return adminCheck;
+    }
+
     const body = await request.json();
     const parsed = providerSchema.safeParse(body);
     if (!parsed.success) {

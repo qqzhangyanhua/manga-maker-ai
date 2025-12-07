@@ -1,11 +1,12 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Move, ZoomIn, ZoomOut, Save, Users } from "lucide-react";
+import { ArrowLeft, Move, ZoomIn, ZoomOut, Save, Users, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
 interface CharacterPosition {
   id: string;
+  character_id: string;
   name: string;
   image: string;
   x: number;
@@ -13,25 +14,75 @@ interface CharacterPosition {
   scale: number;
 }
 
-const initialCharacters: CharacterPosition[] = [
-  { id: "hero", name: "超级英雄", image: "/assets/char-hero.jpg", x: 100, y: 200, scale: 1.2 },
-  { id: "warrior", name: "幻想战士", image: "/assets/char-warrior.jpg", x: 250, y: 180, scale: 1.15 },
-  { id: "student", name: "校园少年", image: "/assets/char-student.jpg", x: 400, y: 250, scale: 0.9 },
-  { id: "detective", name: "神秘侦探", image: "/assets/char-detective.jpg", x: 550, y: 190, scale: 1.1 },
-  { id: "magician", name: "魔法师", image: "/assets/char-magician.jpg", x: 700, y: 200, scale: 1.0 },
-  { id: "cyberpunk", name: "赛博朋克", image: "/assets/char-cyberpunk.jpg", x: 850, y: 220, scale: 1.05 },
-];
-
 interface RelationshipChartProps {
   onBack: () => void;
 }
 
 const RelationshipChart = ({ onBack }: RelationshipChartProps) => {
-  const [characters, setCharacters] = useState<CharacterPosition[]>(initialCharacters);
+  const [characters, setCharacters] = useState<CharacterPosition[]>([]);
   const [selectedChar, setSelectedChar] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Load characters and their relationship positions
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+
+        // Fetch all characters
+        const charactersRes = await fetch("/api/character");
+        if (!charactersRes.ok) throw new Error("Failed to fetch characters");
+        const charactersData = await charactersRes.json();
+
+        // Fetch relationship positions
+        const relationshipsRes = await fetch("/api/character/relationship");
+        const relationshipsData = relationshipsRes.ok
+          ? await relationshipsRes.json()
+          : { relationships: [] };
+
+        // Create a map of character_id -> position
+        const positionMap = new Map(
+          relationshipsData.relationships.map((rel: any) => [
+            rel.character_id,
+            { x: rel.position_x, y: rel.position_y, scale: rel.scale },
+          ])
+        );
+
+        // Combine character data with positions
+        const combinedData: CharacterPosition[] = charactersData.characters.map(
+          (char: any, index: number) => {
+            const savedPosition = positionMap.get(char.id);
+            return {
+              id: `rel-${char.id}`,
+              character_id: char.id,
+              name: char.name,
+              image: char.base_image_url || "/placeholder-character.png",
+              x: savedPosition?.x ?? 100 + index * 150,
+              y: savedPosition?.y ?? 200 + (index % 2) * 50,
+              scale: savedPosition?.scale ?? 1.0,
+            };
+          }
+        );
+
+        setCharacters(combinedData);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        toast({
+          title: "加载失败",
+          description: "无法加载角色数据",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [toast]);
 
   const handleMouseDown = (charId: string, e: React.MouseEvent) => {
     e.preventDefault();
@@ -46,10 +97,14 @@ const RelationshipChart = ({ onBack }: RelationshipChartProps) => {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    setCharacters(prev =>
-      prev.map(char =>
+    setCharacters((prev) =>
+      prev.map((char) =>
         char.id === selectedChar
-          ? { ...char, x: Math.max(50, Math.min(rect.width - 50, x)), y: Math.max(50, Math.min(rect.height - 50, y)) }
+          ? {
+              ...char,
+              x: Math.max(50, Math.min(rect.width - 50, x)),
+              y: Math.max(50, Math.min(rect.height - 50, y)),
+            }
           : char
       )
     );
@@ -60,8 +115,8 @@ const RelationshipChart = ({ onBack }: RelationshipChartProps) => {
   };
 
   const handleScaleChange = (charId: string, delta: number) => {
-    setCharacters(prev =>
-      prev.map(char =>
+    setCharacters((prev) =>
+      prev.map((char) =>
         char.id === charId
           ? { ...char, scale: Math.max(0.5, Math.min(1.5, char.scale + delta)) }
           : char
@@ -69,12 +124,71 @@ const RelationshipChart = ({ onBack }: RelationshipChartProps) => {
     );
   };
 
-  const handleSave = () => {
-    toast({
-      title: "关系图已保存",
-      description: "角色位置和大小关系已记录，将用于双人镜头生成",
-    });
+  const handleSave = async () => {
+    try {
+      setIsSaving(true);
+
+      const relationships = characters.map((char) => ({
+        character_id: char.character_id,
+        position_x: char.x,
+        position_y: char.y,
+        scale: char.scale,
+      }));
+
+      const response = await fetch("/api/character/relationship", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ relationships }),
+      });
+
+      if (!response.ok) {
+        throw new Error("保存失败");
+      }
+
+      toast({
+        title: "关系图已保存",
+        description: "角色位置和大小关系已记录，将用于双人镜头生成",
+      });
+    } catch (error) {
+      console.error("Save error:", error);
+      toast({
+        title: "保存失败",
+        description: "无法保存关系图谱，请稍后重试",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (characters.length === 0) {
+    return (
+      <div className="space-y-6">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          返回角色列表
+        </button>
+
+        <div className="text-center py-12">
+          <p className="text-muted-foreground mb-4">
+            还没有角色，先去创建角色吧！
+          </p>
+          <Button onClick={onBack}>返回角色列表</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -87,9 +201,18 @@ const RelationshipChart = ({ onBack }: RelationshipChartProps) => {
           <ArrowLeft className="w-4 h-4" />
           返回角色列表
         </button>
-        <Button variant="comic" onClick={handleSave}>
-          <Save className="w-4 h-4" />
-          保存关系图
+        <Button variant="comic" onClick={handleSave} disabled={isSaving}>
+          {isSaving ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              保存中...
+            </>
+          ) : (
+            <>
+              <Save className="w-4 h-4" />
+              保存关系图
+            </>
+          )}
         </Button>
       </div>
 
@@ -97,7 +220,9 @@ const RelationshipChart = ({ onBack }: RelationshipChartProps) => {
       <div className="comic-card p-4">
         <div className="flex items-center gap-2 mb-2">
           <Users className="w-5 h-5 text-primary" />
-          <h3 className="font-comic text-xl text-foreground">角色关系与身高图谱</h3>
+          <h3 className="font-comic text-xl text-foreground">
+            角色关系与身高图谱
+          </h3>
         </div>
         <p className="text-sm text-muted-foreground">
           拖拽角色调整位置，使用缩放按钮调整相对大小。系统会记录"男主比女主高一头"这样的关系，生成双人镜头时自动约束比例。
@@ -116,8 +241,18 @@ const RelationshipChart = ({ onBack }: RelationshipChartProps) => {
         <div className="absolute inset-0 opacity-20">
           <svg width="100%" height="100%">
             <defs>
-              <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
-                <path d="M 50 0 L 0 0 0 50" fill="none" stroke="currentColor" strokeWidth="0.5" />
+              <pattern
+                id="grid"
+                width="50"
+                height="50"
+                patternUnits="userSpaceOnUse"
+              >
+                <path
+                  d="M 50 0 L 0 0 0 50"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="0.5"
+                />
               </pattern>
             </defs>
             <rect width="100%" height="100%" fill="url(#grid)" />
@@ -155,7 +290,17 @@ const RelationshipChart = ({ onBack }: RelationshipChartProps) => {
                   : "border-border hover:border-primary/50"
               )}
             >
-              <img src={char.image} alt={char.name} className="w-full h-full object-cover" />
+              {char.image && char.image !== "/placeholder-character.png" ? (
+                <img
+                  src={char.image}
+                  alt={char.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-muted flex items-center justify-center text-4xl">
+                  👤
+                </div>
+              )}
             </div>
 
             {/* Name label */}

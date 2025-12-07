@@ -27,7 +27,11 @@ export async function PUT(
   { params }: { params: { id: string } },
 ) {
   try {
-    await requireAdmin(request);
+    const adminCheck = await requireAdmin();
+    if (adminCheck instanceof NextResponse) {
+      return adminCheck;
+    }
+
     const providerId = Number(params.id);
     if (Number.isNaN(providerId)) {
       return NextResponse.json({ success: false, message: "无效的 id" }, { status: 400 });
@@ -73,7 +77,11 @@ export async function DELETE(
   { params }: { params: { id: string } },
 ) {
   try {
-    await requireAdmin(request);
+    const adminCheck = await requireAdmin();
+    if (adminCheck instanceof NextResponse) {
+      return adminCheck;
+    }
+
     const providerId = Number(params.id);
     if (Number.isNaN(providerId)) {
       return NextResponse.json({ success: false, message: "无效的 id" }, { status: 400 });
