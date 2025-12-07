@@ -6,11 +6,11 @@ export const AUTH_COOKIE_NAME = "comicai_session";
 const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 天
 
 export type AuthTokenPayload = {
-  userId: number;
+  userId: string;
   email: string;
   name?: string | null;
   role?: string | null;
-   status?: string | null;
+  status?: string | null;
 };
 
 const getAuthSecret = () => {

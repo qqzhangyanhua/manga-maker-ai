@@ -8,16 +8,19 @@ datasource db {
 }
 
 model User {
-  id               Int       @id @default(autoincrement())
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email            String    @unique
-  password_hash    String    @default("")
+  email_verified   DateTime? @db.Timestamptz(6)
   name             String?
-  role             String    @default("user")
-  status           String    @default("active")
-  verified         Boolean   @default(false)
+  image            String?
+  password         String?
+  created_at       DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime? @default(now()) @db.Timestamptz(6)
+  verified         Boolean?  @default(false)
   email_verified_at DateTime? @db.Timestamptz(6)
-  created_at       DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime  @default(now()) @db.Timestamptz(6)
+  password_hash    String?   @default("")
+  role             String?   @default("user")
+  status           String?   @default("active")
 
   @@map("users")
 }

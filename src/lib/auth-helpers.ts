@@ -3,10 +3,10 @@ import { readAuthCookie, verifyAuthToken } from "./auth";
 import { ensureDb, prisma } from "./db";
 
 export type AuthUser = {
-  id: number;
+  id: string;
   email: string;
   name?: string | null;
-  verified: boolean;
+  verified: boolean | null;
   role: string | null;
 };
 
@@ -30,7 +30,7 @@ export const getAuthUser = async (request: NextRequest): Promise<AuthUser | null
   });
 
   if (!user) return null;
-  return { ...user, role: user.role || "user" };
+  return { ...user, role: user.role || "user", verified: user.verified ?? false };
 };
 
 export const requireAdmin = async (request: NextRequest): Promise<AuthUser> => {
