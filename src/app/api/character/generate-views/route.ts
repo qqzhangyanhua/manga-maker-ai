@@ -5,9 +5,15 @@ import { prisma } from "@/lib/db";
 import { callChatCompletionByType } from "@/lib/llm-provider";
 import { generateThreeViews, base64ToBuffer } from "@/lib/image-generation";
 import { minioClient, MINIO_BUCKET, ensureBucketExists, getPublicUrl } from "@/lib/minio";
+import { assertAndIncrementUsage } from "@/lib/usage";
+import { recordGenerationLog } from "@/lib/generation-log";
 
 // POST /api/character/generate-views - Generate three-view images (front, side, back)
 export async function POST(req: Request) {
+  const startedAt = Date.now();
+  let userId: string | null = null;
+  let usageSnapshot: { count: number; limit: number } | null = null;
+
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
@@ -20,12 +26,35 @@ export async function POST(req: Request) {
     if (!payload?.userId) {
       return NextResponse.json({ error: "无效的token" }, { status: 401 });
     }
+    userId = payload.userId;
 
     const body = await req.json();
     const { character_id, description, provider_type = "image_generation" } = body;
 
     if (!character_id) {
       return NextResponse.json({ error: "角色ID不能为空" }, { status: 400 });
+    }
+
+    try {
+      usageSnapshot = await assertAndIncrementUsage({
+        userId,
+        action: "image_generation",
+        providerType: provider_type,
+        amount: 3, // 三视图一次占用三次额度
+      });
+    } catch (quotaError: any) {
+      if (quotaError?.code === "QUOTA_EXCEEDED") {
+        return NextResponse.json(
+          {
+            error: quotaError.message,
+            code: "QUOTA_EXCEEDED",
+            limit: quotaError.limit,
+            used: quotaError.count,
+          },
+          { status: 429 }
+        );
+      }
+      throw quotaError;
     }
 
     // Verify character ownership
@@ -132,10 +161,24 @@ export async function POST(req: Request) {
 
     console.log("三视图生成完成");
 
+    if (userId) {
+      await recordGenerationLog({
+        userId,
+        action: "image_generation",
+        providerType: provider_type,
+        status: "success",
+        projectId: null,
+        durationMs: Date.now() - startedAt,
+        requestPayload: { character_id, description, provider_type },
+        responsePayload: { views: Object.keys(views) },
+      });
+    }
+
     return NextResponse.json({ 
       success: true,
       views,
       prompts,
+      usage: usageSnapshot,
       message: "三视图生成成功"
     });
   } catch (error) {
@@ -143,6 +186,17 @@ export async function POST(req: Request) {
     
     // 返回详细错误信息
     const errorMessage = error instanceof Error ? error.message : "生成三视图失败";
+
+    if (userId) {
+      await recordGenerationLog({
+        userId,
+        action: "image_generation",
+        providerType: "image_generation",
+        status: "failed",
+        durationMs: Date.now() - startedAt,
+        errorMessage,
+      });
+    }
     
     return NextResponse.json(
       { 

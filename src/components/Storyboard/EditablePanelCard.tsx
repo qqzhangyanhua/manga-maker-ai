@@ -1,0 +1,367 @@
+import { useState, useEffect } from "react";
+import { cn } from "@/lib/utils";
+import { Camera, Image as ImageIcon, Pencil, Check, X, Merge, Split, Plus, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+type Panel = {
+  id: string;
+  panel_order: number;
+  panel_type: string;
+  importance: string;
+  description: string;
+  visual_prompt: string | null;
+  dialogue: string | null;
+  character_name: string | null;
+  emotion: string | null;
+  generated_image: string | null;
+  prompt_used: string | null;
+  script_segment_id: string | null;
+  script_start: number | null;
+  script_end: number | null;
+  camera_angle: string | null;
+  shot_size: string | null;
+  sketch_image_url: string | null;
+};
+
+interface EditablePanelCardProps {
+  panel: Panel;
+  isSelected: boolean;
+  onClick: () => void;
+  onUpdate: (updates: Partial<Panel>) => void;
+  onMerge?: (panelId: string) => void;
+  onSplit?: (panelId: string) => void;
+  onInsertAfter?: (panelOrder: number) => void;
+  onGenerateSketch?: (panelId: string) => void;
+}
+
+const CAMERA_ANGLES = [
+  { value: "平视", label: "平视" },
+  { value: "俯视", label: "俯视" },
+  { value: "仰视", label: "仰视" },
+  { value: "荷兰角", label: "荷兰角" },
+];
+
+const SHOT_SIZES = [
+  { value: "特写", label: "特写" },
+  { value: "近景", label: "近景" },
+  { value: "中景", label: "中景" },
+  { value: "全景", label: "全景" },
+  { value: "远景", label: "远景" },
+];
+
+const EditablePanelCard = ({
+  panel,
+  isSelected,
+  onClick,
+  onUpdate,
+  onMerge,
+  onSplit,
+  onInsertAfter,
+  onGenerateSketch,
+}: EditablePanelCardProps) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedPrompt, setEditedPrompt] = useState(panel.visual_prompt || panel.description);
+  const [editedDialogue, setEditedDialogue] = useState(panel.dialogue || "");
+  const [cameraAngle, setCameraAngle] = useState(panel.camera_angle || "平视");
+  const [shotSize, setShotSize] = useState(panel.shot_size || "中景");
+
+  useEffect(() => {
+    setEditedPrompt(panel.visual_prompt || panel.description);
+    setEditedDialogue(panel.dialogue || "");
+    setCameraAngle(panel.camera_angle || "平视");
+    setShotSize(panel.shot_size || "中景");
+  }, [panel]);
+
+  const handleSave = () => {
+    onUpdate({
+      visual_prompt: editedPrompt,
+      dialogue: editedDialogue || null,
+      camera_angle: cameraAngle,
+      shot_size: shotSize,
+    });
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setEditedPrompt(panel.visual_prompt || panel.description);
+    setEditedDialogue(panel.dialogue || "");
+    setCameraAngle(panel.camera_angle || "平视");
+    setShotSize(panel.shot_size || "中景");
+    setIsEditing(false);
+  };
+
+  return (
+    <div
+      onClick={onClick}
+      className={cn(
+        "rounded-lg border-2 transition-all duration-200",
+        isSelected
+          ? "border-primary shadow-lg ring-2 ring-primary/20"
+          : "border-border hover:border-primary/50"
+      )}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
+            #{panel.panel_order}
+          </div>
+          <div>
+            <div className="text-sm font-semibold text-foreground">
+              分镜 {panel.panel_order}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {panel.panel_type} · {panel.importance}
+            </div>
+          </div>
+        </div>
+        <Button
+          size="sm"
+          variant={isEditing ? "default" : "ghost"}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsEditing(!isEditing);
+          }}
+        >
+          <Pencil className="w-4 h-4" />
+          {isEditing ? "编辑中" : "编辑"}
+        </Button>
+      </div>
+
+      {/* Image Preview */}
+      <div className="relative aspect-video bg-muted">
+        {panel.generated_image ? (
+          <img
+            src={panel.generated_image}
+            alt={`Panel ${panel.panel_order}`}
+            className="w-full h-full object-cover"
+          />
+        ) : panel.sketch_image_url ? (
+          <img
+            src={panel.sketch_image_url}
+            alt={`Sketch ${panel.panel_order}`}
+            className="w-full h-full object-cover opacity-60"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+            <ImageIcon className="w-12 h-12" />
+          </div>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="p-4 space-y-4">
+        {/* Camera Settings */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1">
+              <Camera className="w-3 h-3" />
+              镜头角度
+            </label>
+            <Select
+              value={cameraAngle}
+              onValueChange={(value) => {
+                setCameraAngle(value);
+                if (!isEditing) {
+                  onUpdate({ camera_angle: value });
+                }
+              }}
+              disabled={!isEditing}
+            >
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CAMERA_ANGLES.map((angle) => (
+                  <SelectItem key={angle.value} value={angle.value}>
+                    {angle.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1">
+              <Camera className="w-3 h-3" />
+              镜头尺寸
+            </label>
+            <Select
+              value={shotSize}
+              onValueChange={(value) => {
+                setShotSize(value);
+                if (!isEditing) {
+                  onUpdate({ shot_size: value });
+                }
+              }}
+              disabled={!isEditing}
+            >
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SHOT_SIZES.map((size) => (
+                  <SelectItem key={size.value} value={size.value}>
+                    {size.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Visual Prompt */}
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 block">
+            视觉描述
+          </label>
+          {isEditing ? (
+            <textarea
+              value={editedPrompt}
+              onChange={(e) => setEditedPrompt(e.target.value)}
+              className="w-full min-h-[80px] px-3 py-2 text-sm rounded-md border border-border bg-background text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <p className="text-sm text-foreground leading-relaxed">
+              {editedPrompt}
+            </p>
+          )}
+        </div>
+
+        {/* Dialogue */}
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 block">
+            对白
+          </label>
+          {isEditing ? (
+            <input
+              type="text"
+              value={editedDialogue}
+              onChange={(e) => setEditedDialogue(e.target.value)}
+              placeholder="输入对白..."
+              className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <p className="text-sm text-foreground italic">
+              {editedDialogue || <span className="text-muted-foreground">（无对白）</span>}
+            </p>
+          )}
+        </div>
+
+        {/* Character & Emotion */}
+        {(panel.character_name || panel.emotion) && (
+          <div className="text-xs text-muted-foreground">
+            {panel.character_name && <span>角色: {panel.character_name}</span>}
+            {panel.character_name && panel.emotion && <span> · </span>}
+            {panel.emotion && <span>情绪: {panel.emotion}</span>}
+          </div>
+        )}
+
+        {/* Edit Actions */}
+        {isEditing && (
+          <div className="flex gap-2 pt-2">
+            <Button
+              size="sm"
+              variant="default"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSave();
+              }}
+              className="flex-1"
+            >
+              <Check className="w-4 h-4" />
+              保存
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCancel();
+              }}
+              className="flex-1"
+            >
+              <X className="w-4 h-4" />
+              取消
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Panel Operations Footer */}
+      {isSelected && (
+        <div className="border-t border-border bg-muted/20 px-4 py-2">
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-muted-foreground">操作:</span>
+            {onMerge && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMerge(panel.id);
+                }}
+              >
+                <Merge className="w-3 h-3 mr-1" />
+                合并
+              </Button>
+            )}
+            {onSplit && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSplit(panel.id);
+                }}
+              >
+                <Split className="w-3 h-3 mr-1" />
+                拆分
+              </Button>
+            )}
+            {onInsertAfter && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onInsertAfter(panel.panel_order);
+                }}
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                插入
+              </Button>
+            )}
+            {onGenerateSketch && !panel.sketch_image_url && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs ml-auto"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onGenerateSketch(panel.id);
+                }}
+              >
+                <Sparkles className="w-3 h-3 mr-1" />
+                生成草图
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default EditablePanelCard;

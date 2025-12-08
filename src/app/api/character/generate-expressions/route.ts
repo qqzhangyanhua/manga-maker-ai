@@ -12,9 +12,15 @@ import {
 } from "@/lib/expression-generation";
 import { base64ToBuffer } from "@/lib/image-generation";
 import { minioClient, MINIO_BUCKET, ensureBucketExists, getPublicUrl } from "@/lib/minio";
+import { assertAndIncrementUsage } from "@/lib/usage";
+import { recordGenerationLog } from "@/lib/generation-log";
 
 // POST /api/character/generate-expressions - Generate expression matrix
 export async function POST(req: Request) {
+  const startedAt = Date.now();
+  let userId: string | null = null;
+  let usageSnapshot: { count: number; limit: number } | null = null;
+
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
@@ -27,6 +33,7 @@ export async function POST(req: Request) {
     if (!payload?.userId) {
       return NextResponse.json({ error: "无效的token" }, { status: 401 });
     }
+    userId = payload.userId;
 
     const body = await req.json();
     const { character_id, expression_type, generate_all, provider_type = "image_generation" } = body;
@@ -59,6 +66,28 @@ export async function POST(req: Request) {
         { error: "请指定要生成的表情类型" },
         { status: 400 }
       );
+    }
+
+    try {
+      usageSnapshot = await assertAndIncrementUsage({
+        userId,
+        action: "image_generation",
+        providerType: provider_type,
+        amount: expressionsToGenerate.length,
+      });
+    } catch (quotaError: any) {
+      if (quotaError?.code === "QUOTA_EXCEEDED") {
+        return NextResponse.json(
+          {
+            error: quotaError.message,
+            code: "QUOTA_EXCEEDED",
+            limit: quotaError.limit,
+            used: quotaError.count,
+          },
+          { status: 429 }
+        );
+      }
+      throw quotaError;
     }
 
     // Step 1: 使用 LLM 优化角色描述（可选）
@@ -165,15 +194,39 @@ export async function POST(req: Request) {
 
     console.log("表情生成完成");
 
+    if (userId) {
+      await recordGenerationLog({
+        userId,
+        action: "image_generation",
+        providerType: provider_type,
+        status: "success",
+        durationMs: Date.now() - startedAt,
+        requestPayload: { character_id, expression_type, generate_all },
+        responsePayload: { generated: expressionsToGenerate.length },
+      });
+    }
+
     return NextResponse.json({
       success: true,
       expressions,
+      usage: usageSnapshot,
       message: `成功生成 ${expressionsToGenerate.length} 个表情`,
     });
   } catch (error) {
     console.error("Generate expressions error:", error);
+    const message = error instanceof Error ? error.message : "生成表情矩阵失败";
+    if (userId) {
+      await recordGenerationLog({
+        userId,
+        action: "image_generation",
+        providerType: "image_generation",
+        status: "failed",
+        durationMs: Date.now() - startedAt,
+        errorMessage: message,
+      });
+    }
     return NextResponse.json(
-      { error: "生成表情矩阵失败" },
+      { error: message },
       { status: 500 }
     );
   }

@@ -8,9 +8,39 @@ import { Users, Box, MapPin, ArrowLeft } from "lucide-react";
 import CharacterLibrary from "@/components/AssetLibrary/CharacterLibrary";
 import SceneLibrary from "@/components/AssetLibrary/SceneLibrary";
 import PoseLabEditor from "@/components/PoseLab/PoseLabEditor";
+import { useUsage } from "@/hooks/use-usage";
 
 const AssetLibraryPage = () => {
   const [activeTab, setActiveTab] = useState("characters");
+  const { usage, loading: usageLoading } = useUsage();
+
+  const renderUsageBadge = (
+    label: string,
+    item?: { remaining: number | null; limit: number | null; count: number }
+  ) => {
+    const remaining = item?.remaining ?? null;
+    const limit = item?.limit ?? null;
+    const isLow = typeof remaining === "number" && remaining <= 3;
+    const isExhausted = typeof remaining === "number" && remaining <= 0;
+    const badgeClass = isExhausted
+      ? "border-red-500/70 bg-red-500/10 text-red-600 dark:text-red-400"
+      : isLow
+      ? "border-yellow-500/60 bg-yellow-500/10"
+      : "border-border";
+
+    return (
+      <div className={`rounded-lg border px-3 py-2 text-sm ${badgeClass}`}>
+        <div className="text-xs text-muted-foreground">{label}</div>
+        <div className="font-medium">
+          {usageLoading
+            ? "加载中..."
+            : limit
+            ? `剩余 ${remaining ?? "-"} / ${limit}`
+            : "无限制"}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -25,6 +55,13 @@ const AssetLibraryPage = () => {
             <ArrowLeft className="w-4 h-4" />
             返回首页
           </Link>
+
+          <div className="flex flex-wrap gap-3 mb-6 items-center">
+            <div className="text-sm text-muted-foreground">今日用量</div>
+            {renderUsageBadge("分镜生成", usage?.storyboard_generation)}
+            {renderUsageBadge("图像生成", usage?.image_generation)}
+            {renderUsageBadge("聊天/LLM", usage?.llm_chat)}
+          </div>
 
           <div className="text-center mb-10">
             <h1 className="font-comic text-4xl md:text-5xl comic-title mb-4">

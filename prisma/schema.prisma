@@ -127,17 +127,18 @@ model CharacterOutfit {
 
 // Project/Work management
 model Project {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id     String    @db.Uuid
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String        @db.Uuid
   title       String
   description String?
   style       String?
-  status      String    @default("draft") // draft, in_progress, completed
+  status      String        @default("draft") // draft, in_progress, completed
   cover_image String?
-  created_at  DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at  DateTime  @default(now()) @db.Timestamptz(6)
+  created_at  DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime      @default(now()) @db.Timestamptz(6)
 
   panels      Panel[]
+  script      StoryScript?
   
   @@index([user_id, status], map: "idx_projects_user_status")
   @@map("projects")
@@ -145,23 +146,47 @@ model Project {
 
 // Individual comic panels
 model Panel {
-  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  project_id      String    @db.Uuid
-  panel_order     Int
-  panel_type      String    // wide, medium, closeup, action, dialogue, transition
-  importance      String    // high, medium, low
-  description     String
-  dialogue        String?
-  character_name  String?
-  emotion         String?
-  generated_image String?
-  prompt_used     String?
-  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id        String    @db.Uuid
+  panel_order       Int
+  panel_type        String    // wide, medium, closeup, action, dialogue, transition
+  importance        String    // high, medium, low
+  description       String
+  dialogue          String?
+  character_name    String?
+  emotion           String?
+  generated_image   String?
+  prompt_used       String?
   
-  project         Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  // New fields for script editor
+  script_segment_id String?   // Link to script segment
+  script_start      Int?      // Text start position
+  script_end        Int?      // Text end position
+  camera_angle      String?   // 俯视/仰视/平视/荷兰角
+  shot_size         String?   // 特写/近景/中景/全景/远景
+  sketch_image_url  String?   // Sketch preview URL
+  visual_prompt     String?   // Editable visual description
+  
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+  
+  project           Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
 
   @@index([project_id, panel_order], map: "idx_panels_project_order")
   @@map("panels")
+}
+
+// Story Script - Store original script and segmentation info for script editor
+model StoryScript {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id String   @unique @db.Uuid
+  content    String   @db.Text // Full original script text
+  segments   Json     // [{ id, text, start, end, panel_id }]
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  
+  project    Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@map("story_scripts")
 }
 
 // Generated images gallery
@@ -213,4 +238,35 @@ model ComicStyle {
 
   @@index([enabled, sort_order], map: "idx_comic_styles_enabled_sort")
   @@map("comic_styles")
+}
+
+model GenerationLog {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String    @db.Uuid
+  project_id      String?   @db.Uuid
+  action          String
+  provider_type   String?
+  status          String    // success | failed
+  duration_ms     Int?
+  request_payload Json?
+  response_payload Json?
+  error_message   String?
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([user_id, action, created_at], map: "idx_generation_logs_user_action_time")
+  @@map("generation_logs")
+}
+
+model UsageStat {
+  id            Int       @id @default(autoincrement())
+  user_id       String    @db.Uuid
+  action        String
+  provider_type String?
+  date          DateTime  @db.Date
+  count         Int       @default(0)
+  last_used_at  DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@unique([user_id, action, date], map: "unique_usage_per_day")
+  @@index([user_id, action], map: "idx_usage_user_action")
+  @@map("usage_stats")
 }

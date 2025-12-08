@@ -112,6 +112,31 @@ const bootstrapSqlStatements = [
   `ALTER TABLE llm_providers ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()`,
   `ALTER TABLE llm_providers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`,
   `CREATE INDEX IF NOT EXISTS idx_llm_providers_type_enabled ON llm_providers(provider_type, enabled, priority)`,
+  `CREATE TABLE IF NOT EXISTS generation_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    project_id UUID,
+    action TEXT NOT NULL,
+    provider_type TEXT,
+    status TEXT NOT NULL,
+    duration_ms INT,
+    request_payload JSONB,
+    response_payload JSONB,
+    error_message TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_generation_logs_user_action_time ON generation_logs(user_id, action, created_at)`,
+  `CREATE TABLE IF NOT EXISTS usage_stats (
+    id SERIAL PRIMARY KEY,
+    user_id UUID NOT NULL,
+    action TEXT NOT NULL,
+    provider_type TEXT,
+    date DATE NOT NULL,
+    count INT DEFAULT 0,
+    last_used_at TIMESTAMPTZ DEFAULT NOW()
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS unique_usage_per_day ON usage_stats(user_id, action, date)`,
+  `CREATE INDEX IF NOT EXISTS idx_usage_user_action ON usage_stats(user_id, action)`,
 ];
 
 export const ensureDb = async () => {

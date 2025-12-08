@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
-import { ArrowLeft, Wand2, Grid3X3, Download, Sparkles, BookOpen, MessageSquare } from "lucide-react";
+import { ArrowLeft, Wand2, Grid3X3, Download, Sparkles, BookOpen, MessageSquare, Edit3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ScriptInput from "@/components/Storyboard/ScriptInput";
@@ -12,6 +12,7 @@ import NarrativeTemplateSelector from "@/components/Storyboard/NarrativeTemplate
 import DialogueRefiner from "@/components/Storyboard/DialogueRefiner";
 import { PanelData } from "@/components/Storyboard/StoryboardPanel";
 import { useToast } from "@/hooks/use-toast";
+import { useUsage } from "@/hooks/use-usage";
 
 // API类型定义
 type ApiPanel = {
@@ -58,6 +59,52 @@ const StoryboardEditorPage = () => {
   const [templateData, setTemplateData] = useState<Record<string, string>>({});
   const [currentProject, setCurrentProject] = useState<ApiProject | null>(null);
   const { toast } = useToast();
+  const { usage, loading: usageLoading, refresh: refreshUsage } = useUsage();
+
+  const renderUsageBadge = (
+    label: string,
+    item?: { remaining: number | null; limit: number | null; count: number }
+  ) => {
+    const remaining = item?.remaining ?? null;
+    const limit = item?.limit ?? null;
+    const isLow = typeof remaining === "number" && remaining <= 3;
+    const isExhausted = typeof remaining === "number" && remaining <= 0;
+    const badgeClass = isExhausted
+      ? "border-red-500/70 bg-red-500/10 text-red-600 dark:text-red-400"
+      : isLow
+      ? "border-yellow-500/60 bg-yellow-500/10"
+      : "border-border";
+
+    return (
+      <div className={`rounded-lg border px-3 py-2 text-sm ${badgeClass}`}>
+        <div className="text-xs text-muted-foreground">{label}</div>
+        <div className="font-medium">
+          {usageLoading
+            ? "加载中..."
+            : limit
+            ? `剩余 ${remaining ?? "-"} / ${limit}`
+            : "无限制"}
+        </div>
+      </div>
+    );
+  };
+
+  const parseErrorResponse = async (response: Response) => {
+    let errorMessage = "生成失败";
+    try {
+      const data = await response.json();
+      if (response.status === 429) {
+        errorMessage =
+          data.error ||
+          `已达今日额度上限（已用 ${data.used ?? "-"} / 上限 ${data.limit ?? "-" }），请稍后再试`;
+      } else {
+        errorMessage = data.error || errorMessage;
+      }
+    } catch {
+      // ignore parse errors
+    }
+    throw new Error(errorMessage);
+  };
 
   const handleGenerate = async (script: string) => {
     setIsGenerating(true);
@@ -76,8 +123,7 @@ const StoryboardEditorPage = () => {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "生成失败");
+        await parseErrorResponse(response);
       }
 
       const data = await response.json();
@@ -90,7 +136,12 @@ const StoryboardEditorPage = () => {
         toast({
           title: "智能分镜拆解完成",
           description: `已生成项目《${data.project.title}》，包含 ${localPanels.length} 个分镜`,
+          action: {
+            label: "进入编辑器",
+            onClick: () => window.location.href = `/storyboard/editor/${data.project.id}`,
+          },
         });
+        refreshUsage();
       }
     } catch (error) {
       console.error("Generate error:", error);
@@ -98,6 +149,10 @@ const StoryboardEditorPage = () => {
         title: "生成失败",
         description: error instanceof Error ? error.message : "未知错误",
         variant: "destructive",
+        action: {
+          label: "联系管理员",
+          onClick: () => window.open("mailto:support@example.com?subject=ComicAI%20额度申请", "_blank"),
+        },
       });
     } finally {
       setIsGenerating(false);
@@ -153,8 +208,7 @@ const StoryboardEditorPage = () => {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "生成图像失败");
+        await parseErrorResponse(response);
       }
 
       const data = await response.json();
@@ -177,12 +231,17 @@ const StoryboardEditorPage = () => {
         title: "图像生成完成",
         description: `成功为 ${data.generated_count} 个分镜生成图像`,
       });
+      refreshUsage();
     } catch (error) {
       console.error("Generate images error:", error);
       toast({
         title: "图像生成失败",
         description: error instanceof Error ? error.message : "未知错误",
         variant: "destructive",
+        action: {
+          label: "升级配额",
+          onClick: () => window.open("mailto:support@example.com?subject=ComicAI%20额度申请", "_blank"),
+        },
       });
     }
   };
@@ -200,6 +259,13 @@ const StoryboardEditorPage = () => {
             <ArrowLeft className="w-4 h-4" />
             返回首页
           </Link>
+
+          <div className="flex flex-wrap gap-3 mb-6 items-center">
+            <div className="text-sm text-muted-foreground">今日用量</div>
+            {renderUsageBadge("分镜生成", usage?.storyboard_generation)}
+            {renderUsageBadge("图像生成", usage?.image_generation)}
+            {renderUsageBadge("聊天/LLM", usage?.llm_chat)}
+          </div>
 
           <div className="text-center mb-10">
             <h1 className="font-comic text-4xl md:text-5xl comic-title mb-4">
@@ -284,11 +350,21 @@ const StoryboardEditorPage = () => {
                   <Grid3X3 className="w-5 h-5 text-primary" />
                   <h2 className="font-comic text-xl text-foreground">智能分镜排版</h2>
                 </div>
-                {panels.length > 0 && (
-                  <Button variant="outline" size="sm" onClick={handleGenerateImages}>
-                    <Sparkles className="w-4 h-4" />
-                    生成图像
-                  </Button>
+                {panels.length > 0 && currentProject && (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.location.href = `/storyboard/editor/${currentProject.id}`}
+                    >
+                      <Edit3 className="w-4 h-4" />
+                      进入编辑器
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleGenerateImages}>
+                      <Sparkles className="w-4 h-4" />
+                      生成图像
+                    </Button>
+                  </div>
                 )}
               </div>
 

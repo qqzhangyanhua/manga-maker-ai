@@ -8,6 +8,7 @@ import CreateOutfitDialog from "./CreateOutfitDialog";
 import ImageUploadDialog from "./ImageUploadDialog";
 import ImagePreviewCard from "./ImagePreviewCard";
 import GenerateSimilarDialog from "./GenerateSimilarDialog";
+import { useUsage } from "@/hooks/use-usage";
 
 interface CharacterAsset {
   id: string;
@@ -64,6 +65,7 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
   const [isUploading, setIsUploading] = useState(false);
   const [generateSimilarDialogOpen, setGenerateSimilarDialogOpen] = useState(false);
   const { toast } = useToast();
+  const { usage, loading: usageLoading, refresh: refreshUsage } = useUsage();
 
   // Load existing data from character
   useState(() => {
@@ -142,6 +144,51 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
     }
   };
 
+  const parseErrorResponse = async (response: Response, defaultMessage = "生成失败") => {
+    let errorMessage = defaultMessage;
+    try {
+      const data = await response.json();
+      if (response.status === 429) {
+        errorMessage =
+          data.error ||
+          `已达今日额度上限（已用 ${data.used ?? "-"} / 上限 ${data.limit ?? "-"}），请稍后再试`;
+      } else {
+        errorMessage = data.error || defaultMessage;
+      }
+    } catch {
+      // ignore
+    }
+    throw new Error(errorMessage);
+  };
+
+  const renderUsageBadge = (
+    label: string,
+    item?: { remaining: number | null; limit: number | null; count: number }
+  ) => {
+    const remaining = item?.remaining ?? null;
+    const limit = item?.limit ?? null;
+    const isLow = typeof remaining === "number" && remaining <= 3;
+    const isExhausted = typeof remaining === "number" && remaining <= 0;
+    const badgeClass = isExhausted
+      ? "border-red-500/70 bg-red-500/10 text-red-600 dark:text-red-400"
+      : isLow
+      ? "border-yellow-500/60 bg-yellow-500/10"
+      : "border-border";
+
+    return (
+      <div className={`rounded-lg border px-3 py-2 text-sm ${badgeClass}`}>
+        <div className="text-xs text-muted-foreground">{label}</div>
+        <div className="font-medium">
+          {usageLoading
+            ? "加载中..."
+            : limit
+            ? `剩余 ${remaining ?? "-"} / ${limit}`
+            : "无限制"}
+        </div>
+      </div>
+    );
+  };
+
   const handleGenerateThreeView = async () => {
     setIsGenerating(true);
     try {
@@ -154,40 +201,41 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
         }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        const views: any = {};
-        Object.entries(data.views).forEach(([viewType, viewData]: [string, any]) => {
-          views[viewType] = viewData.image_url;
-        });
-        setGeneratedViews(views);
-        
-        toast({
-          title: "三视图生成完成",
-          description: "角色的正面、侧面、背面视图已生成",
-        });
+      if (!response.ok) {
+        await parseErrorResponse(response, "三视图生成失败");
+      }
 
-        // Refresh character data
-        if (onUpdate) {
-          const updatedChar = await fetch(`/api/character/${character.id}`);
-          if (updatedChar.ok) {
-            const charData = await updatedChar.json();
-            onUpdate(charData.character);
-          }
+      const data = await response.json();
+      const views: any = {};
+      Object.entries(data.views).forEach(([viewType, viewData]: [string, any]) => {
+        views[viewType] = viewData.image_url;
+      });
+      setGeneratedViews(views);
+      
+      toast({
+        title: "三视图生成完成",
+        description: "角色的正面、侧面、背面视图已生成",
+      });
+
+      refreshUsage();
+
+      // Refresh character data
+      if (onUpdate) {
+        const updatedChar = await fetch(`/api/character/${character.id}`);
+        if (updatedChar.ok) {
+          const charData = await updatedChar.json();
+          onUpdate(charData.character);
         }
-      } else {
-        const error = await response.json();
-        toast({
-          title: "生成失败",
-          description: error.error || "三视图生成失败",
-          variant: "destructive",
-        });
       }
     } catch (error) {
       toast({
         title: "生成失败",
-        description: "网络错误，请稍后重试",
+        description: error instanceof Error ? error.message : "网络错误，请稍后重试",
         variant: "destructive",
+        action: {
+          label: "升级配额",
+          onClick: () => window.open("mailto:support@example.com?subject=ComicAI%20额度申请", "_blank"),
+        },
       });
     } finally {
       setIsGenerating(false);
@@ -322,39 +370,40 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
         }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setExpressionSheet(prev => ({
-          ...prev,
-          [expressionId]: data.expressions[expressionId].image_url,
-        }));
-        
-        toast({
-          title: "表情生成完成",
-          description: `已生成${expressions.find(e => e.id === expressionId)?.label}表情`,
-        });
+      if (!response.ok) {
+        await parseErrorResponse(response, "表情生成失败");
+      }
 
-        // Refresh character data
-        if (onUpdate) {
-          const updatedChar = await fetch(`/api/character/${character.id}`);
-          if (updatedChar.ok) {
-            const charData = await updatedChar.json();
-            onUpdate(charData.character);
-          }
+      const data = await response.json();
+      setExpressionSheet(prev => ({
+        ...prev,
+        [expressionId]: data.expressions[expressionId].image_url,
+      }));
+      
+      toast({
+        title: "表情生成完成",
+        description: `已生成${expressions.find(e => e.id === expressionId)?.label}表情`,
+      });
+
+      refreshUsage();
+
+      // Refresh character data
+      if (onUpdate) {
+        const updatedChar = await fetch(`/api/character/${character.id}`);
+        if (updatedChar.ok) {
+          const charData = await updatedChar.json();
+          onUpdate(charData.character);
         }
-      } else {
-        const error = await response.json();
-        toast({
-          title: "生成失败",
-          description: error.error || "表情生成失败",
-          variant: "destructive",
-        });
       }
     } catch (error) {
       toast({
         title: "生成失败",
-        description: "网络错误，请稍后重试",
+        description: error instanceof Error ? error.message : "网络错误，请稍后重试",
         variant: "destructive",
+        action: {
+          label: "升级配额",
+          onClick: () => window.open("mailto:support@example.com?subject=ComicAI%20额度申请", "_blank"),
+        },
       });
     } finally {
       setIsGenerating(false);
@@ -375,40 +424,41 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
         }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        const allExpressions: Record<string, string> = {};
-        Object.entries(data.expressions).forEach(([expType, expData]: [string, any]) => {
-          allExpressions[expType] = expData.image_url;
-        });
-        setExpressionSheet(allExpressions);
-        
-        toast({
-          title: "表情矩阵生成完成",
-          description: "已生成全部9种表情",
-        });
+      if (!response.ok) {
+        await parseErrorResponse(response, "表情矩阵生成失败");
+      }
 
-        // Refresh character data
-        if (onUpdate) {
-          const updatedChar = await fetch(`/api/character/${character.id}`);
-          if (updatedChar.ok) {
-            const charData = await updatedChar.json();
-            onUpdate(charData.character);
-          }
+      const data = await response.json();
+      const allExpressions: Record<string, string> = {};
+      Object.entries(data.expressions).forEach(([expType, expData]: [string, any]) => {
+        allExpressions[expType] = expData.image_url;
+      });
+      setExpressionSheet(allExpressions);
+      
+      toast({
+        title: "表情矩阵生成完成",
+        description: "已生成全部9种表情",
+      });
+
+      refreshUsage();
+
+      // Refresh character data
+      if (onUpdate) {
+        const updatedChar = await fetch(`/api/character/${character.id}`);
+        if (updatedChar.ok) {
+          const charData = await updatedChar.json();
+          onUpdate(charData.character);
         }
-      } else {
-        const error = await response.json();
-        toast({
-          title: "生成失败",
-          description: error.error || "表情矩阵生成失败",
-          variant: "destructive",
-        });
       }
     } catch (error) {
       toast({
         title: "生成失败",
-        description: "网络错误，请稍后重试",
+        description: error instanceof Error ? error.message : "网络错误，请稍后重试",
         variant: "destructive",
+        action: {
+          label: "升级配额",
+          onClick: () => window.open("mailto:support@example.com?subject=ComicAI%20额度申请", "_blank"),
+        },
       });
     } finally {
       setIsGenerating(false);
@@ -430,34 +480,34 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
         }),
       });
 
-      if (response.ok) {
-        toast({
-          title: "服装创建成功",
-          description: `${data.outfit_name} 已添加到服装库`,
-        });
-        
-        // Refresh character data
-        if (onUpdate) {
-          const updatedChar = await fetch(`/api/character/${character.id}`);
-          if (updatedChar.ok) {
-            const charData = await updatedChar.json();
-            onUpdate(charData.character);
-          }
+      if (!response.ok) {
+        await parseErrorResponse(response, "服装创建失败");
+      }
+
+      toast({
+        title: "服装创建成功",
+        description: `${data.outfit_name} 已添加到服装库`,
+      });
+      
+      refreshUsage();
+
+      // Refresh character data
+      if (onUpdate) {
+        const updatedChar = await fetch(`/api/character/${character.id}`);
+        if (updatedChar.ok) {
+          const charData = await updatedChar.json();
+          onUpdate(charData.character);
         }
-      } else {
-        const error = await response.json();
-        toast({
-          title: "创建失败",
-          description: error.error || "服装创建失败",
-          variant: "destructive",
-        });
-        throw new Error(error.error);
       }
     } catch (error) {
       toast({
         title: "创建失败",
-        description: "网络错误，请稍后重试",
+        description: error instanceof Error ? error.message : "网络错误，请稍后重试",
         variant: "destructive",
+        action: {
+          label: "升级配额",
+          onClick: () => window.open("mailto:support@example.com?subject=ComicAI%20额度申请", "_blank"),
+        },
       });
       throw error;
     }
@@ -481,7 +531,9 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
             title: "提示",
             description: "新角色已保存到角色库，请返回列表查看",
           });
+          refreshUsage();
         }}
+        onUsageRefresh={refreshUsage}
       />
       
       <div className="space-y-6">
@@ -501,6 +553,13 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
           <Copy className="w-4 h-4 mr-2" />
           生成相似角色
         </Button>
+      </div>
+
+      <div className="flex flex-wrap gap-3">
+        <div className="text-sm text-muted-foreground">今日用量</div>
+        {renderUsageBadge("图像生成", usage?.image_generation)}
+        {renderUsageBadge("分镜生成", usage?.storyboard_generation)}
+        {renderUsageBadge("聊天/LLM", usage?.llm_chat)}
       </div>
 
       {/* Character Info */}

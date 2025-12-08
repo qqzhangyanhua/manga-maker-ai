@@ -31,6 +31,7 @@ interface GenerateSimilarDialogProps {
     tags: string[];
   };
   onSuccess: () => void;
+  onUsageRefresh?: () => void;
 }
 
 const GenerateSimilarDialog = ({
@@ -38,6 +39,7 @@ const GenerateSimilarDialog = ({
   onOpenChange,
   character,
   onSuccess,
+  onUsageRefresh,
 }: GenerateSimilarDialogProps) => {
   const [variationPrompt, setVariationPrompt] = useState("");
   const [count, setCount] = useState<1 | 2 | 3>(1);
@@ -46,6 +48,23 @@ const GenerateSimilarDialog = ({
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const { toast } = useToast();
+
+  const parseErrorResponse = async (response: Response, defaultMessage = "生成失败") => {
+    let errorMessage = defaultMessage;
+    try {
+      const data = await response.json();
+      if (response.status === 429) {
+        errorMessage =
+          data.error ||
+          `已达今日额度上限（已用 ${data.used ?? "-"} / 上限 ${data.limit ?? "-"}），请稍后再试`;
+      } else {
+        errorMessage = data.error || defaultMessage;
+      }
+    } catch {
+      // ignore
+    }
+    throw new Error(errorMessage);
+  };
 
   const handleGenerate = async () => {
     if (!variationPrompt.trim()) {
@@ -72,23 +91,27 @@ const GenerateSimilarDialog = ({
         }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setGeneratedImages(data.generated_images);
-        toast({
-          title: "生成成功",
-          description: `已生成 ${data.generated_images.length} 个角色变体`,
-        });
-      } else {
-        const error = await response.json();
-        throw new Error(error.error || "生成失败");
+      if (!response.ok) {
+        await parseErrorResponse(response);
       }
+
+      const data = await response.json();
+      setGeneratedImages(data.generated_images);
+      toast({
+        title: "生成成功",
+        description: `已生成 ${data.generated_images.length} 个角色变体`,
+      });
+      onUsageRefresh?.();
     } catch (error) {
       console.error("Generate similar character error:", error);
       toast({
         title: "生成失败",
         description: error instanceof Error ? error.message : "网络错误，请稍后重试",
         variant: "destructive",
+        action: {
+          label: "升级配额",
+          onClick: () => window.open("mailto:support@example.com?subject=ComicAI%20额度申请", "_blank"),
+        },
       });
     } finally {
       setIsGenerating(false);
@@ -146,6 +169,8 @@ const GenerateSimilarDialog = ({
         title: "保存成功",
         description: `已保存 ${savedCount} 个角色到角色库`,
       });
+
+      onUsageRefresh?.();
 
       // 重置状态
       setVariationPrompt("");

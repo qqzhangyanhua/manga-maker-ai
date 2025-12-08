@@ -2,9 +2,15 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertAndIncrementUsage } from "@/lib/usage";
+import { recordGenerationLog } from "@/lib/generation-log";
 
 // POST /api/panel/generate-image - 为单个分镜生成图像
 export async function POST(req: Request) {
+  const startedAt = Date.now();
+  let userId: string | null = null;
+  let usageSnapshot: { count: number; limit: number } | null = null;
+
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
@@ -17,6 +23,7 @@ export async function POST(req: Request) {
     if (!payload?.userId) {
       return NextResponse.json({ error: "无效的token" }, { status: 401 });
     }
+    userId = payload.userId;
 
     const body = await req.json();
     const { panel_id, prompt, style } = body;
@@ -42,6 +49,28 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "无权限" }, { status: 403 });
     }
 
+    try {
+      usageSnapshot = await assertAndIncrementUsage({
+        userId,
+        action: "image_generation",
+        providerType: "image_generation",
+        amount: 1,
+      });
+    } catch (quotaError: any) {
+      if (quotaError?.code === "QUOTA_EXCEEDED") {
+        return NextResponse.json(
+          {
+            error: quotaError.message,
+            code: "QUOTA_EXCEEDED",
+            limit: quotaError.limit,
+            used: quotaError.count,
+          },
+          { status: 429 }
+        );
+      }
+      throw quotaError;
+    }
+
     // TODO: 这里集成真实的 Stable Diffusion API
     // 当前使用占位符图像
     const placeholderImageUrl = await generatePlaceholderImage(prompt, style);
@@ -55,20 +84,47 @@ export async function POST(req: Request) {
       },
     });
 
+    if (userId) {
+      await recordGenerationLog({
+        userId,
+        action: "image_generation",
+        providerType: "image_generation",
+        status: "success",
+        durationMs: Date.now() - startedAt,
+        requestPayload: { panel_id, style },
+        responsePayload: { panel_id },
+      });
+    }
+
     return NextResponse.json({
       success: true,
       panel: updatedPanel,
       image_url: placeholderImageUrl,
+      usage: usageSnapshot,
     });
   } catch (error) {
     console.error("Generate image error:", error);
     const message = error instanceof Error ? error.message : "未知错误";
+    if (userId) {
+      await recordGenerationLog({
+        userId,
+        action: "image_generation",
+        providerType: "image_generation",
+        status: "failed",
+        durationMs: Date.now() - startedAt,
+        errorMessage: message,
+      });
+    }
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 // POST /api/panel/generate-batch - 批量生成项目的所有分镜图像
 export async function PUT(req: Request) {
+  const startedAt = Date.now();
+  let userId: string | null = null;
+  let usageSnapshot: { count: number; limit: number } | null = null;
+
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
@@ -81,6 +137,7 @@ export async function PUT(req: Request) {
     if (!payload?.userId) {
       return NextResponse.json({ error: "无效的token" }, { status: 401 });
     }
+    userId = payload.userId;
 
     const body = await req.json();
     const { project_id } = body;
@@ -107,6 +164,29 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "无权限" }, { status: 403 });
     }
 
+    const panelsToGenerate = project.panels.filter((p) => p.prompt_used);
+    try {
+      usageSnapshot = await assertAndIncrementUsage({
+        userId,
+        action: "image_generation",
+        providerType: "image_generation",
+        amount: panelsToGenerate.length || 1,
+      });
+    } catch (quotaError: any) {
+      if (quotaError?.code === "QUOTA_EXCEEDED") {
+        return NextResponse.json(
+          {
+            error: quotaError.message,
+            code: "QUOTA_EXCEEDED",
+            limit: quotaError.limit,
+            used: quotaError.count,
+          },
+          { status: 429 }
+        );
+      }
+      throw quotaError;
+    }
+
     // 批量生成图像
     const results = [];
     for (const panel of project.panels) {
@@ -129,10 +209,21 @@ export async function PUT(req: Request) {
       success: true,
       generated_count: results.length,
       panels: results,
+      usage: usageSnapshot,
     });
   } catch (error) {
     console.error("Batch generate error:", error);
     const message = error instanceof Error ? error.message : "未知错误";
+    if (userId) {
+      await recordGenerationLog({
+        userId,
+        action: "image_generation",
+        providerType: "image_generation",
+        status: "failed",
+        durationMs: Date.now() - startedAt,
+        errorMessage: message,
+      });
+    }
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

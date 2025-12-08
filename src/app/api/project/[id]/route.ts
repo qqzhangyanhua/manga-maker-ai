@@ -27,6 +27,7 @@ export async function GET(
         panels: {
           orderBy: { panel_order: "asc" },
         },
+        script: true,
       },
     });
 
@@ -92,6 +93,7 @@ export async function PATCH(
         panels: {
           orderBy: { panel_order: "asc" },
         },
+        script: true,
       },
     });
 

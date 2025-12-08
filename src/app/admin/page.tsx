@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ShieldCheck, Database, Users, Palette } from "lucide-react";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { Button } from "@/components/ui/button";
+import { BarChart3 } from "lucide-react";
 
 const AdminHomePage = () => {
   const { data: currentUser, isLoading, error } = useCurrentUser();
@@ -101,6 +102,22 @@ const AdminHomePage = () => {
             </p>
           </div>
           <Link href="/admin/users">
+            <Button variant="outline" size="sm">
+              进入
+            </Button>
+          </Link>
+        </div>
+        <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
+              <BarChart3 className="w-5 h-5" />
+              用量与日志
+            </div>
+            <p className="text-muted-foreground text-sm">
+              查看每日配额使用与生成日志，支持按用户筛选与限制条数。
+            </p>
+          </div>
+          <Link href="/admin/usage">
             <Button variant="outline" size="sm">
               进入
             </Button>

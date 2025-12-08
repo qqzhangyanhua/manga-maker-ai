@@ -4,9 +4,15 @@ import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { callChatCompletionByType } from "@/lib/llm-provider";
 import { callImageGenerationByType } from "@/lib/image-generation";
+import { assertAndIncrementUsage } from "@/lib/usage";
+import { recordGenerationLog } from "@/lib/generation-log";
 
 // POST /api/character/generate-similar - Generate similar character variations
 export async function POST(req: Request) {
+  const startedAt = Date.now();
+  let userId: string | null = null;
+  let usageSnapshot: { count: number; limit: number } | null = null;
+
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
@@ -19,6 +25,7 @@ export async function POST(req: Request) {
     if (!payload?.userId) {
       return NextResponse.json({ error: "无效的token" }, { status: 401 });
     }
+    userId = payload.userId;
 
     const body = await req.json();
     const { character_id, variation_prompt, count = 1, provider_type = "image_generation" } = body;
@@ -34,6 +41,28 @@ export async function POST(req: Request) {
 
     if (![1, 2, 3].includes(count)) {
       return NextResponse.json({ error: "生成数量只能是1、2或3" }, { status: 400 });
+    }
+
+    try {
+      usageSnapshot = await assertAndIncrementUsage({
+        userId,
+        action: "image_generation",
+        providerType: provider_type,
+        amount: count,
+      });
+    } catch (quotaError: any) {
+      if (quotaError?.code === "QUOTA_EXCEEDED") {
+        return NextResponse.json(
+          {
+            error: quotaError.message,
+            code: "QUOTA_EXCEEDED",
+            limit: quotaError.limit,
+            used: quotaError.count,
+          },
+          { status: 429 }
+        );
+      }
+      throw quotaError;
     }
 
     // Verify character ownership
@@ -129,6 +158,16 @@ export async function POST(req: Request) {
     const generated_images = results.filter((img) => img !== null);
 
     if (generated_images.length === 0) {
+      await recordGenerationLog({
+        userId,
+        action: "image_generation",
+        providerType: provider_type,
+        status: "failed",
+        durationMs: Date.now() - startedAt,
+        requestPayload: { character_id, variation_prompt, count },
+        errorMessage: "图片生成失败",
+      });
+
       return NextResponse.json(
         { error: "图片生成失败，请稍后重试" },
         { status: 500 }
@@ -136,6 +175,18 @@ export async function POST(req: Request) {
     }
 
     console.log(`成功生成 ${generated_images.length} 张图片`);
+
+    if (userId) {
+      await recordGenerationLog({
+        userId,
+        action: "image_generation",
+        providerType: provider_type,
+        status: "success",
+        durationMs: Date.now() - startedAt,
+        requestPayload: { character_id, variation_prompt, count },
+        responsePayload: { generated: generated_images.length },
+      });
+    }
 
     return NextResponse.json({
       success: true,
@@ -146,12 +197,25 @@ export async function POST(req: Request) {
         tags: character.tags,
       },
       variation_prompt,
+      usage: usageSnapshot,
       message: `成功生成 ${generated_images.length} 个角色变体`,
     });
   } catch (error) {
     console.error("Generate similar character error:", error);
 
     const errorMessage = error instanceof Error ? error.message : "生成相似角色失败";
+
+    if (userId) {
+      await recordGenerationLog({
+        userId,
+        action: "image_generation",
+        providerType: "image_generation",
+        status: "failed",
+        durationMs: Date.now() - startedAt,
+        requestPayload: { message: "generate-similar" },
+        errorMessage,
+      });
+    }
 
     return NextResponse.json(
       {

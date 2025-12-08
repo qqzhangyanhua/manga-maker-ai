@@ -6,9 +6,15 @@ import { callChatCompletionByType } from "@/lib/llm-provider";
 import { generateOutfit, OUTFIT_TYPES, type OutfitType } from "@/lib/outfit-generation";
 import { base64ToBuffer } from "@/lib/image-generation";
 import { minioClient, MINIO_BUCKET, ensureBucketExists, getPublicUrl } from "@/lib/minio";
+import { assertAndIncrementUsage } from "@/lib/usage";
+import { recordGenerationLog } from "@/lib/generation-log";
 
 // POST /api/character/outfits - Create new outfit for character
 export async function POST(req: Request) {
+  const startedAt = Date.now();
+  let userId: string | null = null;
+  let usageSnapshot: { count: number; limit: number } | null = null;
+
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
@@ -21,6 +27,7 @@ export async function POST(req: Request) {
     if (!payload?.userId) {
       return NextResponse.json({ error: "无效的token" }, { status: 401 });
     }
+    userId = payload.userId;
 
     const body = await req.json();
     const { character_id, outfit_name, outfit_type, description, generate_image = false, provider_type = "image_generation" } = body;
@@ -86,6 +93,28 @@ ${description ? `附加描述：${description}` : ""}
     let imageUrl = "/placeholder-outfit.jpg";
     
     if (generate_image) {
+      try {
+        usageSnapshot = await assertAndIncrementUsage({
+          userId,
+          action: "image_generation",
+          providerType: provider_type,
+          amount: 1,
+        });
+      } catch (quotaError: any) {
+        if (quotaError?.code === "QUOTA_EXCEEDED") {
+          return NextResponse.json(
+            {
+              error: quotaError.message,
+              code: "QUOTA_EXCEEDED",
+              limit: quotaError.limit,
+              used: quotaError.count,
+            },
+            { status: 429 }
+          );
+        }
+        throw quotaError;
+      }
+
       try {
         console.log(`生成服装图片: ${OUTFIT_TYPES[outfit_type as OutfitType]} - ${outfit_name}`);
 
@@ -182,13 +211,38 @@ ${description ? `附加描述：${description}` : ""}
       },
     });
 
+    if (generate_image && userId) {
+      await recordGenerationLog({
+        userId,
+        action: "image_generation",
+        providerType: provider_type,
+        status: "success",
+        durationMs: Date.now() - startedAt,
+        requestPayload: { character_id, outfit_name, outfit_type },
+        responsePayload: { image_generated: generate_image },
+      });
+    }
+
     return NextResponse.json({
       success: true,
       outfit,
+      usage: usageSnapshot,
       message: generate_image ? "服装创建成功，图片已生成" : "服装创建成功",
     }, { status: 201 });
   } catch (error) {
     console.error("Create outfit error:", error);
-    return NextResponse.json({ error: "创建服装失败" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "创建服装失败";
+    if (userId) {
+      await recordGenerationLog({
+        userId,
+        action: "image_generation",
+        providerType: "image_generation",
+        status: "failed",
+        durationMs: Date.now() - startedAt,
+        requestPayload: { scope: "outfit" },
+        errorMessage: message,
+      });
+    }
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
