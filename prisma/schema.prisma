@@ -194,3 +194,23 @@ model CharacterRelationship {
   @@index([user_id], map: "idx_relationships_user")
   @@map("character_relationships")
 }
+
+// Comic Styles - Configurable comic style library
+model ComicStyle {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  style_key     String   @unique // manga, american, webtoon, etc.
+  name_zh       String   // 日式漫画
+  name_en       String   // MANGA
+  image_url     String   // Preview image URL
+  tag_color     String   @default("bg-primary text-background") // Tailwind classes
+  description   String?  // Optional description
+  prompt_prefix String?  @default("") // AI prompt prefix for this style
+  sort_order    Int      @default(0) // Display order (lower = first)
+  enabled       Boolean  @default(true) // Soft delete flag
+  usage_count   Int      @default(0) // Usage statistics
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([enabled, sort_order], map: "idx_comic_styles_enabled_sort")
+  @@map("comic_styles")
+}

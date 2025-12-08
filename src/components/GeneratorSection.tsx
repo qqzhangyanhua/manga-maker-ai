@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Wand2, RefreshCw } from "lucide-react";
+import { Sparkles, Wand2, RefreshCw, Lightbulb } from "lucide-react";
 import { cn } from "@/lib/utils";
+import PromptOptimizationDialog from "@/components/PromptOptimizationDialog";
+import PromptExamplesDrawer from "@/components/PromptExamplesDrawer";
 
 interface GeneratorSectionProps {
   selectedStyle: string | null;
@@ -11,6 +13,8 @@ interface GeneratorSectionProps {
 const GeneratorSection = ({ selectedStyle, selectedCharacter }: GeneratorSectionProps) => {
   const [prompt, setPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showOptimization, setShowOptimization] = useState(false);
+  const [showExamples, setShowExamples] = useState(false);
 
   const handleGenerate = () => {
     if (!selectedStyle || !selectedCharacter) return;
@@ -19,7 +23,16 @@ const GeneratorSection = ({ selectedStyle, selectedCharacter }: GeneratorSection
     setTimeout(() => setIsGenerating(false), 3000);
   };
 
+  const handleApplyOptimized = (optimizedPrompt: string) => {
+    setPrompt(optimizedPrompt);
+  };
+
+  const handleSelectExample = (examplePrompt: string) => {
+    setPrompt(examplePrompt);
+  };
+
   const isReady = selectedStyle && selectedCharacter && prompt.trim();
+  const canOptimize = prompt.trim().length > 10;
 
   return (
     <section className="py-16 px-4">
@@ -75,20 +88,45 @@ const GeneratorSection = ({ selectedStyle, selectedCharacter }: GeneratorSection
           </div>
 
           {/* Prompt Input */}
-          <div className="relative mb-6">
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="描述你想要创作的漫画场景... 例如：一位英雄在城市屋顶上眺望夜景，月光照亮了他的披风"
-              className={cn(
-                "w-full h-32 p-4 rounded-lg bg-background border-2 border-border",
-                "text-foreground placeholder:text-muted-foreground",
-                "focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20",
-                "resize-none transition-all duration-200"
-              )}
-            />
-            <div className="absolute bottom-3 right-3 text-xs text-muted-foreground">
-              {prompt.length} / 500
+          <div className="space-y-3 mb-6">
+            <div className="relative">
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="描述你想要创作的漫画场景... 例如：一位英雄在城市屋顶上眺望夜景，月光照亮了他的披风"
+                className={cn(
+                  "w-full h-32 p-4 rounded-lg bg-background border-2 border-border",
+                  "text-foreground placeholder:text-muted-foreground",
+                  "focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20",
+                  "resize-none transition-all duration-200"
+                )}
+              />
+              <div className="absolute bottom-3 right-3 text-xs text-muted-foreground">
+                {prompt.length} / 500
+              </div>
+            </div>
+
+            {/* 辅助按钮 */}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowExamples(true)}
+                className="flex-1"
+              >
+                <Lightbulb className="w-4 h-4" />
+                查看示例
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowOptimization(true)}
+                disabled={!canOptimize}
+                className="flex-1"
+              >
+                <Wand2 className="w-4 h-4" />
+                AI 优化描述
+              </Button>
             </div>
           </div>
 
@@ -148,6 +186,22 @@ const GeneratorSection = ({ selectedStyle, selectedCharacter }: GeneratorSection
             </div>
           </div>
         )}
+
+        {/* Dialogs */}
+        <PromptOptimizationDialog
+          open={showOptimization}
+          onOpenChange={setShowOptimization}
+          originalPrompt={prompt}
+          style={selectedStyle}
+          character={selectedCharacter}
+          onApply={handleApplyOptimized}
+        />
+
+        <PromptExamplesDrawer
+          open={showExamples}
+          onOpenChange={setShowExamples}
+          onSelectExample={handleSelectExample}
+        />
       </div>
     </section>
   );

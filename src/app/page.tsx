@@ -1,56 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import HeroSection from "@/components/HeroSection";
 import StyleCard from "@/components/StyleCard";
 import CharacterCard from "@/components/CharacterCard";
 import GeneratorSection from "@/components/GeneratorSection";
 
-const comicStyles = [
-  {
-    id: "manga",
-    name: "日式漫画",
-    nameEn: "MANGA",
-    image: "/assets/style-manga.jpg",
-    color: "bg-comic-pink text-background",
-  },
-  {
-    id: "american",
-    name: "美式漫画",
-    nameEn: "AMERICAN",
-    image: "/assets/style-american.jpg",
-    color: "bg-comic-red text-foreground",
-  },
-  {
-    id: "webtoon",
-    name: "韩式条漫",
-    nameEn: "WEBTOON",
-    image: "/assets/style-webtoon.jpg",
-    color: "bg-comic-blue text-background",
-  },
-  {
-    id: "european",
-    name: "欧式漫画",
-    nameEn: "EUROPEAN",
-    image: "/assets/style-european.jpg",
-    color: "bg-comic-purple text-foreground",
-  },
-  {
-    id: "watercolor",
-    name: "水彩风格",
-    nameEn: "WATERCOLOR",
-    image: "/assets/style-watercolor.jpg",
-    color: "bg-comic-green text-background",
-  },
-  {
-    id: "retro",
-    name: "复古漫画",
-    nameEn: "RETRO",
-    image: "/assets/style-retro.jpg",
-    color: "bg-comic-orange text-background",
-  },
-];
+interface ComicStyle {
+  id: string;
+  style_key: string;
+  name_zh: string;
+  name_en: string;
+  image_url: string;
+  tag_color: string;
+  description: string | null;
+  sort_order: number;
+  enabled: boolean;
+  usage_count: number;
+}
 
 const characters = [
   {
@@ -92,10 +60,30 @@ const characters = [
 ];
 
 const HomePage = () => {
+  const [comicStyles, setComicStyles] = useState<ComicStyle[]>([]);
+  const [stylesLoading, setStylesLoading] = useState(true);
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
   const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
 
-  const selectedStyleName = comicStyles.find((style) => style.id === selectedStyle)?.name || null;
+  // 从 API 加载风格数据
+  useEffect(() => {
+    const fetchStyles = async () => {
+      try {
+        const res = await fetch("/api/comic-styles?enabled=true");
+        if (!res.ok) throw new Error("Failed to fetch");
+        const data = await res.json();
+        setComicStyles(data.data || []);
+      } catch (error) {
+        console.error("加载风格失败:", error);
+      } finally {
+        setStylesLoading(false);
+      }
+    };
+
+    fetchStyles();
+  }, []);
+
+  const selectedStyleName = comicStyles.find((style) => style.style_key === selectedStyle)?.name_zh || null;
   const selectedCharacterName = characters.find((character) => character.id === selectedCharacter)?.name || null;
 
   return (
@@ -116,24 +104,32 @@ const HomePage = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6">
-              {comicStyles.map((style, index) => (
-                <div 
-                  key={style.id} 
-                  className="animate-slide-in"
-                  style={{ animationDelay: `${index * 0.1}s` }}
-                >
-                  <StyleCard
-                    name={style.name}
-                    nameEn={style.nameEn}
-                    image={style.image}
-                    color={style.color}
-                    selected={selectedStyle === style.id}
-                    onClick={() => setSelectedStyle(style.id)}
-                  />
-                </div>
-              ))}
-            </div>
+            {stylesLoading ? (
+              <div className="text-center py-10 text-muted-foreground">加载中...</div>
+            ) : comicStyles.length === 0 ? (
+              <div className="text-center py-10 text-muted-foreground">
+                暂无可用风格，请联系管理员添加
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6">
+                {comicStyles.map((style, index) => (
+                  <div 
+                    key={style.id} 
+                    className="animate-slide-in"
+                    style={{ animationDelay: `${index * 0.1}s` }}
+                  >
+                    <StyleCard
+                      name={style.name_zh}
+                      nameEn={style.name_en}
+                      image={style.image_url}
+                      color={style.tag_color}
+                      selected={selectedStyle === style.style_key}
+                      onClick={() => setSelectedStyle(style.style_key)}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ShieldCheck, Database, Users } from "lucide-react";
+import { ShieldCheck, Database, Users, Palette } from "lucide-react";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { Button } from "@/components/ui/button";
 
@@ -69,6 +69,22 @@ const AdminHomePage = () => {
             </p>
           </div>
           <Link href="/admin/llm-providers">
+            <Button variant="outline" size="sm">
+              进入
+            </Button>
+          </Link>
+        </div>
+        <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
+              <Palette className="w-5 h-5" />
+              漫画风格管理
+            </div>
+            <p className="text-muted-foreground text-sm">
+              管理首页展示的漫画风格，包括新增、编辑、排序和启用/禁用。
+            </p>
+          </div>
+          <Link href="/admin/comic-styles">
             <Button variant="outline" size="sm">
               进入
             </Button>
