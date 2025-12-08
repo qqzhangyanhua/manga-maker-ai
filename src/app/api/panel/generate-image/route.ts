@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { verifyAuthToken } from "@/lib/auth";
+import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 // POST /api/panel/generate-image - 为单个分镜生成图像
 export async function POST(req: Request) {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
+    const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
 
     if (!token) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
+    const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
 
     if (!token) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });

@@ -1,4 +1,4 @@
-// File: D:\AI\manga-maker-ai\src\app\api\character\route.ts
+// File: /Users/zhangyanhua/AI/manga-maker-ai/src/app/api/character/route.ts
 import * as entry from '../../../../../src/app/api/character/route.js'
 import type { NextRequest } from 'next/server.js'
 

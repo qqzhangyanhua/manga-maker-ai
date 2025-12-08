@@ -28,7 +28,7 @@ export const minioClient = new Client({
 // Bucket 名称
 export const MINIO_BUCKET = process.env.MINIO_BUCKET_NAME || "input-image";
 
-// 初始化 bucket（如果不存在则创建）
+// 初始化 bucket（如果不存在则创建，并设置为公开可读）
 export async function ensureBucketExists() {
   try {
     const exists = await minioClient.bucketExists(MINIO_BUCKET);
@@ -36,6 +36,25 @@ export async function ensureBucketExists() {
       await minioClient.makeBucket(MINIO_BUCKET, "us-east-1");
       console.log(`Bucket ${MINIO_BUCKET} created successfully`);
     }
+
+    // 设置 bucket 为公开可读（允许匿名访问图片）
+    const publicPolicy = {
+      Version: "2012-10-17",
+      Statement: [
+        {
+          Effect: "Allow",
+          Principal: { AWS: ["*"] },
+          Action: ["s3:GetObject"],
+          Resource: [`arn:aws:s3:::${MINIO_BUCKET}/*`],
+        },
+      ],
+    };
+
+    await minioClient.setBucketPolicy(
+      MINIO_BUCKET,
+      JSON.stringify(publicPolicy)
+    );
+    console.log(`Bucket ${MINIO_BUCKET} is now publicly accessible`);
   } catch (error) {
     console.error("Error ensuring bucket exists:", error);
     throw error;

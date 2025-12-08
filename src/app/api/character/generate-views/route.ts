@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { verifyAuthToken } from "@/lib/auth";
+import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { callChatCompletionByType } from "@/lib/llm-provider";
+import { generateThreeViews, base64ToBuffer } from "@/lib/image-generation";
+import { minioClient, MINIO_BUCKET, ensureBucketExists, getPublicUrl } from "@/lib/minio";
 
 // POST /api/character/generate-views - Generate three-view images (front, side, back)
 export async function POST(req: Request) {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
+    const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
 
     if (!token) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
@@ -20,7 +22,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { character_id, description } = body;
+    const { character_id, description, provider_type = "image_generation" } = body;
 
     if (!character_id) {
       return NextResponse.json({ error: "角色ID不能为空" }, { status: 400 });
@@ -38,65 +40,77 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "角色不存在" }, { status: 404 });
     }
 
-    // Generate prompt for three-view character sheet
-    const systemPrompt = `你是一个专业的角色设计师。请根据角色描述生成详细的三视图（正面、侧面、背面）提示词。
-要求：
-1. 保持角色外观的一致性
-2. 使用专业的角色设计术语
-3. 明确指定视角（front view, side view, back view）
-4. 包含服装、发型、配饰等细节
-5. 使用 character sheet, turnaround, reference sheet 等关键词`;
-
-    const userPrompt = `角色描述：${description || character.description || character.name}
-
-请生成三视图的提示词，输出JSON格式：
-{
-  "front": "正面视图的详细提示词",
-  "side": "侧面视图的详细提示词",
-  "back": "背面视图的详细提示词"
-}`;
-
-    const { content } = await callChatCompletionByType({
-      providerType: "storyboard",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.7,
-      maxTokens: 1000,
-    });
-
-    let prompts: { front: string; side: string; back: string };
+    // Step 1: 使用 LLM 优化角色描述（可选，提高生成质量）
+    const characterDesc = description || character.description || character.name;
+    
+    let optimizedDescription = characterDesc;
     try {
-      prompts = JSON.parse(content);
-    } catch {
-      // Fallback prompts
-      const basePrompt = `${description || character.name}, character sheet, turnaround reference, white background, professional character design`;
-      prompts = {
-        front: `${basePrompt}, front view`,
-        side: `${basePrompt}, side view`,
-        back: `${basePrompt}, back view`,
-      };
+      const systemPrompt = `你是一个专业的角色设计师。请将用户的角色描述优化为适合 AI 绘画的详细提示词。
+要求：
+1. 保留核心特征（外貌、服装、风格）
+2. 添加专业术语（如 anime style, detailed, 8k 等）
+3. 描述要具体且富有画面感
+4. 输出纯文本，不要 JSON 格式`;
+
+      const { content } = await callChatCompletionByType({
+        providerType: "storyboard",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `角色描述：${characterDesc}` },
+        ],
+        temperature: 0.7,
+        maxTokens: 500,
+      });
+
+      optimizedDescription = content.trim();
+    } catch (error) {
+      console.warn("LLM 优化失败，使用原始描述:", error);
     }
 
-    // In production, you would call Stable Diffusion API here
-    // For now, we'll return the prompts and placeholder URLs
-    const views = {
-      front: {
-        prompt: prompts.front,
-        image_url: "/placeholder-front.jpg", // Replace with actual generated image
-      },
-      side: {
-        prompt: prompts.side,
-        image_url: "/placeholder-side.jpg",
-      },
-      back: {
-        prompt: prompts.back,
-        image_url: "/placeholder-back.jpg",
-      },
-    };
+    // Step 2: 调用图片生成 API 生成三视图
+    console.log(`开始生成三视图，角色描述: ${optimizedDescription}`);
+    
+    const { front, side, back, prompts } = await generateThreeViews(
+      optimizedDescription,
+      provider_type
+    );
 
-    // Save to database
+    // Step 3: 确保 MinIO bucket 存在
+    await ensureBucketExists();
+
+    // Step 4: 上传三张图片到 MinIO
+    const views: Record<string, { image_url: string; prompt: string }> = {};
+    
+    for (const [viewType, base64Image] of Object.entries({ front, side, back })) {
+      // 转换 base64 为 Buffer
+      const imageBuffer = base64ToBuffer(base64Image);
+      
+      // 生成对象名
+      const objectName = `users/${payload.userId}/characters/${character_id}/views/${viewType}.png`;
+      
+      // 上传到 MinIO
+      await minioClient.putObject(
+        MINIO_BUCKET,
+        objectName,
+        imageBuffer,
+        imageBuffer.length,
+        {
+          "Content-Type": "image/png",
+        }
+      );
+
+      // 生成公开访问 URL
+      const publicUrl = getPublicUrl(objectName);
+
+      views[viewType] = {
+        image_url: publicUrl,
+        prompt: prompts[viewType as keyof typeof prompts],
+      };
+
+      console.log(`${viewType} 视图已上传: ${publicUrl}`);
+    }
+
+    // Step 5: 保存到数据库
     for (const [viewType, viewData] of Object.entries(views)) {
       await prisma.characterView.upsert({
         where: {
@@ -116,11 +130,25 @@ export async function POST(req: Request) {
       });
     }
 
-    return NextResponse.json({ views, prompts });
+    console.log("三视图生成完成");
+
+    return NextResponse.json({ 
+      success: true,
+      views,
+      prompts,
+      message: "三视图生成成功"
+    });
   } catch (error) {
     console.error("Generate views error:", error);
+    
+    // 返回详细错误信息
+    const errorMessage = error instanceof Error ? error.message : "生成三视图失败";
+    
     return NextResponse.json(
-      { error: "生成三视图失败" },
+      { 
+        error: errorMessage,
+        details: error instanceof Error ? error.stack : undefined
+      },
       { status: 500 }
     );
   }

@@ -5,6 +5,8 @@ import { ArrowLeft, Sparkles, Plus, Shirt, Smile, RotateCcw, Camera } from "luci
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import CreateOutfitDialog from "./CreateOutfitDialog";
+import ImageUploadDialog from "./ImageUploadDialog";
+import ImagePreviewCard from "./ImagePreviewCard";
 
 interface CharacterAsset {
   id: string;
@@ -56,6 +58,9 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
   const [expressionSheet, setExpressionSheet] = useState<Record<string, string>>({});
   const [isGenerating, setIsGenerating] = useState(false);
   const [isOutfitDialogOpen, setIsOutfitDialogOpen] = useState(false);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [currentUploadType, setCurrentUploadType] = useState<string>("");
+  const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
 
   // Load existing data from character
@@ -76,6 +81,64 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
       setExpressionSheet(expressions);
     }
   });
+
+  // 处理手动上传图片
+  const handleUploadImage = async (base64Image: string) => {
+    setIsUploading(true);
+    try {
+      // 将 base64 转换为 File 对象
+      const response = await fetch(base64Image);
+      const blob = await response.blob();
+      const file = new File([blob], `${currentUploadType}.png`, { type: "image/png" });
+
+      // 构建 FormData
+      const formData = new FormData();
+      formData.append("character_id", character.id);
+      formData.append("type", "view");
+      formData.append("sub_type", currentUploadType);
+      formData.append("file", file);
+
+      // 上传到服务器
+      const uploadResponse = await fetch("/api/character/upload-image", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (uploadResponse.ok) {
+        const data = await uploadResponse.json();
+        setGeneratedViews((prev) => ({
+          ...prev,
+          [currentUploadType]: data.image_url,
+        }));
+
+        toast({
+          title: "上传成功",
+          description: `${currentUploadType === "front" ? "正面" : currentUploadType === "side" ? "侧面" : "背面"}视图已上传`,
+        });
+
+        // Refresh character data
+        if (onUpdate) {
+          const updatedChar = await fetch(`/api/character/${character.id}`);
+          if (updatedChar.ok) {
+            const charData = await updatedChar.json();
+            onUpdate(charData.character);
+          }
+        }
+      } else {
+        const error = await uploadResponse.json();
+        throw new Error(error.error || "上传失败");
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast({
+        title: "上传失败",
+        description: error instanceof Error ? error.message : "请稍后重试",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleGenerateThreeView = async () => {
     setIsGenerating(true);
@@ -126,6 +189,120 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
       });
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  // 处理表情上传
+  const handleUploadExpression = async (base64Image: string) => {
+    setIsUploading(true);
+    try {
+      // 将 base64 转换为 File 对象
+      const response = await fetch(base64Image);
+      const blob = await response.blob();
+      const file = new File([blob], `${currentUploadType}.png`, { type: "image/png" });
+
+      // 构建 FormData
+      const formData = new FormData();
+      formData.append("character_id", character.id);
+      formData.append("type", "expression");
+      formData.append("sub_type", currentUploadType);
+      formData.append("file", file);
+
+      // 上传到服务器
+      const uploadResponse = await fetch("/api/character/upload-image", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (uploadResponse.ok) {
+        const data = await uploadResponse.json();
+        setExpressionSheet((prev) => ({
+          ...prev,
+          [currentUploadType]: data.image_url,
+        }));
+
+        const expLabel = expressions.find((e) => e.id === currentUploadType)?.label;
+        toast({
+          title: "上传成功",
+          description: `${expLabel}表情已上传`,
+        });
+
+        // Refresh character data
+        if (onUpdate) {
+          const updatedChar = await fetch(`/api/character/${character.id}`);
+          if (updatedChar.ok) {
+            const charData = await updatedChar.json();
+            onUpdate(charData.character);
+          }
+        }
+      } else {
+        const error = await uploadResponse.json();
+        throw new Error(error.error || "上传失败");
+      }
+    } catch (error) {
+      console.error("Upload expression error:", error);
+      toast({
+        title: "上传失败",
+        description: error instanceof Error ? error.message : "请稍后重试",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // 处理服装上传
+  const handleUploadOutfit = async (base64Image: string) => {
+    setIsUploading(true);
+    try {
+      // currentUploadType 存储的是 outfit_id
+      const outfitId = currentUploadType;
+
+      // 将 base64 转换为 File 对象
+      const response = await fetch(base64Image);
+      const blob = await response.blob();
+      const file = new File([blob], `${outfitId}.png`, { type: "image/png" });
+
+      // 构建 FormData
+      const formData = new FormData();
+      formData.append("character_id", character.id);
+      formData.append("type", "outfit");
+      formData.append("sub_type", outfitId);
+      formData.append("file", file);
+
+      // 上传到服务器
+      const uploadResponse = await fetch("/api/character/upload-image", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (uploadResponse.ok) {
+        toast({
+          title: "上传成功",
+          description: "服装图片已上传",
+        });
+
+        // Refresh character data
+        if (onUpdate) {
+          const updatedChar = await fetch(`/api/character/${character.id}`);
+          if (updatedChar.ok) {
+            const charData = await updatedChar.json();
+            onUpdate(charData.character);
+          }
+        }
+      } else {
+        const error = await uploadResponse.json();
+        throw new Error(error.error || "上传失败");
+      }
+    } catch (error) {
+      console.error("Upload outfit error:", error);
+      toast({
+        title: "上传失败",
+        description: error instanceof Error ? error.message : "请稍后重试",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -367,37 +544,55 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
 
             <div className="grid grid-cols-3 gap-4">
               {["front", "side", "back"].map((view) => (
-                <div
+                <ImagePreviewCard
                   key={view}
-                  className={cn(
-                    "aspect-[3/4] rounded-lg border-2 border-dashed flex flex-col items-center justify-center",
-                    generatedViews[view as keyof typeof generatedViews]
-                      ? "border-primary bg-card overflow-hidden"
-                      : "border-border bg-muted/50"
-                  )}
-                >
-                  {generatedViews[view as keyof typeof generatedViews] ? (
-                    <>
-                      <img
-                        src={generatedViews[view as keyof typeof generatedViews]}
-                        alt={view}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute bottom-0 left-0 right-0 bg-background/80 py-1 text-center text-sm font-semibold">
-                        {view === "front" ? "正面" : view === "side" ? "侧面" : "背面"}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <RotateCcw className="w-8 h-8 text-muted-foreground mb-2" />
-                      <span className="text-sm text-muted-foreground">
-                        {view === "front" ? "正面视图" : view === "side" ? "侧面视图" : "背面视图"}
-                      </span>
-                    </>
-                  )}
-                </div>
+                  imageUrl={generatedViews[view as keyof typeof generatedViews]}
+                  label={view === "front" ? "正面" : view === "side" ? "侧面" : "背面"}
+                  aspectRatio="portrait"
+                  isGenerating={isGenerating || isUploading}
+                  onGenerate={handleGenerateThreeView}
+                  onUpload={() => {
+                    setCurrentUploadType(view);
+                    setUploadDialogOpen(true);
+                  }}
+                  onRegenerate={handleGenerateThreeView}
+                  onReplace={() => {
+                    setCurrentUploadType(view);
+                    setUploadDialogOpen(true);
+                  }}
+                  showGenerateButton={!generatedViews[view as keyof typeof generatedViews]}
+                  showUploadButton={true}
+                />
               ))}
             </div>
+
+            {/* 图片上传对话框（三视图、表情和服装共用） */}
+            <ImageUploadDialog
+              open={uploadDialogOpen}
+              onOpenChange={setUploadDialogOpen}
+              onUploadSuccess={(base64Image) => {
+                // 根据 currentUploadType 判断类型
+                if (["front", "side", "back"].includes(currentUploadType)) {
+                  handleUploadImage(base64Image);
+                } else if (expressions.some((e) => e.id === currentUploadType)) {
+                  handleUploadExpression(base64Image);
+                } else {
+                  handleUploadOutfit(base64Image);
+                }
+              }}
+              title={
+                currentUploadType === "front"
+                  ? "上传正面视图"
+                  : currentUploadType === "side"
+                  ? "上传侧面视图"
+                  : currentUploadType === "back"
+                  ? "上传背面视图"
+                  : expressions.some((e) => e.id === currentUploadType)
+                  ? `上传${expressions.find((e) => e.id === currentUploadType)?.label}表情`
+                  : "上传服装图片"
+              }
+              description="上传角色的图片"
+            />
           </div>
         </TabsContent>
 
@@ -423,41 +618,25 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
 
             <div className="grid grid-cols-3 gap-3">
               {expressions.map((exp) => (
-                <button
+                <ImagePreviewCard
                   key={exp.id}
-                  onClick={() => handleGenerateExpression(exp.id)}
-                  disabled={isGenerating}
-                  className={cn(
-                    "aspect-square rounded-lg border-2 flex flex-col items-center justify-center transition-all overflow-hidden relative",
-                    expressionSheet[exp.id]
-                      ? "border-primary"
-                      : "border-border hover:border-primary/50 bg-muted/50"
-                  )}
-                >
-                  {expressionSheet[exp.id] ? (
-                    <>
-                      <img
-                        src={expressionSheet[exp.id]}
-                        alt={exp.label}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute bottom-0 left-0 right-0 bg-background/90 py-1 text-center">
-                        <span className="text-lg mr-1">{exp.emoji}</span>
-                        <span className="text-xs font-semibold">{exp.label}</span>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-3xl mb-1">{exp.emoji}</span>
-                      <span className="text-xs text-muted-foreground">{exp.label}</span>
-                      {selectedExpression === exp.id && isGenerating && (
-                        <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
-                          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                        </div>
-                      )}
-                    </>
-                  )}
-                </button>
+                  imageUrl={expressionSheet[exp.id]}
+                  label={`${exp.emoji} ${exp.label}`}
+                  aspectRatio="square"
+                  isGenerating={(isGenerating || isUploading) && selectedExpression === exp.id}
+                  onGenerate={() => handleGenerateExpression(exp.id)}
+                  onUpload={() => {
+                    setCurrentUploadType(exp.id);
+                    setUploadDialogOpen(true);
+                  }}
+                  onRegenerate={() => handleGenerateExpression(exp.id)}
+                  onReplace={() => {
+                    setCurrentUploadType(exp.id);
+                    setUploadDialogOpen(true);
+                  }}
+                  showGenerateButton={true}
+                  showUploadButton={true}
+                />
               ))}
             </div>
           </div>
@@ -484,26 +663,80 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {/* Show existing outfits */}
-              {character.outfits && character.outfits.map((outfit) => (
-                <button
-                  key={outfit.id}
-                  onClick={() => setSelectedOutfit(outfit.id)}
-                  className={cn(
-                    "p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-3",
-                    selectedOutfit === outfit.id
-                      ? "border-primary bg-primary/10"
-                      : "border-border hover:border-primary/50 bg-card"
-                  )}
-                >
-                  <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center text-3xl">
-                    {outfitPresets.find(p => p.id === outfit.outfit_type)?.icon || "👔"}
-                  </div>
-                  <span className="font-semibold text-foreground">{outfit.outfit_name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {outfit.image_url ? "已生成" : "待生成"}
-                  </span>
-                </button>
-              ))}
+              {character.outfits && character.outfits.map((outfit) => {
+                const preset = outfitPresets.find(p => p.id === outfit.outfit_type);
+                return (
+                  <ImagePreviewCard
+                    key={outfit.id}
+                    imageUrl={outfit.image_url && !outfit.image_url.includes("placeholder") ? outfit.image_url : undefined}
+                    label={`${preset?.icon || "👔"} ${outfit.outfit_name}`}
+                    aspectRatio="portrait"
+                    isGenerating={false}
+                    onGenerate={async () => {
+                      try {
+                        const response = await fetch("/api/character/outfits", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            character_id: character.id,
+                            outfit_name: outfit.outfit_name,
+                            outfit_type: outfit.outfit_type,
+                            generate_image: true,
+                          }),
+                        });
+                        if (response.ok) {
+                          toast({ title: "服装图片生成中...", description: "请稍候" });
+                          if (onUpdate) {
+                            const updatedChar = await fetch(`/api/character/${character.id}`);
+                            if (updatedChar.ok) {
+                              const charData = await updatedChar.json();
+                              onUpdate(charData.character);
+                            }
+                          }
+                        }
+                      } catch (error) {
+                        toast({ title: "生成失败", variant: "destructive" });
+                      }
+                    }}
+                    onUpload={() => {
+                      setCurrentUploadType(outfit.id);
+                      setUploadDialogOpen(true);
+                    }}
+                    onRegenerate={async () => {
+                      try {
+                        const response = await fetch("/api/character/outfits", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            character_id: character.id,
+                            outfit_name: outfit.outfit_name,
+                            outfit_type: outfit.outfit_type,
+                            generate_image: true,
+                          }),
+                        });
+                        if (response.ok) {
+                          toast({ title: "服装图片重新生成中...", description: "请稍候" });
+                          if (onUpdate) {
+                            const updatedChar = await fetch(`/api/character/${character.id}`);
+                            if (updatedChar.ok) {
+                              const charData = await updatedChar.json();
+                              onUpdate(charData.character);
+                            }
+                          }
+                        }
+                      } catch (error) {
+                        toast({ title: "重新生成失败", variant: "destructive" });
+                      }
+                    }}
+                    onReplace={() => {
+                      setCurrentUploadType(outfit.id);
+                      setUploadDialogOpen(true);
+                    }}
+                    showGenerateButton={true}
+                    showUploadButton={true}
+                  />
+                );
+              })}
               
               {/* Show remaining presets that haven't been created */}
               {outfitPresets

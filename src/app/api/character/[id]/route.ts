@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { verifyAuthToken } from "@/lib/auth";
+import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 // GET /api/character/[id] - Get character details
@@ -11,7 +11,7 @@ export async function GET(
   try {
     const { id } = await params;
     const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
+    const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
 
     if (!token) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
@@ -53,7 +53,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
+    const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
 
     if (!token) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
@@ -111,7 +111,7 @@ export async function DELETE(
   try {
     const { id } = await params;
     const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
+    const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
 
     if (!token) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });

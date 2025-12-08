@@ -1,6 +1,16 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Sparkles, Eye, Loader2 } from "lucide-react";
+import { Plus, Sparkles, Eye, Loader2, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import CharacterDetailView from "./CharacterDetailView";
@@ -28,6 +38,9 @@ const CharacterLibrary = () => {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [characterToDelete, setCharacterToDelete] = useState<CharacterAsset | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
   // Fetch characters from API
@@ -101,6 +114,45 @@ const CharacterLibrary = () => {
 
   const handleOpenRelationshipChart = () => {
     setViewMode("relationship");
+  };
+
+  const handleDeleteClick = (character: CharacterAsset, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCharacterToDelete(character);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!characterToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/character/${characterToDelete.id}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        setCharacters((prev) => prev.filter((c) => c.id !== characterToDelete.id));
+        toast({
+          title: "删除成功",
+          description: `${characterToDelete.name} 已从角色库中移除`,
+        });
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || "删除失败");
+      }
+    } catch (error) {
+      console.error("Delete character error:", error);
+      toast({
+        title: "删除失败",
+        description: error instanceof Error ? error.message : "请稍后重试",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+      setCharacterToDelete(null);
+    }
   };
 
   const getStatusBadge = (status: CharacterAsset["training_status"]) => {
@@ -253,6 +305,14 @@ const CharacterLibrary = () => {
                     <Sparkles className="w-4 h-4" />
                     使用
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={(e) => handleDeleteClick(character, e)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    删除
+                  </Button>
                 </div>
               </div>
 
@@ -311,6 +371,50 @@ const CharacterLibrary = () => {
         </div>
       )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除角色</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除角色 <span className="font-semibold text-foreground">"{characterToDelete?.name}"</span> 吗？
+              <br />
+              <br />
+              此操作将永久删除该角色的所有数据，包括：
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>基础形象和参考图</li>
+                <li>三视图 ({characterToDelete?.views?.length || 0})</li>
+                <li>表情矩阵 ({characterToDelete?.expressions?.length || 0})</li>
+                <li>服装数据 ({characterToDelete?.outfits?.length || 0})</li>
+                <li>LoRA 训练模型（如有）</li>
+              </ul>
+              <br />
+              <span className="text-destructive font-semibold">此操作无法撤销！</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  删除中...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  确认删除
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

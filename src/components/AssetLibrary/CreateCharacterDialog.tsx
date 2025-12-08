@@ -48,90 +48,43 @@ const CreateCharacterDialog = ({
     }
 
     setIsSubmitting(true);
-    setUploadProgress("正在创建角色...");
 
     try {
-      // Step 1: 创建角色（先不带图片）
-      let baseImageUrl: string | undefined;
+      // 准备表单数据
+      const formData = new FormData();
+      formData.append("name", name.trim());
+      formData.append("description", description.trim());
+      formData.append("tags", JSON.stringify([]));
 
-      // 临时创建一个角色获取 ID（如果有图片的话）
+      // 添加所有图片文件
       if (imageFiles.length > 0) {
-        // 先创建角色以获取 character_id
-        const tempResponse = await fetch("/api/character", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: name.trim(),
-            description: description.trim() || null,
-            tags: [],
-          }),
-        });
-
-        if (!tempResponse.ok) {
-          throw new Error("创建角色失败");
-        }
-
-        const tempResult = await tempResponse.json();
-        const characterId = tempResult.character.id;
-
-        // Step 2: 上传第一张图片作为基础形象
-        setUploadProgress(`正在上传图片 (1/${imageFiles.length})...`);
-
-        const formData = new FormData();
-        formData.append("file", imageFiles[0]);
-        formData.append("characterId", characterId);
-        formData.append("type", "base");
-
-        const uploadResponse = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!uploadResponse.ok) {
-          throw new Error("图片上传失败");
-        }
-
-        const uploadResult = await uploadResponse.json();
-        baseImageUrl = uploadResult.url;
-
-        // Step 3: 上传其他图片作为参考图
-        for (let i = 1; i < imageFiles.length; i++) {
-          setUploadProgress(`正在上传图片 (${i + 1}/${imageFiles.length})...`);
-
-          const refFormData = new FormData();
-          refFormData.append("file", imageFiles[i]);
-          refFormData.append("characterId", characterId);
-          refFormData.append("type", "reference");
-
-          await fetch("/api/upload", {
-            method: "POST",
-            body: refFormData,
-          });
-        }
-
-        // Step 4: 更新角色添加基础图片 URL
-        setUploadProgress("更新角色信息...");
-        await fetch(`/api/character/${characterId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            base_image_url: baseImageUrl,
-          }),
-        });
-
-        // 通知父组件（传递完整信息）
-        await onSubmit({
-          name: name.trim(),
-          description: description.trim(),
-          base_image_url: baseImageUrl,
+        setUploadProgress(`正在创建角色并上传 ${imageFiles.length} 张图片...`);
+        imageFiles.forEach((file, index) => {
+          formData.append(`images[${index}]`, file);
         });
       } else {
-        // 没有图片，直接创建
-        await onSubmit({
-          name: name.trim(),
-          description: description.trim(),
-        });
+        setUploadProgress("正在创建角色...");
       }
+
+      // 一次性提交到后端
+      const response = await fetch("/api/character", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "创建角色失败");
+      }
+
+      const result = await response.json();
+
+      // 通知父组件刷新列表
+      await onSubmit({
+        name: result.character.name,
+        description: result.character.description,
+        base_image_url: result.character.base_image_url,
+      });
 
       // Reset form
       setName("");
@@ -142,9 +95,7 @@ const CreateCharacterDialog = ({
 
       toast({
         title: "角色创建成功",
-        description: imageFiles.length > 0
-          ? `${name} 已创建，共上传 ${imageFiles.length} 张图片`
-          : `${name} 已创建`,
+        description: result.message || `${result.character.name} 已创建`,
       });
     } catch (err) {
       console.error("Create character error:", err);
