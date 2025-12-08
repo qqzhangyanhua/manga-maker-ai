@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import { ArrowLeft, Wand2, Grid3X3, Download, Sparkles, BookOpen, MessageSquare, Edit3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToastAction } from "@/components/ui/toast";
 import ScriptInput from "@/components/Storyboard/ScriptInput";
 import AutoLayoutGrid from "@/components/Storyboard/AutoLayoutGrid";
 import NarrativeTemplateSelector from "@/components/Storyboard/NarrativeTemplateSelector";
@@ -26,6 +27,30 @@ type ApiPanel = {
   emotion: string | null;
   prompt_used: string | null;
   generated_image: string | null;
+  script_segment_id: string | null;
+  script_start: number | null;
+  script_end: number | null;
+  camera_angle: string | null;
+  shot_size: string | null;
+  sketch_image_url: string | null;
+  visual_prompt: string | null;
+  created_at: string;
+};
+
+type ApiScriptSegment = {
+  id: string;
+  start: number;
+  end: number;
+  text: string;
+};
+
+type ApiScript = {
+  id: string;
+  project_id: string;
+  content: string;
+  segments: ApiScriptSegment[];
+  created_at: string;
+  updated_at: string;
 };
 
 type ApiProject = {
@@ -34,7 +59,11 @@ type ApiProject = {
   description: string | null;
   style: string | null;
   status: string;
+  cover_image: string | null;
+  created_at: string;
+  updated_at: string;
   panels: ApiPanel[];
+  script?: ApiScript;
 };
 
 // 转换API数据为前端格式
@@ -136,10 +165,11 @@ const StoryboardEditorPage = () => {
         toast({
           title: "智能分镜拆解完成",
           description: `已生成项目《${data.project.title}》，包含 ${localPanels.length} 个分镜`,
-          action: {
-            label: "进入编辑器",
-            onClick: () => window.location.href = `/storyboard/editor/${data.project.id}`,
-          },
+          action: (
+            <ToastAction altText="进入编辑器" onClick={() => window.location.href = `/storyboard/editor/${data.project.id}`}>
+              进入编辑器
+            </ToastAction>
+          ),
         });
         refreshUsage();
       }
@@ -149,10 +179,11 @@ const StoryboardEditorPage = () => {
         title: "生成失败",
         description: error instanceof Error ? error.message : "未知错误",
         variant: "destructive",
-        action: {
-          label: "联系管理员",
-          onClick: () => window.open("mailto:support@example.com?subject=ComicAI%20额度申请", "_blank"),
-        },
+        action: (
+          <ToastAction altText="联系管理员" onClick={() => window.open("mailto:support@example.com?subject=ComicAI%20额度申请", "_blank")}>
+            联系管理员
+          </ToastAction>
+        ),
       });
     } finally {
       setIsGenerating(false);
@@ -238,10 +269,11 @@ const StoryboardEditorPage = () => {
         title: "图像生成失败",
         description: error instanceof Error ? error.message : "未知错误",
         variant: "destructive",
-        action: {
-          label: "升级配额",
-          onClick: () => window.open("mailto:support@example.com?subject=ComicAI%20额度申请", "_blank"),
-        },
+        action: (
+          <ToastAction altText="升级配额" onClick={() => window.open("mailto:support@example.com?subject=ComicAI%20额度申请", "_blank")}>
+            升级配额
+          </ToastAction>
+        ),
       });
     }
   };
