@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI漫画生成器 - 照片转分镜漫画</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="container">
+    <!-- 头部 -->
+    <div class="header">
+      <h1>🎨 AI漫画生成器</h1>
+      <p>输入故事 → 生成分镜 → 上传参考图 → 创作漫画</p>
+      <div style="background: rgba(102, 126, 234, 0.1); padding: 15px; border-radius: 10px; margin-top: 20px; font-size: 0.9rem; text-align: left; max-width: 800px; margin-left: auto; margin-right: auto;">
+        <strong>💡 工作流程说明：</strong><br>
+        1️⃣ <strong>输入故事描述</strong> → AI生成分镜脚本（可编辑、可重新生成）<br>
+        2️⃣ <strong>上传参考图片</strong> → 用于漫画角色的外观参考<br>
+        3️⃣ <strong>生成完整漫画</strong> → 根据分镜和参考图生成漫画
+      </div>
+    </div>
+
+    <!-- 工作流步骤指示器 -->
+    <div class="workflow-steps">
+      <div class="workflow-step" data-step="1">
+        <span>📝</span>
+        <span>输入故事</span>
+      </div>
+      <div class="workflow-arrow">→</div>
+      <div class="workflow-step" data-step="2">
+        <span>📋</span>
+        <span>生成分镜</span>
+      </div>
+      <div class="workflow-arrow">→</div>
+      <div class="workflow-step" data-step="3">
+        <span>📸</span>
+        <span>上传参考</span>
+      </div>
+      <div class="workflow-arrow">→</div>
+      <div class="workflow-step" data-step="4">
+        <span>🎨</span>
+        <span>生成漫画</span>
+      </div>
+    </div>
+
+    <!-- 主要内容区 -->
+    <div class="demo-grid">
+      <!-- 故事描述区域 -->
+      <div class="upload-section" style="grid-column: 1 / -1;">
+        <div class="section-title">💭 第一步：输入故事描述</div>
+        <textarea 
+          class="prompt-input" 
+          id="descriptionInput"
+          placeholder="请描述你想要的漫画故事，例如：&#10;&#10;一只可爱的兔子在健身房锻炼，从新手小白成长为肌肉达人的励志故事。包含它第一次进健身房的紧张、刻苦训练的过程、遇到挫折的困惑、得到AI教练指导的惊喜、突破自我的兴奋，最后展示健美身材的自信。&#10;&#10;💡 提示：&#10;- 描述越详细，生成的分镜越精彩&#10;- 可以包含情绪变化、场景转换&#10;- 建议3-8个主要情节点"
+        ></textarea>
+        
+        <div style="margin-top: 15px;">
+          <label style="display: flex; align-items: center; gap: 10px; color: #666; font-size: 0.9rem;">
+            <span>分镜数量:</span>
+            <select id="panelCount" style="padding: 8px; border: 2px solid #ddd; border-radius: 5px; font-size: 0.9rem;">
+              <option value="4">4格</option>
+              <option value="6" selected>6格 (推荐)</option>
+              <option value="8">8格</option>
+              <option value="9">9格</option>
+            </select>
+          </label>
+        </div>
+
+        <button class="generate-btn" id="generateStoryboardBtn" disabled>
+          📝 生成分镜脚本（不需要图片）
+        </button>
+        <div style="text-align: center; color: #666; font-size: 0.9rem; margin-top: 10px;">
+          ℹ️ 分镜脚本生成后可以编辑和重新生成
+        </div>
+      </div>
+
+      <!-- 上传区域 -->
+      <div class="upload-section">
+        <div class="section-title">📸 第二步：上传角色参考图</div>
+        <div style="background: #fff3cd; color: #856404; padding: 10px; border-radius: 5px; margin-bottom: 15px; font-size: 0.9rem;">
+          ⚠️ 此图片将作为漫画角色的外观参考，请上传清晰的人物或角色照片
+        </div>
+        <div class="upload-area" id="uploadArea">
+          <div class="upload-icon">📁</div>
+          <div class="upload-text">点击或拖拽上传参考图片</div>
+          <div class="upload-hint">支持 JPG, PNG, WebP 格式，最大 10MB</div>
+          <input type="file" class="file-input" id="fileInput" accept="image/*">
+        </div>
+        <div id="originalImageContainer" style="display: none;">
+          <img id="originalImage" class="image-preview" alt="参考图预览">
+          <div class="image-info" id="originalImageInfo"></div>
+        </div>
+      </div>
+
+      <!-- 分镜显示区域 -->
+      <div class="result-section" style="grid-column: 1 / -1;">
+        <div class="section-title">📋 分镜脚本</div>
+        <div id="storyboardContainer">
+          <div style="text-align: center; color: #999; padding: 40px;">
+            <div style="font-size: 3rem; margin-bottom: 15px;">📋</div>
+            <div>分镜脚本将在这里显示</div>
+            <div style="margin-top: 10px; font-size: 0.9rem;">生成后可以编辑每个分镜，或重新生成</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 10px;">
+          <div style="font-weight: 600; color: #333; margin-bottom: 10px;">🎨 漫画输出模式</div>
+          <div style="display: flex; gap: 20px; align-items: center;">
+            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+              <input type="radio" name="comicOutputMode" value="merged" id="outputModeMerged" checked>
+              <span>📄 合成为一张图（推荐）</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+              <input type="radio" name="comicOutputMode" value="separate" id="outputModeSeparate">
+              <span>🖼️ 多张独立图</span>
+            </label>
+          </div>
+          <div style="margin-top: 10px; font-size: 0.85rem; color: #666;">
+            💡 <strong>合成模式（默认）：</strong>像传统漫画一样，将所有分镜拼接成一张完整的漫画图片<br>
+            💡 <strong>独立模式：</strong>每个分镜单独生成一张图片，可以灵活使用
+          </div>
+        </div>
+
+        <button class="generate-btn" id="generateComicBtn" disabled style="margin-top: 20px;">
+          🎨 第三步：生成完整漫画（需要分镜 + 参考图）
+        </button>
+      </div>
+
+      <!-- 漫画结果区域 -->
+      <div class="result-section" style="grid-column: 1 / -1;">
+        <div id="comicContainer">
+          <div style="text-align: center; color: #999; padding: 40px;">
+            <div style="font-size: 3rem; margin-bottom: 15px;">🖼️</div>
+            <div>完整漫画将在这里显示</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 加载提示 -->
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <div id="loadingText">处理中...</div>
+    </div>
+
+    <!-- 消息提示 -->
+    <div class="error-message" id="errorMessage"></div>
+    <div class="success-message" id="successMessage"></div>
+  </div>
+
+  <!-- 引入脚本 -->
+  <script src="js/config.js"></script>
+  <script src="js/storyboard-generator.js"></script>
+  <script src="js/comic-generator.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
+
