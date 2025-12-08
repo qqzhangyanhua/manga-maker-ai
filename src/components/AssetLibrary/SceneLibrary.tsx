@@ -1,94 +1,264 @@
+"use client";
+
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit2, MapPin, Clock, Sparkles } from "lucide-react";
+import { Plus, Edit2, MapPin, Trash2, Sparkles, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-interface SceneAsset {
+type Scene = {
   id: string;
+  user_id: string;
   name: string;
-  description: string;
-  image: string;
-  location: string;
-  timeOfDay: string;
-  usageCount: number;
-}
+  description: string | null;
+  scene_type: string;
+  image_url: string | null;
+  tags: string[];
+  prompt: string | null;
+  usage_count: number;
+  created_at: string;
+  updated_at: string;
+};
 
-const defaultScenes: SceneAsset[] = [
-  {
-    id: "city-night",
-    name: "都市夜景",
-    description: "霓虹闪烁的现代都市夜景，高楼林立",
-    image: "https://images.unsplash.com/photo-1519501025264-65ba15a82390?w=600&h=400&fit=crop",
-    location: "都市",
-    timeOfDay: "夜晚",
-    usageCount: 34,
-  },
-  {
-    id: "fantasy-forest",
-    name: "奇幻森林",
-    description: "神秘的魔法森林，古树参天，萤火虫飞舞",
-    image: "https://images.unsplash.com/photo-1448375240586-882707db888b?w=600&h=400&fit=crop",
-    location: "森林",
-    timeOfDay: "黄昏",
-    usageCount: 28,
-  },
-  {
-    id: "school",
-    name: "校园教室",
-    description: "阳光洒落的日式校园教室",
-    image: "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=600&h=400&fit=crop",
-    location: "学校",
-    timeOfDay: "白天",
-    usageCount: 45,
-  },
-  {
-    id: "space-station",
-    name: "空间站",
-    description: "未来科幻风格的太空站内部",
-    image: "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=600&h=400&fit=crop",
-    location: "太空",
-    timeOfDay: "无",
-    usageCount: 19,
-  },
-  {
-    id: "ancient-temple",
-    name: "古代神殿",
-    description: "神秘的东方古代神殿，石柱环绕",
-    image: "https://images.unsplash.com/photo-1548013146-72479768bada?w=600&h=400&fit=crop",
-    location: "神殿",
-    timeOfDay: "黎明",
-    usageCount: 23,
-  },
-  {
-    id: "cafe",
-    name: "温馨咖啡厅",
-    description: "现代风格的咖啡厅，温暖的灯光",
-    image: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=600&h=400&fit=crop",
-    location: "室内",
-    timeOfDay: "下午",
-    usageCount: 31,
-  },
+const sceneTypes = [
+  { value: "indoor", label: "室内", icon: "🏠" },
+  { value: "outdoor", label: "室外", icon: "🌳" },
+  { value: "urban", label: "城市", icon: "🏙️" },
+  { value: "nature", label: "自然", icon: "🌲" },
+  { value: "fantasy", label: "奇幻", icon: "✨" },
+  { value: "scifi", label: "科幻", icon: "🚀" },
+  { value: "historical", label: "历史", icon: "🏛️" },
+  { value: "abstract", label: "抽象", icon: "🎨" },
 ];
 
 const SceneLibrary = () => {
-  const [scenes] = useState<SceneAsset[]>(defaultScenes);
   const [selectedScene, setSelectedScene] = useState<string | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingScene, setEditingScene] = useState<Scene | null>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const handleCreateNew = () => {
-    toast({
-      title: "创建新场景",
-      description: "场景创建功能需要连接 Lovable Cloud",
+  // Form state for create/edit
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+    scene_type: "indoor",
+    image_url: "",
+    tags: "",
+    prompt: "",
+  });
+
+  // Fetch scenes
+  const { data: scenes, isLoading } = useQuery<Scene[]>({
+    queryKey: ["scenes"],
+    queryFn: async () => {
+      const response = await fetch("/api/scene");
+      if (!response.ok) {
+        throw new Error("获取场景列表失败");
+      }
+      return response.json();
+    },
+  });
+
+  // Create scene mutation
+  const createMutation = useMutation({
+    mutationFn: async (data: typeof formData) => {
+      const response = await fetch("/api/scene", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...data,
+          tags: data.tags.split(",").map((t) => t.trim()).filter(Boolean),
+        }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "创建场景失败");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["scenes"] });
+      toast({
+        title: "创建成功",
+        description: "场景已添加到库中",
+      });
+      setCreateDialogOpen(false);
+      resetForm();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "创建失败",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update scene mutation
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<typeof formData> }) => {
+      const response = await fetch(`/api/scene/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...data,
+          tags: data.tags ? data.tags.split(",").map((t) => t.trim()).filter(Boolean) : undefined,
+        }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "更新场景失败");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["scenes"] });
+      toast({
+        title: "更新成功",
+        description: "场景信息已保存",
+      });
+      setEditDialogOpen(false);
+      setEditingScene(null);
+      resetForm();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "更新失败",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete scene mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/scene/${id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "删除场景失败");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["scenes"] });
+      toast({
+        title: "删除成功",
+        description: "场景已从库中移除",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "删除失败",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      description: "",
+      scene_type: "indoor",
+      image_url: "",
+      tags: "",
+      prompt: "",
     });
   };
 
-  const handleUseScene = (scene: SceneAsset) => {
+  const handleCreateNew = () => {
+    resetForm();
+    setCreateDialogOpen(true);
+  };
+
+  const handleEdit = (scene: Scene) => {
+    setEditingScene(scene);
+    setFormData({
+      name: scene.name,
+      description: scene.description || "",
+      scene_type: scene.scene_type,
+      image_url: scene.image_url || "",
+      tags: scene.tags.join(", "),
+      prompt: scene.prompt || "",
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleDelete = (sceneId: string, sceneName: string) => {
+    if (confirm(`确定要删除场景 "${sceneName}" 吗？`)) {
+      deleteMutation.mutate(sceneId);
+    }
+  };
+
+  const handleUseScene = (scene: Scene) => {
     toast({
       title: `已选择 ${scene.name}`,
       description: "场景已添加到当前创作中",
     });
   };
+
+  const handleSubmitCreate = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name || !formData.scene_type) {
+      toast({
+        title: "请填写必填项",
+        description: "场景名称和类型是必填的",
+        variant: "destructive",
+      });
+      return;
+    }
+    createMutation.mutate(formData);
+  };
+
+  const handleSubmitEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingScene) return;
+    if (!formData.name || !formData.scene_type) {
+      toast({
+        title: "请填写必填项",
+        description: "场景名称和类型是必填的",
+        variant: "destructive",
+      });
+      return;
+    }
+    updateMutation.mutate({ id: editingScene.id, data: formData });
+  };
+
+  const getSceneTypeLabel = (type: string) => {
+    return sceneTypes.find((st) => st.value === type)?.label || type;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -108,7 +278,7 @@ const SceneLibrary = () => {
 
       {/* Scene Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {scenes.map((scene) => (
+        {scenes?.map((scene) => (
           <div
             key={scene.id}
             className={cn(
@@ -118,23 +288,27 @@ const SceneLibrary = () => {
             onClick={() => setSelectedScene(scene.id)}
           >
             {/* Image */}
-            <div className="aspect-video relative overflow-hidden rounded-t-lg">
-              <img
-                src={scene.image}
-                alt={scene.name}
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
+            <div className="aspect-video relative overflow-hidden rounded-t-lg bg-muted">
+              {scene.image_url ? (
+                <>
+                  <img
+                    src={scene.image_url}
+                    alt={scene.name}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
+                </>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <MapPin className="w-16 h-16 text-muted-foreground" />
+                </div>
+              )}
 
-              {/* Location & Time Tags */}
+              {/* Scene Type Tag */}
               <div className="absolute top-3 left-3 flex gap-2">
                 <span className="px-2 py-1 rounded-full text-xs font-semibold bg-background/80 text-foreground flex items-center gap-1">
                   <MapPin className="w-3 h-3" />
-                  {scene.location}
-                </span>
-                <span className="px-2 py-1 rounded-full text-xs font-semibold bg-background/80 text-foreground flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  {scene.timeOfDay}
+                  {getSceneTypeLabel(scene.scene_type)}
                 </span>
               </div>
 
@@ -151,8 +325,25 @@ const SceneLibrary = () => {
                   <Sparkles className="w-4 h-4" />
                   使用
                 </Button>
-                <Button size="sm" variant="outline">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEdit(scene);
+                  }}
+                >
                   <Edit2 className="w-4 h-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(scene.id, scene.name);
+                  }}
+                >
+                  <Trash2 className="w-4 h-4 text-destructive" />
                 </Button>
               </div>
             </div>
@@ -160,11 +351,32 @@ const SceneLibrary = () => {
             {/* Content */}
             <div className="p-4">
               <h3 className="font-comic text-xl text-foreground mb-1">{scene.name}</h3>
-              <p className="text-sm text-muted-foreground mb-3">{scene.description}</p>
+              <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                {scene.description || "暂无描述"}
+              </p>
+
+              {/* Tags */}
+              {scene.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {scene.tags.slice(0, 3).map((tag, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2 py-0.5 rounded text-xs bg-muted text-muted-foreground"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                  {scene.tags.length > 3 && (
+                    <span className="px-2 py-0.5 rounded text-xs text-muted-foreground">
+                      +{scene.tags.length - 3}
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* Stats */}
               <div className="text-xs text-muted-foreground">
-                使用次数: {scene.usageCount}
+                使用次数: {scene.usage_count}
               </div>
             </div>
           </div>
@@ -184,6 +396,177 @@ const SceneLibrary = () => {
           </div>
         </button>
       </div>
+
+      {/* Create Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>创建新场景</DialogTitle>
+            <DialogDescription>添加新的场景到您的资产库</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmitCreate} className="space-y-4">
+            <div>
+              <Label htmlFor="name">场景名称 *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="例: 温馨咖啡厅"
+              />
+            </div>
+            <div>
+              <Label htmlFor="scene_type">场景类型 *</Label>
+              <Select
+                value={formData.scene_type}
+                onValueChange={(value) => setFormData({ ...formData, scene_type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {sceneTypes.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.icon} {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="description">描述</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="描述场景的特点和氛围"
+              />
+            </div>
+            <div>
+              <Label htmlFor="image_url">图片URL</Label>
+              <Input
+                id="image_url"
+                value={formData.image_url}
+                onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                placeholder="https://..."
+              />
+            </div>
+            <div>
+              <Label htmlFor="tags">标签（用逗号分隔）</Label>
+              <Input
+                id="tags"
+                value={formData.tags}
+                onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+                placeholder="咖啡厅, 温馨, 现代"
+              />
+            </div>
+            <div>
+              <Label htmlFor="prompt">AI提示词</Label>
+              <Textarea
+                id="prompt"
+                value={formData.prompt}
+                onChange={(e) => setFormData({ ...formData, prompt: e.target.value })}
+                placeholder="用于生成该场景的AI提示词"
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCreateDialogOpen(false)}
+              >
+                取消
+              </Button>
+              <Button type="submit" disabled={createMutation.isPending}>
+                {createMutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                创建
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>编辑场景</DialogTitle>
+            <DialogDescription>修改场景信息</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmitEdit} className="space-y-4">
+            <div>
+              <Label htmlFor="edit-name">场景名称 *</Label>
+              <Input
+                id="edit-name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-scene_type">场景类型 *</Label>
+              <Select
+                value={formData.scene_type}
+                onValueChange={(value) => setFormData({ ...formData, scene_type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {sceneTypes.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.icon} {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="edit-description">描述</Label>
+              <Textarea
+                id="edit-description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-image_url">图片URL</Label>
+              <Input
+                id="edit-image_url"
+                value={formData.image_url}
+                onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-tags">标签（用逗号分隔）</Label>
+              <Input
+                id="edit-tags"
+                value={formData.tags}
+                onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-prompt">AI提示词</Label>
+              <Textarea
+                id="edit-prompt"
+                value={formData.prompt}
+                onChange={(e) => setFormData({ ...formData, prompt: e.target.value })}
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditDialogOpen(false)}
+              >
+                取消
+              </Button>
+              <Button type="submit" disabled={updateMutation.isPending}>
+                {updateMutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                保存
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
