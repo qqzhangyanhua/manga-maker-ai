@@ -3,7 +3,8 @@
     "allow": [
       "Bash(pnpm build:*)",
       "Bash(npx prisma generate:*)",
-      "Bash(pnpm add:*)"
+      "Bash(pnpm add:*)",
+      "Bash(npx prisma db push:*)"
     ],
     "deny": [],
     "ask": []

@@ -123,6 +123,38 @@ const AdminLlmProvidersPage = () => {
     setMessage("");
   };
 
+  const handleCopy = async (provider: Provider) => {
+    setMessage("");
+    try {
+      // 复制配置，但设置 enabled 为 false
+      const payload = {
+        provider_type: provider.provider_type,
+        provider_name: provider.provider_name,
+        model: provider.model,
+        base_url: provider.base_url,
+        api_key: provider.api_key,
+        priority: provider.priority,
+        enabled: false, // 复制后默认关闭
+      };
+
+      const res = await fetch("/api/llm-providers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || "复制失败");
+      }
+
+      setMessage("复制成功（已默认关闭）");
+      fetchProviders();
+    } catch (error) {
+      setMessage((error as Error).message);
+    }
+  };
+
   const handleDelete = async (id: number) => {
     if (!confirm("确定删除该模型配置吗？")) return;
     setMessage("");
@@ -173,6 +205,47 @@ const AdminLlmProvidersPage = () => {
         <p className="text-muted-foreground">
           按 provider_type 归类的模型配置；调用前会按 type 查表并取优先级最高的记录。
         </p>
+      </div>
+
+      {/* Provider Type 说明 */}
+      <div className="p-4 rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
+        <h3 className="font-semibold mb-3 text-blue-900 dark:text-blue-100">
+          📋 系统已知的 provider_type 类型：
+        </h3>
+        <div className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <strong className="text-blue-900 dark:text-blue-100">storyboard</strong>
+              <p className="text-xs mt-1">用于故事板相关功能：剧本分析、分镜生成、分镜合并/拆分/插入等</p>
+              <p className="text-xs text-blue-600 dark:text-blue-300">
+                使用位置：/api/storyboard, /api/panel/merge, /api/panel/split, /api/panel/insert,
+                /api/character/generate-views, /api/character/generate-expressions, /api/character/outfits
+              </p>
+            </div>
+            <div>
+              <strong className="text-blue-900 dark:text-blue-100">image_generation</strong>
+              <p className="text-xs mt-1">用于 AI 图像生成：分镜图片、角色表情、角色三视图、角色装扮等</p>
+              <p className="text-xs text-blue-600 dark:text-blue-300">
+                使用位置：/api/panel/generate-image, /api/character/generate-views,
+                /api/character/generate-expressions, /api/character/generate-similar, /api/character/outfits
+              </p>
+            </div>
+            <div>
+              <strong className="text-blue-900 dark:text-blue-100">prompt_optimizer</strong>
+              <p className="text-xs mt-1">用于提示词优化：增强用户输入的提示词质量</p>
+              <p className="text-xs text-blue-600 dark:text-blue-300">
+                使用位置：/api/prompt/optimize
+              </p>
+            </div>
+            <div>
+              <strong className="text-blue-900 dark:text-blue-100">character_analyzer</strong>
+              <p className="text-xs mt-1">用于角色分析：分析角色特征并生成相似角色变体</p>
+              <p className="text-xs text-blue-600 dark:text-blue-300">
+                使用位置：/api/character/generate-similar
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {message && (
@@ -297,6 +370,9 @@ const AdminLlmProvidersPage = () => {
                     <td className="px-3 py-2 space-x-2">
                       <Button size="sm" variant="secondary" onClick={() => handleEdit(p)}>
                         编辑
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleCopy(p)}>
+                        复制
                       </Button>
                       <Button size="sm" variant="destructive" onClick={() => handleDelete(p.id)}>
                         删除
