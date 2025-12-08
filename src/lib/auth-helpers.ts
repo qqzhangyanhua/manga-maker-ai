@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { verifyAuthToken, type AuthTokenPayload } from "@/lib/auth";
+import { verifyAuthToken, type AuthTokenPayload, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
 // Helper to verify token from cookies
@@ -10,7 +10,7 @@ export async function verifyToken(token: string) {
 // Helper to get current user from request
 export async function getCurrentUser() {
   const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
+  const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
 
   if (!token) {
     return null;
@@ -23,7 +23,7 @@ export async function getCurrentUser() {
 // Helper to require admin role
 export async function requireAdmin(): Promise<AuthTokenPayload | NextResponse> {
   const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
+  const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
 
   if (!token) {
     return NextResponse.json({ error: "未登录" }, { status: 401 });

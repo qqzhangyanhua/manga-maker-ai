@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Sparkles, Plus, Shirt, Smile, RotateCcw, Camera } from "lucide-react";
+import { ArrowLeft, Sparkles, Plus, Shirt, Smile, RotateCcw, Camera, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import CreateOutfitDialog from "./CreateOutfitDialog";
 import ImageUploadDialog from "./ImageUploadDialog";
 import ImagePreviewCard from "./ImagePreviewCard";
+import GenerateSimilarDialog from "./GenerateSimilarDialog";
 
 interface CharacterAsset {
   id: string;
@@ -61,6 +62,7 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [currentUploadType, setCurrentUploadType] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
+  const [generateSimilarDialogOpen, setGenerateSimilarDialogOpen] = useState(false);
   const { toast } = useToast();
 
   // Load existing data from character
@@ -469,6 +471,19 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
         onSubmit={handleCreateOutfit}
       />
       
+      <GenerateSimilarDialog
+        open={generateSimilarDialogOpen}
+        onOpenChange={setGenerateSimilarDialogOpen}
+        character={character}
+        onSuccess={() => {
+          // Notify parent to refresh character list
+          toast({
+            title: "提示",
+            description: "新角色已保存到角色库，请返回列表查看",
+          });
+        }}
+      />
+      
       <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -479,6 +494,13 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
           <ArrowLeft className="w-4 h-4" />
           返回角色列表
         </button>
+        <Button
+          variant="outline"
+          onClick={() => setGenerateSimilarDialogOpen(true)}
+        >
+          <Copy className="w-4 h-4 mr-2" />
+          生成相似角色
+        </Button>
       </div>
 
       {/* Character Info */}
