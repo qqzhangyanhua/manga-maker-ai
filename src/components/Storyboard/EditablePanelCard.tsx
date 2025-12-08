@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { Camera, Image as ImageIcon, Pencil, Check, X, Merge, Split, Plus, Sparkles } from "lucide-react";
+import { Camera, Image as ImageIcon, Pencil, Check, X, Merge, Split, Plus, Sparkles, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useDebouncedCallback } from "@/hooks/use-debounce";
 import {
   Select,
   SelectContent,
@@ -39,6 +40,7 @@ interface EditablePanelCardProps {
   onSplit?: (panelId: string) => void;
   onInsertAfter?: (panelOrder: number) => void;
   onGenerateSketch?: (panelId: string) => void;
+  operationLoading?: { type: "merge" | "split" | "insert" | null; panelId?: string };
 }
 
 const CAMERA_ANGLES = [
@@ -65,19 +67,46 @@ const EditablePanelCard = ({
   onSplit,
   onInsertAfter,
   onGenerateSketch,
+  operationLoading,
 }: EditablePanelCardProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedPrompt, setEditedPrompt] = useState(panel.visual_prompt || panel.description);
   const [editedDialogue, setEditedDialogue] = useState(panel.dialogue || "");
   const [cameraAngle, setCameraAngle] = useState(panel.camera_angle || "平视");
   const [shotSize, setShotSize] = useState(panel.shot_size || "中景");
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   useEffect(() => {
     setEditedPrompt(panel.visual_prompt || panel.description);
     setEditedDialogue(panel.dialogue || "");
     setCameraAngle(panel.camera_angle || "平视");
     setShotSize(panel.shot_size || "中景");
+    setHasUnsavedChanges(false);
   }, [panel]);
+
+  // 自动保存逻辑（500ms debounce）
+  const debouncedAutoSave = useDebouncedCallback(async () => {
+    if (!hasUnsavedChanges || !isEditing) return;
+    
+    setIsSaving(true);
+    await onUpdate({
+      visual_prompt: editedPrompt,
+      dialogue: editedDialogue || null,
+      camera_angle: cameraAngle,
+      shot_size: shotSize,
+    });
+    setIsSaving(false);
+    setHasUnsavedChanges(false);
+  }, 500);
+
+  // 监听字段变化，触发自动保存
+  useEffect(() => {
+    if (isEditing) {
+      setHasUnsavedChanges(true);
+      debouncedAutoSave();
+    }
+  }, [editedPrompt, editedDialogue, cameraAngle, shotSize, isEditing, debouncedAutoSave]);
 
   const handleSave = () => {
     onUpdate({
@@ -121,6 +150,17 @@ const EditablePanelCard = ({
               {panel.panel_type} · {panel.importance}
             </div>
           </div>
+          {isSaving && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Save className="w-3 h-3 animate-pulse" />
+              保存中...
+            </div>
+          )}
+          {hasUnsavedChanges && !isSaving && isEditing && (
+            <div className="text-xs text-yellow-600 dark:text-yellow-500">
+              未保存
+            </div>
+          )}
         </div>
         <Button
           size="sm"
@@ -310,9 +350,10 @@ const EditablePanelCard = ({
                   e.stopPropagation();
                   onMerge(panel.id);
                 }}
+                disabled={operationLoading?.type === "merge" && operationLoading?.panelId === panel.id}
               >
-                <Merge className="w-3 h-3 mr-1" />
-                合并
+                <Merge className={cn("w-3 h-3 mr-1", operationLoading?.type === "merge" && operationLoading?.panelId === panel.id && "animate-spin")} />
+                {operationLoading?.type === "merge" && operationLoading?.panelId === panel.id ? "合并中..." : "合并"}
               </Button>
             )}
             {onSplit && (
@@ -324,9 +365,10 @@ const EditablePanelCard = ({
                   e.stopPropagation();
                   onSplit(panel.id);
                 }}
+                disabled={operationLoading?.type === "split" && operationLoading?.panelId === panel.id}
               >
-                <Split className="w-3 h-3 mr-1" />
-                拆分
+                <Split className={cn("w-3 h-3 mr-1", operationLoading?.type === "split" && operationLoading?.panelId === panel.id && "animate-spin")} />
+                {operationLoading?.type === "split" && operationLoading?.panelId === panel.id ? "拆分中..." : "拆分"}
               </Button>
             )}
             {onInsertAfter && (
@@ -338,8 +380,9 @@ const EditablePanelCard = ({
                   e.stopPropagation();
                   onInsertAfter(panel.panel_order);
                 }}
+                disabled={operationLoading?.type === "insert"}
               >
-                <Plus className="w-3 h-3 mr-1" />
+                <Plus className={cn("w-3 h-3 mr-1", operationLoading?.type === "insert" && "animate-spin")} />
                 插入
               </Button>
             )}

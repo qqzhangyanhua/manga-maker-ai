@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import ScriptEditorPane from "@/components/Storyboard/ScriptEditorPane";
 import EditablePanelCard from "@/components/Storyboard/EditablePanelCard";
+import InsertPanelDialog from "@/components/Storyboard/InsertPanelDialog";
 
 // 类型定义
 type ScriptSegment = {
@@ -66,10 +67,43 @@ export default function StoryboardEditorPage({
   const [loading, setLoading] = useState(true);
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
   const [selectedPanelId, setSelectedPanelId] = useState<string | null>(null);
+  const [insertDialogOpen, setInsertDialogOpen] = useState(false);
+  const [insertAfterOrder, setInsertAfterOrder] = useState<number | null>(null);
+  const [operationLoading, setOperationLoading] = useState<{
+    type: "merge" | "split" | "insert" | null;
+    panelId?: string;
+  }>({ type: null });
 
   // Refs for scrolling
   const segmentRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const panelRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // 全局快捷键监听
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd/Ctrl + M: 合并
+      if ((e.metaKey || e.ctrlKey) && e.key === "m" && selectedPanelId) {
+        e.preventDefault();
+        handleMerge(selectedPanelId);
+      }
+      // Cmd/Ctrl + D: 拆分（避免与浏览器书签冲突，改用 D）
+      else if ((e.metaKey || e.ctrlKey) && e.key === "d" && selectedPanelId) {
+        e.preventDefault();
+        handleSplit(selectedPanelId);
+      }
+      // Cmd/Ctrl + I: 插入
+      else if ((e.metaKey || e.ctrlKey) && e.key === "i" && selectedPanelId) {
+        e.preventDefault();
+        const panel = project?.panels.find((p) => p.id === selectedPanelId);
+        if (panel) {
+          handleInsertAfter(panel.panel_order);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedPanelId, project]);
 
   // 加载项目数据
   useEffect(() => {
@@ -177,6 +211,7 @@ export default function StoryboardEditorPage({
 
     const nextPanel = project.panels[panelIndex + 1];
     
+    setOperationLoading({ type: "merge", panelId });
     try {
       const response = await fetch("/api/panel/merge", {
         method: "POST",
@@ -207,11 +242,14 @@ export default function StoryboardEditorPage({
         description: error instanceof Error ? error.message : "未知错误",
         variant: "destructive",
       });
+    } finally {
+      setOperationLoading({ type: null });
     }
   };
 
   // 拆分分镜
   const handleSplit = async (panelId: string) => {
+    setOperationLoading({ type: "split", panelId });
     try {
       const response = await fetch("/api/panel/split", {
         method: "POST",
@@ -244,25 +282,31 @@ export default function StoryboardEditorPage({
         description: error instanceof Error ? error.message : "未知错误",
         variant: "destructive",
       });
+    } finally {
+      setOperationLoading({ type: null });
     }
   };
 
-  // 插入分镜
+  // 插入分镜（打开对话框）
   const handleInsertAfter = async (panelOrder: number) => {
-    if (!project) return;
+    setInsertAfterOrder(panelOrder);
+    setInsertDialogOpen(true);
+  };
 
-    const description = prompt("请输入新分镜的描述：");
-    if (!description) return;
+  // 执行插入分镜
+  const handleInsertPanel = async (description: string, useLLM: boolean) => {
+    if (!project || insertAfterOrder === null) return;
 
+    setOperationLoading({ type: "insert" });
     try {
       const response = await fetch("/api/panel/insert", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           project_id: project.id,
-          insert_after_order: panelOrder,
+          insert_after_order: insertAfterOrder,
           description,
-          use_llm: true,
+          use_llm: useLLM,
         }),
       });
 
@@ -286,6 +330,8 @@ export default function StoryboardEditorPage({
         description: error instanceof Error ? error.message : "未知错误",
         variant: "destructive",
       });
+    } finally {
+      setOperationLoading({ type: null });
     }
   };
 
@@ -333,10 +379,15 @@ export default function StoryboardEditorPage({
               {project.panels.length} 个分镜
             </span>
           </div>
-          <Button variant="comic" size="sm">
-            <Save className="w-4 h-4" />
-            保存项目
-          </Button>
+          <div className="flex items-center gap-3">
+            <div className="text-xs text-muted-foreground hidden lg:block">
+              快捷键: ⌘M 合并 · ⌘D 拆分 · ⌘I 插入
+            </div>
+            <Button variant="comic" size="sm">
+              <Save className="w-4 h-4" />
+              保存项目
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -371,12 +422,21 @@ export default function StoryboardEditorPage({
                   onSplit={handleSplit}
                   onInsertAfter={handleInsertAfter}
                   onGenerateSketch={handleGenerateSketch}
+                  operationLoading={operationLoading}
                 />
               </div>
             ))}
           </div>
         </div>
       </div>
+
+      {/* Insert Panel Dialog */}
+      <InsertPanelDialog
+        open={insertDialogOpen}
+        onOpenChange={setInsertDialogOpen}
+        onInsert={handleInsertPanel}
+        insertAfterOrder={insertAfterOrder}
+      />
     </div>
   );
 }
