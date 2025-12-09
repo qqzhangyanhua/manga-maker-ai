@@ -23,29 +23,33 @@ class ComicMakerApp {
     this.originalImageContainer = document.getElementById('originalImageContainer');
     this.originalImageElement = document.getElementById('originalImage');
     this.originalImageInfo = document.getElementById('originalImageInfo');
-    
+
     // 描述输入
     this.descriptionInput = document.getElementById('descriptionInput');
     this.panelCountInput = document.getElementById('panelCount');
-    
+
+    // Mock 数据加载
+    this.mockStoryboardSelect = document.getElementById('mockStoryboardSelect');
+    this.loadMockBtn = document.getElementById('loadMockBtn');
+
     // 按钮
     this.generateStoryboardBtn = document.getElementById('generateStoryboardBtn');
     this.generateComicBtn = document.getElementById('generateComicBtn');
-    
+
     // 生成模式选项
     this.outputModeMerged = document.getElementById('outputModeMerged');
     this.outputModeSeparate = document.getElementById('outputModeSeparate');
-    
+
     // 结果显示
     this.storyboardContainer = document.getElementById('storyboardContainer');
     this.comicContainer = document.getElementById('comicContainer');
-    
+
     // 加载和消息
     this.loading = document.getElementById('loading');
     this.loadingText = document.getElementById('loadingText');
     this.errorMessage = document.getElementById('errorMessage');
     this.successMessage = document.getElementById('successMessage');
-    
+
     // 工作流步骤
     this.workflowSteps = document.querySelectorAll('.workflow-step');
   }
@@ -54,15 +58,18 @@ class ComicMakerApp {
     // 文件上传
     this.uploadArea.addEventListener('click', () => this.fileInput.click());
     this.fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
-    
+
     // 拖拽上传
     this.uploadArea.addEventListener('dragover', (e) => this.handleDragOver(e));
     this.uploadArea.addEventListener('dragleave', (e) => this.handleDragLeave(e));
     this.uploadArea.addEventListener('drop', (e) => this.handleDrop(e));
-    
+
     // 输入验证
     this.descriptionInput.addEventListener('input', () => this.validateStep1());
-    
+
+    // Mock 数据加载
+    this.loadMockBtn.addEventListener('click', () => this.loadMockStoryboard());
+
     // 生成按钮
     this.generateStoryboardBtn.addEventListener('click', () => this.generateStoryboard());
     this.generateComicBtn.addEventListener('click', () => this.generateComic());
@@ -142,7 +149,17 @@ class ComicMakerApp {
 
     // 上传图片后，检查是否可以生成漫画
     this.validateComicGeneration();
-    
+
+    // 如果已经有分镜，启用所有单个分镜的"生成图片"按钮
+    if (this.storyboard && this.storyboard.panels.length > 0) {
+      this.storyboard.panels.forEach((panel, index) => {
+        const generateBtn = document.getElementById(`panel-generate-btn-${index}`);
+        if (generateBtn) {
+          generateBtn.disabled = false;
+        }
+      });
+    }
+
     // 如果已经有分镜，则进入第3步
     if (this.storyboard && this.storyboard.panels.length > 0) {
       this.currentStep = 3;
@@ -156,6 +173,49 @@ class ComicMakerApp {
     // 分镜生成只需要描述，不需要图片
     const hasDescription = this.descriptionInput.value.trim().length > 0;
     this.generateStoryboardBtn.disabled = !hasDescription;
+  }
+
+  // ========== Mock 数据加载 ==========
+
+  loadMockStoryboard() {
+    const selectedKey = this.mockStoryboardSelect.value;
+
+    if (!selectedKey) {
+      this.showError('请先选择一个预设故事！');
+      return;
+    }
+
+    this.hideMessages();
+
+    try {
+      // 从 mock-data.js 获取数据
+      const mockData = getMockStoryboard(selectedKey);
+
+      if (!mockData) {
+        this.showError('找不到该预设数据！');
+        return;
+      }
+
+      // 直接设置分镜数据
+      this.storyboard = mockData;
+
+      // 显示分镜
+      this.displayStoryboard(this.storyboard);
+      this.showSuccess(`已加载预设故事「${this.storyboard.title}」（${this.storyboard.panels.length}格分镜）`);
+
+      // 检查是否有参考图片来决定是否启用漫画生成按钮
+      this.validateComicGeneration();
+      this.currentStep = 2;
+      this.updateWorkflowStep(2);
+
+      // 滚动到分镜区域
+      setTimeout(() => {
+        this.storyboardContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 300);
+    } catch (error) {
+      console.error('加载 Mock 数据失败:', error);
+      this.showError(`加载失败: ${error.message}`);
+    }
   }
 
   // ========== 分镜生成 ==========
@@ -248,11 +308,19 @@ class ComicMakerApp {
                 </button>
               </div>
             </div>
-            <button class="action-button" onclick="app.editPanel(${index})" id="panel-edit-btn-${index}" style="margin-top: 10px; width: 100%;">
-              ✏️ 编辑此分镜
-            </button>
+            <div style="display: flex; gap: 5px; margin-top: 10px;">
+              <button class="action-button" onclick="app.editPanel(${index})" id="panel-edit-btn-${index}" style="flex: 1;">
+                ✏️ 编辑
+              </button>
+              <button class="action-button" onclick="app.generateSinglePanel(${index})" id="panel-generate-btn-${index}" style="flex: 1; background: ${panel.imageUrl ? '#ff9800' : '#28a745'};" ${!this.originalImageData ? 'disabled' : ''}>
+                ${panel.imageUrl ? '🔄 重新生成' : '🎨 生成图片'}
+              </button>
+            </div>
             <div style="background: #f0f0f0; padding: 10px; border-radius: 5px; margin-top: 10px; font-size: 0.85rem; color: #666;" id="panel-status-${index}">
-              等待生成图片...
+              ${panel.imageUrl ? '<div style="color: #28a745;">✓ 已生成图片</div>' : '等待生成图片...'}
+            </div>
+            <div id="panel-image-${index}" style="margin-top: 10px;">
+              ${panel.imageUrl ? `<img src="${panel.imageUrl}" style="width: 100%; border-radius: 8px; border: 2px solid #28a745;" alt="分镜 ${panel.panelNumber}">` : ''}
             </div>
           </div>
         `).join('')}
@@ -281,12 +349,21 @@ class ComicMakerApp {
 
   savePanelEdit(index) {
     const panel = this.storyboard.panels[index];
+    const oldImageUrl = panel.imageUrl; // 保存已生成的图片
+    const hadImage = !!oldImageUrl;
+
     panel.sceneDescription = document.getElementById(`panel-scene-${index}`).value;
     panel.characterAction = document.getElementById(`panel-action-${index}`).value;
     panel.dialogue = document.getElementById(`panel-dialogue-${index}`).value;
     panel.visualPrompt = document.getElementById(`panel-prompt-${index}`).value;
-    
-    this.showSuccess(`第 ${panel.panelNumber} 格已更新！`);
+    panel.imageUrl = oldImageUrl; // 恢复已生成的图片
+
+    if (hadImage) {
+      this.showSuccess(`第 ${panel.panelNumber} 格已更新！提示：内容已修改，建议重新生成图片。`);
+    } else {
+      this.showSuccess(`第 ${panel.panelNumber} 格已更新！`);
+    }
+
     this.displayStoryboard(this.storyboard);
   }
 
@@ -295,6 +372,98 @@ class ComicMakerApp {
       return;
     }
     await this.generateStoryboard();
+  }
+
+  // ========== 单个分镜生成图片 ==========
+
+  async generateSinglePanel(index) {
+    if (!this.storyboard || !this.storyboard.panels[index]) {
+      this.showError('分镜不存在！');
+      return;
+    }
+
+    if (!this.originalImageData) {
+      this.showError('请先上传参考图片！');
+      return;
+    }
+
+    const panel = this.storyboard.panels[index];
+
+    // 如果已经有图片，确认是否重新生成
+    if (panel.imageUrl) {
+      if (!confirm(`第 ${panel.panelNumber} 格已经生成过图片，确定要重新生成吗？`)) {
+        return;
+      }
+    }
+
+    const statusDiv = document.getElementById(`panel-status-${index}`);
+    const imageDiv = document.getElementById(`panel-image-${index}`);
+    const generateBtn = document.getElementById(`panel-generate-btn-${index}`);
+
+    this.hideMessages();
+    generateBtn.disabled = true;
+
+    try {
+      // 显示生成中状态
+      statusDiv.innerHTML = '<div class="spinner" style="width: 20px; height: 20px; margin: 10px auto;"></div><div>生成中...</div>';
+
+      // 调用生成器生成单个分镜图片（带流式进度回调）
+      const imageUrl = await this.comicGenerator.generatePanelImage(
+        panel,
+        this.originalImageData,
+        this.storyboard.style,
+        true, // 启用对话文字生成
+        (progress) => {
+          // 实时更新流式进度
+          if (progress.type === 'content') {
+            const contentLength = progress.content.length;
+            statusDiv.innerHTML = `
+              <div class="spinner" style="width: 20px; height: 20px; margin: 10px auto;"></div>
+              <div>生成中...</div>
+              <div style="font-size: 0.8rem; color: #999; margin-top: 5px;">
+                已接收: ${contentLength} 字符
+              </div>
+            `;
+          } else if (progress.type === 'finish') {
+            statusDiv.innerHTML = `
+              <div class="spinner" style="width: 20px; height: 20px; margin: 10px auto;"></div>
+              <div>处理完成，解析图片...</div>
+            `;
+          }
+        }
+      );
+
+      // 更新分镜数据
+      this.storyboard.panels[index].imageUrl = imageUrl;
+
+      // 显示生成的图片
+      imageDiv.innerHTML = `
+        <img src="${imageUrl}"
+             style="width: 100%; border-radius: 8px; border: 2px solid #28a745;"
+             alt="分镜 ${panel.panelNumber}"
+             onerror="this.alt='图片加载失败'">
+      `;
+
+      // 更新状态
+      statusDiv.innerHTML = '<div style="color: #28a745; font-weight: 600;">✓ 已生成图片</div>';
+
+      // 更新按钮文字和颜色
+      generateBtn.innerHTML = '🔄 重新生成';
+      generateBtn.style.background = '#ff9800';
+
+      this.showSuccess(`第 ${panel.panelNumber} 格图片生成成功！`);
+
+      // 平滑滚动到图片位置
+      setTimeout(() => {
+        imageDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 300);
+    } catch (error) {
+      console.error(`生成第 ${panel.panelNumber} 格失败:`, error);
+      statusDiv.innerHTML = `<div style="color: #dc3545;">生成失败: ${error.message}</div>`;
+      this.showError(`生成第 ${panel.panelNumber} 格失败: ${error.message}`);
+    } finally {
+      generateBtn.disabled = false;
+    }
   }
 
   // ========== 漫画生成 ==========
@@ -317,43 +486,54 @@ class ComicMakerApp {
     try {
       // 检查生成模式
       const isMergedMode = this.outputModeMerged.checked;
-      
+
       if (isMergedMode) {
-        // ===== 合成为1张图模式：只调用1次API =====
+        // ===== 合成为1张图模式：只调用1次API（流式） =====
         this.showLoading(true, '正在生成完整漫画（单次API调用）...');
-        
+
         const imageContent = await this.comicGenerator.generateSingleComicImage(
           this.storyboard,
-          this.originalImageData
+          this.originalImageData,
+          true, // 启用对话文字生成
+          (progress) => {
+            // 实时更新流式进度
+            if (progress.type === 'content') {
+              const contentLength = progress.content.length;
+              this.loadingText.textContent = `正在生成完整漫画... (已接收: ${contentLength} 字符)`;
+            } else if (progress.type === 'finish') {
+              this.loadingText.textContent = '处理完成，解析图片...';
+            }
+          }
         );
-        
+
         // 显示单张完整漫画
         this.displaySingleComicResult(imageContent);
         this.showSuccess('成功生成完整漫画（1张图片）！');
-        
+
       } else {
-        // ===== 多张独立图模式：每个分镜调用1次API =====
+        // ===== 多张独立图模式：每个分镜调用1次API（流式） =====
         this.showLoading(true, '正在生成漫画图片... 0/' + this.storyboard.panels.length);
-        
+
         const results = await this.comicGenerator.generateAllPanels(
           this.storyboard.panels,
           this.originalImageData,
           this.storyboard.style,
           (progress) => {
             this.updateGenerationProgress(progress);
-          }
+          },
+          true // 启用对话文字生成
         );
 
         // 更新分镜数据
         this.storyboard.panels = results;
-        
+
         // 显示多张独立图
         this.displayComic(results);
-        
+
         const successCount = results.filter(p => p.imageUrl).length;
         this.showSuccess(`成功生成 ${successCount}/${results.length} 格漫画！`);
       }
-      
+
       this.currentStep = 4;
       this.updateWorkflowStep(4);
     } catch (error) {
@@ -487,15 +667,39 @@ class ComicMakerApp {
 
   updateGenerationProgress(progress) {
     const { current, total, panel, status } = progress;
-    
+
     // 更新加载文字
-    this.loadingText.textContent = `正在生成第 ${current}/${total} 格漫画...`;
-    
+    if (status === 'streaming' && progress.streamProgress) {
+      // 流式进度更新
+      const streamProg = progress.streamProgress;
+      if (streamProg.type === 'content') {
+        this.loadingText.textContent = `正在生成第 ${current}/${total} 格... (已接收: ${streamProg.content.length} 字符)`;
+      } else if (streamProg.type === 'finish') {
+        this.loadingText.textContent = `正在生成第 ${current}/${total} 格... (解析图片中)`;
+      }
+    } else if (status === 'generating') {
+      this.loadingText.textContent = `正在生成第 ${current}/${total} 格漫画...`;
+    }
+
     // 更新对应的分镜显示
     const statusDiv = document.getElementById(`panel-status-${current - 1}`);
     if (statusDiv) {
       if (status === 'generating') {
         statusDiv.innerHTML = '<div class="spinner" style="width: 20px; height: 20px; margin: 10px auto;"></div><div>生成中...</div>';
+      } else if (status === 'streaming' && progress.streamProgress) {
+        // 显示流式进度
+        const streamProg = progress.streamProgress;
+        if (streamProg.type === 'content') {
+          statusDiv.innerHTML = `
+            <div class="spinner" style="width: 20px; height: 20px; margin: 10px auto;"></div>
+            <div>生成中...</div>
+            <div style="font-size: 0.8rem; color: #999; margin-top: 5px;">
+              已接收: ${streamProg.content.length} 字符
+            </div>
+          `;
+        } else if (streamProg.type === 'finish') {
+          statusDiv.innerHTML = '<div class="spinner" style="width: 20px; height: 20px; margin: 10px auto;"></div><div>解析图片中...</div>';
+        }
       } else if (status === 'completed' && panel.imageUrl) {
         statusDiv.outerHTML = `<img src="${panel.imageUrl}" class="panel-image" alt="分镜 ${panel.panelNumber}" style="width: 100%; border-radius: 8px; margin-top: 10px;">`;
       } else if (status === 'error') {

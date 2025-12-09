@@ -82,20 +82,21 @@ class ComicGenerator {
   }
 
   /**
-   * 根据分镜描述生成单张漫画图片
+   * 根据分镜描述生成单张漫画图片（流式）
    * @param {Object} panel - 分镜数据
    * @param {string} referenceImageBase64 - 参考图片的base64数据
    * @param {string} style - 漫画风格
    * @param {boolean} enableText - 是否生成对话文字（默认false，生成空白对话框）
+   * @param {Function} onProgress - 进度回调函数 (progress) => void
    * @returns {Promise<string>} - 图片URL或base64
    */
-  async generatePanelImage(panel, referenceImageBase64, style, enableText = false) {
+  async generatePanelImage(panel, referenceImageBase64, style, enableText = false, onProgress = null) {
     try {
       const prompt = this.buildImagePrompt(panel, style, enableText);
-      
+
       // 构建消息内容，包含参考图片
       const messageContent = [];
-      
+
       // 添加参考图片
       if (referenceImageBase64) {
         messageContent.push({
@@ -105,13 +106,13 @@ class ComicGenerator {
           }
         });
       }
-      
+
       // 添加文本提示
       messageContent.push({
         type: "text",
         text: prompt
       });
-      
+
       const requestData = {
         model: this.config.COMIC_MODEL,
         messages: [
@@ -121,7 +122,8 @@ class ComicGenerator {
           }
         ],
         temperature: 0.7,
-        max_tokens: 4096
+        max_tokens: 4096,
+        stream: true // 启用流式响应
       };
 
       const response = await fetch(`${this.config.COMIC_API_BASE}/chat/completions`, {
@@ -138,32 +140,105 @@ class ComicGenerator {
         throw new Error(`API错误: ${errorData.error?.message || response.statusText}`);
       }
 
-      const data = await response.json();
-      
-      // 从响应中提取图片URL
-      if (data.choices && data.choices[0] && data.choices[0].message) {
-        const content = data.choices[0].message.content;
-        
-        // 检查是否返回的是文字描述而不是图片
-        if (content.length > 500 && !content.includes('![image]') && !content.includes('http')) {
-          console.warn('API返回了文字描述而不是图片:', content.substring(0, 200));
-          throw new Error('API返回了文字描述而不是图片。请在提示词中明确要求"直接生成图片"。');
-        }
-        
-        // 提取markdown格式中的图片URL: ![image](url)
-        const imageUrl = this.extractImageUrl(content);
-        if (imageUrl) {
-          return imageUrl;
-        }
-        
-        // 如果没有找到图片URL，打印完整内容用于调试
-        console.error('无法提取图片URL，API返回内容:', content);
-      }
-      
-      throw new Error('图片生成失败：响应中没有找到图片URL');
+      // 处理流式响应
+      return await this.handleStreamResponse(response, panel.panelNumber, onProgress);
     } catch (error) {
       console.error(`生成分镜 ${panel.panelNumber} 失败:`, error);
       throw error;
+    }
+  }
+
+  /**
+   * 处理流式响应
+   * @param {Response} response - fetch响应对象
+   * @param {number} panelNumber - 分镜编号
+   * @param {Function} onProgress - 进度回调
+   * @returns {Promise<string>} - 图片URL
+   */
+  async handleStreamResponse(response, panelNumber, onProgress) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let fullContent = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          break;
+        }
+
+        // 解码数据块
+        buffer += decoder.decode(value, { stream: true });
+
+        // 按行分割处理SSE数据
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // 保留最后一个不完整的行
+
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+
+          if (!trimmedLine || trimmedLine === 'data: [DONE]') {
+            continue;
+          }
+
+          if (trimmedLine.startsWith('data: ')) {
+            try {
+              const jsonStr = trimmedLine.slice(6); // 去掉 "data: " 前缀
+              const data = JSON.parse(jsonStr);
+
+              // 提取增量内容
+              if (data.choices && data.choices[0]) {
+                const delta = data.choices[0].delta;
+
+                if (delta && delta.content) {
+                  fullContent += delta.content;
+
+                  // 调用进度回调
+                  if (onProgress) {
+                    onProgress({
+                      type: 'content',
+                      content: fullContent,
+                      delta: delta.content,
+                      panelNumber: panelNumber
+                    });
+                  }
+                }
+
+                // 检查是否完成
+                if (data.choices[0].finish_reason) {
+                  if (onProgress) {
+                    onProgress({
+                      type: 'finish',
+                      reason: data.choices[0].finish_reason,
+                      panelNumber: panelNumber
+                    });
+                  }
+                }
+              }
+            } catch (parseError) {
+              console.warn('解析流数据失败:', trimmedLine, parseError);
+            }
+          }
+        }
+      }
+
+      // 从完整内容中提取图片URL
+      if (fullContent.length > 500 && !fullContent.includes('![image]') && !fullContent.includes('http')) {
+        console.warn('API返回了文字描述而不是图片:', fullContent.substring(0, 200));
+        throw new Error('API返回了文字描述而不是图片。请在提示词中明确要求"直接生成图片"。');
+      }
+
+      const imageUrl = this.extractImageUrl(fullContent);
+      if (imageUrl) {
+        return imageUrl;
+      }
+
+      console.error('无法提取图片URL，API返回内容:', fullContent);
+      throw new Error('图片生成失败：响应中没有找到图片URL');
+    } finally {
+      reader.releaseLock();
     }
   }
 
@@ -182,20 +257,21 @@ class ComicGenerator {
   }
 
   /**
-   * 生成单张完整漫画（所有分镜合并，只调用1次API）
+   * 生成单张完整漫画（所有分镜合并，只调用1次API）- 流式版本
    * @param {Object} storyboard - 完整的分镜数据
    * @param {string} referenceImageBase64 - 参考图片
    * @param {boolean} enableText - 是否生成对话文字（默认false，生成空白对话框）
+   * @param {Function} onProgress - 进度回调函数
    * @returns {Promise<string>} - 图片URL或base64
    */
-  async generateSingleComicImage(storyboard, referenceImageBase64, enableText = false) {
+  async generateSingleComicImage(storyboard, referenceImageBase64, enableText = false, onProgress = null) {
     try {
       // 合并所有分镜的提示词
       const combinedPrompt = this.buildCombinedPrompt(storyboard, enableText);
-      
+
       // 构建消息内容，包含参考图片
       const messageContent = [];
-      
+
       // 添加参考图片
       if (referenceImageBase64) {
         messageContent.push({
@@ -205,13 +281,13 @@ class ComicGenerator {
           }
         });
       }
-      
+
       // 添加文本提示
       messageContent.push({
         type: "text",
         text: combinedPrompt
       });
-      
+
       const requestData = {
         model: this.config.COMIC_MODEL,
         messages: [
@@ -221,7 +297,8 @@ class ComicGenerator {
           }
         ],
         temperature: 0.7,
-        max_tokens: 4096
+        max_tokens: 4096,
+        stream: true // 启用流式响应
       };
 
       const response = await fetch(`${this.config.COMIC_API_BASE}/chat/completions`, {
@@ -238,28 +315,8 @@ class ComicGenerator {
         throw new Error(`API错误: ${errorData.error?.message || response.statusText}`);
       }
 
-      const data = await response.json();
-      
-      if (data.choices && data.choices[0] && data.choices[0].message) {
-        const content = data.choices[0].message.content;
-        
-        // 检查是否返回的是文字描述而不是图片
-        if (content.length > 500 && !content.includes('![image]') && !content.includes('http')) {
-          console.warn('API返回了文字描述而不是图片:', content.substring(0, 200));
-          throw new Error('API返回了文字描述而不是图片。请尝试在提示词中更明确地要求"直接生成图片，不要文字描述"。');
-        }
-        
-        // 提取图片URL
-        const imageUrl = this.extractImageUrl(content);
-        if (imageUrl) {
-          return imageUrl;
-        }
-        
-        // 如果没有找到图片URL，打印完整内容用于调试
-        console.error('无法提取图片URL，API返回内容:', content);
-      }
-      
-      throw new Error('图片生成失败：响应中没有找到图片URL');
+      // 处理流式响应
+      return await this.handleStreamResponse(response, 'merged', onProgress);
     } catch (error) {
       console.error('生成单张完整漫画失败:', error);
       throw error;
@@ -267,7 +324,7 @@ class ComicGenerator {
   }
 
   /**
-   * 生成所有分镜的图片
+   * 生成所有分镜的图片（流式）
    * @param {Array} panels - 分镜数组
    * @param {string} referenceImageBase64 - 参考图片base64
    * @param {string} style - 漫画风格
@@ -281,7 +338,7 @@ class ComicGenerator {
 
     for (let i = 0; i < panels.length; i++) {
       const panel = panels[i];
-      
+
       try {
         // 通知进度
         if (onProgress) {
@@ -293,9 +350,26 @@ class ComicGenerator {
           });
         }
 
-        // 生成图片
-        const imageUrl = await this.generatePanelImage(panel, referenceImageBase64, style, enableText);
-        
+        // 生成图片，带流式进度回调
+        const imageUrl = await this.generatePanelImage(
+          panel,
+          referenceImageBase64,
+          style,
+          enableText,
+          (streamProgress) => {
+            // 转发流式进度到外部回调
+            if (onProgress) {
+              onProgress({
+                current: i + 1,
+                total: total,
+                panel: panel,
+                status: 'streaming',
+                streamProgress: streamProgress
+              });
+            }
+          }
+        );
+
         // 添加到结果
         const resultPanel = {
           ...panel,
@@ -343,146 +417,195 @@ class ComicGenerator {
 
   /**
    * 简化对话文字（提高AI生成成功率）
-   * 规则：中文不超过4字，复杂内容转为英文短词
+   * 规则：
+   * 1. 中文不超过6字（漫画对话建议长度）
+   * 2. 英文不超过15字符
+   * 3. 优先使用简短情绪表达
+   * 4. 复杂句子提取关键词
    */
   simplifyDialogue(dialogue) {
     if (!dialogue) return null;
-    
-    // 如果已经很短，直接返回
-    if (dialogue.length <= 4) return dialogue;
-    
-    // 常见情绪/表达的简化映射
+
+    // 去除前后空格
+    dialogue = dialogue.trim();
+
+    // 常见对话的简化映射（优先匹配）
     const simplifyMap = {
-      '再跑不通我就原地爆炸': 'BUG!!',
-      '这个bug太难了': 'BUG!!',
-      '代码出错了': 'ERROR',
-      '终于成功了': 'YES!',
-      '太好了': '好!',
-      '怎么办': '啊!',
-      '不可能': '不!',
-      '太棒了': '棒!',
-      '完成了': 'DONE'
+      // 兔子健身相关
+      '我...我真的能变强吗？': '能变强吗？',
+      '好重啊...但是我不能放弃！': '不能放弃！',
+      '为什么还是没有进步呢...': '没进步啊...',
+      '原来是训练方法不对！': '方法不对！',
+      '我能感觉到自己在变强！': '在变强！',
+      '我做到了！这就是努力的成果！': '我做到了！',
+
+      // 小猫料理相关
+      '今天要做出最美味的料理！': '最美味！',
+      '呜哇！糟糕了！': '糟了！',
+      '我果然不适合当厨师吗...': '不适合吗...',
+      '料理的秘诀在于用心和耐心！': '用心耐心！',
+      '一步一步，慢慢来...': '慢慢来...',
+      '这是我做的第一道成功的料理！': '成功了！',
+
+      // 机器人朋友相关
+      '大家都有朋友...只有我一个人...': '好孤单...',
+      '对不起...我不是想吓到你们...': '对不起...',
+      '你也怕淋雨吗？我们一起躲雨吧！': '一起躲雨！',
+      '你是我的第一个朋友！': '第一个朋友！',
+      '有了朋友，世界变得好美丽！': '世界真美！',
+
+      // 小龙面包店相关
+      '啊！火太大了！': '火太大！',
+      '我的火焰总是控制不好...': '控制不好...',
+      '没有人要买我的面包...': '没人买...',
+      '原来可以用小火慢烤！': '小火慢烤！',
+      '小火、慢烤、耐心...': '小火慢烤...',
+      '谢谢大家！这是世界上最好吃的龙焰面包！': '最好吃！',
+
+      // 通用情绪表达
+      '太好了': '太好了！',
+      '太棒了': '棒！',
+      '怎么办': '怎么办？',
+      '不可能': '不！',
+      '完成了': '完成！',
+      '终于成功了': '成功！',
+      '加油': '加油！',
+      '继续努力': '努力！',
+      '再试一次': '再试！',
+      '这个bug太难了': 'BUG！',
+      '代码出错了': 'ERROR！'
     };
-    
-    // 检查是否有映射
+
+    // 检查是否有精确匹配
     if (simplifyMap[dialogue]) {
       return simplifyMap[dialogue];
     }
-    
-    // 如果是长句，截取前4个字
-    return dialogue.substring(0, 4);
+
+    // 如果对话已经很短，直接返回（中文6字以内，英文15字符以内）
+    const isChinese = /[\u4e00-\u9fa5]/.test(dialogue);
+    if (isChinese && dialogue.length <= 6) {
+      return dialogue;
+    }
+    if (!isChinese && dialogue.length <= 15) {
+      return dialogue;
+    }
+
+    // 提取关键词（移除语气词、连接词等）
+    let simplified = dialogue
+      .replace(/嗯|啊|呀|哦|哈|唉|吧|呢|吗|的|了|着|过/g, '')
+      .trim();
+
+    // 如果简化后太长，截取前6个中文字符或15个英文字符
+    if (isChinese) {
+      return simplified.substring(0, 6) + (simplified.length > 6 ? '...' : '');
+    } else {
+      return simplified.substring(0, 15) + (simplified.length > 15 ? '...' : '');
+    }
   }
 
   /**
    * 构建单个分镜的图像生成提示词
-   * @param {boolean} enableText - 是否生成对话文字（false则生成空白对话框）
+   * @param {boolean} enableText - 是否生成对话文字（默认true，如果有对话就生成文字）
    */
-  buildImagePrompt(panel, style, enableText = false) {
-    let prompt = `GENERATE A MANGA/COMIC PANEL IMAGE DIRECTLY. DO NOT give me text descriptions!\n\n`;
+  buildImagePrompt(panel, style, enableText = true) {
+    let prompt = `You are a professional manga artist. Generate a comic panel image directly.\n\n`;
 
-    // 对话框处理：优先级最高，放在最前面
+    // 如果有对话且启用文字，优先级最高
     if (panel.dialogue && enableText) {
       const simplifiedText = this.simplifyDialogue(panel.dialogue);
-      prompt += `⚠️ CRITICAL TEXT REQUIREMENT (HIGHEST PRIORITY):\n`;
-      prompt += `- Draw a WHITE SPEECH BALLOON with CLEAR BLACK BORDER\n`;
-      prompt += `- Inside the balloon, write EXACTLY: "${simplifiedText}"\n`;
-      prompt += `- Text must be BOLD, BLACK, and LARGE enough to read clearly\n`;
-      prompt += `- Use a clean sans-serif font (like Arial or Helvetica)\n`;
-      prompt += `- Position the balloon near the character's mouth\n`;
-      prompt += `- The text "${simplifiedText}" MUST be visible and legible\n\n`;
+      prompt += `🎯 TEXT IN SPEECH BALLOON (MOST IMPORTANT!):\n`;
+      prompt += `Write exactly these characters in a speech balloon: "${simplifiedText}"\n`;
+      prompt += `Speech balloon style:\n`;
+      prompt += `- White balloon with black outline\n`;
+      prompt += `- Position near character's face/mouth\n`;
+      prompt += `- Text: "${simplifiedText}" in bold, clear, black letters\n`;
+      prompt += `- Font size must be large and easy to read\n`;
+      prompt += `- This is CRITICAL - the text MUST appear in the image!\n\n`;
     } else if (panel.dialogue && !enableText) {
-      prompt += `⚠️ SPEECH BALLOON REQUIREMENT:\n`;
-      prompt += `- Draw EMPTY white speech balloons with clear borders\n`;
-      prompt += `- Keep balloons completely BLANK inside (no text)\n`;
-      prompt += `- Position near character's mouth\n\n`;
+      prompt += `Speech Balloon: Draw empty white speech balloons (no text inside).\n\n`;
     }
 
-    prompt += `PANEL DESCRIPTION:\n`;
-    prompt += `Panel #${panel.panelNumber}\n`;
-    prompt += `Style: ${style} manga/comic art style\n`;
-    prompt += `Scene: ${panel.sceneDescription}\n`;
-    prompt += `Character Action: ${panel.characterAction}\n`;
-    prompt += `Visual Details: ${panel.visualPrompt}\n\n`;
+    prompt += `Scene Details:\n`;
+    prompt += `- Panel ${panel.panelNumber} of manga/comic\n`;
+    prompt += `- Style: ${style}\n`;
+    prompt += `- Scene: ${panel.sceneDescription}\n`;
+    prompt += `- Character: ${panel.characterAction}\n`;
+    prompt += `- Details: ${panel.visualPrompt}\n\n`;
 
-    prompt += `ARTISTIC REQUIREMENTS:\n`;
-    prompt += `1. Use the character design from the reference image (hairstyle, clothing, body type)\n`;
-    prompt += `2. Maintain consistent character appearance\n`;
-    prompt += `3. Professional manga art: clean linework, vibrant colors, dynamic composition\n`;
-    prompt += `4. Clear black panel borders\n`;
+    prompt += `Visual Requirements:\n`;
+    prompt += `1. Match character appearance from reference image (face, hair, clothes, body)\n`;
+    prompt += `2. Clean manga linework with vibrant colors\n`;
+    prompt += `3. Dynamic composition and camera angle\n`;
 
     if (panel.dialogue && enableText) {
       const simplifiedText = this.simplifyDialogue(panel.dialogue);
-      prompt += `5. ⚠️ REMEMBER: The speech balloon MUST contain the text "${simplifiedText}" in bold, readable letters!\n`;
+      prompt += `4. 🎯 CRITICAL: Include speech balloon with text "${simplifiedText}" - this is mandatory!\n`;
+    } else {
+      prompt += `4. Professional comic panel style\n`;
     }
 
-    prompt += `\nGENERATE THE IMAGE NOW. Do not ask questions.`;
+    prompt += `\n⚠️ Generate the manga panel image now. Output the image directly, do not describe it in text.`;
 
     return prompt;
   }
 
   /**
    * 构建合并的提示词（所有分镜在一张图上）
-   * @param {boolean} enableText - 是否生成对话文字（false则生成空白对话框）
+   * @param {boolean} enableText - 是否生成对话文字（默认true）
    */
-  buildCombinedPrompt(storyboard, enableText = false) {
+  buildCombinedPrompt(storyboard, enableText = true) {
     const panelCount = storyboard.panels.length;
     const gridLayout = this.calculateGridLayout(panelCount);
 
-    let prompt = `GENERATE A COMPLETE MANGA PAGE IMAGE DIRECTLY. DO NOT give me text descriptions!\n\n`;
+    let prompt = `You are a professional manga artist. Create a complete manga page with ${panelCount} panels.\n\n`;
 
     // 如果有对话，优先声明文字要求
-    const hasDialogue = storyboard.panels.some(p => p.dialogue);
-    if (hasDialogue && enableText) {
-      prompt += `⚠️ CRITICAL TEXT REQUIREMENTS (HIGHEST PRIORITY):\n`;
-      prompt += `- Each panel with dialogue MUST have WHITE SPEECH BALLOONS with CLEAR BLACK BORDERS\n`;
-      prompt += `- Text inside balloons must be BOLD, BLACK, and LARGE enough to read\n`;
-      prompt += `- Use clean sans-serif font (Arial/Helvetica)\n`;
-      prompt += `- Each balloon's text is specified below with [TEXT: "..."]\n`;
-      prompt += `- ALL specified text MUST be visible and legible in the final image\n\n`;
-    } else if (hasDialogue && !enableText) {
-      prompt += `⚠️ SPEECH BALLOON REQUIREMENT:\n`;
-      prompt += `- Draw EMPTY white speech balloons (no text inside)\n`;
-      prompt += `- Keep balloons completely BLANK - I will add text later\n\n`;
+    const panelsWithDialogue = storyboard.panels.filter(p => p.dialogue);
+    if (panelsWithDialogue.length > 0 && enableText) {
+      prompt += `🎯 TEXT IN SPEECH BALLOONS (CRITICAL!):\n`;
+      panelsWithDialogue.forEach(panel => {
+        const simplifiedText = this.simplifyDialogue(panel.dialogue);
+        prompt += `Panel ${panel.panelNumber}: Write "${simplifiedText}" in a speech balloon\n`;
+      });
+      prompt += `\nBalloon style: White background, black outline, bold black text, large and readable.\n`;
+      prompt += `⚠️ ALL text above MUST appear in the final image!\n\n`;
+    } else if (panelsWithDialogue.length > 0 && !enableText) {
+      prompt += `Speech Balloons: Draw empty white balloons (no text inside) where dialogue is indicated.\n\n`;
     }
 
-    prompt += `MANGA PAGE LAYOUT:\n`;
-    prompt += `Title: "${storyboard.title}"\n`;
-    prompt += `Style: ${storyboard.style} manga/comic art\n`;
-    prompt += `Grid: ${gridLayout.rows} rows × ${gridLayout.cols} columns\n`;
-    prompt += `Total Panels: ${panelCount}\n\n`;
+    prompt += `Page Layout:\n`;
+    prompt += `- Title: ${storyboard.title}\n`;
+    prompt += `- Style: ${storyboard.style}\n`;
+    prompt += `- Grid: ${gridLayout.rows} rows × ${gridLayout.cols} columns\n`;
+    prompt += `- Total: ${panelCount} panels\n\n`;
 
-    prompt += `PANEL CONTENTS (left to right, top to bottom):\n\n`;
+    prompt += `Panel Contents (left to right, top to bottom):\n\n`;
 
     storyboard.panels.forEach((panel) => {
-      prompt += `=== PANEL ${panel.panelNumber} ===\n`;
+      prompt += `[Panel ${panel.panelNumber}]\n`;
       prompt += `Scene: ${panel.sceneDescription}\n`;
-      prompt += `Action: ${panel.characterAction}\n`;
-      prompt += `Visual: ${panel.visualPrompt}\n`;
-
-      // 文字指令使用醒目标记
+      prompt += `Character: ${panel.characterAction}\n`;
       if (panel.dialogue && enableText) {
         const simplifiedText = this.simplifyDialogue(panel.dialogue);
-        prompt += `⚠️ [TEXT: "${simplifiedText}"] - This text MUST appear in a speech balloon in Panel ${panel.panelNumber}\n`;
+        prompt += `🎯 TEXT: "${simplifiedText}" (must appear in balloon)\n`;
       }
       prompt += `\n`;
     });
 
-    prompt += `ARTISTIC REQUIREMENTS:\n`;
-    prompt += `1. Draw all ${panelCount} panels on ONE image in ${gridLayout.rows}×${gridLayout.cols} grid layout\n`;
-    prompt += `2. Add clear BLACK BORDERS between panels\n`;
+    prompt += `Requirements:\n`;
+    prompt += `1. Draw all ${panelCount} panels in ${gridLayout.rows}×${gridLayout.cols} grid\n`;
+    prompt += `2. Black borders between panels\n`;
     prompt += `3. Number each panel (1, 2, 3...)\n`;
-    prompt += `4. Use character design from reference image - maintain consistent appearance across ALL panels\n`;
-    prompt += `5. Professional ${storyboard.style} manga style: clean linework, vibrant colors, dynamic composition\n`;
+    prompt += `4. Match character from reference image (face, hair, clothes)\n`;
+    prompt += `5. ${storyboard.style} manga style: clean lines, vibrant colors\n`;
 
-    // 再次强调文字要求
-    if (enableText) {
-      prompt += `6. ⚠️ CRITICAL: Draw white speech balloons with the specified [TEXT: "..."] in BOLD, LEGIBLE letters for each panel\n`;
+    if (enableText && panelsWithDialogue.length > 0) {
+      prompt += `6. 🎯 CRITICAL: Include speech balloons with the specified text in bold, legible letters\n`;
     } else {
-      prompt += `6. Draw EMPTY speech balloons (no text inside)\n`;
+      prompt += `6. Professional manga page layout\n`;
     }
 
-    prompt += `7. Make it look like a traditional manga/comic book page\n`;
-    prompt += `\nGENERATE THE COMPLETE MANGA PAGE NOW. Do not ask questions.`;
+    prompt += `\n⚠️ Generate the complete manga page now. Output the image directly.`;
 
     return prompt;
   }

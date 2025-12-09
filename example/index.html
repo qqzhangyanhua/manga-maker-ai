@@ -69,6 +69,29 @@
         <button class="generate-btn" id="generateStoryboardBtn" disabled>
           📝 生成分镜脚本（不需要图片）
         </button>
+
+        <!-- 快速加载 Mock 数据 -->
+        <div style="margin-top: 20px; padding: 15px; background: #f0f7ff; border: 2px dashed #667eea; border-radius: 10px;">
+          <div style="font-weight: 600; color: #667eea; margin-bottom: 10px; text-align: center;">
+            ⚡ 快速测试：加载预设分镜
+          </div>
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <select id="mockStoryboardSelect" style="flex: 1; padding: 10px; border: 2px solid #667eea; border-radius: 5px; font-size: 0.9rem;">
+              <option value="">-- 选择预设故事 --</option>
+              <option value="rabbit_fitness">🐰 兔子的健身之路（6格）</option>
+              <option value="cat_chef">🐱 小猫的料理梦（6格）</option>
+              <option value="robot_friend">🤖 机器人的第一个朋友（6格）</option>
+              <option value="dragon_bakery">🐲 小龙的面包店（6格）</option>
+            </select>
+            <button class="action-button" id="loadMockBtn" style="padding: 10px 20px; white-space: nowrap;">
+              ⚡ 快速加载
+            </button>
+          </div>
+          <div style="text-align: center; color: #667eea; font-size: 0.85rem; margin-top: 8px;">
+            💡 测试用：跳过 API 调用，直接加载预设分镜数据
+          </div>
+        </div>
+
         <div style="text-align: center; color: #666; font-size: 0.9rem; margin-top: 10px;">
           ℹ️ 分镜脚本生成后可以编辑和重新生成
         </div>
@@ -150,6 +173,7 @@
 
   <!-- 引入脚本 -->
   <script src="js/config.js"></script>
+  <script src="js/mock-data.js"></script>
   <script src="js/storyboard-generator.js"></script>
   <script src="js/comic-generator.js"></script>
   <script src="js/app.js"></script>
