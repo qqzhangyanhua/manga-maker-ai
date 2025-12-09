@@ -26,6 +26,8 @@ pnpm dev                # Start development server
 pnpm build              # Build for production
 pnpm start              # Start production server
 pnpm lint               # Run ESLint
+pnpm test               # Run Vitest tests
+pnpm test:watch         # Run Vitest in watch mode
 ```
 
 ## Development Commands
@@ -56,6 +58,14 @@ npx prisma studio
 pnpm build              # Build Next.js app
 pnpm lint               # Run ESLint
 ```
+
+### Testing
+```bash
+pnpm test               # Run all tests
+pnpm test:watch         # Run tests in watch mode
+```
+
+Test files use Vitest with React Testing Library. Place tests next to source files with `.test.ts` or `.test.tsx` extension.
 
 ## Architecture
 
@@ -112,15 +122,25 @@ prisma/
 - `CharacterOutfit` - Wardrobe system (multiple outfits per character)
 - `CharacterRelationship` - Character positioning on relationship chart (x, y, scale)
 
+**Scene Library:**
+- `Scene` - Background/environment assets for manga panels with scene types (indoor, outdoor, urban, nature, fantasy, scifi, historical, abstract)
+
 **Project Management:**
 - `Project` - Comic/manga projects with style and status
-- `Panel` - Individual storyboard panels with importance levels and panel types
+- `Panel` - Individual storyboard panels with importance levels, panel types, camera angles, shot sizes
+- `StoryScript` - Store original script text and segmentation info for script editor
 - `GeneratedImage` - Gallery of generated images with generation params
+
+**Usage Tracking & Logging:**
+- `GenerationLog` - Detailed logs of all AI generation actions (prompts, responses, errors, duration)
+- `UsageStat` - Aggregated daily usage statistics per user and action type
 
 **Key Relationships:**
 - Characters belong to Users
+- Scenes belong to Users
 - Views/Expressions/Outfits cascade delete with Character
 - Panels cascade delete with Project
+- StoryScript has one-to-one relationship with Project
 
 ### API Routes Pattern
 
@@ -179,23 +199,51 @@ export async function GET() {
 - `DELETE /api/character/[id]` - Delete character
 - `POST /api/character/generate-views` - Generate three-view images
 - `POST /api/character/generate-expressions` - Generate expression matrix
-- `POST /api/character/generate-similar` - Generate similar character variations (NEW)
+- `POST /api/character/generate-similar` - Generate similar character variations
 - `POST /api/character/outfits` - Create new outfit
+- `POST /api/character/upload-image` - Upload character image to MinIO
 - `GET/POST /api/character/relationship` - Character relationship chart CRUD
+
+**Scenes (NEW):**
+- `GET /api/scene` - List user's scenes
+- `POST /api/scene` - Create scene
+- `GET /api/scene/[id]` - Get scene details
+- `PATCH /api/scene/[id]` - Update scene
+- `DELETE /api/scene/[id]` - Delete scene
 
 **Projects & Panels:**
 - `GET /api/project` - List user's projects
 - `POST /api/project` - Create project
 - `GET /api/project/[id]` - Get project with panels
 - `PATCH /api/project/[id]` - Update project
+- `DELETE /api/project/[id]` - Delete project
 - `POST /api/panel/generate-image` - Generate panel image using LLM + AI
+- `POST /api/panel/insert` - Insert new panel between existing panels
+- `POST /api/panel/split` - Split panel into multiple panels
+- `POST /api/panel/merge` - Merge multiple panels into one
+- `PATCH /api/panel/[id]` - Update panel
+- `DELETE /api/panel/[id]` - Delete panel
+
+**File Upload:**
+- `POST /api/upload` - Upload files to MinIO storage
 
 **Comic Styles (Public):**
 - `GET /api/comic-styles` - Get enabled comic styles (no auth required)
+- `GET /api/comic-styles/[id]` - Get specific comic style (no auth required)
 - Query param: `?enabled=false` to include disabled styles
 
 **Prompt Optimization:**
 - `POST /api/prompt/optimize` - Optimize user prompt using LLM (no auth required)
+
+**LLM Providers (Admin):**
+- `GET /api/llm-providers` - List all LLM providers
+- `POST /api/llm-providers` - Create LLM provider
+- `PATCH /api/llm-providers/[id]` - Update LLM provider
+- `DELETE /api/llm-providers/[id]` - Delete LLM provider
+
+**Usage & Analytics:**
+- `GET /api/usage` - Get current user's usage statistics
+- `GET /api/admin/usage` - Get all users' usage statistics (admin only)
 
 **Admin (requires admin role):**
 - `GET /api/admin/users` - List all users
@@ -212,7 +260,7 @@ LLM providers are configured in the `llm_providers` database table and selected 
 
 ```typescript
 {
-  provider_type: "script_analyzer" | "prompt_optimizer" | "style_generator",
+  provider_type: "script_analyzer" | "prompt_optimizer" | "style_generator" | "character_analyzer" | "image_generation",
   provider_name: "openai",
   model: "gpt-4",
   base_url: "https://api.openai.com",
@@ -229,7 +277,7 @@ LLM providers are configured in the `llm_providers` database table and selected 
 - `character_analyzer` - Used by `/api/character/generate-similar` for analyzing characters and generating variations
 - `script_analyzer` - For analyzing comic scripts (if implemented)
 - `style_generator` - For generating style-specific prompts (if implemented)
-- `image_generation` - Used for AI image generation (Stable Diffusion, etc.)
+- `image_generation` - Used for AI image generation (Stable Diffusion, DALL-E, etc.)
 
 **Adding a new provider type:**
 ```sql
@@ -255,6 +303,60 @@ const content = result.content; // LLM response text
 ```
 
 The system expects OpenAI-compatible `/v1/chat/completions` endpoints.
+
+### File Upload System (MinIO)
+
+The app uses MinIO for object storage. Files uploaded through `/api/upload` or `/api/character/upload-image` are stored in MinIO buckets.
+
+**Configuration** (in `.env`):
+```bash
+MINIO_ENDPOINT=localhost
+MINIO_PORT=9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_USE_SSL=false
+MINIO_BUCKET=manga-assets
+```
+
+**Upload helpers** are available in `@/lib/upload-helpers.ts`:
+- `uploadBase64Image(base64Data, filename)` - Upload base64 image to MinIO
+- Returns public URL for the uploaded file
+
+**Usage:**
+```typescript
+import { uploadBase64Image } from "@/lib/upload-helpers";
+
+const imageUrl = await uploadBase64Image(base64String, "character-123.png");
+// Returns: http://localhost:9000/manga-assets/character-123.png
+```
+
+### Usage Tracking & Generation Logging
+
+All AI generation actions are automatically logged for analytics and debugging.
+
+**Generation Logging** (`@/lib/generation-log.ts`):
+```typescript
+import { logGeneration } from "@/lib/generation-log";
+
+await logGeneration({
+  userId: "user-id",
+  action: "generate_character_view",
+  providerType: "image_generation",
+  status: "success",
+  durationMs: 1234,
+  requestPayload: { prompt: "..." },
+  responsePayload: { imageUrl: "..." }
+});
+```
+
+**Usage Statistics** (`@/lib/usage.ts`):
+```typescript
+import { incrementUsage } from "@/lib/usage";
+
+await incrementUsage(userId, "generate_expression", "image_generation");
+```
+
+This automatically aggregates daily usage counts in the `usage_stats` table for quota management and billing.
 
 ### Authentication Flow
 
@@ -293,24 +395,61 @@ The system expects OpenAI-compatible `/v1/chat/completions` endpoints.
 5. Returns base64 images for user preview and selection
 6. User saves selected images as new characters in the library
 
+**Scene Library Workflow (NEW):**
+1. Create scene via `POST /api/scene`
+2. Upload scene image via `/api/upload` or store AI-generated scene URL
+3. Scenes can be tagged and categorized by scene_type
+4. Use scenes as background references in panel generation
+
+**Panel Operations (Storyboard Editor):**
+- **Insert**: `POST /api/panel/insert` - Insert new panel at specific position, auto-reorders subsequent panels
+- **Split**: `POST /api/panel/split` - Split one panel into multiple panels (e.g., 2 or 3 panels)
+- **Merge**: `POST /api/panel/merge` - Merge multiple consecutive panels into one panel
+- All operations automatically update `panel_order` for affected panels
+
 **Expression types:**
 `neutral`, `happy`, `sad`, `angry`, `surprised`, `shy`, `confident`, `worried`, `determined`
 
 **Outfit types:**
 `default`, `school`, `battle`, `casual`, `formal`, `sleepwear`, `sports`, `custom`
 
+**Scene types:**
+`indoor`, `outdoor`, `urban`, `nature`, `fantasy`, `scifi`, `historical`, `abstract`
+
+**Panel types:**
+`wide`, `medium`, `closeup`, `action`, `dialogue`, `transition`
+
+**Camera angles:**
+`俯视` (top-down), `仰视` (bottom-up), `平视` (eye-level), `荷兰角` (Dutch angle)
+
+**Shot sizes:**
+`特写` (close-up), `近景` (close shot), `中景` (medium shot), `全景` (full shot), `远景` (long shot)
+
 ## Environment Variables
 
 Required variables in `.env`:
 
 ```bash
+# Database
 DATABASE_URL=postgresql://user:password@host:5432/dbname
+
+# Authentication
 AUTH_SECRET=<random_secret_for_jwt>
+
+# Email (SMTP)
 EMAIL_HOST=smtp.qq.com
 EMAIL_PORT=465
 EMAIL_USER=your@qq.com
 EMAIL_PASSWORD=your_smtp_key
 EMAIL_FROM="ComicAI <your@qq.com>"
+
+# MinIO Object Storage
+MINIO_ENDPOINT=localhost
+MINIO_PORT=9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_USE_SSL=false
+MINIO_BUCKET=manga-assets
 ```
 
 ## Code Style Guidelines
@@ -365,10 +504,24 @@ return NextResponse.json(
 
 ## Known Limitations
 
-1. **Image Generation**: Placeholder URLs only - needs Stable Diffusion/DALL-E API integration
+1. **Image Generation**: Currently uses placeholder URLs - production deployment requires integration with:
+   - Stable Diffusion API (ComfyUI, Automatic1111, etc.)
+   - DALL-E API
+   - Other image generation services
 2. **LoRA Training**: Not implemented - character `training_status` always remains `pending`
-3. **File Upload**: No cloud storage (S3/R2/MinIO) - images need external hosting URLs
+3. **MinIO Storage**: Requires MinIO server running locally or cloud instance (S3-compatible storage can also be used)
+
+## Example Application
+
+The `example/` directory contains a standalone photo-to-manga web app that demonstrates the AI generation workflow:
+- Converts photos to manga-style storyboards
+- Uses OpenAI GPT for script generation
+- Uses DALL-E for image generation
+- Pure HTML/CSS/JavaScript (no framework)
+
+This is separate from the main Next.js app and serves as a reference implementation.
 
 ## Migration Notes
 
 Migrated from Vite to Next.js 14 App Router. When refactoring legacy code, follow Next.js conventions (Server Components by default, use `"use client"` only when necessary).
+- example是我的demo 除非我主要要求不然不要读取里面的内容

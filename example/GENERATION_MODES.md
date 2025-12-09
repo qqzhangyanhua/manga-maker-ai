@@ -257,3 +257,4 @@ y = padding + row × (imageHeight + padding)
 
 **默认选择：合成模式** - 大多数用户的最佳选择！
 
+

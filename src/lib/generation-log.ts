@@ -1,6 +1,6 @@
 import { prisma, ensureDb } from "./db";
 
-type GenerationStatus = "success" | "failed";
+type GenerationStatus = "success" | "failed" | "pending";
 
 export async function recordGenerationLog(params: {
   userId: string;

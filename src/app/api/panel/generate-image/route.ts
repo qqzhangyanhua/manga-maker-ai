@@ -4,6 +4,7 @@ import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
+import { generateImage, waitForTaskCompletion } from "@/lib/unified-image-generation";
 
 // POST /api/panel/generate-image - 为单个分镜生成图像
 export async function POST(req: Request) {
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
     userId = payload.userId;
 
     const body = await req.json();
-    const { panel_id, prompt, style } = body;
+    const { panel_id, prompt, style, wait = false } = body;
 
     if (!panel_id || !prompt) {
       return NextResponse.json(
@@ -71,36 +72,65 @@ export async function POST(req: Request) {
       throw quotaError;
     }
 
-    // TODO: 这里集成真实的 Stable Diffusion API
-    // 当前使用占位符图像
-    const placeholderImageUrl = await generatePlaceholderImage(prompt, style);
+    // 使用统一图片生成系统
+    const stylePrompt = style || panel.project.style || "manga style";
+    const fullPrompt = `${prompt}, ${stylePrompt}, high quality, detailed`;
 
-    // 更新panel的generated_image
-    const updatedPanel = await prisma.panel.update({
-      where: { id: panel_id },
-      data: {
-        generated_image: placeholderImageUrl,
-        prompt_used: prompt,
-      },
-    });
+    const { taskId, status } = await generateImage(
+      "panel",
+      fullPrompt,
+      userId,
+      {
+        style: stylePrompt,
+        width: 1024,
+        height: 768,
+        metadata: { panel_id, project_id: panel.project_id },
+      }
+    );
+
+    // If wait=true, wait for completion
+    let imageUrl: string | undefined;
+    if (wait) {
+      const result = await waitForTaskCompletion(taskId, 60000);
+      if (result.status === "completed") {
+        imageUrl = result.imageUrl;
+      } else if (result.status === "failed") {
+        throw new Error(result.error || "Image generation failed");
+      }
+    }
+
+    // 更新panel的generated_image (如果已完成)
+    if (imageUrl) {
+      await prisma.panel.update({
+        where: { id: panel_id },
+        data: {
+          generated_image: imageUrl,
+          prompt_used: prompt,
+        },
+      });
+    }
 
     if (userId) {
       await recordGenerationLog({
         userId,
         action: "image_generation",
         providerType: "image_generation",
-        status: "success",
+        status: imageUrl ? "success" : "pending",
         durationMs: Date.now() - startedAt,
         requestPayload: { panel_id, style },
-        responsePayload: { panel_id },
+        responsePayload: { panel_id, task_id: taskId },
       });
     }
 
     return NextResponse.json({
       success: true,
-      panel: updatedPanel,
-      image_url: placeholderImageUrl,
+      task_id: taskId,
+      status: status.status,
+      image_url: imageUrl,
       usage: usageSnapshot,
+      message: wait
+        ? "图片生成完成"
+        : "图片生成任务已提交,请使用task_id查询进度",
     });
   } catch (error) {
     console.error("Generate image error:", error);
@@ -165,12 +195,20 @@ export async function PUT(req: Request) {
     }
 
     const panelsToGenerate = project.panels.filter((p) => p.prompt_used);
+
+    if (panelsToGenerate.length === 0) {
+      return NextResponse.json(
+        { error: "没有可生成的分镜(缺少prompt)" },
+        { status: 400 }
+      );
+    }
+
     try {
       usageSnapshot = await assertAndIncrementUsage({
         userId,
         action: "image_generation",
         providerType: "image_generation",
-        amount: panelsToGenerate.length || 1,
+        amount: panelsToGenerate.length,
       });
     } catch (quotaError: any) {
       if (quotaError?.code === "QUOTA_EXCEEDED") {
@@ -187,29 +225,44 @@ export async function PUT(req: Request) {
       throw quotaError;
     }
 
-    // 批量生成图像
-    const results = [];
-    for (const panel of project.panels) {
-      if (!panel.prompt_used) continue;
+    // 使用统一图片生成系统批量提交任务
+    const stylePrompt = project.style || "manga style";
+    const taskIds: string[] = [];
 
-      const imageUrl = await generatePlaceholderImage(
-        panel.prompt_used,
-        project.style
+    for (const panel of panelsToGenerate) {
+      const fullPrompt = `${panel.prompt_used}, ${stylePrompt}, high quality, detailed`;
+
+      const { taskId } = await generateImage(
+        "panel",
+        fullPrompt,
+        userId,
+        {
+          style: stylePrompt,
+          width: 1024,
+          height: 768,
+          metadata: { panel_id: panel.id, project_id },
+        }
       );
 
-      const updatedPanel = await prisma.panel.update({
-        where: { id: panel.id },
-        data: { generated_image: imageUrl },
-      });
-
-      results.push(updatedPanel);
+      taskIds.push(taskId);
     }
+
+    await recordGenerationLog({
+      userId,
+      action: "batch_image_generation",
+      providerType: "image_generation",
+      status: "success",
+      durationMs: Date.now() - startedAt,
+      requestPayload: { project_id, panel_count: panelsToGenerate.length },
+      responsePayload: { task_ids: taskIds },
+    });
 
     return NextResponse.json({
       success: true,
-      generated_count: results.length,
-      panels: results,
+      task_ids: taskIds,
+      panel_count: panelsToGenerate.length,
       usage: usageSnapshot,
+      message: `已提交${panelsToGenerate.length}个分镜的生成任务`,
     });
   } catch (error) {
     console.error("Batch generate error:", error);
@@ -217,7 +270,7 @@ export async function PUT(req: Request) {
     if (userId) {
       await recordGenerationLog({
         userId,
-        action: "image_generation",
+        action: "batch_image_generation",
         providerType: "image_generation",
         status: "failed",
         durationMs: Date.now() - startedAt,
@@ -226,37 +279,4 @@ export async function PUT(req: Request) {
     }
     return NextResponse.json({ error: message }, { status: 500 });
   }
-}
-
-// 占位符图像生成函数
-// TODO: 替换为真实的 Stable Diffusion API 调用
-async function generatePlaceholderImage(
-  prompt: string,
-  style?: string | null
-): Promise<string> {
-  // 模拟API调用延迟
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-
-  // 使用占位符图像服务（带提示词的一部分作为参数）
-  const seed = Math.floor(Math.random() * 10000);
-  const width = 768;
-  const height = 512;
-
-  // 返回占位符URL（实际应该是上传到云存储后的URL）
-  return `https://picsum.photos/seed/${seed}/${width}/${height}`;
-
-  // 真实实现示例：
-  // const response = await fetch('https://your-sd-api.com/generate', {
-  //   method: 'POST',
-  //   headers: { 'Content-Type': 'application/json' },
-  //   body: JSON.stringify({
-  //     prompt: `${prompt}, ${style || 'manga style'}`,
-  //     negative_prompt: 'blurry, low quality, bad anatomy',
-  //     width, height,
-  //     steps: 30,
-  //     cfg_scale: 7,
-  //   })
-  // });
-  // const data = await response.json();
-  // return data.image_url;
 }

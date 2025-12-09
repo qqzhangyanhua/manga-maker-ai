@@ -48,23 +48,28 @@ const Header = () => {
 
         {/* Nav */}
         <nav className="hidden md:flex items-center gap-6">
-          <Link 
-            href="/#styles" 
+          <Link
+            href="/story"
             className={cn(
-              "text-muted-foreground hover:text-foreground transition-colors",
-              pathname === "/" && "text-foreground"
+              "text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1",
+              pathname === "/story" && "text-foreground"
             )}
           >
-            漫画风格
+            <Sparkles className="w-4 h-4" />
+            故事创作
           </Link>
-          <Link 
-            href="/#characters" 
-            className="text-muted-foreground hover:text-foreground transition-colors"
+          <Link
+            href="/workflow"
+            className={cn(
+              "text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1",
+              pathname === "/workflow" && "text-foreground"
+            )}
           >
-            角色选择
+            <FileText className="w-4 h-4" />
+            一键生成
           </Link>
-          <Link 
-            href="/storyboard" 
+          <Link
+            href="/storyboard"
             className={cn(
               "text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1",
               pathname === "/storyboard" && "text-foreground"
@@ -73,8 +78,8 @@ const Header = () => {
             <FileText className="w-4 h-4" />
             分镜编辑
           </Link>
-          <Link 
-            href="/assets" 
+          <Link
+            href="/assets"
             className={cn(
               "text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1",
               pathname === "/assets" && "text-foreground"

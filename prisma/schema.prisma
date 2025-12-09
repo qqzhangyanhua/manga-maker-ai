@@ -8,30 +8,30 @@ datasource db {
 }
 
 model User {
-  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email            String    @unique
-  email_verified   DateTime? @db.Timestamptz(6)
-  name             String?
-  image            String?
-  password         String?
-  created_at       DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime? @default(now()) @db.Timestamptz(6)
-  verified         Boolean?  @default(false)
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email             String    @unique
+  email_verified    DateTime? @db.Timestamptz(6)
+  name              String?
+  image             String?
+  password          String?
+  created_at        DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime? @default(now()) @db.Timestamptz(6)
+  verified          Boolean?  @default(false)
   email_verified_at DateTime? @db.Timestamptz(6)
-  password_hash    String?   @default("")
-  role             String?   @default("user")
-  status           String?   @default("active")
+  password_hash     String?   @default("")
+  role              String?   @default("user")
+  status            String?   @default("active")
 
   @@map("users")
 }
 
 model EmailVerification {
-  id          Int      @id @default(autoincrement())
-  email       String
-  code_hash   String
-  expires_at  DateTime @db.Timestamptz(6)
-  used        Boolean  @default(false)
-  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  id         Int      @id @default(autoincrement())
+  email      String
+  code_hash  String
+  expires_at DateTime @db.Timestamptz(6)
+  used       Boolean  @default(false)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
 
   @@index([email], map: "idx_email_verifications_email")
   @@map("email_verifications")
@@ -55,24 +55,24 @@ model LlmProvider {
 
 // Character Management - "Digital Actor" System
 model Character {
-  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id           String             @db.Uuid
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id           String   @db.Uuid
   name              String
   description       String?
-  base_prompt       String             @default("")
-  tags              String[]           @default([])
+  base_prompt       String   @default("")
+  tags              String[] @default([])
   base_image_url    String?
   lora_model_url    String?
   lora_trigger_word String?
-  training_status   String             @default("pending") // pending, training, ready, failed
-  training_progress Int                @default(0)
-  usage_count       Int                @default(0)
-  created_at        DateTime           @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime           @default(now()) @db.Timestamptz(6)
-  
-  views             CharacterView[]
-  expressions       CharacterExpression[]
-  outfits           CharacterOutfit[]
+  training_status   String   @default("pending") // pending, training, ready, failed
+  training_progress Int      @default(0)
+  usage_count       Int      @default(0)
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime @default(now()) @db.Timestamptz(6)
+
+  views       CharacterView[]
+  expressions CharacterExpression[]
+  outfits     CharacterOutfit[]
 
   @@index([user_id, training_status], map: "idx_characters_user_status")
   @@map("characters")
@@ -80,13 +80,13 @@ model Character {
 
 // Three-view reference images (front, side, back)
 model CharacterView {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  character_id  String    @db.Uuid
-  view_type     String    // front, side, back
-  image_url     String
-  created_at    DateTime  @default(now()) @db.Timestamptz(6)
-  
-  character     Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  character_id String   @db.Uuid
+  view_type    String // front, side, back
+  image_url    String
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  character Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
 
   @@unique([character_id, view_type], map: "unique_character_view")
   @@map("character_views")
@@ -94,14 +94,14 @@ model CharacterView {
 
 // Expression matrix for emotional consistency
 model CharacterExpression {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  character_id  String    @db.Uuid
-  expression_type String  // neutral, happy, sad, angry, surprised, shy, confident, worried, determined
-  image_url     String
-  prompt_suffix String?   // Additional prompt for this expression
-  created_at    DateTime  @default(now()) @db.Timestamptz(6)
-  
-  character     Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  character_id    String   @db.Uuid
+  expression_type String // neutral, happy, sad, angry, surprised, shy, confident, worried, determined
+  image_url       String
+  prompt_suffix   String? // Additional prompt for this expression
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  character Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
 
   @@unique([character_id, expression_type], map: "unique_character_expression")
   @@map("character_expressions")
@@ -109,17 +109,17 @@ model CharacterExpression {
 
 // Wardrobe system - multiple outfits per character
 model CharacterOutfit {
-  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  character_id    String    @db.Uuid
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  character_id    String   @db.Uuid
   outfit_name     String
-  outfit_type     String    // default, school, battle, casual, formal, sleepwear, custom
+  outfit_type     String // default, school, battle, casual, formal, sleepwear, custom
   image_url       String?
-  prompt_modifier String    @default("") // Outfit-specific prompt additions
-  trigger_word    String?   // Optional trigger word for this outfit
-  is_default      Boolean   @default(false)
-  created_at      DateTime  @default(now()) @db.Timestamptz(6)
-  
-  character       Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
+  prompt_modifier String   @default("") // Outfit-specific prompt additions
+  trigger_word    String? // Optional trigger word for this outfit
+  is_default      Boolean  @default(false)
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  character Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
 
   @@index([character_id, is_default], map: "idx_outfits_character_default")
   @@map("character_outfits")
@@ -127,49 +127,53 @@ model CharacterOutfit {
 
 // Project/Work management
 model Project {
-  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id     String        @db.Uuid
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String   @db.Uuid
+  story_id    String?  @db.Uuid // Link to Story (optional)
   title       String
   description String?
   style       String?
-  status      String        @default("draft") // draft, in_progress, completed
+  status      String   @default("draft") // draft, in_progress, completed
   cover_image String?
-  created_at  DateTime      @default(now()) @db.Timestamptz(6)
-  updated_at  DateTime      @default(now()) @db.Timestamptz(6)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @default(now()) @db.Timestamptz(6)
 
-  panels      Panel[]
-  script      StoryScript?
-  
+  panels  Panel[]
+  script  StoryScript?
+  Story   Story?       @relation(fields: [storyId], references: [id])
+  storyId String?      @db.Uuid
+
   @@index([user_id, status], map: "idx_projects_user_status")
+  @@index([story_id], map: "idx_projects_story")
   @@map("projects")
 }
 
 // Individual comic panels
 model Panel {
-  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  project_id        String    @db.Uuid
-  panel_order       Int
-  panel_type        String    // wide, medium, closeup, action, dialogue, transition
-  importance        String    // high, medium, low
-  description       String
-  dialogue          String?
-  character_name    String?
-  emotion           String?
-  generated_image   String?
-  prompt_used       String?
-  
+  id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id      String  @db.Uuid
+  panel_order     Int
+  panel_type      String // wide, medium, closeup, action, dialogue, transition
+  importance      String // high, medium, low
+  description     String
+  dialogue        String?
+  character_name  String?
+  emotion         String?
+  generated_image String?
+  prompt_used     String?
+
   // New fields for script editor
-  script_segment_id String?   // Link to script segment
-  script_start      Int?      // Text start position
-  script_end        Int?      // Text end position
-  camera_angle      String?   // 俯视/仰视/平视/荷兰角
-  shot_size         String?   // 特写/近景/中景/全景/远景
-  sketch_image_url  String?   // Sketch preview URL
-  visual_prompt     String?   // Editable visual description
-  
-  created_at        DateTime  @default(now()) @db.Timestamptz(6)
-  
-  project           Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  script_segment_id String? // Link to script segment
+  script_start      Int? // Text start position
+  script_end        Int? // Text end position
+  camera_angle      String? // 俯视/仰视/平视/荷兰角
+  shot_size         String? // 特写/近景/中景/全景/远景
+  sketch_image_url  String? // Sketch preview URL
+  visual_prompt     String? // Editable visual description
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
 
   @@index([project_id, panel_order], map: "idx_panels_project_order")
   @@map("panels")
@@ -180,25 +184,25 @@ model StoryScript {
   id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   project_id String   @unique @db.Uuid
   content    String   @db.Text // Full original script text
-  segments   Json     // [{ id, text, start, end, panel_id }]
+  segments   Json // [{ id, text, start, end, panel_id }]
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
-  
-  project    Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
 
   @@map("story_scripts")
 }
 
 // Generated images gallery
 model GeneratedImage {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id     String    @db.Uuid
-  image_url   String
-  prompt      String
-  style       String?
-  character_id String?  @db.Uuid
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id           String   @db.Uuid
+  image_url         String
+  prompt            String
+  style             String?
+  character_id      String?  @db.Uuid
   generation_params Json? // Store model, steps, cfg, etc.
-  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
 
   @@index([user_id, created_at], map: "idx_generated_images_user_time")
   @@map("generated_images")
@@ -206,14 +210,14 @@ model GeneratedImage {
 
 // Character Relationship Chart - for managing character positions and relationships
 model CharacterRelationship {
-  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id      String    @db.Uuid
-  character_id String    @db.Uuid
-  position_x   Float     @default(0)
-  position_y   Float     @default(0)
-  scale        Float     @default(1.0)
-  created_at   DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at   DateTime  @default(now()) @db.Timestamptz(6)
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String   @db.Uuid
+  character_id String   @db.Uuid
+  position_x   Float    @default(0)
+  position_y   Float    @default(0)
+  scale        Float    @default(1.0)
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime @default(now()) @db.Timestamptz(6)
 
   @@unique([user_id, character_id], map: "unique_user_character_relationship")
   @@index([user_id], map: "idx_relationships_user")
@@ -224,11 +228,11 @@ model CharacterRelationship {
 model ComicStyle {
   id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   style_key     String   @unique // manga, american, webtoon, etc.
-  name_zh       String   // 日式漫画
-  name_en       String   // MANGA
-  image_url     String   // Preview image URL
+  name_zh       String // 日式漫画
+  name_en       String // MANGA
+  image_url     String // Preview image URL
   tag_color     String   @default("bg-primary text-background") // Tailwind classes
-  description   String?  // Optional description
+  description   String? // Optional description
   prompt_prefix String?  @default("") // AI prompt prefix for this style
   sort_order    Int      @default(0) // Display order (lower = first)
   enabled       Boolean  @default(true) // Soft delete flag
@@ -241,30 +245,30 @@ model ComicStyle {
 }
 
 model GenerationLog {
-  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id         String    @db.Uuid
-  project_id      String?   @db.Uuid
-  action          String
-  provider_type   String?
-  status          String    // success | failed
-  duration_ms     Int?
-  request_payload Json?
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String   @db.Uuid
+  project_id       String?  @db.Uuid
+  action           String
+  provider_type    String?
+  status           String // success | failed
+  duration_ms      Int?
+  request_payload  Json?
   response_payload Json?
-  error_message   String?
-  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  error_message    String?
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
 
   @@index([user_id, action, created_at], map: "idx_generation_logs_user_action_time")
   @@map("generation_logs")
 }
 
 model UsageStat {
-  id            Int       @id @default(autoincrement())
-  user_id       String    @db.Uuid
+  id            Int      @id @default(autoincrement())
+  user_id       String   @db.Uuid
   action        String
   provider_type String?
-  date          DateTime  @db.Date
-  count         Int       @default(0)
-  last_used_at  DateTime  @default(now()) @db.Timestamptz(6)
+  date          DateTime @db.Date
+  count         Int      @default(0)
+  last_used_at  DateTime @default(now()) @db.Timestamptz(6)
 
   @@unique([user_id, action, date], map: "unique_usage_per_day")
   @@index([user_id, action], map: "idx_usage_user_action")
@@ -273,18 +277,79 @@ model UsageStat {
 
 // Scene Library - Background/Environment assets for manga panels
 model Scene {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id     String    @db.Uuid
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String   @db.Uuid
   name        String
   description String?
-  scene_type  String    // indoor, outdoor, urban, nature, fantasy, scifi, historical, abstract
+  scene_type  String // indoor, outdoor, urban, nature, fantasy, scifi, historical, abstract
   image_url   String?
-  tags        String[]  @default([])
-  prompt      String?   @db.Text // AI prompt used to generate/describe the scene
-  usage_count Int       @default(0)
-  created_at  DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at  DateTime  @default(now()) @db.Timestamptz(6)
+  tags        String[] @default([])
+  prompt      String?  @db.Text // AI prompt used to generate/describe the scene
+  usage_count Int      @default(0)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @default(now()) @db.Timestamptz(6)
 
   @@index([user_id, scene_type], map: "idx_scenes_user_type")
   @@map("scenes")
+}
+
+// Story Template - Predefined story structures and templates
+model StoryTemplate {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String // Template name (e.g., "三幕剧结构", "英雄之旅")
+  category    String // suspense/romance/adventure/scifi/daily/fantasy
+  description String?  @db.Text
+  structure   Json // Story structure: { acts: [...], plot_points: [...] }
+  prompts     Json // Prompt templates for generation
+  is_public   Boolean  @default(true)
+  user_id     String?  @db.Uuid // null = system template
+  usage_count Int      @default(0)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([category, is_public], map: "idx_story_templates_category")
+  @@map("story_templates")
+}
+
+// Story - Story outline and character setup
+model Story {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String   @db.Uuid
+  title       String
+  premise     String   @db.Text // Story premise/idea
+  genre       String // Genre: suspense/romance/adventure/scifi/daily/fantasy
+  outline     Json // Story outline: { acts: [...], scenes: [...] }
+  characters  Json // Character setup: [{ name, role, description, arc }]
+  template_id String?  @db.Uuid
+  status      String   @default("draft") // draft/completed
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  projects Project[] // One story can generate multiple projects
+
+  @@index([user_id, status], map: "idx_stories_user_status")
+  @@map("stories")
+}
+
+// Workflow - Automation workflow tracking
+model Workflow {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String    @db.Uuid
+  story_id     String?   @db.Uuid
+  project_id   String?   @db.Uuid
+  type         String // auto_generate/manual/batch
+  status       String // pending/running/completed/failed/cancelled
+  current_step String? // story/script/storyboard/images/export
+  progress     Int       @default(0) // 0-100
+  config       Json // Workflow configuration
+  result       Json? // Final result data
+  error        String?   @db.Text
+  started_at   DateTime?
+  completed_at DateTime?
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([user_id, status], map: "idx_workflows_user_status")
+  @@index([status, created_at], map: "idx_workflows_status_time")
+  @@map("workflows")
 }

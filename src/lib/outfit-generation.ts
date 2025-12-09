@@ -49,9 +49,9 @@ export async function generateOutfit(
   // 构建服装提示词
   const outfitPrompt = OUTFIT_PROMPTS[outfitType];
   const customDescription = outfitDescription ? `, ${outfitDescription}` : "";
-  
+
   const fullPrompt = `${characterDescription}, ${outfitPrompt}${customDescription}, full body, character design, anime style, clean white background, professional character design, detailed clothing, 8k, ultra detailed`;
-  
+
   const negativePrompt = `blurry, low quality, distorted, multiple characters, inconsistent style, cropped, background elements, text, watermark, signature, multiple outfits`;
 
   // 调用图片生成 API
@@ -72,4 +72,45 @@ export async function generateOutfit(
   }
 
   return result.images[0];
+}
+
+/**
+ * 使用队列系统生成服装 (异步)
+ */
+import { generateImage, waitForTaskCompletion } from "./unified-image-generation";
+
+export async function generateOutfitAsync(
+  characterDescription: string,
+  outfitType: OutfitType,
+  userId: string,
+  outfitDescription?: string,
+  wait: boolean = false
+): Promise<{ taskId: string; imageUrl?: string }> {
+  const outfitPrompt = OUTFIT_PROMPTS[outfitType];
+  const customDescription = outfitDescription ? `, ${outfitDescription}` : "";
+
+  const fullPrompt = `${characterDescription}, ${outfitPrompt}${customDescription}, full body, character design, anime style, clean white background, professional character design, detailed clothing, 8k, ultra detailed`;
+
+  const { taskId, status } = await generateImage(
+    "outfit",
+    fullPrompt,
+    userId,
+    {
+      negativePrompt: `blurry, low quality, distorted, multiple characters, inconsistent style, cropped, background elements, text, watermark, signature, multiple outfits`,
+      width: 512,
+      height: 768,
+      metadata: { outfitType, characterDescription, outfitDescription },
+    }
+  );
+
+  if (wait) {
+    const result = await waitForTaskCompletion(taskId, 60000);
+    if (result.status === "completed") {
+      return { taskId, imageUrl: result.imageUrl };
+    } else if (result.status === "failed") {
+      throw new Error(result.error || "Outfit generation failed");
+    }
+  }
+
+  return { taskId, imageUrl: status.imageUrl };
 }

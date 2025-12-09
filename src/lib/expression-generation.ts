@@ -62,7 +62,7 @@ export async function generateExpression(
   // 构建表情提示词
   const expressionPrompt = EXPRESSION_PROMPTS[expressionType];
   const fullPrompt = `${characterDescription}, ${expressionPrompt}, portrait, upper body, character portrait, anime style, detailed face, clean background, professional character design, 8k, ultra detailed`;
-  
+
   const negativePrompt = `full body, blurry, low quality, distorted, multiple characters, inconsistent style, cropped body, background elements, text, watermark, signature`;
 
   // 调用图片生成 API
@@ -139,4 +139,65 @@ export async function generateMultipleExpressions(
   });
 
   return expressions as Record<ExpressionType, string>;
+}
+
+/**
+ * 使用队列系统生成单个表情 (异步)
+ */
+import { generateImage, waitForTaskCompletion } from "./unified-image-generation";
+
+export async function generateExpressionAsync(
+  characterDescription: string,
+  expressionType: ExpressionType,
+  userId: string,
+  wait: boolean = false
+): Promise<{ taskId: string; imageUrl?: string }> {
+  const expressionPrompt = EXPRESSION_PROMPTS[expressionType];
+  const fullPrompt = `${characterDescription}, ${expressionPrompt}, portrait, upper body, character portrait, anime style, detailed face, clean background, professional character design, 8k, ultra detailed`;
+
+  const { taskId, status } = await generateImage(
+    "expression",
+    fullPrompt,
+    userId,
+    {
+      negativePrompt: `full body, blurry, low quality, distorted, multiple characters, inconsistent style, cropped body, background elements, text, watermark, signature`,
+      width: 512,
+      height: 512,
+      metadata: { expressionType, characterDescription },
+    }
+  );
+
+  if (wait) {
+    const result = await waitForTaskCompletion(taskId, 60000);
+    if (result.status === "completed") {
+      return { taskId, imageUrl: result.imageUrl };
+    } else if (result.status === "failed") {
+      throw new Error(result.error || "Expression generation failed");
+    }
+  }
+
+  return { taskId, imageUrl: status.imageUrl };
+}
+
+/**
+ * 使用队列系统批量生成表情 (异步)
+ */
+export async function generateAllExpressionsAsync(
+  characterDescription: string,
+  userId: string
+): Promise<Record<ExpressionType, string>> {
+  const taskIds: Record<string, string> = {};
+
+  // 提交所有任务到队列
+  for (const expType of EXPRESSION_TYPES) {
+    const { taskId } = await generateExpressionAsync(
+      characterDescription,
+      expType,
+      userId,
+      false
+    );
+    taskIds[expType] = taskId;
+  }
+
+  return taskIds as Record<ExpressionType, string>;
 }
