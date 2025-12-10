@@ -1,6 +1,9 @@
 /**
  * AI 图片生成服务封装
- * 支持 Stable Diffusion API (Automatic1111, ComfyUI 等)
+ * 支持多种图像生成服务:
+ * - Stable Diffusion API (Automatic1111)
+ * - OpenAI DALL-E (dall-e-2, dall-e-3)
+ * - ComfyUI (暂未实现)
  * 复用 LLM Provider 架构，通过 provider_type 区分不同服务
  */
 
@@ -27,21 +30,30 @@ export interface ImageGenerationResult {
 
 /**
  * 调用图片生成 API（根据 provider_type 自动选择配置）
- * 
+ *
  * 使用方法：
  * 1. 在 /admin/llm-providers 添加配置：
+ *
+ *    【Stable Diffusion】
  *    - provider_type: "image_generation"
- *    - provider_name: "sd" (或 "comfyui", "replicate")
+ *    - provider_name: "sd" (或 "automatic1111")
  *    - model: "sdxl" (或你使用的模型名称)
  *    - base_url: "http://your-sd-server:7860"
  *    - api_key: "" (SD 通常不需要)
- * 
+ *
+ *    【OpenAI DALL-E】
+ *    - provider_type: "image_generation"
+ *    - provider_name: "openai" (或 "dall-e")
+ *    - model: "dall-e-3" (或 "dall-e-2")
+ *    - base_url: "https://api.openai.com"
+ *    - api_key: "sk-..." (必需)
+ *
  * 2. 调用：
  *    const result = await callImageGenerationByType({
  *      providerType: "image_generation",
  *      prompt: "a beautiful cat",
- *      width: 512,
- *      height: 512
+ *      width: 1024,
+ *      height: 1024
  *    });
  */
 export async function callImageGenerationByType(
@@ -64,12 +76,22 @@ export async function callImageGenerationByType(
     case "comfyui":
       return await callComfyUIAPI(provider.base_url, imageParams, provider.api_key);
 
+    case "openai":
+    case "dall-e":
+    case "dalle":
+      return await callOpenAIImageAPI(
+        provider.base_url,
+        provider.model || "dall-e-3",
+        imageParams,
+        provider.api_key
+      );
+
     case "replicate":
       throw new Error("Replicate 支持暂未实现，请使用 SD 或 ComfyUI");
 
     default:
       throw new Error(
-        `不支持的 provider_name: ${provider.provider_name}，请使用 sd, comfyui 等`
+        `不支持的 provider_name: ${provider.provider_name}，请使用 sd, comfyui, openai 等`
       );
   }
 }
@@ -145,6 +167,85 @@ async function callStableDiffusionAPI(
     };
   } catch (error) {
     console.error("Stable Diffusion API error:", error);
+    return {
+      success: false,
+      images: [],
+      error: error instanceof Error ? error.message : "未知错误",
+    };
+  }
+}
+
+/**
+ * 调用 OpenAI DALL-E API
+ * API 文档: https://platform.openai.com/docs/api-reference/images/create
+ */
+async function callOpenAIImageAPI(
+  baseUrl: string,
+  model: string,
+  params: ImageGenerationParams,
+  apiKey?: string
+): Promise<ImageGenerationResult> {
+  const {
+    prompt,
+    width = 1024,
+    height = 1024,
+    batch_size = 1,
+  } = params;
+
+  if (!apiKey) {
+    throw new Error("OpenAI API Key 未配置");
+  }
+
+  // DALL-E 支持的尺寸格式
+  const size = `${width}x${height}`;
+
+  // DALL-E 3 只支持特定尺寸: 1024x1024, 1792x1024, 1024x1792
+  // DALL-E 2 支持: 256x256, 512x512, 1024x1024
+  const validSizes = ["1024x1024", "1792x1024", "1024x1792", "512x512", "256x256"];
+  if (!validSizes.includes(size)) {
+    console.warn(`DALL-E 不支持尺寸 ${size}，使用默认 1024x1024`);
+  }
+
+  // 移除 base_url 末尾的斜杠
+  const normalizedUrl = baseUrl.replace(/\/$/, "");
+  const endpoint = `${normalizedUrl}/v1/images/generations`;
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        prompt,
+        n: batch_size,
+        size: validSizes.includes(size) ? size : "1024x1024",
+        quality: model === "dall-e-3" ? "hd" : undefined,
+        response_format: "b64_json", // 返回 base64 编码的图片
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        `OpenAI API 调用失败: ${response.status} ${response.statusText}\n${JSON.stringify(errorData)}`
+      );
+    }
+
+    const data = await response.json();
+
+    // OpenAI 返回格式: { created: number, data: [{ b64_json: string }] }
+    const images = data.data?.map((item: any) => item.b64_json) || [];
+
+    return {
+      success: true,
+      images,
+      info: JSON.stringify({ model, size: validSizes.includes(size) ? size : "1024x1024" }),
+    };
+  } catch (error) {
+    console.error("OpenAI API error:", error);
     return {
       success: false,
       images: [],

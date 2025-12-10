@@ -97,6 +97,29 @@ const STORY_GENERATION_SYSTEM_PROMPT = `你是一位资深编剧和故事顾问,
 5. 主题要与故事内容紧密相关`;
 
 /**
+ * Try to fix common JSON syntax errors and extract JSON from markdown
+ */
+function fixJsonSyntax(jsonString: string): string {
+    let fixed = jsonString.trim();
+
+    // Remove markdown code block wrappers (```json ... ``` or ``` ... ```)
+    fixed = fixed.replace(/^```(?:json)?\s*\n?/g, '');
+    fixed = fixed.replace(/\n?```\s*$/g, '');
+    fixed = fixed.trim();
+
+    // Fix missing colons in object properties (e.g., "keyEvents [" -> "keyEvents": [)
+    fixed = fixed.replace(/"(\w+)"\s+(\[|\{)/g, '"$1": $2');
+
+    // Remove trailing commas before closing braces/brackets
+    fixed = fixed.replace(/,(\s*[}\]])/g, '$1');
+
+    // Fix missing commas between array elements
+    fixed = fixed.replace(/"\s+"([^"])/g, '", "$1');
+
+    return fixed;
+}
+
+/**
  * Generate story outline from premise
  */
 export async function generateStoryOutline(
@@ -126,10 +149,21 @@ ${templateId ? `- 使用模板ID: ${templateId}` : ""}
     });
 
     try {
+        // Try to parse original content
         const outline = JSON.parse(content);
         return outline as StoryOutline;
     } catch (error) {
-        throw new Error(`Failed to parse story outline: ${content}`);
+        // Try to fix common syntax errors and parse again
+        try {
+            const fixedContent = fixJsonSyntax(content);
+            const outline = JSON.parse(fixedContent);
+            console.log("⚠️ JSON syntax fixed automatically");
+            return outline as StoryOutline;
+        } catch (retryError) {
+            console.error("Original JSON:", content);
+            console.error("Fixed attempt JSON:", fixJsonSyntax(content));
+            throw new Error(`Failed to parse story outline after fix attempts: ${content.substring(0, 500)}...`);
+        }
     }
 }
 

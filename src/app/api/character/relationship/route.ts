@@ -24,9 +24,7 @@ export async function GET() {
     // 获取用户的所有角色关系配置
     const relationships = await prisma.characterRelationship.findMany({
       where: { user_id: payload.userId },
-      include: {
-        // 注意：这里需要在 schema 中添加 relation，暂时先不 include
-      },
+      // 注意：这里需要在 schema 中添加 relation，暂时先不 include
       orderBy: { created_at: "asc" },
     });
 
@@ -81,7 +79,7 @@ export async function POST(request: NextRequest) {
     const operations = relationships.map((rel) =>
       prisma.characterRelationship.upsert({
         where: {
-          unique_user_character_relationship: {
+          user_id_character_id: {
             user_id: payload.userId,
             character_id: rel.character_id,
           },

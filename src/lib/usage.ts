@@ -1,6 +1,15 @@
 import { prisma, ensureDb } from "./db";
 
-type UsageAction = "storyboard_generation" | "image_generation" | "llm_chat";
+type UsageAction =
+  | "storyboard_generation"
+  | "story_generation"
+  | "story_expansion"
+  | "workflow_generation"
+  | "character_setup_generation"
+  | "outfit_generation"
+  | "image_generation"
+  | "batch_image_generation"
+  | "llm_chat";
 
 const parseLimit = (value: string | undefined, fallback: number) => {
   const n = Number(value);
@@ -9,7 +18,13 @@ const parseLimit = (value: string | undefined, fallback: number) => {
 
 const DAILY_LIMITS: Record<UsageAction, number> = {
   storyboard_generation: parseLimit(process.env.QUOTA_STORYBOARD_DAILY, 20),
+  story_generation: parseLimit(process.env.QUOTA_STORY_DAILY, 30),
+  story_expansion: parseLimit(process.env.QUOTA_STORY_EXPANSION_DAILY, 50),
+  workflow_generation: parseLimit(process.env.QUOTA_WORKFLOW_DAILY, 10),
+  character_setup_generation: parseLimit(process.env.QUOTA_CHARACTER_SETUP_DAILY, 50),
+  outfit_generation: parseLimit(process.env.QUOTA_OUTFIT_DAILY, 30),
   image_generation: parseLimit(process.env.QUOTA_IMAGE_DAILY, 50),
+  batch_image_generation: parseLimit(process.env.QUOTA_BATCH_IMAGE_DAILY, 20),
   llm_chat: parseLimit(process.env.QUOTA_LLM_DAILY, 200),
 };
 
@@ -105,7 +120,13 @@ export async function getUsageSnapshot(params: {
 }
 
 export async function getUsageSummary(userId: string) {
-  const actions: UsageAction[] = ["storyboard_generation", "image_generation", "llm_chat"];
+  const actions: UsageAction[] = [
+    "storyboard_generation",
+    "story_generation",
+    "workflow_generation",
+    "image_generation",
+    "llm_chat"
+  ];
   const summary: Record<UsageAction, Awaited<ReturnType<typeof getUsageSnapshot>>> = {} as any;
   for (const action of actions) {
     summary[action] = await getUsageSnapshot({ userId, action });

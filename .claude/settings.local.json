@@ -8,7 +8,10 @@
       "Bash(npx tsc:*)",
       "Bash(pnpm dev:*)",
       "Bash(timeout:*)",
-      "Bash(ping:*)"
+      "Bash(ping:*)",
+      "Bash(pnpm test:*)",
+      "Bash(ls \"D:\\AI\\manga-maker-ai\\src\\lib\"\" | grep -E \"test)",
+      "Bash(spec \")"
     ],
     "deny": [],
     "ask": []

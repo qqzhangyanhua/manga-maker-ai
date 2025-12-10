@@ -45,7 +45,7 @@ const RelationshipChart = ({ onBack }: RelationshipChartProps) => {
           : { relationships: [] };
 
         // Create a map of character_id -> position
-        const positionMap = new Map(
+        const positionMap = new Map<string, { x: number; y: number; scale: number }>(
           relationshipsData.relationships.map((rel: any) => [
             rel.character_id,
             { x: rel.position_x, y: rel.position_y, scale: rel.scale },

@@ -10,6 +10,11 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
+import {
+    Alert,
+    AlertDescription,
+    AlertTitle,
+} from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
@@ -20,7 +25,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Loader2, Sparkles, BookOpen, Users, Edit, List } from "lucide-react";
+import { Loader2, Sparkles, BookOpen, Users, Edit, List, Save, AlertCircle } from "lucide-react";
 import { StoryTemplateSelector } from "./StoryTemplateSelector";
 import { EditableStoryForm } from "./EditableStoryForm";
 import { useToast } from "@/hooks/use-toast";
@@ -42,6 +47,8 @@ export function StoryGenerator({ onStoryGenerated }: StoryGeneratorProps) {
     const [generating, setGenerating] = useState(false);
     const [generatedStory, setGeneratedStory] = useState<any>(null);
     const [editMode, setEditMode] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [isSaved, setIsSaved] = useState(false);
 
     async function handleGenerate() {
         if (!premise.trim()) {
@@ -66,7 +73,7 @@ export function StoryGenerator({ onStoryGenerated }: StoryGeneratorProps) {
                     characterCount: parseInt(characterCount) || undefined,
                     length,
                     templateId: selectedTemplate?.id,
-                    saveToDb: true,
+                    saveToDb: false, // 草稿模式：不自动保存
                 }),
             });
 
@@ -76,21 +83,17 @@ export function StoryGenerator({ onStoryGenerated }: StoryGeneratorProps) {
                 throw new Error(data.error || "生成失败");
             }
 
-            setGeneratedStory(data.story);
+            setGeneratedStory(data.outline || data.story);
+            setIsSaved(false); // 标记为未保存
             setStep("result");
 
             toast({
-                title: "✅ 故事已保存",
-                description: "可以在「剧本管理」中查看和管理",
-                action: (
-                    <ToastAction altText="查看列表" onClick={() => router.push("/scripts")}>
-                        查看列表
-                    </ToastAction>
-                ),
+                title: "✅ 故事生成成功",
+                description: "请预览并决定是否保存",
             });
 
             if (onStoryGenerated) {
-                onStoryGenerated(data.story);
+                onStoryGenerated(data.outline || data.story);
             }
         } catch (error: any) {
             console.error("Story generation error:", error);
@@ -114,6 +117,70 @@ export function StoryGenerator({ onStoryGenerated }: StoryGeneratorProps) {
         setSelectedTemplate(null);
         setGeneratedStory(null);
         setEditMode(false);
+        setIsSaved(false);
+        setSaving(false);
+    }
+
+    async function handleSaveStory() {
+        if (!generatedStory) {
+            toast({
+                title: "错误",
+                description: "没有可保存的故事",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        try {
+            setSaving(true);
+
+            const res = await fetch("/api/story", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    title: generatedStory.title || "未命名故事",
+                    premise: premise,
+                    genre: genre === "auto" ? "suspense" : genre,
+                    outline: generatedStory,
+                    characters: generatedStory.characters || [],
+                    status: "draft",
+                }),
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || "保存失败");
+            }
+
+            const data = await res.json();
+
+            // 更新为已保存的story（带id）
+            setGeneratedStory(data.story);
+            setIsSaved(true);
+
+            toast({
+                title: "✅ 故事已保存",
+                description: "可以在「剧本管理」中查看和管理",
+                action: (
+                    <ToastAction altText="查看列表" onClick={() => router.push("/scripts")}>
+                        查看列表
+                    </ToastAction>
+                ),
+            });
+
+            if (onStoryGenerated) {
+                onStoryGenerated(data.story);
+            }
+        } catch (error: any) {
+            console.error("Save story error:", error);
+            toast({
+                title: "保存失败",
+                description: error.message,
+                variant: "destructive",
+            });
+        } finally {
+            setSaving(false);
+        }
     }
 
     function handleSaveEdits(updatedStory: any) {
@@ -287,99 +354,147 @@ export function StoryGenerator({ onStoryGenerated }: StoryGeneratorProps) {
                             onCancel={() => setEditMode(false)}
                         />
                     ) : (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <BookOpen className="w-5 h-5" />
-                                    {generatedStory.title}
-                                </CardTitle>
-                                <CardDescription>
-                                    故事类型: {generatedStory.genre} | 创建时间:{" "}
-                                    {new Date(generatedStory.created_at).toLocaleString()}
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-6">
-                                {/* Story outline preview */}
-                                {generatedStory.outline && (
-                                    <div className="space-y-4">
-                                        <div>
-                                            <h4 className="font-semibold mb-2">故事梗概</h4>
-                                            <p className="text-sm text-muted-foreground">
-                                                {generatedStory.outline.logline}
-                                            </p>
-                                        </div>
+                        <>
+                            {/* Unsaved Status Alert */}
+                            {!isSaved && (
+                                <Alert className="mb-4">
+                                    <AlertCircle className="h-4 w-4" />
+                                    <AlertTitle>未保存</AlertTitle>
+                                    <AlertDescription>
+                                        当前故事仅为预览状态，请点击"保存故事"按钮保存到故事库。
+                                    </AlertDescription>
+                                </Alert>
+                            )}
 
-                                        {generatedStory.outline.acts && (
-                                            <div>
-                                                <h4 className="font-semibold mb-2 flex items-center gap-2">
-                                                    <BookOpen className="w-4 h-4" />
-                                                    故事结构 ({generatedStory.outline.acts.length} 幕)
-                                                </h4>
-                                                <div className="space-y-2">
-                                                    {generatedStory.outline.acts.map((act: any, idx: number) => (
-                                                        <div key={idx} className="p-3 bg-muted rounded-md">
-                                                            <p className="font-medium text-sm">{act.name}</p>
-                                                            <p className="text-sm text-muted-foreground mt-1">
-                                                                {act.summary}
-                                                            </p>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <BookOpen className="w-5 h-5" />
+                                        {generatedStory.title}
+                                        {isSaved && (
+                                            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded ml-2">
+                                                已保存
+                                            </span>
                                         )}
-
-                                        {generatedStory.outline.characters && (
+                                    </CardTitle>
+                                    <CardDescription>
+                                        故事类型: {generatedStory.genre}
+                                        {generatedStory.created_at && (
+                                            <> | 创建时间: {new Date(generatedStory.created_at).toLocaleString()}</>
+                                        )}
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                    {/* Story outline preview */}
+                                    {(generatedStory.logline || generatedStory.outline) && (
+                                        <div className="space-y-4">
                                             <div>
-                                                <h4 className="font-semibold mb-2 flex items-center gap-2">
-                                                    <Users className="w-4 h-4" />
-                                                    主要角色 ({generatedStory.outline.characters.length})
-                                                </h4>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                                    {generatedStory.outline.characters.map((char: any, idx: number) => (
-                                                        <div key={idx} className="p-3 bg-muted rounded-md">
-                                                            <p className="font-medium text-sm">
-                                                                {char.name} ({char.role})
-                                                            </p>
-                                                            <p className="text-sm text-muted-foreground mt-1">
-                                                                {char.description}
-                                                            </p>
-                                                        </div>
-                                                    ))}
-                                                </div>
+                                                <h4 className="font-semibold mb-2">故事梗概</h4>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {generatedStory.logline || generatedStory.outline?.logline}
+                                                </p>
                                             </div>
+
+                                            {(generatedStory.acts || generatedStory.outline?.acts) && (
+                                                <div>
+                                                    <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                                        <BookOpen className="w-4 h-4" />
+                                                        故事结构 ({(generatedStory.acts || generatedStory.outline.acts).length} 幕)
+                                                    </h4>
+                                                    <div className="space-y-2">
+                                                        {(generatedStory.acts || generatedStory.outline.acts).map((act: any, idx: number) => (
+                                                            <div key={idx} className="p-3 bg-muted rounded-md">
+                                                                <p className="font-medium text-sm">{act.name}</p>
+                                                                <p className="text-sm text-muted-foreground mt-1">
+                                                                    {act.summary}
+                                                                </p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {(generatedStory.characters || generatedStory.outline?.characters) && (
+                                                <div>
+                                                    <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                                        <Users className="w-4 h-4" />
+                                                        主要角色 ({(generatedStory.characters || generatedStory.outline.characters).length})
+                                                    </h4>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                        {(generatedStory.characters || generatedStory.outline.characters).map((char: any, idx: number) => (
+                                                            <div key={idx} className="p-3 bg-muted rounded-md">
+                                                                <p className="font-medium text-sm">
+                                                                    {char.name} ({char.role})
+                                                                </p>
+                                                                <p className="text-sm text-muted-foreground mt-1">
+                                                                    {char.description}
+                                                                </p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Action Buttons */}
+                                    <div className="flex flex-wrap gap-2">
+                                        {!isSaved ? (
+                                            <>
+                                                {/* Unsaved State Buttons */}
+                                                <Button variant="outline" onClick={resetForm}>
+                                                    放弃
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    onClick={() => setEditMode(true)}
+                                                >
+                                                    <Edit className="w-4 h-4 mr-2" />
+                                                    编辑内容
+                                                </Button>
+                                                <Button
+                                                    onClick={handleSaveStory}
+                                                    disabled={saving}
+                                                    className="flex-1"
+                                                >
+                                                    <Save className="w-4 h-4 mr-2" />
+                                                    {saving ? "保存中..." : "保存故事"}
+                                                </Button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                {/* Saved State Buttons */}
+                                                <Button variant="outline" onClick={resetForm}>
+                                                    创建新故事
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    onClick={() => setEditMode(true)}
+                                                >
+                                                    <Edit className="w-4 h-4 mr-2" />
+                                                    编辑内容
+                                                </Button>
+                                                <Button
+                                                    variant="secondary"
+                                                    onClick={() => router.push("/scripts")}
+                                                >
+                                                    <List className="w-4 h-4 mr-2" />
+                                                    查看我的故事
+                                                </Button>
+                                                <Button
+                                                    onClick={() => {
+                                                        router.push(`/storyboard?story_id=${generatedStory.id}`);
+                                                    }}
+                                                    className="flex-1"
+                                                >
+                                                    生成分镜脚本
+                                                </Button>
+                                            </>
                                         )}
                                     </div>
-                                )}
-
-                                <div className="flex flex-wrap gap-2">
-                                    <Button variant="outline" onClick={resetForm}>
-                                        创建新故事
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => setEditMode(true)}
-                                    >
-                                        <Edit className="w-4 h-4 mr-2" />
-                                        编辑内容
-                                    </Button>
-                                    <Button
-                                        variant="secondary"
-                                        onClick={() => router.push("/scripts")}
-                                    >
-                                        <List className="w-4 h-4 mr-2" />
-                                        查看我的故事
-                                    </Button>
-                                    <Button
-                                        onClick={() => {
-                                            router.push(`/storyboard?story_id=${generatedStory.id}`);
-                                        }}
-                                        className="flex-1"
-                                    >
-                                        生成分镜脚本
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
+                                </CardContent>
+                            </Card>
+                        </>
                     )}
                 </>
             )}

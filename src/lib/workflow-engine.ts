@@ -4,7 +4,7 @@
  */
 
 import { prisma } from "./db";
-import { generateStoryOutline } from "./story-generator";
+import { generateStoryOutline, StoryGenre } from "./story-generator";
 import { callChatCompletionByType } from "./llm-provider";
 import { generateImageBatch } from "./unified-image-generation";
 
@@ -14,7 +14,7 @@ export type WorkflowStatus = "pending" | "running" | "completed" | "failed" | "c
 export interface WorkflowConfig {
     // Story generation
     premise: string;
-    genre?: string;
+    genre?: StoryGenre;
     characterCount?: number;
     storyLength?: "short" | "medium" | "long";
     templateId?: string;
@@ -306,7 +306,7 @@ ${act.summary}
         const engine = new WorkflowEngine(
             workflowId,
             workflow.user_id,
-            workflow.config as WorkflowConfig
+            workflow.config as unknown as WorkflowConfig
         );
 
         return await engine.start();
