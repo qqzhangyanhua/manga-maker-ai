@@ -13,15 +13,26 @@ import {
   CardHeader,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import type { Panel } from "../types/script-editor.types";
+import { PanelGenerationProgress } from "./PanelGenerationProgress";
+import type { Panel, GenerationTask } from "../../types/script-editor.types";
 
 interface PanelCardProps {
   panel: Panel;
   index: number;
   actions?: React.ReactNode;
+  generationTask?: GenerationTask;
+  onRetryGeneration?: () => void;
+  onCancelGeneration?: () => void;
 }
 
-export function PanelCard({ panel, index, actions }: PanelCardProps) {
+export function PanelCard({
+  panel,
+  index,
+  actions,
+  generationTask,
+  onRetryGeneration,
+  onCancelGeneration,
+}: PanelCardProps) {
   const imageUrl = panel.generated_image || panel.image_url;
 
   return (
@@ -52,6 +63,15 @@ export function PanelCard({ panel, index, actions }: PanelCardProps) {
             </p>
           </div>
         </div>
+
+        {/* 生成进度显示 */}
+        {generationTask && (
+          <PanelGenerationProgress
+            task={generationTask}
+            onRetry={onRetryGeneration}
+            onCancel={onCancelGeneration}
+          />
+        )}
       </CardContent>
       {imageUrl && (
         <CardFooter className="bg-muted/10 p-0 overflow-hidden rounded-b-lg">

@@ -26,7 +26,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 import { CharacterSelector } from "./CharacterSelector";
-import type { Panel, StoryCharacter } from "../types/script-editor.types";
+import type { Panel, StoryCharacter } from "../../types/script-editor.types";
 
 interface PanelEditDialogProps {
   open: boolean;

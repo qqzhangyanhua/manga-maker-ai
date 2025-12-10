@@ -193,7 +193,11 @@ async function callOpenAIImageAPI(
   } = params;
 
   if (!apiKey) {
-    throw new Error("OpenAI API Key 未配置");
+    return {
+      success: false,
+      images: [],
+      error: "OpenAI API Key 未配置",
+    };
   }
 
   // DALL-E 支持的尺寸格式

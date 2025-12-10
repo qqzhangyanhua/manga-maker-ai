@@ -11,7 +11,12 @@
       "Bash(ping:*)",
       "Bash(pnpm test:*)",
       "Bash(ls \"D:\\AI\\manga-maker-ai\\src\\lib\"\" | grep -E \"test)",
-      "Bash(spec \")"
+      "Bash(spec \")",
+      "Bash(npx vitest:*)",
+      "Bash(pnpm dev)",
+      "Bash(pnpm build)",
+      "Bash(wc:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

@@ -3,13 +3,12 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { ArrowLeft, Loader2, Plus, ImageIcon } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { StoryInfoPanel } from "./components/StoryInfoPanel";
-import { PanelCard } from "./components/PanelEditor/PanelCard";
-import { PanelCardActions } from "./components/PanelEditor/PanelCardActions";
+import { PanelListView } from "./components/PanelListView";
 import { PanelEditDialog } from "./components/PanelEditor/PanelEditDialog";
 import type { Story, Panel } from "./types/script-editor.types";
 
@@ -156,6 +155,16 @@ export default function ScriptDetailsPage() {
     setEditingPanel((prev) => prev ? { ...prev, [field]: value } : null);
   }
 
+  function handleImageGenerated(panelId: string, imageUrl: string) {
+    // 更新对应的 panel 的图片 URL
+    setPanels((prevPanels) =>
+      prevPanels.map((p) =>
+        p.id === panelId ? { ...p, generated_image: imageUrl, image_url: imageUrl } : p
+      )
+    );
+    toast({ title: "图片生成成功" });
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[50vh]">
@@ -209,44 +218,19 @@ export default function ScriptDetailsPage() {
         </div>
 
         {/* Right: Panels */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <ImageIcon className="w-5 h-5" />
-              分镜列表 ({panels.length})
-            </h2>
-            <Button onClick={openNewPanelDialog} disabled={!projectId}>
-              <Plus className="w-4 h-4 mr-2" />
-              添加分镜
-            </Button>
-          </div>
-
-          <div className="space-y-4">
-            {panels.length === 0 ? (
-              <div className="text-center py-12 bg-muted/20 rounded-lg border border-dashed">
-                <ImageIcon className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">暂无分镜</p>
-                <Button variant="link" onClick={openNewPanelDialog} disabled={!projectId}>
-                  立即添加
-                </Button>
-              </div>
-            ) : (
-              panels.map((panel, index) => (
-                <PanelCard
-                  key={panel.id}
-                  panel={panel}
-                  index={index}
-                  actions={
-                    <PanelCardActions
-                      panel={panel}
-                      onEdit={openEditPanelDialog}
-                      onDelete={handleDeletePanel}
-                    />
-                  }
-                />
-              ))
-            )}
-          </div>
+        <div className="lg:col-span-2">
+          <PanelListView
+            panels={panels}
+            projectId={projectId}
+            onPanelsChange={setPanels}
+            onEditPanel={openEditPanelDialog}
+            onDeletePanel={handleDeletePanel}
+            onAddPanel={openNewPanelDialog}
+            onImageGenerated={handleImageGenerated}
+            onError={(msg) =>
+              toast({ title: "错误", description: msg, variant: "destructive" })
+            }
+          />
         </div>
       </div>
 

@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { StoryCharacter } from "../types/script-editor.types";
+import type { StoryCharacter } from "../../types/script-editor.types";
 
 interface CharacterSelectorProps {
   characters: StoryCharacter[];
