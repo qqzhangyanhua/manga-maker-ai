@@ -7,6 +7,16 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type User = {
   id: number;
@@ -45,6 +55,7 @@ const AdminUsersPage = () => {
   const [form, setForm] = useState<UserForm>(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
+  const [deletingUser, setDeletingUser] = useState<User | null>(null);
 
   const isAdmin = useMemo(() => (currentUser?.role || "user") === "admin", [currentUser]);
 
@@ -126,17 +137,23 @@ const AdminUsersPage = () => {
     setMessage("");
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("确定删除该用户吗？")) return;
+  const handleDelete = (user: User) => {
+    setDeletingUser(user);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingUser) return;
     setMessage("");
     try {
-      const res = await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/users/${deletingUser.id}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.message || "删除失败");
       setMessage("删除成功");
       fetchUsers();
     } catch (error) {
       setMessage((error as Error).message);
+    } finally {
+      setDeletingUser(null);
     }
   };
 
@@ -305,7 +322,7 @@ const AdminUsersPage = () => {
                       <Button size="sm" variant="secondary" onClick={() => handleEdit(u)}>
                         编辑
                       </Button>
-                      <Button size="sm" variant="destructive" onClick={() => handleDelete(u.id)}>
+                      <Button size="sm" variant="destructive" onClick={() => handleDelete(u)}>
                         删除
                       </Button>
                     </td>
@@ -316,6 +333,30 @@ const AdminUsersPage = () => {
           </table>
         </div>
       </div>
+
+      {/* 删除确认对话框 */}
+      <AlertDialog open={!!deletingUser} onOpenChange={(open) => !open && setDeletingUser(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除用户</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deletingUser && (
+                <>
+                  确定要删除用户 <strong>{deletingUser.email}</strong> 吗？
+                  <br />
+                  此操作不可恢复。
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

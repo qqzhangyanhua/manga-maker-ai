@@ -7,6 +7,16 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { StoryInfoPanel } from "./components/StoryInfoPanel";
 import { PanelListView } from "./components/PanelListView";
 import { PanelEditDialog } from "./components/PanelEditor/PanelEditDialog";
@@ -27,6 +37,7 @@ export default function ScriptDetailsPage() {
   const [storyForm, setStoryForm] = useState({ title: "", premise: "" });
   const [editingPanel, setEditingPanel] = useState<Partial<Panel> | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [deletingPanelId, setDeletingPanelId] = useState<string | null>(null);
 
   useEffect(() => {
     if (params.id) {
@@ -117,16 +128,22 @@ export default function ScriptDetailsPage() {
   }
 
   async function handleDeletePanel(id: string) {
-    if (!confirm("确定要删除这个分镜吗？")) return;
+    setDeletingPanelId(id);
+  }
+
+  async function confirmDeletePanel() {
+    if (!deletingPanelId) return;
 
     try {
-      const res = await fetch(`/api/panel/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/panel/${deletingPanelId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Delete failed");
 
-      setPanels(panels.filter((p) => p.id !== id));
+      setPanels(panels.filter((p) => p.id !== deletingPanelId));
       toast({ title: "分镜已删除" });
     } catch (error) {
       toast({ title: "删除失败", variant: "destructive" });
+    } finally {
+      setDeletingPanelId(null);
     }
   }
 
@@ -244,6 +261,24 @@ export default function ScriptDetailsPage() {
         onSave={handleSavePanel}
         onChange={handlePanelFieldChange}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingPanelId} onOpenChange={(open) => !open && setDeletingPanelId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除这个分镜吗？此操作无法撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeletePanel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

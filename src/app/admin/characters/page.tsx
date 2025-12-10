@@ -34,6 +34,16 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type Character = {
   id: string;
@@ -99,6 +109,7 @@ const AdminCharactersPage = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [total, setTotal] = useState(0);
+  const [deletingCharacter, setDeletingCharacter] = useState<Character | null>(null);
 
   const fetchCharacters = async (targetPage = page, targetPageSize = pageSize) => {
     setLoading(true);
@@ -270,10 +281,14 @@ const AdminCharactersPage = () => {
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`确定删除角色「${name}」吗？此操作不可恢复。`)) return;
+  const handleDelete = (character: Character) => {
+    setDeletingCharacter(character);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingCharacter) return;
     try {
-      const res = await fetch(`/api/admin/characters/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/characters/${deletingCharacter.id}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data.success === false) {
         throw new Error(data.message || "删除失败");
@@ -286,6 +301,8 @@ const AdminCharactersPage = () => {
         description: error instanceof Error ? error.message : "请稍后重试",
         variant: "destructive",
       });
+    } finally {
+      setDeletingCharacter(null);
     }
   };
 
@@ -435,7 +452,7 @@ const AdminCharactersPage = () => {
                           variant="ghost"
                           size="sm"
                           className="text-destructive"
-                          onClick={() => handleDelete(character.id, character.name)}
+                          onClick={() => handleDelete(character)}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -616,6 +633,30 @@ const AdminCharactersPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingCharacter} onOpenChange={(open) => !open && setDeletingCharacter(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除角色</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deletingCharacter && (
+                <>
+                  确定删除角色「<strong>{deletingCharacter.name}</strong>」吗？
+                  <br />
+                  此操作不可恢复。
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

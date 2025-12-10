@@ -19,6 +19,16 @@ import {
 } from "@dnd-kit/sortable";
 import { Plus, ImageIcon, Images } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { SortablePanelCard } from "./PanelEditor/SortablePanelCard";
 import { PanelCardActions } from "./PanelEditor/PanelCardActions";
 import { InsertPanelDialog } from "./PanelEditor/InsertPanelDialog";
@@ -53,6 +63,7 @@ export function PanelListView({
   const [insertAfterIndex, setInsertAfterIndex] = useState(0);
   const [splitDialogOpen, setSplitDialogOpen] = useState(false);
   const [splitPanel, setSplitPanel] = useState<Panel | null>(null);
+  const [mergingPanels, setMergingPanels] = useState<{ current: Panel; next: Panel } | null>(null);
 
   // 配置拖拽传感器（需要移动至少 5px 才触发拖拽，避免误触）
   const sensors = useSensors(
@@ -125,16 +136,19 @@ export function PanelListView({
     }
 
     const nextPanel = panels[currentIndex + 1];
-    if (!confirm(`确定要合并分镜 #${panel.panel_order} 和 #${nextPanel.panel_order} 吗？`)) {
-      return;
-    }
+    setMergingPanels({ current: panel, next: nextPanel });
+  };
+
+  // 确认合并分镜
+  const confirmMerge = async () => {
+    if (!mergingPanels) return;
 
     try {
       const response = await fetch("/api/panel/merge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          panel_ids: [panel.id, nextPanel.id],
+          panel_ids: [mergingPanels.current.id, mergingPanels.next.id],
           project_id: projectId,
         }),
       });
@@ -150,6 +164,8 @@ export function PanelListView({
     } catch (error) {
       const message = error instanceof Error ? error.message : "合并分镜失败";
       onError(message);
+    } finally {
+      setMergingPanels(null);
     }
   };
 
@@ -279,6 +295,31 @@ export function PanelListView({
           />
         </>
       )}
+
+      {/* 合并确认对话框 */}
+      <AlertDialog open={!!mergingPanels} onOpenChange={(open) => !open && setMergingPanels(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认合并分镜</AlertDialogTitle>
+            <AlertDialogDescription>
+              {mergingPanels && (
+                <>
+                  确定要合并分镜 <strong>#{mergingPanels.current.panel_order}</strong> 和{" "}
+                  <strong>#{mergingPanels.next.panel_order}</strong> 吗？
+                  <br />
+                  合并后将保留第一个分镜的内容，第二个分镜将被删除。
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmMerge}>
+              确认合并
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

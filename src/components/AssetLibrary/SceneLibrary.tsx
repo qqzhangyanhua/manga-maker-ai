@@ -14,6 +14,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -55,6 +65,7 @@ const SceneLibrary = () => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingScene, setEditingScene] = useState<Scene | null>(null);
+  const [deletingScene, setDeletingScene] = useState<Scene | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -208,10 +219,14 @@ const SceneLibrary = () => {
     setEditDialogOpen(true);
   };
 
-  const handleDelete = (sceneId: string, sceneName: string) => {
-    if (confirm(`确定要删除场景 "${sceneName}" 吗？`)) {
-      deleteMutation.mutate(sceneId);
-    }
+  const handleDelete = (scene: Scene) => {
+    setDeletingScene(scene);
+  };
+
+  const confirmDelete = () => {
+    if (!deletingScene) return;
+    deleteMutation.mutate(deletingScene.id);
+    setDeletingScene(null);
   };
 
   const handleUseScene = (scene: Scene) => {
@@ -340,7 +355,7 @@ const SceneLibrary = () => {
                   variant="outline"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleDelete(scene.id, scene.name);
+                    handleDelete(scene);
                   }}
                 >
                   <Trash2 className="w-4 h-4 text-destructive" />
@@ -567,6 +582,30 @@ const SceneLibrary = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingScene} onOpenChange={(open) => !open && setDeletingScene(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除场景</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deletingScene && (
+                <>
+                  确定要删除场景 <strong>&quot;{deletingScene.name}&quot;</strong> 吗？
+                  <br />
+                  此操作不可恢复。
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

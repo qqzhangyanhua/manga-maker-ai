@@ -8,6 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Palette, Plus, Edit2, Trash2, ChevronUp, ChevronDown, Eye, EyeOff } from "lucide-react";
 
 interface ComicStyle {
@@ -46,6 +56,7 @@ const ComicStylesAdminPage = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingStyle, setEditingStyle] = useState<ComicStyle | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [deletingStyle, setDeletingStyle] = useState<ComicStyle | null>(null);
 
   const [form, setForm] = useState({
     style_key: "",
@@ -143,11 +154,15 @@ const ComicStylesAdminPage = () => {
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`确定要删除风格"${name}"吗？此操作不可恢复。`)) return;
+  const handleDelete = (style: ComicStyle) => {
+    setDeletingStyle(style);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingStyle) return;
 
     try {
-      const res = await fetch(`/api/admin/comic-styles/${id}`, {
+      const res = await fetch(`/api/admin/comic-styles/${deletingStyle.id}`, {
         method: "DELETE",
       });
 
@@ -157,6 +172,8 @@ const ComicStylesAdminPage = () => {
       fetchStyles();
     } catch (error) {
       toast({ title: "删除失败", variant: "destructive" });
+    } finally {
+      setDeletingStyle(null);
     }
   };
 
@@ -301,7 +318,7 @@ const ComicStylesAdminPage = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDelete(style.id, style.name_zh)}
+                        onClick={() => handleDelete(style)}
                       >
                         <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
@@ -453,6 +470,30 @@ const ComicStylesAdminPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingStyle} onOpenChange={(open) => !open && setDeletingStyle(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除风格</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deletingStyle && (
+                <>
+                  确定要删除风格 <strong>&quot;{deletingStyle.name_zh}&quot;</strong> 吗？
+                  <br />
+                  此操作不可恢复。
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

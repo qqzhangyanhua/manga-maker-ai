@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from "react";
 import { Upload, X, Loader2, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 interface ImageUploadProps {
   onUpload: (files: File[]) => void;
@@ -24,6 +25,7 @@ const ImageUpload = ({
   uploadedUrls = [],
   disabled = false,
 }: ImageUploadProps) => {
+  const { toast } = useToast();
   const [isDragging, setIsDragging] = useState(false);
   const [previews, setPreviews] = useState<string[]>([]);
   const [files, setFiles] = useState<File[]>([]);
@@ -37,7 +39,11 @@ const ImageUpload = ({
       const totalFiles = files.length + uploadedUrls.length + fileArray.length;
 
       if (totalFiles > maxFiles) {
-        alert(`最多只能上传 ${maxFiles} 张图片`);
+        toast({
+          title: "上传失败",
+          description: `最多只能上传 ${maxFiles} 张图片`,
+          variant: "destructive",
+        });
         return;
       }
 
@@ -48,13 +54,21 @@ const ImageUpload = ({
       for (const file of fileArray) {
         // 检查文件大小
         if (file.size > maxSize * 1024 * 1024) {
-          alert(`文件 ${file.name} 超过 ${maxSize}MB 限制`);
+          toast({
+            title: "文件过大",
+            description: `文件 ${file.name} 超过 ${maxSize}MB 限制`,
+            variant: "destructive",
+          });
           continue;
         }
 
         // 检查文件类型
         if (!acceptedTypes.includes(file.type)) {
-          alert(`文件 ${file.name} 类型不支持`);
+          toast({
+            title: "文件类型不支持",
+            description: `文件 ${file.name} 类型不支持`,
+            variant: "destructive",
+          });
           continue;
         }
 
@@ -71,7 +85,7 @@ const ImageUpload = ({
         onUpload(updatedFiles);
       }
     },
-    [files, previews, uploadedUrls, maxFiles, maxSize, acceptedTypes, onUpload, disabled]
+    [files, previews, uploadedUrls, maxFiles, maxSize, acceptedTypes, onUpload, disabled, toast]
   );
 
   const handleDragEnter = (e: React.DragEvent) => {

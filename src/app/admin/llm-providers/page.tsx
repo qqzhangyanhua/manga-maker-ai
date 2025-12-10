@@ -7,6 +7,16 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { Pencil, Copy, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type ProviderForm = {
   provider_type: string;
@@ -40,6 +50,7 @@ const AdminLlmProvidersPage = () => {
   const [form, setForm] = useState<ProviderForm>(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [message, setMessage] = useState<string>("");
+  const [deletingProvider, setDeletingProvider] = useState<Provider | null>(null);
 
   const isAdmin = useMemo(
     () => currentUser && (currentUser.role || "user") === "admin",
@@ -156,11 +167,15 @@ const AdminLlmProvidersPage = () => {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("确定删除该模型配置吗？")) return;
+  const handleDelete = (provider: Provider) => {
+    setDeletingProvider(provider);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingProvider) return;
     setMessage("");
     try {
-      const res = await fetch(`/api/llm-providers/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/llm-providers/${deletingProvider.id}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data.message || "删除失败");
@@ -169,6 +184,8 @@ const AdminLlmProvidersPage = () => {
       fetchProviders();
     } catch (error) {
       setMessage((error as Error).message);
+    } finally {
+      setDeletingProvider(null);
     }
   };
 
@@ -428,7 +445,7 @@ const AdminLlmProvidersPage = () => {
                         <Button
                           size="icon"
                           variant="ghost"
-                          onClick={() => handleDelete(p.id)}
+                          onClick={() => handleDelete(p)}
                           title="删除"
                           className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                         >
@@ -443,6 +460,34 @@ const AdminLlmProvidersPage = () => {
           </table>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingProvider} onOpenChange={(open) => !open && setDeletingProvider(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除模型配置</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deletingProvider && (
+                <>
+                  确定要删除模型配置吗？
+                  <br />
+                  <strong>类型：</strong>{deletingProvider.provider_type}
+                  <br />
+                  <strong>模型：</strong>{deletingProvider.model}
+                  <br />
+                  此操作不可恢复。
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
