@@ -313,7 +313,7 @@ const AdminCharactersPage = () => {
             返回后台
           </Link>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={fetchCharacters} disabled={loading}>
+            <Button variant="outline" size="sm" onClick={() => fetchCharacters()} disabled={loading}>
               <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
               刷新
             </Button>

@@ -80,8 +80,13 @@ export function StoryGenerator({ onStoryGenerated }: StoryGeneratorProps) {
             setStep("result");
 
             toast({
-                title: "成功",
-                description: data.message,
+                title: "✅ 故事已保存",
+                description: "可以在「剧本管理」中查看和管理",
+                action: (
+                    <ToastAction altText="查看列表" onClick={() => router.push("/scripts")}>
+                        查看列表
+                    </ToastAction>
+                ),
             });
 
             if (onStoryGenerated) {
@@ -108,6 +113,16 @@ export function StoryGenerator({ onStoryGenerated }: StoryGeneratorProps) {
         setLength("medium");
         setSelectedTemplate(null);
         setGeneratedStory(null);
+        setEditMode(false);
+    }
+
+    function handleSaveEdits(updatedStory: any) {
+        setGeneratedStory(updatedStory);
+        setEditMode(false);
+        toast({
+            title: "保存成功",
+            description: "故事已更新",
+        });
     }
 
     return (
@@ -264,86 +279,109 @@ export function StoryGenerator({ onStoryGenerated }: StoryGeneratorProps) {
 
             {/* Step 4: Result */}
             {step === "result" && generatedStory && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <BookOpen className="w-5 h-5" />
-                            {generatedStory.title}
-                        </CardTitle>
-                        <CardDescription>
-                            故事类型: {generatedStory.genre} | 创建时间:{" "}
-                            {new Date(generatedStory.created_at).toLocaleString()}
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        {/* Story outline preview */}
-                        {generatedStory.outline && (
-                            <div className="space-y-4">
-                                <div>
-                                    <h4 className="font-semibold mb-2">故事梗概</h4>
-                                    <p className="text-sm text-muted-foreground">
-                                        {generatedStory.outline.logline}
-                                    </p>
+                <>
+                    {editMode ? (
+                        <EditableStoryForm
+                            story={generatedStory}
+                            onSave={handleSaveEdits}
+                            onCancel={() => setEditMode(false)}
+                        />
+                    ) : (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <BookOpen className="w-5 h-5" />
+                                    {generatedStory.title}
+                                </CardTitle>
+                                <CardDescription>
+                                    故事类型: {generatedStory.genre} | 创建时间:{" "}
+                                    {new Date(generatedStory.created_at).toLocaleString()}
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                {/* Story outline preview */}
+                                {generatedStory.outline && (
+                                    <div className="space-y-4">
+                                        <div>
+                                            <h4 className="font-semibold mb-2">故事梗概</h4>
+                                            <p className="text-sm text-muted-foreground">
+                                                {generatedStory.outline.logline}
+                                            </p>
+                                        </div>
+
+                                        {generatedStory.outline.acts && (
+                                            <div>
+                                                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                                    <BookOpen className="w-4 h-4" />
+                                                    故事结构 ({generatedStory.outline.acts.length} 幕)
+                                                </h4>
+                                                <div className="space-y-2">
+                                                    {generatedStory.outline.acts.map((act: any, idx: number) => (
+                                                        <div key={idx} className="p-3 bg-muted rounded-md">
+                                                            <p className="font-medium text-sm">{act.name}</p>
+                                                            <p className="text-sm text-muted-foreground mt-1">
+                                                                {act.summary}
+                                                            </p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {generatedStory.outline.characters && (
+                                            <div>
+                                                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                                    <Users className="w-4 h-4" />
+                                                    主要角色 ({generatedStory.outline.characters.length})
+                                                </h4>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                    {generatedStory.outline.characters.map((char: any, idx: number) => (
+                                                        <div key={idx} className="p-3 bg-muted rounded-md">
+                                                            <p className="font-medium text-sm">
+                                                                {char.name} ({char.role})
+                                                            </p>
+                                                            <p className="text-sm text-muted-foreground mt-1">
+                                                                {char.description}
+                                                            </p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                <div className="flex flex-wrap gap-2">
+                                    <Button variant="outline" onClick={resetForm}>
+                                        创建新故事
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setEditMode(true)}
+                                    >
+                                        <Edit className="w-4 h-4 mr-2" />
+                                        编辑内容
+                                    </Button>
+                                    <Button
+                                        variant="secondary"
+                                        onClick={() => router.push("/scripts")}
+                                    >
+                                        <List className="w-4 h-4 mr-2" />
+                                        查看我的故事
+                                    </Button>
+                                    <Button
+                                        onClick={() => {
+                                            router.push(`/storyboard?story_id=${generatedStory.id}`);
+                                        }}
+                                        className="flex-1"
+                                    >
+                                        生成分镜脚本
+                                    </Button>
                                 </div>
-
-                                {generatedStory.outline.acts && (
-                                    <div>
-                                        <h4 className="font-semibold mb-2 flex items-center gap-2">
-                                            <BookOpen className="w-4 h-4" />
-                                            故事结构 ({generatedStory.outline.acts.length} 幕)
-                                        </h4>
-                                        <div className="space-y-2">
-                                            {generatedStory.outline.acts.map((act: any, idx: number) => (
-                                                <div key={idx} className="p-3 bg-muted rounded-md">
-                                                    <p className="font-medium text-sm">{act.name}</p>
-                                                    <p className="text-sm text-muted-foreground mt-1">
-                                                        {act.summary}
-                                                    </p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {generatedStory.outline.characters && (
-                                    <div>
-                                        <h4 className="font-semibold mb-2 flex items-center gap-2">
-                                            <Users className="w-4 h-4" />
-                                            主要角色 ({generatedStory.outline.characters.length})
-                                        </h4>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                            {generatedStory.outline.characters.map((char: any, idx: number) => (
-                                                <div key={idx} className="p-3 bg-muted rounded-md">
-                                                    <p className="font-medium text-sm">
-                                                        {char.name} ({char.role})
-                                                    </p>
-                                                    <p className="text-sm text-muted-foreground mt-1">
-                                                        {char.description}
-                                                    </p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        <div className="flex gap-2">
-                            <Button variant="outline" onClick={resetForm}>
-                                创建新故事
-                            </Button>
-                            <Button
-                                onClick={() => {
-                                    // Navigate to storyboard generation
-                                    window.location.href = `/storyboard?story_id=${generatedStory.id}`;
-                                }}
-                                className="flex-1"
-                            >
-                                生成分镜脚本
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
+                            </CardContent>
+                        </Card>
+                    )}
+                </>
             )}
         </div>
     );
