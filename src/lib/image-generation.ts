@@ -4,7 +4,7 @@
  * 复用 LLM Provider 架构，通过 provider_type 区分不同服务
  */
 
-import { findLlmProviderByType } from "./llm-provider";
+import { ensureLlmProvider } from "./llm-provider";
 
 export interface ImageGenerationParams {
   prompt: string;
@@ -52,13 +52,7 @@ export async function callImageGenerationByType(
   const { providerType, ...imageParams } = params;
 
   // 查找配置
-  const provider = await findLlmProviderByType(providerType);
-
-  if (!provider) {
-    throw new Error(
-      `未找到图片生成服务配置（type=${providerType}），请在 /admin/llm-providers 添加配置`
-    );
-  }
+  const provider = await ensureLlmProvider(providerType);
 
   // 根据 provider_name 选择不同的实现
   switch (provider.provider_name.toLowerCase()) {

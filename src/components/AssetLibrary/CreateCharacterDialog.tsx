@@ -14,15 +14,12 @@ import { Label } from "@/components/ui/label";
 import { Sparkles, Loader2 } from "lucide-react";
 import ImageUpload from "./ImageUpload";
 import { useToast } from "@/hooks/use-toast";
+import type { CharacterAsset } from "./CharacterLibrary";
 
 interface CreateCharacterDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: {
-    name: string;
-    description: string;
-    base_image_url?: string;
-  }) => Promise<void>;
+  onSubmit: (character: CharacterAsset) => Promise<void>;
 }
 
 const CreateCharacterDialog = ({
@@ -78,13 +75,12 @@ const CreateCharacterDialog = ({
       }
 
       const result = await response.json();
+      if (!result?.character) {
+        throw new Error("创建角色返回数据异常");
+      }
 
-      // 通知父组件刷新列表
-      await onSubmit({
-        name: result.character.name,
-        description: result.character.description,
-        base_image_url: result.character.base_image_url,
-      });
+      // 通知父组件刷新列表（避免重复请求）
+      await onSubmit(result.character as CharacterAsset);
 
       // Reset form
       setName("");

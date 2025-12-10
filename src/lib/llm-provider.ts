@@ -18,6 +18,19 @@ export const findLlmProviderByType = async (providerType: string): Promise<LlmPr
   });
 };
 
+/**
+ * 根据 provider_type 获取已启用的模型配置，未配置时抛出明确的中文错误
+ */
+export const ensureLlmProvider = async (providerType: string): Promise<LlmProvider> => {
+  const provider = await findLlmProviderByType(providerType);
+  if (!provider) {
+    throw new Error(
+      `未找到可用的模型配置（type=${providerType}），请先在 /admin/llm-providers 新增并启用对应记录`
+    );
+  }
+  return provider;
+};
+
 export const callChatCompletionByType = async (params: {
   providerType: string;
   messages: ChatMessage[];
@@ -25,11 +38,7 @@ export const callChatCompletionByType = async (params: {
   maxTokens?: number;
 }) => {
   const { providerType, messages, temperature = 0.6, maxTokens = 1500 } = params;
-  const provider = await findLlmProviderByType(providerType);
-
-  if (!provider) {
-    throw new Error(`未找到可用的模型配置（type=${providerType}），请先在 llm_providers 表中添加记录`);
-  }
+  const provider = await ensureLlmProvider(providerType);
 
   const endpoint = `${normalizeBaseUrl(provider.base_url)}/v1/chat/completions`;
 

@@ -2,18 +2,23 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { callChatCompletionByType } from "@/lib/llm-provider";
+import { callChatCompletionByType, ensureLlmProvider } from "@/lib/llm-provider";
 import { generateOutfit, OUTFIT_TYPES, type OutfitType } from "@/lib/outfit-generation";
 import { base64ToBuffer } from "@/lib/image-generation";
 import { minioClient, MINIO_BUCKET, ensureBucketExists, getPublicUrl } from "@/lib/minio";
 import { assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
 
+const DEFAULT_IMAGE_PROVIDER_TYPE = "image_generation_outfit";
+const DEFAULT_PROMPT_PROVIDER_TYPE = "storyboard";
+
 // POST /api/character/outfits - Create new outfit for character
 export async function POST(req: Request) {
   const startedAt = Date.now();
   let userId: string | null = null;
   let usageSnapshot: { count: number; limit: number } | null = null;
+  let imageProviderType: string = DEFAULT_IMAGE_PROVIDER_TYPE;
+  let promptProviderType: string = DEFAULT_PROMPT_PROVIDER_TYPE;
 
   try {
     const cookieStore = await cookies();
@@ -30,7 +35,9 @@ export async function POST(req: Request) {
     userId = payload.userId;
 
     const body = await req.json();
-    const { character_id, outfit_name, outfit_type, description, generate_image = false, provider_type = "image_generation" } = body;
+    const { character_id, outfit_name, outfit_type, description, generate_image = false, provider_type } = body;
+    imageProviderType = provider_type || DEFAULT_IMAGE_PROVIDER_TYPE;
+    promptProviderType = DEFAULT_PROMPT_PROVIDER_TYPE;
 
     if (!character_id || !outfit_name || !outfit_type) {
       return NextResponse.json(
@@ -49,6 +56,29 @@ export async function POST(req: Request) {
 
     if (!character) {
       return NextResponse.json({ error: "角色不存在" }, { status: 404 });
+    }
+
+    try {
+      await ensureLlmProvider(promptProviderType);
+    } catch (providerError: any) {
+      const message =
+        providerError instanceof Error ? providerError.message : "模型未配置，请先在 /admin/llm-providers 添加";
+      return NextResponse.json(
+        { error: message, code: "MODEL_NOT_CONFIGURED", provider_type: promptProviderType },
+        { status: 400 }
+      );
+    }
+    if (generate_image) {
+      try {
+        await ensureLlmProvider(imageProviderType);
+      } catch (providerError: any) {
+        const message =
+          providerError instanceof Error ? providerError.message : "模型未配置，请先在 /admin/llm-providers 添加";
+        return NextResponse.json(
+          { error: message, code: "MODEL_NOT_CONFIGURED", provider_type: imageProviderType },
+          { status: 400 }
+        );
+      }
     }
 
     // Generate prompt for outfit
@@ -72,7 +102,7 @@ ${description ? `附加描述：${description}` : ""}
 
     try {
       const { content } = await callChatCompletionByType({
-        providerType: "storyboard",
+        providerType: promptProviderType,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -97,7 +127,7 @@ ${description ? `附加描述：${description}` : ""}
         usageSnapshot = await assertAndIncrementUsage({
           userId,
           action: "image_generation",
-          providerType: provider_type,
+          providerType: imageProviderType,
           amount: 1,
         });
       } catch (quotaError: any) {
@@ -134,7 +164,7 @@ ${description ? `附加描述：${description}` : ""}
 4. 输出纯文本`;
 
           const { content } = await callChatCompletionByType({
-            providerType: "storyboard",
+            providerType: promptProviderType,
             messages: [
               { role: "system", content: optimizePrompt },
               { role: "user", content: `角色：${characterDesc}` },
@@ -153,7 +183,7 @@ ${description ? `附加描述：${description}` : ""}
           optimizedDescription,
           outfit_type as OutfitType,
           description,
-          provider_type
+          imageProviderType
         );
 
         // 转换为 Buffer
@@ -215,7 +245,7 @@ ${description ? `附加描述：${description}` : ""}
       await recordGenerationLog({
         userId,
         action: "image_generation",
-        providerType: provider_type,
+        providerType: imageProviderType,
         status: "success",
         durationMs: Date.now() - startedAt,
         requestPayload: { character_id, outfit_name, outfit_type },
@@ -236,7 +266,7 @@ ${description ? `附加描述：${description}` : ""}
       await recordGenerationLog({
         userId,
         action: "image_generation",
-        providerType: "image_generation",
+        providerType: imageProviderType,
         status: "failed",
         durationMs: Date.now() - startedAt,
         requestPayload: { scope: "outfit" },

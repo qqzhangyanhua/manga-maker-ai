@@ -231,6 +231,27 @@ const AdminLlmProvidersPage = () => {
               </p>
             </div>
             <div>
+              <strong className="text-blue-900 dark:text-blue-100">image_generation_turnaround</strong>
+              <p className="text-xs mt-1">三视图专用：给不同的三视图生成单独的模型配置</p>
+              <p className="text-xs text-blue-600 dark:text-blue-300">
+                使用位置：/api/character/generate-views
+              </p>
+            </div>
+            <div>
+              <strong className="text-blue-900 dark:text-blue-100">image_generation_expression</strong>
+              <p className="text-xs mt-1">表情专用：角色表情矩阵的模型配置</p>
+              <p className="text-xs text-blue-600 dark:text-blue-300">
+                使用位置：/api/character/generate-expressions
+              </p>
+            </div>
+            <div>
+              <strong className="text-blue-900 dark:text-blue-100">image_generation_outfit</strong>
+              <p className="text-xs mt-1">服装专用：角色换装生成的模型配置</p>
+              <p className="text-xs text-blue-600 dark:text-blue-300">
+                使用位置：/api/character/outfits
+              </p>
+            </div>
+            <div>
               <strong className="text-blue-900 dark:text-blue-100">prompt_optimizer</strong>
               <p className="text-xs mt-1">用于提示词优化：增强用户输入的提示词质量</p>
               <p className="text-xs text-blue-600 dark:text-blue-300">

@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Sparkles, Plus, Shirt, Smile, RotateCcw, Camera, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import CreateOutfitDialog from "./CreateOutfitDialog";
 import ImageUploadDialog from "./ImageUploadDialog";
 import ImagePreviewCard from "./ImagePreviewCard";
@@ -146,8 +147,12 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
 
   const parseErrorResponse = async (response: Response, defaultMessage = "生成失败") => {
     let errorMessage = defaultMessage;
+    let errorCode: string | undefined;
+    let providerType: string | undefined;
     try {
       const data = await response.json();
+      errorCode = data.code;
+      providerType = data.provider_type;
       if (response.status === 429) {
         errorMessage =
           data.error ||
@@ -158,7 +163,10 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
     } catch {
       // ignore
     }
-    throw new Error(errorMessage);
+    const error: any = new Error(errorMessage);
+    if (errorCode) error.code = errorCode;
+    if (providerType) error.providerType = providerType;
+    throw error;
   };
 
   const renderUsageBadge = (
@@ -228,15 +236,34 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
         }
       }
     } catch (error) {
-      toast({
-        title: "生成失败",
-        description: error instanceof Error ? error.message : "网络错误，请稍后重试",
-        variant: "destructive",
-        action: {
-          label: "升级配额",
-          onClick: () => window.open("mailto:support@example.com?subject=ComicAI%20额度申请", "_blank"),
-        },
-      });
+      if ((error as any)?.code === "MODEL_NOT_CONFIGURED") {
+        toast({
+          title: "模型未配置",
+          description: error instanceof Error ? error.message : "请先在模型配置中启用对应类型",
+          variant: "destructive",
+          action: (
+            <ToastAction altText="去配置" onClick={() => window.open("/admin/llm-providers", "_blank")}>
+              去配置
+            </ToastAction>
+          ),
+        });
+      } else {
+        toast({
+          title: "生成失败",
+          description: error instanceof Error ? error.message : "网络错误，请稍后重试",
+          variant: "destructive",
+          action: (
+            <ToastAction
+              altText="升级配额"
+              onClick={() =>
+                window.open("mailto:support@example.com?subject=ComicAI%20额度申请", "_blank")
+              }
+            >
+              升级配额
+            </ToastAction>
+          ),
+        });
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -400,10 +427,16 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
         title: "生成失败",
         description: error instanceof Error ? error.message : "网络错误，请稍后重试",
         variant: "destructive",
-        action: {
-          label: "升级配额",
-          onClick: () => window.open("mailto:support@example.com?subject=ComicAI%20额度申请", "_blank"),
-        },
+        action: (
+          <ToastAction
+            altText="升级配额"
+            onClick={() =>
+              window.open("mailto:support@example.com?subject=ComicAI%20额度申请", "_blank")
+            }
+          >
+            升级配额
+          </ToastAction>
+        ),
       });
     } finally {
       setIsGenerating(false);
@@ -455,10 +488,16 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
         title: "生成失败",
         description: error instanceof Error ? error.message : "网络错误，请稍后重试",
         variant: "destructive",
-        action: {
-          label: "升级配额",
-          onClick: () => window.open("mailto:support@example.com?subject=ComicAI%20额度申请", "_blank"),
-        },
+        action: (
+          <ToastAction
+            altText="升级配额"
+            onClick={() =>
+              window.open("mailto:support@example.com?subject=ComicAI%20额度申请", "_blank")
+            }
+          >
+            升级配额
+          </ToastAction>
+        ),
       });
     } finally {
       setIsGenerating(false);
@@ -504,10 +543,16 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
         title: "创建失败",
         description: error instanceof Error ? error.message : "网络错误，请稍后重试",
         variant: "destructive",
-        action: {
-          label: "升级配额",
-          onClick: () => window.open("mailto:support@example.com?subject=ComicAI%20额度申请", "_blank"),
-        },
+        action: (
+          <ToastAction
+            altText="升级配额"
+            onClick={() =>
+              window.open("mailto:support@example.com?subject=ComicAI%20额度申请", "_blank")
+            }
+          >
+            升级配额
+          </ToastAction>
+        ),
       });
       throw error;
     }

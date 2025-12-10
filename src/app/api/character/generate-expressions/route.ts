@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { callChatCompletionByType } from "@/lib/llm-provider";
+import { callChatCompletionByType, ensureLlmProvider } from "@/lib/llm-provider";
 import {
   generateExpression,
   generateAllExpressions,
@@ -15,11 +15,16 @@ import { minioClient, MINIO_BUCKET, ensureBucketExists, getPublicUrl } from "@/l
 import { assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
 
+const DEFAULT_IMAGE_PROVIDER_TYPE = "image_generation_expression";
+const DEFAULT_PROMPT_PROVIDER_TYPE = "storyboard";
+
 // POST /api/character/generate-expressions - Generate expression matrix
 export async function POST(req: Request) {
   const startedAt = Date.now();
   let userId: string | null = null;
   let usageSnapshot: { count: number; limit: number } | null = null;
+  let imageProviderType: string = DEFAULT_IMAGE_PROVIDER_TYPE;
+  let promptProviderType: string = DEFAULT_PROMPT_PROVIDER_TYPE;
 
   try {
     const cookieStore = await cookies();
@@ -36,7 +41,9 @@ export async function POST(req: Request) {
     userId = payload.userId;
 
     const body = await req.json();
-    const { character_id, expression_type, generate_all, provider_type = "image_generation" } = body;
+    const { character_id, expression_type, generate_all, provider_type } = body;
+    imageProviderType = provider_type || DEFAULT_IMAGE_PROVIDER_TYPE;
+    promptProviderType = DEFAULT_PROMPT_PROVIDER_TYPE;
 
     if (!character_id) {
       return NextResponse.json({ error: "角色ID不能为空" }, { status: 400 });
@@ -69,10 +76,31 @@ export async function POST(req: Request) {
     }
 
     try {
+      await ensureLlmProvider(imageProviderType);
+    } catch (providerError: any) {
+      const message =
+        providerError instanceof Error ? providerError.message : "模型未配置，请先在 /admin/llm-providers 添加";
+      return NextResponse.json(
+        { error: message, code: "MODEL_NOT_CONFIGURED", provider_type: imageProviderType },
+        { status: 400 }
+      );
+    }
+    try {
+      await ensureLlmProvider(promptProviderType);
+    } catch (providerError: any) {
+      const message =
+        providerError instanceof Error ? providerError.message : "模型未配置，请先在 /admin/llm-providers 添加";
+      return NextResponse.json(
+        { error: message, code: "MODEL_NOT_CONFIGURED", provider_type: promptProviderType },
+        { status: 400 }
+      );
+    }
+
+    try {
       usageSnapshot = await assertAndIncrementUsage({
         userId,
         action: "image_generation",
-        providerType: provider_type,
+        providerType: imageProviderType,
         amount: expressionsToGenerate.length,
       });
     } catch (quotaError: any) {
@@ -103,7 +131,7 @@ export async function POST(req: Request) {
 4. 输出纯文本`;
 
       const { content } = await callChatCompletionByType({
-        providerType: "storyboard",
+        providerType: promptProviderType,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `角色：${characterDesc}` },
@@ -133,7 +161,7 @@ export async function POST(req: Request) {
         const base64Image = await generateExpression(
           optimizedDescription,
           expType as ExpressionType,
-          provider_type
+          imageProviderType
         );
 
         // 转换为 Buffer
@@ -198,7 +226,7 @@ export async function POST(req: Request) {
       await recordGenerationLog({
         userId,
         action: "image_generation",
-        providerType: provider_type,
+        providerType: imageProviderType,
         status: "success",
         durationMs: Date.now() - startedAt,
         requestPayload: { character_id, expression_type, generate_all },
@@ -219,7 +247,7 @@ export async function POST(req: Request) {
       await recordGenerationLog({
         userId,
         action: "image_generation",
-        providerType: "image_generation",
+        providerType: imageProviderType,
         status: "failed",
         durationMs: Date.now() - startedAt,
         errorMessage: message,

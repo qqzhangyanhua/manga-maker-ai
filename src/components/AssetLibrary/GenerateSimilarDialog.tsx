@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sparkles, Loader2, Save, X, Image as ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
 interface GeneratedImage {
@@ -108,10 +109,16 @@ const GenerateSimilarDialog = ({
         title: "生成失败",
         description: error instanceof Error ? error.message : "网络错误，请稍后重试",
         variant: "destructive",
-        action: {
-          label: "升级配额",
-          onClick: () => window.open("mailto:support@example.com?subject=ComicAI%20额度申请", "_blank"),
-        },
+        action: (
+          <ToastAction
+            altText="升级配额"
+            onClick={() =>
+              window.open("mailto:support@example.com?subject=ComicAI%20额度申请", "_blank")
+            }
+          >
+            升级配额
+          </ToastAction>
+        ),
       });
     } finally {
       setIsGenerating(false);

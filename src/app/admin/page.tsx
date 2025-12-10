@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { ShieldCheck, Database, Users, Palette } from "lucide-react";
+import { ShieldCheck, Database, Users, Palette, Sparkles, BarChart3 } from "lucide-react";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { Button } from "@/components/ui/button";
-import { BarChart3 } from "lucide-react";
 
 const AdminHomePage = () => {
   const { data: currentUser, isLoading, error } = useCurrentUser();
@@ -86,6 +85,22 @@ const AdminHomePage = () => {
             </p>
           </div>
           <Link href="/admin/comic-styles">
+            <Button variant="outline" size="sm">
+              进入
+            </Button>
+          </Link>
+        </div>
+        <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
+              <Sparkles className="w-5 h-5" />
+              角色库管理
+            </div>
+            <p className="text-muted-foreground text-sm">
+              查看并管理所有用户创建的角色，支持增删改查与状态维护。
+            </p>
+          </div>
+          <Link href="/admin/characters">
             <Button variant="outline" size="sm">
               进入
             </Button>

@@ -17,7 +17,7 @@ import CharacterDetailView from "./CharacterDetailView";
 import RelationshipChart from "./RelationshipChart";
 import CreateCharacterDialog from "./CreateCharacterDialog";
 
-interface CharacterAsset {
+export interface CharacterAsset {
   id: string;
   name: string;
   description: string | null;
@@ -64,47 +64,11 @@ const CharacterLibrary = () => {
     fetchCharacters();
   }, []);
 
-  const handleCreateNew = async (data: {
-    name: string;
-    description: string;
-    base_image_url?: string;
-  }) => {
-    try {
-      const response = await fetch("/api/character", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: data.name,
-          description: data.description || null,
-          base_image_url: data.base_image_url || null,
-          tags: [],
-        }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        setCharacters((prev) => [result.character, ...prev]);
-        toast({
-          title: "角色创建成功",
-          description: `${data.name} 已添加到角色库`,
-        });
-      } else {
-        const error = await response.json();
-        toast({
-          title: "创建失败",
-          description: error.error || "创建角色失败",
-          variant: "destructive",
-        });
-        throw new Error(error.error);
-      }
-    } catch (error) {
-      toast({
-        title: "创建失败",
-        description: "网络错误，请稍后重试",
-        variant: "destructive",
-      });
-      throw error;
-    }
+  const handleCreateNew = async (character: CharacterAsset) => {
+    setCharacters((prev) => {
+      const filtered = prev.filter((c) => c.id !== character.id);
+      return [character, ...filtered];
+    });
   };
 
   const handleViewCharacter = (character: CharacterAsset) => {
