@@ -77,11 +77,18 @@ src/
 │   ├── api/               # API Routes (REST endpoints)
 │   │   ├── auth/          # Authentication endpoints
 │   │   ├── character/     # Character CRUD & generation
+│   │   ├── scene/         # Scene library management
+│   │   ├── story/         # Story generation & management
+│   │   ├── panel/         # Panel operations (insert/split/merge)
+│   │   ├── project/       # Project management
 │   │   ├── admin/         # Admin management
 │   │   └── storyboard/    # Storyboard/panel management
 │   ├── admin/             # Admin dashboard pages
 │   ├── assets/            # Asset library page (characters/scenes)
 │   ├── auth/              # Login/register pages
+│   ├── scripts/           # Story/script management pages
+│   │   ├── page.tsx       # Story list page
+│   │   └── [id]/          # Individual story editor
 │   ├── storyboard/        # Storyboard editor page
 │   ├── layout.tsx         # Root layout
 │   ├── page.tsx           # Home page
@@ -99,6 +106,9 @@ src/
 │   ├── auth-helpers.ts    # Server-side auth helpers
 │   ├── db.ts              # Prisma client singleton
 │   ├── llm-provider.ts    # LLM API integration
+│   ├── story-generator.ts # Story generation helpers
+│   ├── generation-log.ts  # Generation logging utilities
+│   ├── usage.ts           # Usage tracking & quota management
 │   ├── mailer.ts          # Email verification
 │   └── utils.ts           # General utilities (cn, etc.)
 └── app/globals.css        # Global styles
@@ -125,8 +135,13 @@ prisma/
 **Scene Library:**
 - `Scene` - Background/environment assets for manga panels with scene types (indoor, outdoor, urban, nature, fantasy, scifi, historical, abstract)
 
+**Story System:**
+- `Story` - Story outline and character setup with genre classification (suspense/romance/adventure/scifi/daily/fantasy)
+- `StoryTemplate` - Predefined story structures and templates (public or user-owned)
+- `Workflow` - Automation workflow tracking for story-to-comic generation pipelines
+
 **Project Management:**
-- `Project` - Comic/manga projects with style and status
+- `Project` - Comic/manga projects with style and status (can be linked to Story)
 - `Panel` - Individual storyboard panels with importance levels, panel types, camera angles, shot sizes
 - `StoryScript` - Store original script text and segmentation info for script editor
 - `GeneratedImage` - Gallery of generated images with generation params
@@ -138,6 +153,8 @@ prisma/
 **Key Relationships:**
 - Characters belong to Users
 - Scenes belong to Users
+- Stories belong to Users and can have multiple Projects
+- Projects belong to Users and can be linked to a Story (optional)
 - Views/Expressions/Outfits cascade delete with Character
 - Panels cascade delete with Project
 - StoryScript has one-to-one relationship with Project
@@ -204,12 +221,26 @@ export async function GET() {
 - `POST /api/character/upload-image` - Upload character image to MinIO
 - `GET/POST /api/character/relationship` - Character relationship chart CRUD
 
-**Scenes (NEW):**
+**Scenes:**
 - `GET /api/scene` - List user's scenes
 - `POST /api/scene` - Create scene
 - `GET /api/scene/[id]` - Get scene details
 - `PATCH /api/scene/[id]` - Update scene
 - `DELETE /api/scene/[id]` - Delete scene
+
+**Stories:**
+- `GET /api/story` - List user's stories with pagination and status filter
+- `POST /api/story/generate` - Generate story outline from premise using LLM
+- `POST /api/story/expand` - Expand story into detailed script
+- `POST /api/story/character-setup` - Set up characters for story
+- `GET /api/story/templates` - List story templates
+- `POST /api/story/templates` - Create custom story template
+- `GET /api/story/templates/[id]` - Get story template details
+- `GET /api/story/[id]` - Get story details
+- `DELETE /api/story/[id]` - Delete story
+- `PATCH /api/story/[id]` - Update story
+- `GET /api/story/[id]/panels` - Get panels for story-linked project
+- `POST /api/story/[id]/panels` - Create panels from story
 
 **Projects & Panels:**
 - `GET /api/project` - List user's projects
@@ -275,6 +306,7 @@ LLM providers are configured in the `llm_providers` database table and selected 
 **Known provider types in use:**
 - `prompt_optimizer` - Used by `/api/prompt/optimize` for enhancing user prompts
 - `character_analyzer` - Used by `/api/character/generate-similar` for analyzing characters and generating variations
+- `story_generator` - Used by `/api/story/generate` for generating story outlines and scripts
 - `script_analyzer` - For analyzing comic scripts (if implemented)
 - `style_generator` - For generating style-specific prompts (if implemented)
 - `image_generation` - Used for AI image generation (Stable Diffusion, DALL-E, etc.)
@@ -354,9 +386,22 @@ await logGeneration({
 import { incrementUsage } from "@/lib/usage";
 
 await incrementUsage(userId, "generate_expression", "image_generation");
+// Or with quota checking
+await assertAndIncrementUsage({
+  userId,
+  action: "story_generation",
+  providerType: "story_generator"
+});
 ```
 
 This automatically aggregates daily usage counts in the `usage_stats` table for quota management and billing.
+
+**Common actions tracked:**
+- `generate_character_view` - Character view generation
+- `generate_expression` - Expression generation
+- `generate_similar_character` - Similar character generation
+- `story_generation` - Story outline generation
+- `panel_generation` - Panel image generation
 
 ### Authentication Flow
 
@@ -387,7 +432,7 @@ This automatically aggregates daily usage counts in the `usage_stats` table for 
 3. Batch: `{ generate_all: true }`
 4. System generates optimized prompts for each emotion
 
-**Generating similar characters (NEW):**
+**Generating similar characters:**
 1. Call `POST /api/character/generate-similar` with `character_id`, `variation_prompt`, `count` (1-3)
 2. System uses LLM (provider_type: `character_analyzer`) to analyze original character
 3. LLM generates optimized prompts based on variation description
@@ -395,7 +440,16 @@ This automatically aggregates daily usage counts in the `usage_stats` table for 
 5. Returns base64 images for user preview and selection
 6. User saves selected images as new characters in the library
 
-**Scene Library Workflow (NEW):**
+**Story Workflow:**
+1. Create story via `POST /api/story/generate` with `premise`, `genre`, `characterCount`, `length`
+2. System uses LLM (provider_type: `story_generator`) to generate story outline
+3. Story includes: title, genre, characters, acts, and plot points
+4. Optionally expand story into detailed script via `POST /api/story/expand`
+5. Create project from story and generate panels
+6. View and manage stories in `/scripts` page
+7. Edit story panels in `/scripts/[id]` page
+
+**Scene Library Workflow:**
 1. Create scene via `POST /api/scene`
 2. Upload scene image via `/api/upload` or store AI-generated scene URL
 3. Scenes can be tagged and categorized by scene_type
@@ -412,6 +466,22 @@ This automatically aggregates daily usage counts in the `usage_stats` table for 
 
 **Outfit types:**
 `default`, `school`, `battle`, `casual`, `formal`, `sleepwear`, `sports`, `custom`
+
+**Story genres:**
+- `suspense` (悬疑) - Mystery, thriller
+- `romance` (爱情) - Romantic stories
+- `adventure` (冒险) - Action-adventure
+- `scifi` (科幻) - Science fiction
+- `daily` (日常) - Slice of life
+- `fantasy` (奇幻) - Fantasy, magical
+
+**Story lengths:**
+- `short` - Brief story (3-5 acts)
+- `medium` - Standard length (5-7 acts)
+- `long` - Extended story (7+ acts)
+
+**Workflow statuses:**
+`pending`, `running`, `completed`, `failed`, `cancelled`
 
 **Scene types:**
 `indoor`, `outdoor`, `urban`, `nature`, `fantasy`, `scifi`, `historical`, `abstract`

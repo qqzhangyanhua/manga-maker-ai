@@ -91,11 +91,13 @@ export async function POST(req: Request) {
       panelCount,
       style,
       saveToDb = true,
+      storyId,
     }: {
       story?: string;
       panelCount?: number;
       style?: string;
       saveToDb?: boolean;
+      storyId?: string;
     } = body;
 
     if (!story || typeof story !== "string") {
@@ -179,6 +181,7 @@ ${story}
           description: story,
           style: storyboardData.style || style || null,
           status: "draft",
+          storyId: storyId || null, // Link to Story if provided
           panels: {
             create: storyboardData.panels.map((panel: any) => ({
               panel_order: panel.panel_order,
@@ -190,7 +193,7 @@ ${story}
               emotion: panel.emotion || null,
               prompt_used: panel.english_prompt,
               generated_image: null, // 预留给图像生成
-              
+
               // New fields for script editor
               script_segment_id: panel.script_segment_id || null,
               script_start: panel.script_start || null,
@@ -222,7 +225,7 @@ ${story}
         status: "success",
         projectId: project.id,
         durationMs: Date.now() - startedAt,
-        requestPayload: { story, panelCount, style, saveToDb },
+        requestPayload: { story, panelCount, style, saveToDb, storyId },
         responsePayload: {
           project_id: project.id,
           panel_count: storyboardData.panels?.length ?? 0,

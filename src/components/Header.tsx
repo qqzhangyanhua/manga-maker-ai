@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Sparkles, FolderOpen, FileText, LogOut, ShieldCheck } from "lucide-react";
+import { Sparkles, FolderOpen, FileText, LogOut, ShieldCheck, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useToast } from "@/hooks/use-toast";
@@ -57,6 +57,16 @@ const Header = () => {
           >
             <Sparkles className="w-4 h-4" />
             故事创作
+          </Link>
+          <Link
+            href="/scripts"
+            className={cn(
+              "text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1",
+              pathname && pathname.startsWith("/scripts") && "text-foreground"
+            )}
+          >
+            <BookOpen className="w-4 h-4" />
+            剧本管理
           </Link>
           <Link
             href="/workflow"

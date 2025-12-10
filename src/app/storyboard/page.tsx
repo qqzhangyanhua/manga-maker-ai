@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import { ArrowLeft, Wand2, Grid3X3, Download, Sparkles, BookOpen, MessageSquare, Edit3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -32,7 +33,6 @@ type ApiPanel = {
   script_end: number | null;
   camera_angle: string | null;
   shot_size: string | null;
-  sketch_image_url: string | null;
   visual_prompt: string | null;
   created_at: string;
 };
@@ -80,6 +80,7 @@ const convertApiPanelToLocal = (apiPanel: ApiPanel): PanelData => ({
 });
 
 const StoryboardEditorPage = () => {
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState("freeform");
   const [panels, setPanels] = useState<PanelData[]>([]);
   const [selectedPanel, setSelectedPanel] = useState<string | null>(null);
@@ -89,6 +90,47 @@ const StoryboardEditorPage = () => {
   const [currentProject, setCurrentProject] = useState<ApiProject | null>(null);
   const { toast } = useToast();
   const { usage, loading: usageLoading, refresh: refreshUsage } = useUsage();
+
+  // Story Integration
+  const [storyId, setStoryId] = useState<string | null>(null);
+  const [initialScript, setInitialScript] = useState("");
+
+  useEffect(() => {
+    const sid = searchParams.get("story_id");
+    if (sid) {
+      setStoryId(sid);
+      fetchStoryContent(sid);
+    }
+  }, [searchParams]);
+
+  async function fetchStoryContent(id: string) {
+    try {
+      const res = await fetch(`/api/story/${id}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.story) {
+          // Construct a script from the story data
+          // Prefer outline acts summaries, or just premise if nothing else
+          let content = "";
+          if (data.story.outline?.acts) {
+            content = data.story.outline.acts
+              .map((act: any) => `【${act.name}】\n${act.summary}`)
+              .join("\n\n");
+          } else {
+            content = data.story.premise || "";
+          }
+          setInitialScript(content);
+          toast({
+            title: "已加载剧本",
+            description: `已自动填入《${data.story.title}》的内容`,
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load story", e);
+    }
+  }
+
 
   const renderUsageBadge = (
     label: string,
@@ -101,8 +143,8 @@ const StoryboardEditorPage = () => {
     const badgeClass = isExhausted
       ? "border-red-500/70 bg-red-500/10 text-red-600 dark:text-red-400"
       : isLow
-      ? "border-yellow-500/60 bg-yellow-500/10"
-      : "border-border";
+        ? "border-yellow-500/60 bg-yellow-500/10"
+        : "border-border";
 
     return (
       <div className={`rounded-lg border px-3 py-2 text-sm ${badgeClass}`}>
@@ -111,8 +153,8 @@ const StoryboardEditorPage = () => {
           {usageLoading
             ? "加载中..."
             : limit
-            ? `剩余 ${remaining ?? "-"} / ${limit}`
-            : "无限制"}
+              ? `剩余 ${remaining ?? "-"} / ${limit}`
+              : "无限制"}
         </div>
       </div>
     );
@@ -125,7 +167,7 @@ const StoryboardEditorPage = () => {
       if (response.status === 429) {
         errorMessage =
           data.error ||
-          `已达今日额度上限（已用 ${data.used ?? "-"} / 上限 ${data.limit ?? "-" }），请稍后再试`;
+          `已达今日额度上限（已用 ${data.used ?? "-"} / 上限 ${data.limit ?? "-"}），请稍后再试`;
       } else {
         errorMessage = data.error || errorMessage;
       }
@@ -148,6 +190,7 @@ const StoryboardEditorPage = () => {
         body: JSON.stringify({
           story: script,
           saveToDb: true,
+          storyId: storyId, // Pass storyId to link to the story
         }),
       });
 
@@ -331,7 +374,12 @@ const StoryboardEditorPage = () => {
                     <p className="text-sm text-muted-foreground mb-6">
                       粘贴你的小说或剧本文本，AI 将自动分析并拆解为专业分镜。
                     </p>
-                    <ScriptInput onGenerate={handleGenerate} isGenerating={isGenerating} />
+                    <ScriptInput
+                      key={initialScript} // Force re-render when initialScript changes
+                      onGenerate={handleGenerate}
+                      isGenerating={isGenerating}
+                      initialValue={initialScript}
+                    />
                   </div>
                 </TabsContent>
 

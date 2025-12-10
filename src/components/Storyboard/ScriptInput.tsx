@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 interface ScriptInputProps {
   onGenerate: (script: string) => void;
   isGenerating: boolean;
+  initialValue?: string;
 }
 
 const exampleScripts = [
@@ -45,8 +46,8 @@ const exampleScripts = [
   },
 ];
 
-const ScriptInput = ({ onGenerate, isGenerating }: ScriptInputProps) => {
-  const [script, setScript] = useState("");
+const ScriptInput = ({ onGenerate, isGenerating, initialValue = "" }: ScriptInputProps) => {
+  const [script, setScript] = useState(initialValue);
   const [selectedExample, setSelectedExample] = useState<number | null>(null);
 
   const handleExampleClick = (index: number) => {

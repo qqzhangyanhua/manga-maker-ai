@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -19,15 +20,18 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Loader2, Sparkles, BookOpen, Users } from "lucide-react";
+import { Loader2, Sparkles, BookOpen, Users, Edit, List } from "lucide-react";
 import { StoryTemplateSelector } from "./StoryTemplateSelector";
+import { EditableStoryForm } from "./EditableStoryForm";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 
 interface StoryGeneratorProps {
     onStoryGenerated?: (story: any) => void;
 }
 
 export function StoryGenerator({ onStoryGenerated }: StoryGeneratorProps) {
+    const router = useRouter();
     const { toast } = useToast();
     const [step, setStep] = useState<"input" | "template" | "generating" | "result">("input");
     const [premise, setPremise] = useState("");
@@ -37,6 +41,7 @@ export function StoryGenerator({ onStoryGenerated }: StoryGeneratorProps) {
     const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
     const [generating, setGenerating] = useState(false);
     const [generatedStory, setGeneratedStory] = useState<any>(null);
+    const [editMode, setEditMode] = useState(false);
 
     async function handleGenerate() {
         if (!premise.trim()) {

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { Pencil, Copy, Trash2 } from "lucide-react";
 
 type ProviderForm = {
   provider_type: string;
@@ -216,44 +217,60 @@ const AdminLlmProvidersPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <strong className="text-blue-900 dark:text-blue-100">storyboard</strong>
-              <p className="text-xs mt-1">用于故事板相关功能：剧本分析、分镜生成、分镜合并/拆分/插入等</p>
+              <p className="text-xs mt-1">用于分镜相关功能和提示词生成：剧本分析、分镜生成、分镜合并/拆分/插入、角色三视图/表情/装扮的 prompt 生成</p>
               <p className="text-xs text-blue-600 dark:text-blue-300">
                 使用位置：/api/storyboard, /api/panel/merge, /api/panel/split, /api/panel/insert,
-                /api/character/generate-views, /api/character/generate-expressions, /api/character/outfits
+                /api/character/generate-views (promptProviderType), /api/character/generate-expressions (promptProviderType), /api/character/outfits (promptProviderType)
+              </p>
+            </div>
+            <div>
+              <strong className="text-blue-900 dark:text-blue-100">story_generator</strong>
+              <p className="text-xs mt-1">用于故事生成系统：从创意前提生成完整故事大纲、扩展故事章节、设定角色关系等</p>
+              <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                <strong>使用位置：</strong><br/>
+                • /api/story/generate - 根据创意前提（premise）生成完整故事大纲<br/>
+                • /api/story/expand - 扩展指定章节的详细内容<br/>
+                • /api/story/character-setup - 生成角色性格、背景、关系设定
+              </p>
+            </div>
+            <div>
+              <strong className="text-blue-900 dark:text-blue-100">workflow</strong>
+              <p className="text-xs mt-1">用于自动化工作流：从剧本到完整漫画的端到端自动生成</p>
+              <p className="text-xs text-blue-600 dark:text-blue-300">
+                使用位置：/api/workflow/auto-generate
               </p>
             </div>
             <div>
               <strong className="text-blue-900 dark:text-blue-100">image_generation</strong>
-              <p className="text-xs mt-1">用于 AI 图像生成：分镜图片、角色表情、角色三视图、角色装扮等</p>
+              <p className="text-xs mt-1">用于通用 AI 图像生成：分镜图片、角色生成等（无特殊要求时使用）</p>
               <p className="text-xs text-blue-600 dark:text-blue-300">
-                使用位置：/api/panel/generate-image, /api/character/generate-views,
-                /api/character/generate-expressions, /api/character/generate-similar, /api/character/outfits
+                使用位置：/api/panel/generate-image, /api/character/generate-similar, /api/character/outfits/[id]/generate
               </p>
             </div>
             <div>
               <strong className="text-blue-900 dark:text-blue-100">image_generation_turnaround</strong>
-              <p className="text-xs mt-1">三视图专用：给不同的三视图生成单独的模型配置</p>
+              <p className="text-xs mt-1">三视图专用：为角色三视图（前、侧、后）生成配置独立的模型</p>
               <p className="text-xs text-blue-600 dark:text-blue-300">
-                使用位置：/api/character/generate-views
+                使用位置：/api/character/generate-views (默认 imageProviderType)
               </p>
             </div>
             <div>
               <strong className="text-blue-900 dark:text-blue-100">image_generation_expression</strong>
-              <p className="text-xs mt-1">表情专用：角色表情矩阵的模型配置</p>
+              <p className="text-xs mt-1">表情专用：角色表情矩阵（9种情绪）的专用模型配置</p>
               <p className="text-xs text-blue-600 dark:text-blue-300">
-                使用位置：/api/character/generate-expressions
+                使用位置：/api/character/generate-expressions (默认 imageProviderType)
               </p>
             </div>
             <div>
               <strong className="text-blue-900 dark:text-blue-100">image_generation_outfit</strong>
-              <p className="text-xs mt-1">服装专用：角色换装生成的模型配置</p>
+              <p className="text-xs mt-1">服装专用：角色换装生成的专用模型配置</p>
               <p className="text-xs text-blue-600 dark:text-blue-300">
-                使用位置：/api/character/outfits
+                使用位置：/api/character/outfits (默认 imageProviderType)
               </p>
             </div>
             <div>
               <strong className="text-blue-900 dark:text-blue-100">prompt_optimizer</strong>
-              <p className="text-xs mt-1">用于提示词优化：增强用户输入的提示词质量</p>
+              <p className="text-xs mt-1">用于提示词优化：增强和优化用户输入的提示词质量</p>
               <p className="text-xs text-blue-600 dark:text-blue-300">
                 使用位置：/api/prompt/optimize
               </p>
@@ -388,16 +405,36 @@ const AdminLlmProvidersPage = () => {
                     <td className="px-3 py-2">{p.base_url}</td>
                     <td className="px-3 py-2">{p.priority}</td>
                     <td className="px-3 py-2">{p.enabled ? "是" : "否"}</td>
-                    <td className="px-3 py-2 space-x-2">
-                      <Button size="sm" variant="secondary" onClick={() => handleEdit(p)}>
-                        编辑
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => handleCopy(p)}>
-                        复制
-                      </Button>
-                      <Button size="sm" variant="destructive" onClick={() => handleDelete(p.id)}>
-                        删除
-                      </Button>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleEdit(p)}
+                          title="编辑"
+                          className="h-8 w-8"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleCopy(p)}
+                          title="复制"
+                          className="h-8 w-8"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleDelete(p.id)}
+                          title="删除"
+                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))
