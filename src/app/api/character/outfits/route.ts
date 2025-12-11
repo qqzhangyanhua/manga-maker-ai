@@ -35,9 +35,19 @@ export async function POST(req: Request) {
     userId = payload.userId;
 
     const body = await req.json();
-    const { character_id, outfit_name, outfit_type, description, generate_image = false, provider_type } = body;
+    const { character_id, outfit_name, outfit_type, description, generate_image = false, provider_type, reference_image_url } = body;
     imageProviderType = provider_type || DEFAULT_IMAGE_PROVIDER_TYPE;
     promptProviderType = DEFAULT_PROMPT_PROVIDER_TYPE;
+
+    console.log('\n========== 服装创建请求信息 ==========');
+    console.log(`角色ID: ${character_id}`);
+    console.log(`服装名称: ${outfit_name}`);
+    console.log(`服装类型: ${outfit_type}`);
+    console.log(`是否生成图片: ${generate_image}`);
+    console.log(`参考图URL: ${reference_image_url || '未提供'}`);
+    console.log(`图片生成Provider: ${imageProviderType}`);
+    console.log(`提示词生成Provider: ${promptProviderType}`);
+    console.log('=====================================\n');
 
     if (!character_id || !outfit_name || !outfit_type) {
       return NextResponse.json(
@@ -46,16 +56,76 @@ export async function POST(req: Request) {
       );
     }
 
-    // Verify character ownership
+    // Verify character ownership and get character with views/expressions for reference
     const character = await prisma.character.findFirst({
       where: {
         id: character_id,
         user_id: payload.userId,
       },
+      include: {
+        views: true,
+        expressions: true,
+      },
     });
 
     if (!character) {
       return NextResponse.json({ error: "角色不存在" }, { status: 404 });
+    }
+
+    // 如果没有提供参考图，尝试从角色图片中选择
+    let finalReferenceImageUrl = reference_image_url;
+    if (!finalReferenceImageUrl) {
+      console.log('\n========== 查找角色参考图 ==========');
+      console.log(`角色ID: ${character.id}`);
+      console.log(`角色名称: ${character.name}`);
+      console.log(`base_image_url: ${character.base_image_url || '无'}`);
+      console.log(`表情数量: ${character.expressions.length}`);
+      if (character.expressions.length > 0) {
+        console.log(`  - 表情类型: ${character.expressions.map(e => e.expression_type).join(', ')}`);
+      }
+      console.log(`三视图数量: ${character.views?.length || 0}`);
+      if (character.views && character.views.length > 0) {
+        console.log(`  - 视图类型: ${character.views.map(v => v.view_type).join(', ')}`);
+      }
+
+      // 第一优先级：使用角色的主图片（base_image_url）
+      if (character.base_image_url) {
+        finalReferenceImageUrl = character.base_image_url;
+        console.log(`✓ 使用角色主图作为参考图: ${finalReferenceImageUrl}`);
+      }
+      // 第二优先级：使用 neutral 表情作为参考
+      else if (character.expressions.length > 0) {
+        const neutralExpression = character.expressions.find(exp => exp.expression_type === 'neutral');
+        if (neutralExpression?.image_url) {
+          finalReferenceImageUrl = neutralExpression.image_url;
+          console.log(`✓ 使用角色的 neutral 表情作为参考图: ${finalReferenceImageUrl}`);
+        } else {
+          // 使用任意一张表情图
+          finalReferenceImageUrl = character.expressions[0].image_url;
+          console.log(`✓ 使用角色的 ${character.expressions[0].expression_type} 表情作为参考图: ${finalReferenceImageUrl}`);
+        }
+      }
+      // 第三优先级：使用正面三视图
+      else if (character.views && character.views.length > 0) {
+        const frontView = character.views.find(v => v.view_type === 'front');
+        if (frontView?.image_url) {
+          finalReferenceImageUrl = frontView.image_url;
+          console.log(`✓ 使用角色的正面三视图作为参考图: ${finalReferenceImageUrl}`);
+        } else if (character.views[0]?.image_url) {
+          // 如果没有正面图，使用第一张三视图
+          finalReferenceImageUrl = character.views[0].image_url;
+          console.log(`✓ 使用角色的 ${character.views[0].view_type} 三视图作为参考图: ${finalReferenceImageUrl}`);
+        }
+      }
+
+      // 如果还是没有找到参考图
+      if (!finalReferenceImageUrl) {
+        console.warn('✗ 未找到可用的参考图，将不使用参考图生成');
+        console.warn('提示：请确保角色有 base_image_url、表情图或三视图');
+      }
+      console.log('====================================\n');
+    } else {
+      console.log(`✓ 使用用户指定的参考图: ${finalReferenceImageUrl}`);
     }
 
     try {
@@ -81,43 +151,40 @@ export async function POST(req: Request) {
       }
     }
 
-    // Generate prompt for outfit
-    const systemPrompt = `你是一个专业的服装设计师。请根据角色和服装类型生成详细的服装描述提示词。
-要求：
-1. 保持角色外观一致性
-2. 详细描述服装的款式、颜色、材质
-3. 包含配饰和细节
-4. 使用专业的服装设计术语`;
-
-    const userPrompt = `角色：${character.name}
-角色描述：${character.description || ""}
-服装类型：${outfit_type}
-服装名称：${outfit_name}
-${description ? `附加描述：${description}` : ""}
-
-请生成该服装的详细提示词修饰语（用于添加到角色生成提示词中），输出纯文本。`;
-
+    // 生成服装提示词修饰符（存储用，不用于图片生成）
+    // 注意：有参考图时，图片生成的提示词由 outfit-generation.ts 控制，这里只是存储元数据
     let promptModifier = "";
     let triggerWord = "";
 
-    try {
-      const { content } = await callChatCompletionByType({
-        providerType: promptProviderType,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.7,
-        maxTokens: 500,
-      });
-
-      promptModifier = content.trim();
-      triggerWord = outfit_type === "default" ? "" : `${outfit_type}_outfit`;
-    } catch (error) {
-      console.error("Failed to generate outfit prompt:", error);
-      promptModifier = `wearing ${outfit_type} outfit, ${outfit_name}`;
-      triggerWord = outfit_type === "default" ? "" : `${outfit_type}_outfit`;
+    // 如果用户提供了额外描述，用 LLM 简化为英文关键词
+    if (description) {
+      try {
+        console.log('\n========== 调用 LLM 简化服装描述 ==========');
+        const result = await callChatCompletionByType({
+          providerType: promptProviderType,
+          messages: [
+            { 
+              role: "system", 
+              content: `你是翻译助手。将服装描述翻译为简短的英文关键词。
+要求：只输出3-5个英文关键词，逗号分隔，不要任何解释。
+示例输入：蓝白色水手服，有蝴蝶结
+示例输出：blue and white, sailor style, bow tie` 
+            },
+            { role: "user", content: description },
+          ],
+          temperature: 0.1,
+          maxTokens: 50,
+        });
+        promptModifier = result.content.trim();
+        console.log(`简化后的描述: ${promptModifier}`);
+        console.log('============================================\n');
+      } catch (error) {
+        console.warn("LLM 简化失败，使用原始描述:", error);
+        promptModifier = description;
+      }
     }
+    
+    triggerWord = outfit_type === "default" ? "" : `${outfit_type}_outfit`;
 
     // Step 3: 生成图片（如果需要）
     let imageUrl = "/placeholder-outfit.jpg";
@@ -151,40 +218,34 @@ ${description ? `附加描述：${description}` : ""}
       // 确保 MinIO bucket 存在
       await ensureBucketExists();
 
-      // 优化角色描述
+      // 角色描述处理策略：
+      // - 有参考图时：不需要详细描述，参考图已包含所有信息
+      // - 无参考图时：使用原始描述，不做过度优化
       const characterDesc = character.description || character.name;
-      let optimizedDescription = characterDesc;
-
-      try {
-        const optimizePrompt = `你是一个专业的角色设计师。请将角色描述优化为适合生成角色服装图的详细提示词。
-要求：
-1. 保留核心外观特征
-2. 添加专业术语
-3. 适合生成全身人物
-4. 输出纯文本`;
-
-        const { content } = await callChatCompletionByType({
-          providerType: promptProviderType,
-          messages: [
-            { role: "system", content: optimizePrompt },
-            { role: "user", content: `角色：${characterDesc}` },
-          ],
-          temperature: 0.7,
-          maxTokens: 300,
-        });
-
-        optimizedDescription = content.trim();
-      } catch (error) {
-        console.warn("LLM 优化失败，使用原始描述:", error);
+      
+      console.log('\n========== 服装生成策略 ==========');
+      console.log(`角色名称: ${character.name}`);
+      console.log(`角色描述: ${characterDesc}`);
+      console.log(`服装类型: ${outfit_type}`);
+      console.log(`附加描述: ${promptModifier || '无'}`);
+      console.log(`参考图: ${finalReferenceImageUrl ? '有' : '无'}`);
+      if (finalReferenceImageUrl) {
+        console.log(`参考图URL: ${finalReferenceImageUrl}`);
+        console.log(`>> 将使用参考图主导模式，提示词保持极简`);
+      } else {
+        console.log(`>> 无参考图，将使用角色描述`);
       }
+      console.log('==================================\n');
 
-      // 调用图片生成
       const base64Image = await generateOutfit(
-        optimizedDescription,
+        characterDesc,  // 直接使用原始描述，不做 LLM 优化
         outfit_type as OutfitType,
-        description,
-        imageProviderType
+        promptModifier || undefined,  // 使用简化后的服装描述
+        imageProviderType,
+        finalReferenceImageUrl
       );
+
+      console.log(`图片生成成功，Base64 长度: ${base64Image.length}\n`);
 
       // 转换为 Buffer
       const imageBuffer = base64ToBuffer(base64Image);

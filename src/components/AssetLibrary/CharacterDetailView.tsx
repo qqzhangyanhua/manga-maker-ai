@@ -997,9 +997,9 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
                             title: "服装创建成功",
                             description: `${outfit.label} 已添加到服装库并生成图片`,
                           });
-                          
+
                           refreshUsage();
-                          
+
                           // 立即更新UI
                           if (result.outfit) {
                             updateCharacterOutfits(result.outfit);
@@ -1020,8 +1020,8 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
                     disabled={outfitGenerating[outfit.id]}
                     className={cn(
                       "p-4 rounded-lg border-2 border-dashed border-border bg-card/50 transition-all flex flex-col items-center gap-3",
-                      outfitGenerating[outfit.id] 
-                        ? "opacity-50 cursor-not-allowed" 
+                      outfitGenerating[outfit.id]
+                        ? "opacity-50 cursor-not-allowed"
                         : "hover:border-primary/50"
                     )}
                   >
@@ -1033,10 +1033,10 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
                       )}
                     </div>
                     <span className="font-semibold text-foreground">{outfit.label}</span>
-                    <Button size="sm" variant="ghost" className="text-xs" disabled={outfitGenerating[outfit.id]}>
-                      <Sparkles className="w-3 h-3 mr-1" />
-                      {outfitGenerating[outfit.id] ? "生成中..." : "生成"}
-                    </Button>
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" />
+                      {outfitGenerating[outfit.id] ? "生成中..." : "点击生成"}
+                    </span>
                   </button>
                 ))}
             </div>

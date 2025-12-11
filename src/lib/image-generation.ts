@@ -19,6 +19,7 @@ export interface ImageGenerationParams {
   sampler_name?: string;
   seed?: number;
   batch_size?: number;
+  referenceImageUrl?: string; // 参考图URL，将被转换为base64并发送给模型
 }
 
 export interface ImageGenerationResult {
@@ -66,12 +67,27 @@ export async function callImageGenerationByType(
   // 查找配置
   const provider = await ensureLlmProvider(providerType);
 
+  // 记录详细的模型调用信息
+  console.log('\n========== 图片生成模型调用信息 ==========');
+  console.log(`Provider Type: ${providerType}`);
+  console.log(`Provider Name: ${provider.provider_name}`);
+  console.log(`Model: ${provider.model}`);
+  console.log(`Base URL: ${provider.base_url}`);
+  console.log(`API Key: ${provider.api_key ? `${provider.api_key.substring(0, 10)}...` : 'N/A'}`);
+  console.log(`Priority: ${provider.priority}`);
+  console.log(`Enabled: ${provider.enabled}`);
+  console.log('==========================================\n');
+
   // 根据 provider_name 选择不同的实现
   switch (provider.provider_name.toLowerCase()) {
     case "sd":
     case "stable-diffusion":
     case "automatic1111":
-      return await callStableDiffusionAPI(provider.base_url, imageParams, provider.api_key);
+      // Stable Diffusion 不支持参考图（或需要其他方式处理）
+      if (imageParams.referenceImageUrl) {
+        console.warn('⚠️ Stable Diffusion 当前不支持参考图功能，将忽略参考图参数');
+      }
+      return await callStableDiffusionAPI(provider.base_url, imageParams, provider.api_key, provider.model);
 
     case "comfyui":
       return await callComfyUIAPI(provider.base_url, imageParams, provider.api_key);
@@ -79,6 +95,7 @@ export async function callImageGenerationByType(
     case "openai":
     case "dall-e":
     case "dalle":
+      // OpenAI/Gemini 支持参考图
       return await callOpenAIImageAPI(
         provider.base_url,
         provider.model || "dall-e-3",
@@ -103,7 +120,8 @@ export async function callImageGenerationByType(
 async function callStableDiffusionAPI(
   baseUrl: string,
   params: ImageGenerationParams,
-  apiKey?: string
+  apiKey?: string,
+  model?: string
 ): Promise<ImageGenerationResult> {
   const {
     prompt,
@@ -129,6 +147,17 @@ async function callStableDiffusionAPI(
   if (apiKey) {
     headers["Authorization"] = `Bearer ${apiKey}`;
   }
+
+  // 记录详细的 SD API 调用信息
+  console.log('\n========== Stable Diffusion API 调用详情 ==========');
+  console.log(`Endpoint: ${endpoint}`);
+  console.log(`Model: ${model || 'default'}`);
+  console.log(`Prompt: ${prompt.substring(0, 100)}...`);
+  console.log(`Negative Prompt: ${negative_prompt.substring(0, 100)}...`);
+  console.log(`Size: ${width}x${height}`);
+  console.log(`Steps: ${steps}, CFG Scale: ${cfg_scale}`);
+  console.log(`Sampler: ${sampler_name}, Seed: ${seed}`);
+  console.log('==================================================\n');
 
   try {
     const response = await fetch(endpoint, {
@@ -178,6 +207,7 @@ async function callStableDiffusionAPI(
 /**
  * 调用 OpenAI DALL-E API 或兼容的图片生成 API（如 Gemini）
  * 支持流式响应，从 chat completions 接口提取图片
+ * 支持参考图：将参考图作为 base64 图片一起发送
  */
 async function callOpenAIImageAPI(
   baseUrl: string,
@@ -190,6 +220,7 @@ async function callOpenAIImageAPI(
     width = 1024,
     height = 1024,
     batch_size = 1,
+    referenceImageUrl,
   } = params;
 
   if (!apiKey) {
@@ -214,6 +245,51 @@ async function callOpenAIImageAPI(
   const normalizedUrl = baseUrl.replace(/\/$/, "");
   const endpoint = `${normalizedUrl}/v1/chat/completions`;
 
+  // 如果有参考图，先下载并转换为 base64
+  let referenceImageBase64: string | undefined;
+  if (referenceImageUrl) {
+    try {
+      referenceImageBase64 = await urlToBase64(referenceImageUrl);
+      console.log('✓ 参考图已转换为 base64，将一起发送给模型');
+    } catch (error) {
+      console.warn('⚠️ 参考图转换失败，将不使用参考图:', error);
+      // 继续执行，但不使用参考图
+    }
+  }
+
+  // 构建 content 数组
+  const contentArray: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
+  
+  // 如果有参考图，先放参考图
+  if (referenceImageBase64) {
+    contentArray.push({
+      type: "image_url",
+      image_url: {
+        url: referenceImageBase64,
+      },
+    });
+  }
+  
+  // 然后放文本提示词
+  contentArray.push({
+    type: "text",
+    text: prompt,
+  });
+
+  // 记录详细的 OpenAI API 调用信息
+  console.log('\n========== OpenAI/DALL-E API 调用详情 ==========');
+  console.log(`Endpoint: ${endpoint}`);
+  console.log(`Model: ${model}`);
+  console.log(`API Key: ${apiKey.substring(0, 10)}...`);
+  console.log(`是否包含参考图: ${referenceImageBase64 ? '是' : '否'}`);
+  if (referenceImageBase64) {
+    console.log(`参考图大小: ${(referenceImageBase64.length / 1024).toFixed(2)} KB (base64)`);
+  }
+  console.log(`Prompt: ${prompt.substring(0, 100)}...`);
+  console.log(`Size: ${size}`);
+  console.log(`Batch Size: ${batch_size}`);
+  console.log('================================================\n');
+
   try {
     const response = await fetch(endpoint, {
       method: "POST",
@@ -226,12 +302,7 @@ async function callOpenAIImageAPI(
         messages: [
           {
             role: "user",
-            content: [
-              {
-                type: "text",
-                text: prompt,
-              },
-            ],
+            content: contentArray,
           },
         ],
         temperature: 0.7,
@@ -419,6 +490,36 @@ export async function generateThreeViews(
     back: results[2].images[0],
     prompts,
   };
+}
+
+/**
+ * 下载图片并转换为 base64
+ * @param imageUrl 图片 URL
+ * @returns base64 格式的图片数据（包含 data:image/...;base64, 前缀）
+ */
+async function urlToBase64(imageUrl: string): Promise<string> {
+  try {
+    console.log(`下载参考图: ${imageUrl}`);
+    const response = await fetch(imageUrl);
+    
+    if (!response.ok) {
+      throw new Error(`下载参考图失败: ${response.status} ${response.statusText}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64 = buffer.toString('base64');
+    
+    // 从 URL 或 Content-Type 推断图片类型
+    const contentType = response.headers.get('content-type') || 'image/png';
+    const dataUrl = `data:${contentType};base64,${base64}`;
+    
+    console.log(`参考图下载成功，大小: ${(buffer.length / 1024).toFixed(2)} KB`);
+    return dataUrl;
+  } catch (error) {
+    console.error('下载参考图失败:', error);
+    throw new Error(`无法下载参考图 ${imageUrl}: ${error instanceof Error ? error.message : '未知错误'}`);
+  }
 }
 
 /**
