@@ -12,6 +12,11 @@ interface StoryData {
     projectId: string | null;
 }
 
+interface PanelsCache {
+    panels: Panel[];
+    projectId: string | null;
+}
+
 /**
  * 查询剧本和分镜数据
  */
@@ -58,31 +63,71 @@ export function useUpdateStory(storyId: string) {
         },
         onMutate: async (variables) => {
             // 取消正在进行的查询
-            await queryClient.cancelQueries({ queryKey: ['story', storyId] });
+            await Promise.all([
+                queryClient.cancelQueries({ queryKey: ['story', storyId] }),
+                queryClient.cancelQueries({ queryKey: ['story-basic', storyId] }),
+            ]);
 
             // 保存之前的数据用于回滚
             const previousData = queryClient.getQueryData<StoryData>(['story', storyId]);
+            const previousBasic = queryClient.getQueryData<{ story: Story; projectId: string | null }>(['story-basic', storyId]);
 
-            // 乐观更新
+            // 乐观更新 + 添加同步标记
             queryClient.setQueryData<StoryData>(['story', storyId], (old) => {
                 if (!old) return old;
                 return {
                     ...old,
-                    story: { ...old.story, ...variables },
+                    story: {
+                        ...old.story,
+                        ...variables,
+                        _syncing: true // 添加同步标记
+                    },
+                };
+            });
+            queryClient.setQueryData<{ story: Story; projectId: string | null }>(['story-basic', storyId], (old) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    story: {
+                        ...old.story,
+                        ...variables,
+                        _syncing: true,
+                    },
                 };
             });
 
-            return { previousData };
+            return { previousData, previousBasic };
+        },
+        onSuccess: (data) => {
+            // 成功后移除同步标记
+            queryClient.setQueryData<StoryData>(['story', storyId], (old) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    story: { ...data.story, _syncing: false },
+                };
+            });
+            queryClient.setQueryData<{ story: Story; projectId: string | null }>(['story-basic', storyId], (old) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    story: { ...data.story, _syncing: false },
+                };
+            });
         },
         onError: (err, variables, context) => {
             // 回滚到之前的数据
             if (context?.previousData) {
                 queryClient.setQueryData(['story', storyId], context.previousData);
             }
+            if (context?.previousBasic) {
+                queryClient.setQueryData(['story-basic', storyId], context.previousBasic);
+            }
         },
         onSettled: () => {
             // 重新获取数据确保同步
             queryClient.invalidateQueries({ queryKey: ['story', storyId] });
+            queryClient.invalidateQueries({ queryKey: ['story-basic', storyId] });
         },
     });
 }
@@ -112,6 +157,17 @@ export function useCreatePanel(storyId: string) {
                     panels: [...old.panels, data.panel],
                 };
             });
+            queryClient.setQueryData<PanelsCache>(['story-panels', storyId], (old) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    panels: [...old.panels, data.panel],
+                };
+            });
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ['story', storyId] });
+            queryClient.invalidateQueries({ queryKey: ['story-panels', storyId] });
         },
     });
 }
@@ -134,8 +190,10 @@ export function useUpdatePanel(storyId: string) {
         },
         onMutate: async (variables) => {
             await queryClient.cancelQueries({ queryKey: ['story', storyId] });
+            await queryClient.cancelQueries({ queryKey: ['story-panels', storyId] });
 
             const previousData = queryClient.getQueryData<StoryData>(['story', storyId]);
+            const previousPanels = queryClient.getQueryData<PanelsCache>(['story-panels', storyId]);
 
             // 乐观更新
             queryClient.setQueryData<StoryData>(['story', storyId], (old) => {
@@ -147,16 +205,29 @@ export function useUpdatePanel(storyId: string) {
                     ),
                 };
             });
+            queryClient.setQueryData<PanelsCache>(['story-panels', storyId], (old) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    panels: old.panels.map((p) =>
+                        p.id === variables.id ? { ...p, ...variables } : p
+                    ),
+                };
+            });
 
-            return { previousData };
+            return { previousData, previousPanels };
         },
         onError: (err, variables, context) => {
             if (context?.previousData) {
                 queryClient.setQueryData(['story', storyId], context.previousData);
             }
+            if (context?.previousPanels) {
+                queryClient.setQueryData(['story-panels', storyId], context.previousPanels);
+            }
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: ['story', storyId] });
+            queryClient.invalidateQueries({ queryKey: ['story-panels', storyId] });
         },
     });
 }
@@ -175,8 +246,10 @@ export function useDeletePanel(storyId: string) {
         },
         onMutate: async (panelId) => {
             await queryClient.cancelQueries({ queryKey: ['story', storyId] });
+            await queryClient.cancelQueries({ queryKey: ['story-panels', storyId] });
 
             const previousData = queryClient.getQueryData<StoryData>(['story', storyId]);
+            const previousPanels = queryClient.getQueryData<PanelsCache>(['story-panels', storyId]);
 
             // 乐观更新
             queryClient.setQueryData<StoryData>(['story', storyId], (old) => {
@@ -186,16 +259,27 @@ export function useDeletePanel(storyId: string) {
                     panels: old.panels.filter((p) => p.id !== panelId),
                 };
             });
+            queryClient.setQueryData<PanelsCache>(['story-panels', storyId], (old) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    panels: old.panels.filter((p) => p.id !== panelId),
+                };
+            });
 
-            return { previousData };
+            return { previousData, previousPanels };
         },
         onError: (err, variables, context) => {
             if (context?.previousData) {
                 queryClient.setQueryData(['story', storyId], context.previousData);
             }
+            if (context?.previousPanels) {
+                queryClient.setQueryData(['story-panels', storyId], context.previousPanels);
+            }
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: ['story', storyId] });
+            queryClient.invalidateQueries({ queryKey: ['story-panels', storyId] });
         },
     });
 }
@@ -231,6 +315,7 @@ export function useReorderPanels(storyId: string) {
         onSuccess: () => {
             // 重新获取数据
             queryClient.invalidateQueries({ queryKey: ['story', storyId] });
+            queryClient.invalidateQueries({ queryKey: ['story-panels', storyId] });
         },
     });
 }
@@ -261,6 +346,7 @@ export function useInsertPanel(storyId: string) {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['story', storyId] });
+            queryClient.invalidateQueries({ queryKey: ['story-panels', storyId] });
         },
     });
 }
@@ -286,6 +372,7 @@ export function useSplitPanel(storyId: string) {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['story', storyId] });
+            queryClient.invalidateQueries({ queryKey: ['story-panels', storyId] });
         },
     });
 }
@@ -314,6 +401,7 @@ export function useMergePanels(storyId: string) {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['story', storyId] });
+            queryClient.invalidateQueries({ queryKey: ['story-panels', storyId] });
         },
     });
 }

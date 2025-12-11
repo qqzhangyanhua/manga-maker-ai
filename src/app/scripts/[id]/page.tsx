@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -17,17 +17,21 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { StoryInfoPanel } from "./components/StoryInfoPanel";
 import { PanelListView } from "./components/PanelListView";
 import { PanelEditDialog } from "./components/PanelEditor/PanelEditDialog";
+import { StoryDetailsSkeleton } from "./components/StoryDetailsSkeleton";
 import type { Story, Panel } from "./types/script-editor.types";
 import {
-  useStoryData,
   useUpdateStory,
   useCreatePanel,
   useUpdatePanel,
   useDeletePanel,
 } from "./hooks/useStoryData";
+import { useStoryDataOptimized } from "./hooks/useStoryDataOptimized";
+import { useUIState } from "./hooks/useUIState";
+import { formatErrorForToast, isRetryableError } from "./utils/errorHandling";
 
 export default function ScriptDetailsPage() {
   const params = useParams();
@@ -35,44 +39,77 @@ export default function ScriptDetailsPage() {
   const { toast } = useToast();
   const storyId = params.id as string;
 
-  // React Query hooks for data management
-  const { data, isLoading, error } = useStoryData(storyId);
+  // React Query hooks for data management - 使用优化版渐进式加载
+  const {
+    data,
+    isLoading,
+    isPanelsLoading,
+    error,
+    hasStory,
+  } = useStoryDataOptimized(storyId);
   const updateStory = useUpdateStory(storyId);
   const createPanel = useCreatePanel(storyId);
   const updatePanel = useUpdatePanel(storyId);
   const deletePanel = useDeletePanel(storyId);
 
-  // Local UI state
-  const [editMode, setEditMode] = useState(false);
-  const [storyForm, setStoryForm] = useState({ title: "", premise: "" });
-  const [editingPanel, setEditingPanel] = useState<Partial<Panel> | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [deletingPanelId, setDeletingPanelId] = useState<string | null>(null);
+  // Unified UI state management
+  const { state: uiState, actions: uiActions } = useUIState();
 
   // Sync form with fetched data
   useEffect(() => {
-    if (data?.story) {
-      setStoryForm({
-        title: data.story.title,
-        premise: data.story.premise || "",
-      });
-    }
-  }, [data?.story]);
+    // 避免覆盖用户正在编辑的内容，仅在进入页面或后端数据变更时同步
+    if (!data?.story || uiState.editMode) return;
 
-  // Handle errors
+    uiActions.setStoryForm({
+      title: data.story.title,
+      premise: data.story.premise || "",
+    });
+  }, [
+    data?.story?.id,
+    data?.story?.title,
+    data?.story?.premise,
+    uiActions.setStoryForm,
+    uiState.editMode,
+  ]);
+
+  // Handle errors with detailed messages
   useEffect(() => {
     if (error) {
-      toast({ title: "Error", description: "加载数据失败", variant: "destructive" });
+      const errorInfo = formatErrorForToast(error);
+      toast({
+        title: errorInfo.title,
+        description: errorInfo.description,
+        variant: "destructive"
+      });
     }
   }, [error, toast]);
 
   async function handleUpdateStory() {
     try {
-      await updateStory.mutateAsync(storyForm);
-      setEditMode(false);
-      toast({ title: "剧本已保存" });
+      await updateStory.mutateAsync(uiState.storyForm);
+      uiActions.setEditMode(false);
+      toast({
+        title: "剧本已保存",
+        description: "所有修改已同步到服务器"
+      });
     } catch (error) {
-      toast({ title: "保存失败", variant: "destructive" });
+      const errorInfo = formatErrorForToast(error);
+      const canRetry = isRetryableError(error);
+      
+      toast({
+        title: errorInfo.title,
+        description: errorInfo.description,
+        variant: "destructive",
+        action: canRetry ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleUpdateStory()}
+          >
+            重试
+          </Button>
+        ) : undefined
+      });
     }
   }
 
@@ -81,66 +118,50 @@ export default function ScriptDetailsPage() {
     if (!data?.projectId) return;
 
     try {
-      const isNew = !editingPanel?.id;
+      const isNew = !uiState.editingPanel?.id;
 
       if (isNew) {
         await createPanel.mutateAsync({
-          ...editingPanel,
+          ...uiState.editingPanel,
           project_id: data.projectId,
         } as any);
         toast({ title: "分镜已创建" });
       } else {
-        await updatePanel.mutateAsync(editingPanel as any);
+        await updatePanel.mutateAsync(uiState.editingPanel as any);
         toast({ title: "分镜已更新" });
       }
 
-      setIsDialogOpen(false);
-      setEditingPanel(null);
+      uiActions.closePanelDialog();
     } catch (error) {
-      toast({ title: "操作失败", variant: "destructive" });
+      const errorInfo = formatErrorForToast(error);
+      toast({
+        title: errorInfo.title,
+        description: errorInfo.description,
+        variant: "destructive"
+      });
     }
   }
 
   async function handleDeletePanel(id: string) {
-    setDeletingPanelId(id);
+    uiActions.setDeletingPanel(id);
   }
 
   async function confirmDeletePanel() {
-    if (!deletingPanelId) return;
+    if (!uiState.deletingPanelId) return;
 
     try {
-      await deletePanel.mutateAsync(deletingPanelId);
+      await deletePanel.mutateAsync(uiState.deletingPanelId);
       toast({ title: "分镜已删除" });
     } catch (error) {
-      toast({ title: "删除失败", variant: "destructive" });
+      const errorInfo = formatErrorForToast(error);
+      toast({
+        title: errorInfo.title,
+        description: errorInfo.description,
+        variant: "destructive"
+      });
     } finally {
-      setDeletingPanelId(null);
+      uiActions.setDeletingPanel(null);
     }
-  }
-
-  function openNewPanelDialog() {
-    setEditingPanel({
-      project_id: data?.projectId || "",
-      description: "",
-      panel_type: "medium",
-      importance: "medium",
-      camera_angle: "eye_level",
-      shot_size: "medium_shot",
-      dialogue: "",
-      character_name: "",
-      emotion: "",
-      visual_prompt: "",
-    });
-    setIsDialogOpen(true);
-  }
-
-  function openEditPanelDialog(panel: Panel) {
-    setEditingPanel({ ...panel });
-    setIsDialogOpen(true);
-  }
-
-  function handlePanelFieldChange(field: string, value: string) {
-    setEditingPanel((prev) => prev ? { ...prev, [field]: value } : null);
   }
 
   function handleImageGenerated(panelId: string, imageUrl: string) {
@@ -149,11 +170,7 @@ export default function ScriptDetailsPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-[50vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <StoryDetailsSkeleton />;
   }
 
   if (!data?.story) {
@@ -168,7 +185,8 @@ export default function ScriptDetailsPage() {
   }
 
   return (
-    <div className="container py-8 space-y-8">
+    <ErrorBoundary>
+      <div className="container py-8 space-y-8">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => router.push("/scripts")}>
@@ -188,56 +206,67 @@ export default function ScriptDetailsPage() {
         <div className="lg:col-span-1">
           <StoryInfoPanel
             story={data.story}
-            editMode={editMode}
-            storyForm={storyForm}
+            editMode={uiState.editMode}
+            storyForm={uiState.storyForm}
             saving={updateStory.isPending}
-            onEditModeToggle={() => setEditMode(true)}
-            onCancel={() => setEditMode(false)}
+            onEditModeToggle={() => uiActions.setEditMode(true)}
+            onCancel={() => uiActions.setEditMode(false)}
             onSave={handleUpdateStory}
             onAutoSave={async (formData) => {
               // Auto-save using React Query mutation
               await updateStory.mutateAsync(formData);
             }}
             onFormChange={(field, value) =>
-              setStoryForm({ ...storyForm, [field]: value })
+              uiActions.updateStoryForm({ [field]: value })
             }
           />
         </div>
 
         {/* Right: Panels */}
         <div className="lg:col-span-2">
-          <PanelListView
-            panels={data.panels}
-            projectId={data.projectId}
-            onPanelsChange={() => { }}
-            onEditPanel={openEditPanelDialog}
-            onDeletePanel={handleDeletePanel}
-            onAddPanel={openNewPanelDialog}
-            onImageGenerated={handleImageGenerated}
-            onRefresh={() => {
-              // Trigger React Query to refetch data
-              // This will be handled automatically by mutations
-            }}
-            onError={(msg) =>
-              toast({ title: "错误", description: msg, variant: "destructive" })
-            }
-          />
+          {isPanelsLoading ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span className="text-sm text-muted-foreground">加载分镜列表中...</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <PanelListView
+              panels={data?.panels || []}
+              projectId={data?.projectId || null}
+              onPanelsChange={() => { }}
+              onEditPanel={(panel) => uiActions.openEditPanelDialog(panel)}
+              onDeletePanel={handleDeletePanel}
+              onAddPanel={() => uiActions.openNewPanelDialog(data?.projectId || "")}
+              onImageGenerated={handleImageGenerated}
+              onRefresh={() => {
+                // Trigger React Query to refetch data
+                // This will be handled automatically by mutations
+              }}
+              onError={(msg) =>
+                toast({ title: "错误", description: msg, variant: "destructive" })
+              }
+            />
+          )}
         </div>
       </div>
 
       {/* Edit/Create Dialog */}
       <PanelEditDialog
-        open={isDialogOpen}
-        panel={editingPanel}
-        characters={data.story?.characters || []}
+        open={uiState.isDialogOpen}
+        panel={uiState.editingPanel}
+        characters={data?.story?.characters || []}
         saving={false}
-        onOpenChange={setIsDialogOpen}
+        onOpenChange={(open) => !open && uiActions.closePanelDialog()}
         onSave={handleSavePanel}
-        onChange={handlePanelFieldChange}
+        onChange={uiActions.updatePanelField}
       />
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deletingPanelId} onOpenChange={(open) => !open && setDeletingPanelId(null)}>
+      <AlertDialog open={!!uiState.deletingPanelId} onOpenChange={(open) => !open && uiActions.setDeletingPanel(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>确认删除</AlertDialogTitle>
@@ -253,6 +282,7 @@ export default function ScriptDetailsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 }

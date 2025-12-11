@@ -67,7 +67,15 @@ export function StoryInfoPanel({
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>剧本信息</CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle>剧本信息</CardTitle>
+              {story._syncing && (
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  同步中
+                </span>
+              )}
+            </div>
             {editMode && <SaveIndicator status={saveStatus} />}
           </div>
         </CardHeader>

@@ -5,6 +5,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import type { GenerationTask, TaskStatusResponse } from "../types/script-editor.types";
+import { usePanelGenerationDedup } from "./useDedupedRequest";
 
 interface UsePanelGenerationProps {
   onSuccess?: (panelId: string, imageUrl: string) => void;
@@ -20,19 +21,38 @@ export function usePanelGeneration({
   >(new Map());
 
   const pollIntervalsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const { generateImage: dedupedGenerateImage } = usePanelGenerationDedup();
 
   /**
-   * 开始轮询任务状态
+   * 根据任务状态动态调整轮询间隔
+   */
+  const getPollingInterval = useCallback((status: string, retryCount: number): number => {
+    switch (status) {
+      case 'pending':
+        return 5000; // 等待中,5秒轮询
+      case 'processing':
+        return 2000; // 处理中,2秒轮询
+      default:
+        // 失败时使用指数退避
+        return Math.min(10000, 2000 * Math.pow(2, retryCount));
+    }
+  }, []);
+
+  /**
+   * 开始智能轮询任务状态
    */
   const startPolling = useCallback(
     (panelId: string, taskId: string) => {
       // 清除已存在的轮询
       const existingInterval = pollIntervalsRef.current.get(panelId);
       if (existingInterval) {
-        clearInterval(existingInterval);
+        clearTimeout(existingInterval);
       }
 
-      const interval = setInterval(async () => {
+      let retryCount = 0;
+      const maxRetries = 3;
+
+      const poll = async () => {
         try {
           const response = await fetch(
             `/api/panel/generate-image/status?task_id=${taskId}`
@@ -59,26 +79,42 @@ export function usePanelGeneration({
             return newMap;
           });
 
-          // 如果任务完成或失败，停止轮询
-          if (status.status === "completed" || status.status === "failed") {
-            clearInterval(interval);
+          // 根据状态决定下一步
+          if (status.status === "completed") {
             pollIntervalsRef.current.delete(panelId);
-
-            if (status.status === "completed" && status.imageUrl) {
+            if (status.imageUrl) {
               onSuccess?.(panelId, status.imageUrl);
-            } else if (status.status === "failed") {
-              onError?.(panelId, status.error || "生成失败");
             }
+          } else if (status.status === "failed") {
+            pollIntervalsRef.current.delete(panelId);
+            onError?.(panelId, status.error || "生成失败");
+          } else {
+            // 继续轮询,动态调整间隔
+            const interval = getPollingInterval(status.status, retryCount);
+            const timeoutId = setTimeout(poll, interval);
+            pollIntervalsRef.current.set(panelId, timeoutId);
           }
         } catch (error) {
           console.error("Polling error:", error);
-          // 继续轮询，不终止
+          retryCount++;
+          
+          if (retryCount >= maxRetries) {
+            // 超过最大重试次数,停止轮询
+            pollIntervalsRef.current.delete(panelId);
+            onError?.(panelId, "轮询超时,请刷新页面重试");
+          } else {
+            // 继续重试,使用指数退避
+            const interval = getPollingInterval('error', retryCount);
+            const timeoutId = setTimeout(poll, interval);
+            pollIntervalsRef.current.set(panelId, timeoutId);
+          }
         }
-      }, 2000); // 每 2 秒轮询一次
+      };
 
-      pollIntervalsRef.current.set(panelId, interval);
+      // 开始首次轮询
+      poll();
     },
-    [onSuccess, onError]
+    [onSuccess, onError, getPollingInterval]
   );
 
   /**
@@ -99,18 +135,8 @@ export function usePanelGeneration({
           return newMap;
         });
 
-        const response = await fetch("/api/panel/generate-image", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ panel_id: panelId, prompt, wait }),
-        });
-
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || "生成失败");
-        }
-
-        const data = await response.json();
+        // 使用去重的请求函数
+        const data = await dedupedGenerateImage(panelId, prompt);
 
         // 如果等待模式且已完成
         if (wait && data.image_url) {
@@ -162,7 +188,7 @@ export function usePanelGeneration({
         throw error;
       }
     },
-    [onSuccess, onError, startPolling]
+    [onSuccess, onError, startPolling, dedupedGenerateImage]
   );
 
   /**
@@ -216,9 +242,9 @@ export function usePanelGeneration({
    * 停止轮询
    */
   const stopPolling = useCallback((panelId: string) => {
-    const interval = pollIntervalsRef.current.get(panelId);
-    if (interval) {
-      clearInterval(interval);
+    const timeoutId = pollIntervalsRef.current.get(panelId);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
       pollIntervalsRef.current.delete(panelId);
     }
   }, []);
