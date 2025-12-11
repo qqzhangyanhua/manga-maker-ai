@@ -19,16 +19,16 @@ export const OUTFIT_TYPES = {
 
 export type OutfitType = keyof typeof OUTFIT_TYPES;
 
-// 服装提示词模板
+// 服装提示词模板 - 优化为更详细的描述
 const OUTFIT_PROMPTS: Record<OutfitType, string> = {
-  default: "default outfit, standard clothing, casual wear",
-  school: "school uniform, student outfit, blazer, tie, formal school attire",
-  battle: "battle outfit, armor, combat gear, warrior costume, tactical clothing",
-  casual: "casual clothing, comfortable wear, t-shirt, jeans, everyday outfit",
-  formal: "formal wear, suit, dress, elegant clothing, business attire",
-  sleepwear: "pajamas, sleepwear, nightgown, comfortable sleep clothing",
-  sports: "sports outfit, athletic wear, gym clothes, sportswear",
-  custom: "custom outfit, unique design, special clothing",
+  default: "default standard outfit, everyday clothing, regular casual wear, typical attire",
+  school: "school uniform, student outfit, neat blazer, formal tie, crisp white shirt, pleated skirt or trousers, polished school attire, academic look",
+  battle: "battle armor outfit, combat gear, warrior costume, tactical clothing, protective equipment, militaristic design, action-ready attire",
+  casual: "casual comfortable clothing, relaxed wear, t-shirt and jeans, everyday comfortable outfit, laid-back style, street fashion",
+  formal: "formal elegant wear, sophisticated suit or dress, business attire, refined clothing, classy outfit, professional appearance",
+  sleepwear: "comfortable pajamas, cozy sleepwear, soft nightgown, relaxing sleep clothing, loungewear, bedtime attire",
+  sports: "athletic sports outfit, gym wear, sporty clothing, active wear, fitness attire, training gear, athletic fashion",
+  custom: "custom unique outfit, special design, distinctive clothing, original fashion, personalized attire",
 };
 
 /**
@@ -46,13 +46,13 @@ export async function generateOutfit(
   outfitDescription?: string,
   providerType: string = "image_generation"
 ): Promise<string> {
-  // 构建服装提示词
+  // 构建服装提示词 - 参考专业服装设计规范
   const outfitPrompt = OUTFIT_PROMPTS[outfitType];
   const customDescription = outfitDescription ? `, ${outfitDescription}` : "";
 
-  const fullPrompt = `${characterDescription}, ${outfitPrompt}${customDescription}, full body, character design, anime style, clean white background, professional character design, detailed clothing, 8k, ultra detailed`;
+  const fullPrompt = `${characterDescription}, wearing ${outfitPrompt}${customDescription}, full body shot, complete character design, anime manga style, clean white background, professional character outfit reference, highly detailed clothing and fabric, clear design elements, sharp focus, high quality illustration, fashion design sheet`;
 
-  const negativePrompt = `blurry, low quality, distorted, multiple characters, inconsistent style, cropped, background elements, text, watermark, signature, multiple outfits`;
+  const negativePrompt = `blurry, low quality, distorted, deformed, ugly, bad anatomy, bad proportions, multiple characters, different people, inconsistent style, cropped badly, complex background, scenery, text, watermark, signature, logo, multiple outfits, mixed clothing styles, accessories clutter`;
 
   // 调用图片生成 API
   const result = await callImageGenerationByType({

@@ -291,15 +291,15 @@ export async function generateThreeViews(
     back: string;
   };
 }> {
-  // 构建三视图提示词
-  const basePrompt = `${characterDescription}, character turnaround sheet, T-pose, clean white background, professional character design, anime style, full body, consistent appearance, ultra detailed, 8k`;
+  // 构建三视图提示词 - 参考专业角色设计规范
+  const basePrompt = `${characterDescription}, character turnaround reference sheet, T-pose standing, full body, clean white background, professional character design, anime style, consistent detailed appearance, sharp focus, high quality illustration, character model sheet, reference design`;
   
-  const negativePrompt = `blurry, low quality, distorted, multiple characters, inconsistent style, cropped, background elements, text, watermark, signature`;
+  const negativePrompt = `blurry, low quality, distorted, deformed, ugly, bad anatomy, multiple characters, inconsistent style, cropped, background elements, scenery, text, watermark, signature, logo, different poses, sitting, action pose`;
 
   const prompts = {
-    front: `${basePrompt}, front view, facing camera`,
-    side: `${basePrompt}, side view, 90 degree profile view, side angle`,
-    back: `${basePrompt}, back view, rear view, from behind`,
+    front: `${basePrompt}, front view, facing forward, straight ahead, centered composition, symmetrical`,
+    side: `${basePrompt}, side view, 90 degree profile, side angle, lateral view, side perspective`,
+    back: `${basePrompt}, back view, rear view, from behind, backside, posterior view`,
   };
 
   // 生成三张图片

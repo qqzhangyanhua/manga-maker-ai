@@ -47,6 +47,8 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { panel_ids, project_id } = body;
 
+    console.log("[Merge API] Request received:", { panel_ids, project_id, userId: payload.userId });
+
     if (!Array.isArray(panel_ids) || panel_ids.length !== 2) {
       return NextResponse.json(
         { error: "必须选择两个分镜进行合并" },
@@ -63,6 +65,13 @@ export async function POST(req: Request) {
       where: { id: project_id },
     });
 
+    console.log("[Merge API] Project found:", {
+      projectId: project?.id,
+      projectUserId: project?.user_id,
+      currentUserId: payload.userId,
+      match: project?.user_id === payload.userId
+    });
+
     if (!project) {
       return NextResponse.json({ error: "项目不存在" }, { status: 404 });
     }
@@ -71,7 +80,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "无权限操作此项目" }, { status: 403 });
     }
 
-    // 获取两个 panels
+    // 获取项目的所有 panels，按顺序排列
+    const allPanels = await prisma.panel.findMany({
+      where: { project_id },
+      orderBy: { panel_order: "asc" },
+      select: { id: true, panel_order: true },
+    });
+
+    console.log("[Merge API] All panels in project:", {
+      count: allPanels.length,
+      orders: allPanels.map(p => ({ id: p.id, order: p.panel_order }))
+    });
+
+    // 获取两个要合并的 panels
     const panels = await prisma.panel.findMany({
       where: {
         id: { in: panel_ids },
@@ -80,12 +101,28 @@ export async function POST(req: Request) {
       orderBy: { panel_order: "asc" },
     });
 
+    console.log("[Merge API] Panels to merge:", {
+      count: panels.length,
+      panelIds: panels.map(p => p.id),
+      orders: panels.map(p => p.panel_order)
+    });
+
     if (panels.length !== 2) {
       return NextResponse.json({ error: "分镜不存在或不属于该项目" }, { status: 404 });
     }
 
-    // 确保两个 panels 是相邻的
-    if (Math.abs(panels[0].panel_order - panels[1].panel_order) !== 1) {
+    // 检查两个 panels 是否在排序后的列表中相邻
+    const firstPanelIndex = allPanels.findIndex(p => p.id === panels[0].id);
+    const secondPanelIndex = allPanels.findIndex(p => p.id === panels[1].id);
+
+    console.log("[Merge API] Panel positions in sorted list:", {
+      firstIndex: firstPanelIndex,
+      secondIndex: secondPanelIndex,
+      diff: Math.abs(firstPanelIndex - secondPanelIndex)
+    });
+
+    if (Math.abs(firstPanelIndex - secondPanelIndex) !== 1) {
+      console.log("[Merge API] Panels not adjacent in sorted list");
       return NextResponse.json(
         { error: "只能合并相邻的分镜" },
         { status: 400 }
@@ -176,6 +213,11 @@ export async function POST(req: Request) {
       `;
 
       return created;
+    });
+
+    console.log("[Merge API] Merge successful:", {
+      newPanelId: newPanel.id,
+      newPanelOrder: newPanel.panel_order
     });
 
     return NextResponse.json({

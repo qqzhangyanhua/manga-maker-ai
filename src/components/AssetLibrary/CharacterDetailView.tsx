@@ -65,6 +65,14 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
   const [currentUploadType, setCurrentUploadType] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
   const [generateSimilarDialogOpen, setGenerateSimilarDialogOpen] = useState(false);
+  
+  // 三视图独立loading状态
+  const [viewGenerating, setViewGenerating] = useState<{front?: boolean; side?: boolean; back?: boolean}>({});
+  // 服装生成loading状态
+  const [outfitGenerating, setOutfitGenerating] = useState<Record<string, boolean>>({});
+  // 全局表情生成loading
+  const [allExpressionsGenerating, setAllExpressionsGenerating] = useState(false);
+  
   const { toast } = useToast();
   const { usage, loading: usageLoading, refresh: refreshUsage } = useUsage();
 
@@ -198,7 +206,10 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
   };
 
   const handleGenerateThreeView = async () => {
+    // 设置三个视图都在生成中
+    setViewGenerating({ front: true, side: true, back: true });
     setIsGenerating(true);
+    
     try {
       const response = await fetch("/api/character/generate-views", {
         method: "POST",
@@ -266,6 +277,7 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
       }
     } finally {
       setIsGenerating(false);
+      setViewGenerating({});
     }
   };
 
@@ -445,6 +457,7 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
   };
 
   const handleGenerateAllExpressions = async () => {
+    setAllExpressionsGenerating(true);
     setIsGenerating(true);
     
     try {
@@ -501,7 +514,32 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
       });
     } finally {
       setIsGenerating(false);
+      setAllExpressionsGenerating(false);
     }
+  };
+
+  // 辅助函数：更新角色数据中的服装列表
+  const updateCharacterOutfits = (newOutfit: any) => {
+    if (!onUpdate) return;
+    
+    const existingOutfits = character.outfits || [];
+    const existingIndex = existingOutfits.findIndex(o => o.id === newOutfit.id);
+    
+    let updatedOutfits: any[];
+    if (existingIndex >= 0) {
+      // 更新现有服装
+      updatedOutfits = [...existingOutfits];
+      updatedOutfits[existingIndex] = newOutfit;
+    } else {
+      // 添加新服装
+      updatedOutfits = [...existingOutfits, newOutfit];
+    }
+    
+    // 立即更新角色数据
+    onUpdate({
+      ...character,
+      outfits: updatedOutfits,
+    });
   };
 
   const handleCreateOutfit = async (data: {
@@ -523,6 +561,8 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
         await parseErrorResponse(response, "服装创建失败");
       }
 
+      const result = await response.json();
+      
       toast({
         title: "服装创建成功",
         description: `${data.outfit_name} 已添加到服装库`,
@@ -530,12 +570,17 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
       
       refreshUsage();
 
-      // Refresh character data
-      if (onUpdate) {
-        const updatedChar = await fetch(`/api/character/${character.id}`);
-        if (updatedChar.ok) {
-          const charData = await updatedChar.json();
-          onUpdate(charData.character);
+      // 立即更新UI，从响应中获取outfit数据
+      if (result.outfit) {
+        updateCharacterOutfits(result.outfit);
+      } else {
+        // 如果响应中没有outfit，则重新获取
+        if (onUpdate) {
+          const updatedChar = await fetch(`/api/character/${character.id}`);
+          if (updatedChar.ok) {
+            const charData = await updatedChar.json();
+            onUpdate(charData.character);
+          }
         }
       }
     } catch (error) {
@@ -675,7 +720,7 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
                   imageUrl={generatedViews[view as keyof typeof generatedViews]}
                   label={view === "front" ? "正面" : view === "side" ? "侧面" : "背面"}
                   aspectRatio="portrait"
-                  isGenerating={isGenerating || isUploading}
+                  isGenerating={viewGenerating[view as keyof typeof viewGenerating] || isUploading}
                   onGenerate={handleGenerateThreeView}
                   onUpload={() => {
                     setCurrentUploadType(view);
@@ -749,7 +794,10 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
                   imageUrl={expressionSheet[exp.id]}
                   label={`${exp.emoji} ${exp.label}`}
                   aspectRatio="square"
-                  isGenerating={(isGenerating || isUploading) && selectedExpression === exp.id}
+                  isGenerating={
+                    (allExpressionsGenerating && !expressionSheet[exp.id]) || 
+                    ((selectedExpression === exp.id || isUploading) && !allExpressionsGenerating)
+                  }
                   onGenerate={() => handleGenerateExpression(exp.id)}
                   onUpload={() => {
                     setCurrentUploadType(exp.id);
@@ -797,8 +845,9 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
                     imageUrl={outfit.image_url && !outfit.image_url.includes("placeholder") ? outfit.image_url : undefined}
                     label={`${preset?.icon || "👔"} ${outfit.outfit_name}`}
                     aspectRatio="portrait"
-                    isGenerating={false}
+                    isGenerating={outfitGenerating[outfit.id] || false}
                     onGenerate={async () => {
+                      setOutfitGenerating(prev => ({ ...prev, [outfit.id]: true }));
                       try {
                         const response = await fetch("/api/character/outfits", {
                           method: "POST",
@@ -811,17 +860,25 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
                           }),
                         });
                         if (response.ok) {
-                          toast({ title: "服装图片生成中...", description: "请稍候" });
-                          if (onUpdate) {
-                            const updatedChar = await fetch(`/api/character/${character.id}`);
-                            if (updatedChar.ok) {
-                              const charData = await updatedChar.json();
-                              onUpdate(charData.character);
-                            }
+                          const result = await response.json();
+                          toast({ title: "服装图片生成成功", description: "图片已生成" });
+                          refreshUsage();
+                          
+                          // 立即更新UI
+                          if (result.outfit) {
+                            updateCharacterOutfits(result.outfit);
                           }
+                        } else {
+                          throw new Error("生成失败");
                         }
                       } catch (error) {
-                        toast({ title: "生成失败", variant: "destructive" });
+                        toast({ 
+                          title: "生成失败", 
+                          description: error instanceof Error ? error.message : "请稍后重试",
+                          variant: "destructive" 
+                        });
+                      } finally {
+                        setOutfitGenerating(prev => ({ ...prev, [outfit.id]: false }));
                       }
                     }}
                     onUpload={() => {
@@ -829,6 +886,7 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
                       setUploadDialogOpen(true);
                     }}
                     onRegenerate={async () => {
+                      setOutfitGenerating(prev => ({ ...prev, [outfit.id]: true }));
                       try {
                         const response = await fetch("/api/character/outfits", {
                           method: "POST",
@@ -841,17 +899,25 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
                           }),
                         });
                         if (response.ok) {
-                          toast({ title: "服装图片重新生成中...", description: "请稍候" });
-                          if (onUpdate) {
-                            const updatedChar = await fetch(`/api/character/${character.id}`);
-                            if (updatedChar.ok) {
-                              const charData = await updatedChar.json();
-                              onUpdate(charData.character);
-                            }
+                          const result = await response.json();
+                          toast({ title: "服装图片重新生成成功", description: "图片已更新" });
+                          refreshUsage();
+                          
+                          // 立即更新UI
+                          if (result.outfit) {
+                            updateCharacterOutfits(result.outfit);
                           }
+                        } else {
+                          throw new Error("重新生成失败");
                         }
                       } catch (error) {
-                        toast({ title: "重新生成失败", variant: "destructive" });
+                        toast({ 
+                          title: "重新生成失败", 
+                          description: error instanceof Error ? error.message : "请稍后重试",
+                          variant: "destructive" 
+                        });
+                      } finally {
+                        setOutfitGenerating(prev => ({ ...prev, [outfit.id]: false }));
                       }
                     }}
                     onReplace={() => {
@@ -871,6 +937,7 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
                   <button
                     key={outfit.id}
                     onClick={async () => {
+                      setOutfitGenerating(prev => ({ ...prev, [outfit.id]: true }));
                       try {
                         const response = await fetch("/api/character/outfits", {
                           method: "POST",
@@ -879,14 +946,17 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
                             character_id: character.id,
                             outfit_name: outfit.label,
                             outfit_type: outfit.id,
+                            generate_image: true,
                           }),
                         });
 
                         if (response.ok) {
                           toast({
                             title: "服装创建成功",
-                            description: `${outfit.label} 已添加到服装库`,
+                            description: `${outfit.label} 已添加到服装库并生成图片`,
                           });
+                          
+                          refreshUsage();
                           
                           // Refresh character data
                           if (onUpdate) {
@@ -896,24 +966,38 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
                               onUpdate(charData.character);
                             }
                           }
+                        } else {
+                          throw new Error("创建失败");
                         }
                       } catch (error) {
                         toast({
                           title: "创建失败",
-                          description: "网络错误，请稍后重试",
+                          description: error instanceof Error ? error.message : "请稍后重试",
                           variant: "destructive",
                         });
+                      } finally {
+                        setOutfitGenerating(prev => ({ ...prev, [outfit.id]: false }));
                       }
                     }}
-                    className="p-4 rounded-lg border-2 border-dashed border-border hover:border-primary/50 bg-card/50 transition-all flex flex-col items-center gap-3"
+                    disabled={outfitGenerating[outfit.id]}
+                    className={cn(
+                      "p-4 rounded-lg border-2 border-dashed border-border bg-card/50 transition-all flex flex-col items-center gap-3",
+                      outfitGenerating[outfit.id] 
+                        ? "opacity-50 cursor-not-allowed" 
+                        : "hover:border-primary/50"
+                    )}
                   >
                     <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center text-3xl">
-                      {outfit.icon}
+                      {outfitGenerating[outfit.id] ? (
+                        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        outfit.icon
+                      )}
                     </div>
                     <span className="font-semibold text-foreground">{outfit.label}</span>
-                    <Button size="sm" variant="ghost" className="text-xs">
+                    <Button size="sm" variant="ghost" className="text-xs" disabled={outfitGenerating[outfit.id]}>
                       <Sparkles className="w-3 h-3 mr-1" />
-                      生成
+                      {outfitGenerating[outfit.id] ? "生成中..." : "生成"}
                     </Button>
                   </button>
                 ))}

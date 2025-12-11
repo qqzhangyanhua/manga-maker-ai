@@ -171,6 +171,12 @@ export function PanelListView({
     if (!mergingPanels) return;
 
     try {
+      console.log("[PanelListView] Merging panels:", {
+        currentId: mergingPanels.current.id,
+        nextId: mergingPanels.next.id,
+        projectId,
+      });
+
       const response = await fetch("/api/panel/merge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -181,14 +187,17 @@ export function PanelListView({
       });
 
       const data = await response.json();
+      console.log("[PanelListView] Merge response:", { status: response.status, data });
 
       if (!response.ok) {
         throw new Error(data.error || "合并分镜失败");
       }
 
       // Trigger refresh via callback instead of full page reload
-      onRefresh?.();
+      console.log("[PanelListView] Merge successful, refreshing panels...");
+      await onRefresh?.();
     } catch (error) {
+      console.error("[PanelListView] Merge error:", error);
       const message = error instanceof Error ? error.message : "合并分镜失败";
       onError(message);
     } finally {

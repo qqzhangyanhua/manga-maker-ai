@@ -33,17 +33,17 @@ export const EXPRESSION_LABELS: Record<ExpressionType, string> = {
   determined: "坚定",
 };
 
-// 表情提示词模板
+// 表情提示词模板 - 优化为更精确的描述
 const EXPRESSION_PROMPTS: Record<ExpressionType, string> = {
-  neutral: "neutral expression, calm face, natural look, relaxed",
-  happy: "happy expression, smiling, bright eyes, cheerful, joyful",
-  sad: "sad expression, downcast eyes, melancholic, tears, sorrowful",
-  angry: "angry expression, furrowed brows, intense gaze, clenched teeth, fierce",
-  surprised: "surprised expression, wide eyes, open mouth, shocked, amazed",
-  shy: "shy expression, blushing, looking away, timid, embarrassed",
-  confident: "confident expression, determined eyes, smirk, self-assured, bold",
-  worried: "worried expression, concerned look, furrowed brows, anxious, nervous",
-  determined: "determined expression, focused eyes, serious face, resolute, strong-willed",
+  neutral: "neutral calm expression, peaceful face, natural relaxed look, soft eyes, gentle demeanor, serene",
+  happy: "happy joyful expression, bright genuine smile, sparkling cheerful eyes, radiant face, delighted, beaming with joy",
+  sad: "sad melancholic expression, downcast teary eyes, sorrowful face, dejected look, tears welling up, emotional sadness",
+  angry: "angry fierce expression, furrowed angry brows, intense glaring eyes, clenched jaw, scowling face, showing anger",
+  surprised: "surprised shocked expression, wide open eyes, raised eyebrows, open mouth, amazed look, astonished face",
+  shy: "shy embarrassed expression, blushing cheeks, looking away bashfully, timid demeanor, flustered, coy smile",
+  confident: "confident self-assured expression, determined sharp eyes, slight smirk, bold gaze, strong presence, assertive look",
+  worried: "worried anxious expression, concerned furrowed brows, nervous eyes, troubled look, uneasy demeanor, apprehensive",
+  determined: "determined resolute expression, focused intense eyes, serious stern face, unwavering gaze, strong-willed, firm expression",
 };
 
 /**
@@ -59,11 +59,11 @@ export async function generateExpression(
   expressionType: ExpressionType,
   providerType: string = "image_generation"
 ): Promise<string> {
-  // 构建表情提示词
+  // 构建表情提示词 - 参考专业角色表情设计
   const expressionPrompt = EXPRESSION_PROMPTS[expressionType];
-  const fullPrompt = `${characterDescription}, ${expressionPrompt}, portrait, upper body, character portrait, anime style, detailed face, clean background, professional character design, 8k, ultra detailed`;
+  const fullPrompt = `${characterDescription}, ${expressionPrompt}, portrait shot, upper body view, expressive character portrait, anime manga style, highly detailed facial features, clean simple background, professional character expression sheet, sharp focus, high quality illustration, emotional depth`;
 
-  const negativePrompt = `full body, blurry, low quality, distorted, multiple characters, inconsistent style, cropped body, background elements, text, watermark, signature`;
+  const negativePrompt = `full body, blurry, low quality, distorted, deformed, ugly, bad anatomy, bad hands, bad face, multiple characters, multiple faces, inconsistent style, cropped awkwardly, complex background, scenery, text, watermark, signature, logo, extra limbs`;
 
   // 调用图片生成 API
   const result = await callImageGenerationByType({
