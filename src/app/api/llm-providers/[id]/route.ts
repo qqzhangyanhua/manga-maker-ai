@@ -14,12 +14,14 @@ const providerSchema = z.object({
   api_key: z.string().default(""),
   priority: z.number().int().positive().default(1),
   enabled: z.boolean().default(true),
+  desc: z.string().optional(),
 });
 
 const handleError = (error: unknown) => {
+  console.error("LLM Provider API Error:", error);
   const message = error instanceof Error ? error.message : "未知错误";
   const status = (error as any)?.status ?? 500;
-  return NextResponse.json({ success: false, message }, { status });
+  return NextResponse.json({ success: false, message, error: String(error) }, { status });
 };
 
 export async function PUT(
@@ -49,6 +51,9 @@ export async function PUT(
     const payload = parsed.data;
     await ensureDb();
 
+    // 处理 desc 字段：空字符串转为 null
+    const descValue = payload.desc === "" || payload.desc === undefined ? null : payload.desc;
+
     const provider = await prisma.llmProvider.update({
       where: { id: providerId },
       data: {
@@ -59,14 +64,24 @@ export async function PUT(
         api_key: payload.api_key,
         priority: payload.priority,
         enabled: payload.enabled,
+        desc: descValue,
         updated_at: new Date(),
       },
     });
 
     return NextResponse.json({ success: true, data: { provider } });
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
-      return NextResponse.json({ success: false, message: "记录不存在" }, { status: 404 });
+    console.error("PUT /api/llm-providers/[id] error:", error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2025") {
+        return NextResponse.json({ success: false, message: "记录不存在" }, { status: 404 });
+      }
+      // 处理其他 Prisma 错误
+      console.error("Prisma error code:", error.code, "message:", error.message);
+      return NextResponse.json(
+        { success: false, message: `数据库错误: ${error.message}`, code: error.code },
+        { status: 500 },
+      );
     }
     return handleError(error);
   }

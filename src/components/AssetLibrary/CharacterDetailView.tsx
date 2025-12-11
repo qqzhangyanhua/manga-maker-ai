@@ -357,6 +357,7 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
       formData.append("character_id", character.id);
       formData.append("type", "outfit");
       formData.append("sub_type", outfitId);
+      formData.append("outfit_id", outfitId);
       formData.append("file", file);
 
       // 上传到服务器
@@ -366,13 +367,24 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
       });
 
       if (uploadResponse.ok) {
+        const result = await uploadResponse.json();
         toast({
           title: "上传成功",
           description: "服装图片已上传",
         });
 
-        // Refresh character data
-        if (onUpdate) {
+        // 立即更新UI：找到对应的服装并更新image_url
+        const existingOutfits = character.outfits || [];
+        const outfitIndex = existingOutfits.findIndex(o => o.id === outfitId);
+        
+        if (outfitIndex >= 0 && result.image_url) {
+          const updatedOutfit = {
+            ...existingOutfits[outfitIndex],
+            image_url: result.image_url,
+          };
+          updateCharacterOutfits(updatedOutfit);
+        } else if (onUpdate) {
+          // 如果找不到，则重新获取
           const updatedChar = await fetch(`/api/character/${character.id}`);
           if (updatedChar.ok) {
             const charData = await updatedChar.json();
@@ -951,6 +963,7 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
                         });
 
                         if (response.ok) {
+                          const result = await response.json();
                           toast({
                             title: "服装创建成功",
                             description: `${outfit.label} 已添加到服装库并生成图片`,
@@ -958,13 +971,9 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
                           
                           refreshUsage();
                           
-                          // Refresh character data
-                          if (onUpdate) {
-                            const updatedChar = await fetch(`/api/character/${character.id}`);
-                            if (updatedChar.ok) {
-                              const charData = await updatedChar.json();
-                              onUpdate(charData.character);
-                            }
+                          // 立即更新UI
+                          if (result.outfit) {
+                            updateCharacterOutfits(result.outfit);
                           }
                         } else {
                           throw new Error("创建失败");

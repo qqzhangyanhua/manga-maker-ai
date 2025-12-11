@@ -13,6 +13,7 @@ const providerSchema = z.object({
   api_key: z.string().default(""),
   priority: z.number().int().positive().default(1),
   enabled: z.boolean().default(true),
+  desc: z.string().optional(),
 });
 
 const handleError = (error: unknown) => {
@@ -67,6 +68,7 @@ export async function POST(request: NextRequest) {
         api_key: payload.api_key,
         priority: payload.priority,
         enabled: payload.enabled,
+        desc: payload.desc,
         created_at: now,
         updated_at: now,
       },
