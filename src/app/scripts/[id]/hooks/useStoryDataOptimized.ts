@@ -84,6 +84,7 @@ export function useStoryDataOptimized(storyId: string) {
     data: panelsData, 
     isLoading: isPanelsLoading,
     error: panelsError,
+    refetch: refetchPanels,
   } = useStoryPanels(storyId, !!basicData);
 
   // 合并数据
@@ -102,5 +103,6 @@ export function useStoryDataOptimized(storyId: string) {
     error: storyError || panelsError,
     hasStory: !!story,
     hasPanels: panels.length > 0,
+    refetchPanels,
   };
 }

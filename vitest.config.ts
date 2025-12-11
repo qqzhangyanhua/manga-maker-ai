@@ -1,5 +1,8 @@
 // @ts-nocheck
+import { webcrypto } from "node:crypto";
 import { defineConfig } from "vitest/config";
+
+globalThis.crypto = webcrypto as unknown as Crypto;
 
 export default defineConfig({
   test: {

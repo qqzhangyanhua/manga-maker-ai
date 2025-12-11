@@ -30,6 +30,7 @@ import {
   useDeletePanel,
 } from "./hooks/useStoryData";
 import { useStoryDataOptimized } from "./hooks/useStoryDataOptimized";
+import { useCharacterAssets } from "./hooks/useCharacterAssets";
 import { useUIState } from "./hooks/useUIState";
 import { formatErrorForToast, isRetryableError } from "./utils/errorHandling";
 
@@ -46,7 +47,13 @@ export default function ScriptDetailsPage() {
     isPanelsLoading,
     error,
     hasStory,
+    refetchPanels,
   } = useStoryDataOptimized(storyId);
+  const {
+    data: characterAssets = [],
+    isLoading: isCharactersLoading,
+    refetch: refetchCharacters,
+  } = useCharacterAssets();
   const updateStory = useUpdateStory(storyId);
   const createPanel = useCreatePanel(storyId);
   const updatePanel = useUpdatePanel(storyId);
@@ -237,15 +244,15 @@ export default function ScriptDetailsPage() {
             <PanelListView
               panels={data?.panels || []}
               projectId={data?.projectId || null}
+              characters={characterAssets}
+              charactersLoading={isCharactersLoading}
+              onCharactersRefresh={() => refetchCharacters()}
               onPanelsChange={() => { }}
               onEditPanel={(panel) => uiActions.openEditPanelDialog(panel)}
               onDeletePanel={handleDeletePanel}
               onAddPanel={() => uiActions.openNewPanelDialog(data?.projectId || "")}
               onImageGenerated={handleImageGenerated}
-              onRefresh={() => {
-                // Trigger React Query to refetch data
-                // This will be handled automatically by mutations
-              }}
+              onRefresh={() => refetchPanels?.()}
               onError={(msg) =>
                 toast({ title: "错误", description: msg, variant: "destructive" })
               }

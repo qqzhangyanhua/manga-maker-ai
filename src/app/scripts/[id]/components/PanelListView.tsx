@@ -17,7 +17,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Plus, ImageIcon, Images } from "lucide-react";
+import { Plus, ImageIcon, Images, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -37,11 +37,16 @@ import { BatchGenerationDialog } from "./BatchGenerationDialog";
 import { usePanelDragDrop } from "../hooks/usePanelDragDrop";
 import { usePanelGeneration } from "../hooks/usePanelGeneration";
 import { useBatchGeneration } from "../hooks/useBatchGeneration";
+import { ReferenceGuidedGenerationDialog } from "./PanelEditor/ReferenceGuidedGenerationDialog";
 import type { Panel } from "../types/script-editor.types";
+import type { CharacterReference } from "../types/character.types";
 
 interface PanelListViewProps {
   panels: Panel[];
   projectId: string | null;
+  characters: CharacterReference[];
+  charactersLoading?: boolean;
+  onCharactersRefresh?: () => void | Promise<void>;
   onPanelsChange: (panels: Panel[]) => void;
   onEditPanel: (panel: Panel) => void;
   onDeletePanel: (id: string) => void;
@@ -54,6 +59,9 @@ interface PanelListViewProps {
 export function PanelListView({
   panels,
   projectId,
+  characters,
+  charactersLoading = false,
+  onCharactersRefresh,
   onPanelsChange,
   onEditPanel,
   onDeletePanel,
@@ -69,6 +77,8 @@ export function PanelListView({
   const [splitPanel, setSplitPanel] = useState<Panel | null>(null);
   const [mergingPanels, setMergingPanels] = useState<{ current: Panel; next: Panel } | null>(null);
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
+  const [guidedDialogOpen, setGuidedDialogOpen] = useState(false);
+  const [targetPanel, setTargetPanel] = useState<Panel | null>(null);
 
   // 配置拖拽传感器（需要移动至少 5px 才触发拖拽，避免误触）
   const sensors = useSensors(
@@ -125,6 +135,11 @@ export function PanelListView({
     } catch (error) {
       // 错误已在 Hook 中处理
     }
+  };
+
+  const openGuidedDialog = (panel: Panel) => {
+    setTargetPanel(panel);
+    setGuidedDialogOpen(true);
   };
 
   // 高级操作：在指定分镜之后插入
@@ -201,6 +216,21 @@ export function PanelListView({
           分镜列表 ({panels.length})
         </h2>
         <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            type="button"
+            disabled={charactersLoading || characters.length === 0}
+            onClick={() => {
+              const candidate = panels.find((p) => !p.generated_image && !p.image_url) || panels[0];
+              if (candidate) {
+                openGuidedDialog(candidate);
+              } else {
+                onError("暂无可生成的分镜");
+              }
+            }}
+          >
+            <Sparkles className="w-4 h-4 mr-2" />锁脸生成
+          </Button>
           {panelsToGenerate.length > 0 && (
             <Button
               variant="outline"
@@ -343,6 +373,27 @@ export function PanelListView({
         onClose={() => {
           setBatchDialogOpen(false);
           batchGeneration.cancelGeneration();
+        }}
+      />
+
+      {/* 角色参考引导生成 */}
+      <ReferenceGuidedGenerationDialog
+        open={guidedDialogOpen}
+        panel={targetPanel}
+        characters={characters}
+        onCharactersRefresh={onCharactersRefresh}
+        onOpenChange={(open) => {
+          setGuidedDialogOpen(open);
+          if (!open) {
+            setTargetPanel(null);
+          }
+        }}
+        onGenerated={(panelId, imageUrl) => {
+          onImageGenerated?.(panelId, imageUrl);
+          onRefresh?.();
+        }}
+        onPromptUpdated={() => {
+          onRefresh?.();
         }}
       />
     </div>
