@@ -3,15 +3,34 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import type { Project, Panel, OperationLoadingState } from "@/types/storyboard";
 
+export type StoryboardCharacter = {
+  id: string;
+  name: string;
+  viewCount: number;
+};
+
+export type StoryboardStyle = {
+  style_key: string;
+  name_zh: string;
+  name_en: string;
+  description?: string | null;
+};
+
 type UseStoryboardDataReturn = {
   project: Project | null;
   loading: boolean;
   operationLoading: OperationLoadingState;
+  characters: StoryboardCharacter[];
+  styles: StoryboardStyle[];
   handlePanelUpdate: (panelId: string, updates: Partial<Panel>) => Promise<void>;
   handleMerge: (panelId: string) => Promise<void>;
   handleSplit: (panelId: string) => Promise<void>;
   handleInsertPanel: (description: string, useLLM: boolean, insertAfterOrder: number | null) => Promise<void>;
   handleGenerateSketch: (panelId: string) => Promise<void>;
+  handleGeneratePrompt: (
+    panelId: string,
+    options?: { characterId?: string; styleKey?: string; soften?: boolean; aspectRatio?: string }
+  ) => Promise<void>;
 };
 
 /**
@@ -27,6 +46,8 @@ export function useStoryboardData(projectId: string): UseStoryboardDataReturn {
   const [operationLoading, setOperationLoading] = useState<OperationLoadingState>({
     type: null,
   });
+  const [characters, setCharacters] = useState<StoryboardCharacter[]>([]);
+  const [styles, setStyles] = useState<StoryboardStyle[]>([]);
 
   // 加载项目数据
   useEffect(() => {
@@ -37,7 +58,7 @@ export function useStoryboardData(projectId: string): UseStoryboardDataReturn {
           throw new Error("加载项目失败");
         }
         const data = await response.json();
-        setProject(data);
+        setProject(data.project);
       } catch (error) {
         console.error("Fetch project error:", error);
         toast({
@@ -51,7 +72,40 @@ export function useStoryboardData(projectId: string): UseStoryboardDataReturn {
       }
     };
 
+    const fetchCharactersAndStyles = async () => {
+      try {
+        const [charsRes, stylesRes] = await Promise.all([
+          fetch("/api/character"),
+          fetch("/api/comic-styles"),
+        ]);
+
+        if (charsRes.ok) {
+          const data = await charsRes.json();
+          const normalized: StoryboardCharacter[] = (data.characters || []).map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            viewCount: c.views?.length || 0,
+          }));
+          setCharacters(normalized);
+        }
+
+        if (stylesRes.ok) {
+          const data = await stylesRes.json();
+          const normalized: StoryboardStyle[] = (data.data || []).map((s: any) => ({
+            style_key: s.style_key,
+            name_zh: s.name_zh,
+            name_en: s.name_en,
+            description: s.description,
+          }));
+          setStyles(normalized);
+        }
+      } catch (error) {
+        console.warn("Fetch characters/styles error", error);
+      }
+    };
+
     fetchProject();
+    fetchCharactersAndStyles();
   }, [projectId, router, toast]);
 
   // 更新分镜
@@ -132,7 +186,7 @@ export function useStoryboardData(projectId: string): UseStoryboardDataReturn {
         // 重新加载项目
         const projectResponse = await fetch(`/api/project/${project.id}`);
         const data = await projectResponse.json();
-        setProject(data);
+        setProject(data.project);
 
         toast({
           title: "合并成功",
@@ -174,7 +228,7 @@ export function useStoryboardData(projectId: string): UseStoryboardDataReturn {
         if (project) {
           const projectResponse = await fetch(`/api/project/${project.id}`);
           const data = await projectResponse.json();
-          setProject(data);
+          setProject(data.project);
         }
 
         toast({
@@ -220,7 +274,7 @@ export function useStoryboardData(projectId: string): UseStoryboardDataReturn {
         // 重新加载项目
         const projectResponse = await fetch(`/api/project/${project.id}`);
         const data = await projectResponse.json();
-        setProject(data);
+        setProject(data.project);
 
         toast({
           title: "插入成功",
@@ -240,6 +294,59 @@ export function useStoryboardData(projectId: string): UseStoryboardDataReturn {
     [project, toast]
   );
 
+  // 生成提示词并写入分镜
+  const handleGeneratePrompt = useCallback(
+    async (
+      panelId: string,
+      options?: { characterId?: string; styleKey?: string; soften?: boolean; aspectRatio?: string }
+    ) => {
+      setOperationLoading({ type: "prompt", panelId });
+      try {
+        const response = await fetch("/api/panel/build-prompt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            panel_id: panelId,
+            character_id: options?.characterId,
+            style_key: options?.styleKey,
+            soften: options?.soften,
+            aspect_ratio: options?.aspectRatio,
+          }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "生成提示词失败");
+        }
+
+        setProject((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            panels: prev.panels.map((p) =>
+              p.id === panelId ? { ...p, prompt_used: data.panel?.prompt_used || data.prompt } : p
+            ),
+          };
+        });
+
+        toast({
+          title: "提示词已生成",
+          description: "已将提示词写入分镜，可直接用于出图",
+        });
+      } catch (error) {
+        console.error("Generate prompt error:", error);
+        toast({
+          title: "生成失败",
+          description: error instanceof Error ? error.message : "未知错误",
+          variant: "destructive",
+        });
+      } finally {
+        setOperationLoading({ type: null });
+      }
+    },
+    [toast]
+  );
+
   // 生成草图（占位符）
   const handleGenerateSketch = useCallback(
     async (panelId: string) => {
@@ -255,10 +362,13 @@ export function useStoryboardData(projectId: string): UseStoryboardDataReturn {
     project,
     loading,
     operationLoading,
+    characters,
+    styles,
     handlePanelUpdate,
     handleMerge,
     handleSplit,
     handleInsertPanel,
     handleGenerateSketch,
+    handleGeneratePrompt,
   };
 }

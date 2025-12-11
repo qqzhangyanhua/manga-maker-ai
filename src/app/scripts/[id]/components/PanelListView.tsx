@@ -33,8 +33,10 @@ import { SortablePanelCard } from "./PanelEditor/SortablePanelCard";
 import { PanelCardActions } from "./PanelEditor/PanelCardActions";
 import { InsertPanelDialog } from "./PanelEditor/InsertPanelDialog";
 import { SplitPanelDialog } from "./PanelEditor/SplitPanelDialog";
+import { BatchGenerationDialog } from "./BatchGenerationDialog";
 import { usePanelDragDrop } from "../hooks/usePanelDragDrop";
 import { usePanelGeneration } from "../hooks/usePanelGeneration";
+import { useBatchGeneration } from "../hooks/useBatchGeneration";
 import type { Panel } from "../types/script-editor.types";
 
 interface PanelListViewProps {
@@ -46,6 +48,7 @@ interface PanelListViewProps {
   onAddPanel: () => void;
   onError: (message: string) => void;
   onImageGenerated?: (panelId: string, imageUrl: string) => void;
+  onRefresh?: () => void; // New callback to trigger data refresh
 }
 
 export function PanelListView({
@@ -57,6 +60,7 @@ export function PanelListView({
   onAddPanel,
   onError,
   onImageGenerated,
+  onRefresh,
 }: PanelListViewProps) {
   // 高级操作对话框状态
   const [insertDialogOpen, setInsertDialogOpen] = useState(false);
@@ -64,6 +68,7 @@ export function PanelListView({
   const [splitDialogOpen, setSplitDialogOpen] = useState(false);
   const [splitPanel, setSplitPanel] = useState<Panel | null>(null);
   const [mergingPanels, setMergingPanels] = useState<{ current: Panel; next: Panel } | null>(null);
+  const [batchDialogOpen, setBatchDialogOpen] = useState(false);
 
   // 配置拖拽传感器（需要移动至少 5px 才触发拖拽，避免误触）
   const sensors = useSensors(
@@ -99,6 +104,13 @@ export function PanelListView({
       onError(error);
     },
   });
+
+  // 批量生成逻辑
+  const batchGeneration = useBatchGeneration(
+    // Extract storyId from panels if available
+    panels[0]?.project_id || '',
+    projectId || ''
+  );
 
   // 生成单个分镜图片
   const handleGenerateSingle = async (panel: Panel) => {
@@ -159,8 +171,8 @@ export function PanelListView({
         throw new Error(data.error || "合并分镜失败");
       }
 
-      // 刷新分镜列表
-      window.location.reload();
+      // Trigger refresh via callback instead of full page reload
+      onRefresh?.();
     } catch (error) {
       const message = error instanceof Error ? error.message : "合并分镜失败";
       onError(message);
@@ -171,8 +183,8 @@ export function PanelListView({
 
   // 对话框关闭后的刷新回调
   const handleOperationComplete = () => {
-    // 刷新页面以重新加载分镜列表
-    window.location.reload();
+    // Trigger refresh via callback instead of full page reload
+    onRefresh?.();
   };
 
   // 计算待生成的分镜数量
@@ -192,8 +204,11 @@ export function PanelListView({
           {panelsToGenerate.length > 0 && (
             <Button
               variant="outline"
-              onClick={() => onError("批量生成功能即将上线")}
-              disabled={panelsToGenerate.length === 0}
+              onClick={() => {
+                setBatchDialogOpen(true);
+                batchGeneration.startBatchGeneration(panelsToGenerate);
+              }}
+              disabled={panelsToGenerate.length === 0 || batchGeneration.isGenerating}
             >
               <Images className="w-4 h-4 mr-2" />
               批量生成 ({panelsToGenerate.length})
@@ -320,6 +335,16 @@ export function PanelListView({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Batch Generation Progress Dialog */}
+      <BatchGenerationDialog
+        open={batchDialogOpen}
+        tasks={batchGeneration.tasks}
+        onClose={() => {
+          setBatchDialogOpen(false);
+          batchGeneration.cancelGeneration();
+        }}
+      />
     </div>
   );
 }

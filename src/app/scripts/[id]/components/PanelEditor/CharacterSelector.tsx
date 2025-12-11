@@ -21,6 +21,8 @@ interface CharacterSelectorProps {
   onChange: (value: string) => void;
 }
 
+const NO_CHARACTER_VALUE = "__none__";
+
 export function CharacterSelector({
   characters,
   value,
@@ -38,12 +40,15 @@ export function CharacterSelector({
   }
 
   return (
-    <Select value={value} onValueChange={onChange}>
+    <Select
+      value={value || NO_CHARACTER_VALUE}
+      onValueChange={(v) => onChange(v === NO_CHARACTER_VALUE ? "" : v)}
+    >
       <SelectTrigger>
         <SelectValue placeholder="选择角色" />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="">（无）</SelectItem>
+        <SelectItem value={NO_CHARACTER_VALUE}>（无）</SelectItem>
         {characters.map((char) => (
           <SelectItem key={char.name} value={char.name}>
             <div className="flex flex-col">

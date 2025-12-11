@@ -22,6 +22,66 @@ export function usePanelGeneration({
   const pollIntervalsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   /**
+   * 开始轮询任务状态
+   */
+  const startPolling = useCallback(
+    (panelId: string, taskId: string) => {
+      // 清除已存在的轮询
+      const existingInterval = pollIntervalsRef.current.get(panelId);
+      if (existingInterval) {
+        clearInterval(existingInterval);
+      }
+
+      const interval = setInterval(async () => {
+        try {
+          const response = await fetch(
+            `/api/panel/generate-image/status?task_id=${taskId}`
+          );
+
+          if (!response.ok) {
+            throw new Error("Failed to fetch status");
+          }
+
+          const status: TaskStatusResponse = await response.json();
+
+          setGeneratingPanels((prev) => {
+            const newMap = new Map(prev);
+            const existing = newMap.get(panelId);
+            if (existing) {
+              newMap.set(panelId, {
+                ...existing,
+                status: status.status,
+                progress: status.progress,
+                imageUrl: status.imageUrl,
+                error: status.error,
+              });
+            }
+            return newMap;
+          });
+
+          // 如果任务完成或失败，停止轮询
+          if (status.status === "completed" || status.status === "failed") {
+            clearInterval(interval);
+            pollIntervalsRef.current.delete(panelId);
+
+            if (status.status === "completed" && status.imageUrl) {
+              onSuccess?.(panelId, status.imageUrl);
+            } else if (status.status === "failed") {
+              onError?.(panelId, status.error || "生成失败");
+            }
+          }
+        } catch (error) {
+          console.error("Polling error:", error);
+          // 继续轮询，不终止
+        }
+      }, 2000); // 每 2 秒轮询一次
+
+      pollIntervalsRef.current.set(panelId, interval);
+    },
+    [onSuccess, onError]
+  );
+
+  /**
    * 生成单个分镜图片
    */
   const generateSingle = useCallback(
@@ -102,7 +162,7 @@ export function usePanelGeneration({
         throw error;
       }
     },
-    [onSuccess, onError]
+    [onSuccess, onError, startPolling]
   );
 
   /**
@@ -149,67 +209,7 @@ export function usePanelGeneration({
         throw error;
       }
     },
-    []
-  );
-
-  /**
-   * 开始轮询任务状态
-   */
-  const startPolling = useCallback(
-    (panelId: string, taskId: string) => {
-      // 清除已存在的轮询
-      const existingInterval = pollIntervalsRef.current.get(panelId);
-      if (existingInterval) {
-        clearInterval(existingInterval);
-      }
-
-      const interval = setInterval(async () => {
-        try {
-          const response = await fetch(
-            `/api/panel/generate-image/status?task_id=${taskId}`
-          );
-
-          if (!response.ok) {
-            throw new Error("Failed to fetch status");
-          }
-
-          const status: TaskStatusResponse = await response.json();
-
-          setGeneratingPanels((prev) => {
-            const newMap = new Map(prev);
-            const existing = newMap.get(panelId);
-            if (existing) {
-              newMap.set(panelId, {
-                ...existing,
-                status: status.status,
-                progress: status.progress,
-                imageUrl: status.imageUrl,
-                error: status.error,
-              });
-            }
-            return newMap;
-          });
-
-          // 如果任务完成或失败，停止轮询
-          if (status.status === "completed" || status.status === "failed") {
-            clearInterval(interval);
-            pollIntervalsRef.current.delete(panelId);
-
-            if (status.status === "completed" && status.imageUrl) {
-              onSuccess?.(panelId, status.imageUrl);
-            } else if (status.status === "failed") {
-              onError?.(panelId, status.error || "生成失败");
-            }
-          }
-        } catch (error) {
-          console.error("Polling error:", error);
-          // 继续轮询，不终止
-        }
-      }, 2000); // 每 2 秒轮询一次
-
-      pollIntervalsRef.current.set(panelId, interval);
-    },
-    [onSuccess, onError]
+    [startPolling]
   );
 
   /**

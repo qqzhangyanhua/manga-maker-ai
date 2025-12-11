@@ -1,6 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, MouseEvent } from "react";
 import { cn } from "@/lib/utils";
-import { Camera, Image as ImageIcon, Pencil, Check, X, Merge, Split, Plus, Sparkles, Save } from "lucide-react";
+import {
+  Camera,
+  Image as ImageIcon,
+  Pencil,
+  Check,
+  X,
+  Merge,
+  Split,
+  Plus,
+  Sparkles,
+  Save,
+  Copy,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDebouncedCallback } from "@/hooks/use-debounce";
 import {
@@ -10,6 +22,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import type { OperationLoadingState } from "@/types/storyboard";
+import type { StoryboardCharacter, StoryboardStyle } from "@/hooks/use-storyboard-data";
 
 type Panel = {
   id: string;
@@ -40,7 +55,12 @@ interface EditablePanelCardProps {
   onSplit?: (panelId: string) => void;
   onInsertAfter?: (panelOrder: number) => void;
   onGenerateSketch?: (panelId: string) => void;
-  operationLoading?: { type: "merge" | "split" | "insert" | null; panelId?: string };
+  onGeneratePrompt?: (panelId: string, opts?: { characterId?: string; styleKey?: string }) => void;
+  onSelectionChange?: (panelId: string, selection: { characterId?: string; styleKey?: string }) => void;
+  operationLoading?: OperationLoadingState;
+  selection?: { characterId?: string; styleKey?: string };
+  characters?: StoryboardCharacter[];
+  styles?: StoryboardStyle[];
 }
 
 const CAMERA_ANGLES = [
@@ -58,6 +78,8 @@ const SHOT_SIZES = [
   { value: "远景", label: "远景" },
 ];
 
+const NO_SELECTION_VALUE = "__none__";
+
 const EditablePanelCard = ({
   panel,
   isSelected,
@@ -67,7 +89,12 @@ const EditablePanelCard = ({
   onSplit,
   onInsertAfter,
   onGenerateSketch,
+  onGeneratePrompt,
   operationLoading,
+  onSelectionChange,
+  selection,
+  characters = [],
+  styles = [],
 }: EditablePanelCardProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedPrompt, setEditedPrompt] = useState(panel.visual_prompt || panel.description);
@@ -76,6 +103,9 @@ const EditablePanelCard = ({
   const [shotSize, setShotSize] = useState(panel.shot_size || "中景");
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [selectedCharacterId, setSelectedCharacterId] = useState(selection?.characterId);
+  const [selectedStyleKey, setSelectedStyleKey] = useState(selection?.styleKey);
+  const { toast } = useToast();
 
   useEffect(() => {
     setEditedPrompt(panel.visual_prompt || panel.description);
@@ -83,7 +113,9 @@ const EditablePanelCard = ({
     setCameraAngle(panel.camera_angle || "平视");
     setShotSize(panel.shot_size || "中景");
     setHasUnsavedChanges(false);
-  }, [panel]);
+    setSelectedCharacterId(selection?.characterId);
+    setSelectedStyleKey(selection?.styleKey);
+  }, [panel, selection]);
 
   // 自动保存逻辑（500ms debounce）
   const debouncedAutoSave = useDebouncedCallback(async () => {
@@ -125,6 +157,32 @@ const EditablePanelCard = ({
     setShotSize(panel.shot_size || "中景");
     setIsEditing(false);
   };
+
+  const handleCopyPrompt = async (e: MouseEvent) => {
+    e.stopPropagation();
+    if (!panel.prompt_used) return;
+    try {
+      await navigator.clipboard.writeText(panel.prompt_used);
+      toast({
+        title: "已复制提示词",
+        description: "现在可以直接粘贴到图片生成接口使用",
+      });
+    } catch (err) {
+      console.error("Copy prompt failed:", err);
+      toast({
+        title: "复制失败",
+        description: "当前环境不支持剪贴板复制，请手动选择文本",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const selectedCharacter = characters.find((c) => c.id === selectedCharacterId);
+  const selectedStyle = styles.find((s) => s.style_key === selectedStyleKey);
+  const viewWarning =
+    selectedCharacter && selectedCharacter.viewCount === 0
+      ? "该角色缺少三视图，可能影响角色一致性"
+      : null;
 
   return (
     <div
@@ -198,6 +256,68 @@ const EditablePanelCard = ({
 
       {/* Content */}
       <div className="p-4 space-y-4">
+        {/* 角色/风格选择 */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1">
+              锁脸角色
+            </label>
+            <Select
+              value={selectedCharacterId ?? NO_SELECTION_VALUE}
+              onValueChange={(value) => {
+                const val = value === NO_SELECTION_VALUE ? undefined : value;
+                setSelectedCharacterId(val);
+                onSelectionChange?.(panel.id, { characterId: val, styleKey: selectedStyleKey });
+              }}
+            >
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue placeholder="不锁定" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_SELECTION_VALUE}>不锁定</SelectItem>
+                {characters.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name} {c.viewCount === 0 ? "（缺三视图）" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {viewWarning && (
+              <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-500">{viewWarning}</p>
+            )}
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1">
+              漫画风格
+            </label>
+            <Select
+              value={selectedStyleKey ?? NO_SELECTION_VALUE}
+              onValueChange={(value) => {
+                const val = value === NO_SELECTION_VALUE ? undefined : value;
+                setSelectedStyleKey(val);
+                onSelectionChange?.(panel.id, { characterId: selectedCharacterId, styleKey: val });
+              }}
+            >
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue placeholder="跟随项目" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_SELECTION_VALUE}>跟随项目</SelectItem>
+                {styles.map((s) => (
+                  <SelectItem key={s.style_key} value={s.style_key}>
+                    {s.name_zh} ({s.name_en})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedStyle && selectedStyle.description && (
+              <p className="mt-1 text-[11px] text-muted-foreground line-clamp-2">
+                {selectedStyle.description}
+              </p>
+            )}
+          </div>
+        </div>
+
         {/* Camera Settings */}
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -305,6 +425,27 @@ const EditablePanelCard = ({
           </div>
         )}
 
+        {/* 已生成的提示词 */}
+        {panel.prompt_used && (
+          <div className="rounded-md border border-border bg-muted/40 p-3 space-y-2">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>AI 提示词</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={handleCopyPrompt}
+              >
+                <Copy className="w-3 h-3 mr-1" />
+                复制
+              </Button>
+            </div>
+            <pre className="whitespace-pre-wrap break-words text-sm text-foreground">
+              {panel.prompt_used}
+            </pre>
+          </div>
+        )}
+
         {/* Edit Actions */}
         {isEditing && (
           <div className="flex gap-2 pt-2">
@@ -341,6 +482,35 @@ const EditablePanelCard = ({
         <div className="border-t border-border bg-muted/20 px-4 py-2">
           <div className="flex items-center gap-2 text-xs">
             <span className="text-muted-foreground">操作:</span>
+            {onGeneratePrompt && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onGeneratePrompt(panel.id, {
+                    characterId: selectedCharacterId,
+                    styleKey: selectedStyleKey,
+                  });
+                }}
+                disabled={
+                  operationLoading?.type === "prompt" && operationLoading?.panelId === panel.id
+                }
+              >
+                <Sparkles
+                  className={cn(
+                    "w-3 h-3 mr-1",
+                    operationLoading?.type === "prompt" &&
+                      operationLoading?.panelId === panel.id &&
+                      "animate-spin"
+                  )}
+                />
+                {operationLoading?.type === "prompt" && operationLoading?.panelId === panel.id
+                  ? "生成中..."
+                  : "生成提示词"}
+              </Button>
+            )}
             {onMerge && (
               <Button
                 size="sm"
@@ -350,10 +520,21 @@ const EditablePanelCard = ({
                   e.stopPropagation();
                   onMerge(panel.id);
                 }}
-                disabled={operationLoading?.type === "merge" && operationLoading?.panelId === panel.id}
+                disabled={
+                  operationLoading?.type === "merge" && operationLoading?.panelId === panel.id
+                }
               >
-                <Merge className={cn("w-3 h-3 mr-1", operationLoading?.type === "merge" && operationLoading?.panelId === panel.id && "animate-spin")} />
-                {operationLoading?.type === "merge" && operationLoading?.panelId === panel.id ? "合并中..." : "合并"}
+                <Merge
+                  className={cn(
+                    "w-3 h-3 mr-1",
+                    operationLoading?.type === "merge" &&
+                      operationLoading?.panelId === panel.id &&
+                      "animate-spin"
+                  )}
+                />
+                {operationLoading?.type === "merge" && operationLoading?.panelId === panel.id
+                  ? "合并中..."
+                  : "合并"}
               </Button>
             )}
             {onSplit && (
@@ -365,10 +546,21 @@ const EditablePanelCard = ({
                   e.stopPropagation();
                   onSplit(panel.id);
                 }}
-                disabled={operationLoading?.type === "split" && operationLoading?.panelId === panel.id}
+                disabled={
+                  operationLoading?.type === "split" && operationLoading?.panelId === panel.id
+                }
               >
-                <Split className={cn("w-3 h-3 mr-1", operationLoading?.type === "split" && operationLoading?.panelId === panel.id && "animate-spin")} />
-                {operationLoading?.type === "split" && operationLoading?.panelId === panel.id ? "拆分中..." : "拆分"}
+                <Split
+                  className={cn(
+                    "w-3 h-3 mr-1",
+                    operationLoading?.type === "split" &&
+                      operationLoading?.panelId === panel.id &&
+                      "animate-spin"
+                  )}
+                />
+                {operationLoading?.type === "split" && operationLoading?.panelId === panel.id
+                  ? "拆分中..."
+                  : "拆分"}
               </Button>
             )}
             {onInsertAfter && (
@@ -382,7 +574,12 @@ const EditablePanelCard = ({
                 }}
                 disabled={operationLoading?.type === "insert"}
               >
-                <Plus className={cn("w-3 h-3 mr-1", operationLoading?.type === "insert" && "animate-spin")} />
+                <Plus
+                  className={cn(
+                    "w-3 h-3 mr-1",
+                    operationLoading?.type === "insert" && "animate-spin"
+                  )}
+                />
                 插入
               </Button>
             )}

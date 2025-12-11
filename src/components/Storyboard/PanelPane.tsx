@@ -3,6 +3,12 @@
 import { MutableRefObject } from "react";
 import EditablePanelCard from "@/components/Storyboard/EditablePanelCard";
 import type { Panel, OperationLoadingState } from "@/types/storyboard";
+import type { StoryboardCharacter, StoryboardStyle } from "@/hooks/use-storyboard-data";
+
+type PanelSelection = {
+  characterId?: string;
+  styleKey?: string;
+};
 
 type PanelPaneProps = {
   panels: Panel[];
@@ -14,7 +20,12 @@ type PanelPaneProps = {
   onSplit: (panelId: string) => void;
   onInsertAfter: (panelOrder: number) => void;
   onGenerateSketch: (panelId: string) => void;
+  onGeneratePrompt: (panelId: string, opts?: PanelSelection) => void;
+  onSelectionChange: (panelId: string, selection: PanelSelection) => void;
   operationLoading: OperationLoadingState;
+  characters: StoryboardCharacter[];
+  styles: StoryboardStyle[];
+  selections: Record<string, PanelSelection>;
 };
 
 /**
@@ -31,7 +42,12 @@ export default function PanelPane({
   onSplit,
   onInsertAfter,
   onGenerateSketch,
+  onGeneratePrompt,
+  onSelectionChange,
   operationLoading,
+  characters,
+  styles,
+  selections,
 }: PanelPaneProps) {
   return (
     <div className="flex-1 overflow-y-auto p-6">
@@ -52,6 +68,11 @@ export default function PanelPane({
               onSplit={onSplit}
               onInsertAfter={onInsertAfter}
               onGenerateSketch={onGenerateSketch}
+              onGeneratePrompt={onGeneratePrompt}
+              onSelectionChange={onSelectionChange}
+              selection={selections[panel.id] || {}}
+              characters={characters}
+              styles={styles}
               operationLoading={operationLoading}
             />
           </div>

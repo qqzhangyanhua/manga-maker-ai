@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Edit, Loader2 } from "lucide-react";
+import { SaveIndicator } from "@/components/ui/save-indicator";
+import { useAutoSave } from "@/hooks/useAutoSave";
 import type { Story } from "../types/script-editor.types";
 
 interface StoryInfoPanelProps {
@@ -25,6 +27,7 @@ interface StoryInfoPanelProps {
   onCancel: () => void;
   onSave: () => void;
   onFormChange: (field: "title" | "premise", value: string) => void;
+  onAutoSave?: (data: { title: string; premise: string }) => Promise<void>; // New prop for auto-save
 }
 
 export function StoryInfoPanel({
@@ -36,13 +39,37 @@ export function StoryInfoPanel({
   onCancel,
   onSave,
   onFormChange,
+  onAutoSave,
 }: StoryInfoPanelProps) {
+  // Auto-save hook (only active in edit mode)
+  const autoSave = useAutoSave({
+    data: storyForm,
+    onSave: async (data) => {
+      if (onAutoSave) {
+        await onAutoSave(data);
+      }
+    },
+    delay: 3000,
+    enabled: editMode && !!onAutoSave,
+  });
+
+  // Determine save status for indicator
+  const saveStatus = autoSave.isSaving
+    ? 'saving'
+    : autoSave.isSuccess
+      ? 'saved'
+      : autoSave.isError
+        ? 'error'
+        : 'idle';
   return (
     <div className="space-y-6">
       {/* 故事基本信息 */}
       <Card>
         <CardHeader>
-          <CardTitle>剧本信息</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>剧本信息</CardTitle>
+            {editMode && <SaveIndicator status={saveStatus} />}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">

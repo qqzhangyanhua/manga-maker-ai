@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
+
+export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
@@ -8,6 +10,8 @@ import { ArrowLeft, Wand2, Grid3X3, Download, Sparkles, BookOpen, MessageSquare,
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToastAction } from "@/components/ui/toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import ScriptInput from "@/components/Storyboard/ScriptInput";
 import AutoLayoutGrid from "@/components/Storyboard/AutoLayoutGrid";
 import NarrativeTemplateSelector from "@/components/Storyboard/NarrativeTemplateSelector";
@@ -66,6 +70,19 @@ type ApiProject = {
   script?: ApiScript;
 };
 
+type CharacterOption = {
+  id: string;
+  name: string;
+  viewCount: number;
+};
+
+type StyleOption = {
+  style_key: string;
+  name_zh: string;
+  name_en: string;
+  description?: string | null;
+};
+
 // 转换API数据为前端格式
 const convertApiPanelToLocal = (apiPanel: ApiPanel): PanelData => ({
   id: apiPanel.id,
@@ -79,7 +96,7 @@ const convertApiPanelToLocal = (apiPanel: ApiPanel): PanelData => ({
   englishPrompt: apiPanel.prompt_used || undefined,
 });
 
-const StoryboardEditorPage = () => {
+const StoryboardEditorPageContent = () => {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState("freeform");
   const [panels, setPanels] = useState<PanelData[]>([]);
@@ -88,6 +105,13 @@ const StoryboardEditorPage = () => {
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [templateData, setTemplateData] = useState<Record<string, string>>({});
   const [currentProject, setCurrentProject] = useState<ApiProject | null>(null);
+  const [characters, setCharacters] = useState<CharacterOption[]>([]);
+  const [styles, setStyles] = useState<StyleOption[]>([]);
+  const NO_SELECTION_VALUE = "__none__";
+  const [defaultCharacterId, setDefaultCharacterId] = useState<string | undefined>(undefined);
+  const [defaultStyleKey, setDefaultStyleKey] = useState<string | undefined>(undefined);
+  const [softMode, setSoftMode] = useState(true);
+  const [promptErrors, setPromptErrors] = useState<Record<string, string>>({});
   const { toast } = useToast();
   const { usage, loading: usageLoading, refresh: refreshUsage } = useUsage();
 
@@ -95,42 +119,78 @@ const StoryboardEditorPage = () => {
   const [storyId, setStoryId] = useState<string | null>(null);
   const [initialScript, setInitialScript] = useState("");
 
+  const fetchStoryContent = useCallback(
+    async (id: string) => {
+      try {
+        const res = await fetch(`/api/story/${id}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.story) {
+            let content = "";
+            if (data.story.outline?.acts) {
+              content = data.story.outline.acts
+                .map((act: any) => `【${act.name}】\n${act.summary}`)
+                .join("\n\n");
+            } else {
+              content = data.story.premise || "";
+            }
+            setInitialScript(content);
+            toast({
+              title: "已加载剧本",
+              description: `已自动填入《${data.story.title}》的内容`,
+            });
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load story", e);
+      }
+    },
+    [toast]
+  );
+
   useEffect(() => {
     const sid = searchParams.get("story_id");
     if (sid) {
       setStoryId(sid);
       fetchStoryContent(sid);
     }
-  }, [searchParams]);
+  }, [searchParams, fetchStoryContent]);
 
-  async function fetchStoryContent(id: string) {
-    try {
-      const res = await fetch(`/api/story/${id}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.story) {
-          // Construct a script from the story data
-          // Prefer outline acts summaries, or just premise if nothing else
-          let content = "";
-          if (data.story.outline?.acts) {
-            content = data.story.outline.acts
-              .map((act: any) => `【${act.name}】\n${act.summary}`)
-              .join("\n\n");
-          } else {
-            content = data.story.premise || "";
-          }
-          setInitialScript(content);
-          toast({
-            title: "已加载剧本",
-            description: `已自动填入《${data.story.title}》的内容`,
-          });
+  useEffect(() => {
+    async function fetchMeta() {
+      try {
+        const [charRes, styleRes] = await Promise.all([
+          fetch("/api/character"),
+          fetch("/api/comic-styles"),
+        ]);
+
+        if (charRes.ok) {
+          const data = await charRes.json();
+          const mapped: CharacterOption[] = (data.characters || []).map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            viewCount: c.views?.length || 0,
+          }));
+          setCharacters(mapped);
         }
-      }
-    } catch (e) {
-      console.error("Failed to load story", e);
-    }
-  }
 
+        if (styleRes.ok) {
+          const data = await styleRes.json();
+          const mapped: StyleOption[] = (data.data || []).map((s: any) => ({
+            style_key: s.style_key,
+            name_zh: s.name_zh,
+            name_en: s.name_en,
+            description: s.description,
+          }));
+          setStyles(mapped);
+        }
+      } catch (err) {
+        console.warn("加载角色/风格失败", err);
+      }
+    }
+
+    fetchMeta();
+  }, []);
 
   const renderUsageBadge = (
     label: string,
@@ -257,7 +317,7 @@ const StoryboardEditorPage = () => {
     });
   };
 
-  const handleGenerateImages = async () => {
+  const handleGenerateImages = async (options?: { isRetry?: boolean }) => {
     if (!currentProject) {
       toast({
         title: "请先生成分镜",
@@ -268,9 +328,49 @@ const StoryboardEditorPage = () => {
     }
 
     try {
+      // 先为缺失提示词的分镜自动生成 prompt
+      for (const panel of panels) {
+        if (!panel.englishPrompt) {
+          try {
+            const res = await fetch("/api/panel/build-prompt", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                panel_id: panel.id,
+                character_id: defaultCharacterId || undefined,
+                style_key: defaultStyleKey || undefined,
+                soften: softMode,
+              }),
+            });
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              const msg = errData.error || "生成提示词失败";
+              setPromptErrors((prev) => ({ ...prev, [panel.id]: msg }));
+              continue;
+            }
+            const data = await res.json();
+            setPromptErrors((prev) => {
+              const next = { ...prev };
+              delete next[panel.id];
+              return next;
+            });
+            setPanels((prev) =>
+              prev.map((p) =>
+                p.id === panel.id ? { ...p, englishPrompt: data.prompt, generatedImage: p.generatedImage } : p
+              )
+            );
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : "生成提示词失败";
+            setPromptErrors((prev) => ({ ...prev, [panel.id]: msg }));
+            continue;
+          }
+        }
+      }
+
       toast({
         title: "开始生成图像",
-        description: `正在为 ${panels.length} 个分镜生成AI图像...`,
+        description: `正在为 ${panels.length} 个分镜生成AI图像...${Object.keys(promptErrors).length ? "（部分分镜提示词失败，将跳过生成）" : ""
+          }`,
       });
 
       const response = await fetch("/api/panel/generate-image", {
@@ -308,15 +408,22 @@ const StoryboardEditorPage = () => {
       refreshUsage();
     } catch (error) {
       console.error("Generate images error:", error);
+      const description = error instanceof Error ? error.message : "未知错误";
       toast({
         title: "图像生成失败",
-        description: error instanceof Error ? error.message : "未知错误",
-        variant: "destructive",
-        action: (
-          <ToastAction altText="升级配额" onClick={() => window.open("mailto:support@example.com?subject=ComicAI%20额度申请", "_blank")}>
-            升级配额
+            description,
+            variant: "destructive",
+            action: !options?.isRetry ? (
+              <ToastAction
+                altText="柔和模式重试"
+                onClick={() => {
+              setSoftMode(true);
+              handleGenerateImages({ isRetry: true });
+            }}
+          >
+            柔和模式重试
           </ToastAction>
-        ),
+        ) : undefined,
       });
     }
   };
@@ -341,6 +448,82 @@ const StoryboardEditorPage = () => {
             {renderUsageBadge("图像生成", usage?.image_generation)}
             {renderUsageBadge("聊天/LLM", usage?.llm_chat)}
           </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="comic-card p-4">
+              <div className="text-xs text-muted-foreground mb-1">默认锁脸角色</div>
+              <Select
+                value={defaultCharacterId ?? NO_SELECTION_VALUE}
+                onValueChange={(val) => setDefaultCharacterId(val === NO_SELECTION_VALUE ? undefined : val)}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="不锁定" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_SELECTION_VALUE}>不锁定</SelectItem>
+                  {characters.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name} {c.viewCount === 0 ? "（缺三视图）" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {defaultCharacterId && characters.find((c) => c.id === defaultCharacterId)?.viewCount === 0 && (
+                <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-500">
+                  当前角色缺少三视图，可能导致角色不一致
+                </p>
+              )}
+            </div>
+            <div className="comic-card p-4">
+              <div className="text-xs text-muted-foreground mb-1">默认漫画风格</div>
+              <Select
+                value={defaultStyleKey ?? NO_SELECTION_VALUE}
+                onValueChange={(val) => setDefaultStyleKey(val === NO_SELECTION_VALUE ? undefined : val)}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="跟随项目风格" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_SELECTION_VALUE}>跟随项目风格</SelectItem>
+                  {styles.map((s) => (
+                    <SelectItem key={s.style_key} value={s.style_key}>
+                      {s.name_zh} ({s.name_en})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="comic-card p-4 flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-foreground">柔和模式</div>
+                <div className="text-xs text-muted-foreground">
+                  自动替换敏感词，减少安全拦截
+                </div>
+              </div>
+              <Switch checked={softMode} onCheckedChange={setSoftMode} />
+            </div>
+          </div>
+
+          {panels.length > 0 && (
+            <div className="comic-card p-4 mb-6">
+              <div className="flex flex-col gap-2 text-sm">
+                <div className="font-medium text-foreground">本次生成策略</div>
+                <div className="text-muted-foreground">
+                  角色：{defaultCharacterId ? characters.find((c) => c.id === defaultCharacterId)?.name || "未知" : "不锁定"}
+                  {defaultCharacterId && characters.find((c) => c.id === defaultCharacterId)?.viewCount === 0 ? "（缺三视图）" : ""}
+                </div>
+                <div className="text-muted-foreground">
+                  风格：{defaultStyleKey ? styles.find((s) => s.style_key === defaultStyleKey)?.name_zh || defaultStyleKey : "跟随项目"}
+                </div>
+                <div className="text-muted-foreground">柔和模式：{softMode ? "开启" : "关闭"}</div>
+                {Object.keys(promptErrors).length > 0 && (
+                  <div className="text-amber-600 dark:text-amber-500">
+                    有 {Object.keys(promptErrors).length} 个分镜提示词生成失败，将被跳过：{Object.keys(promptErrors).join(", ")}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="text-center mb-10">
             <h1 className="font-comic text-4xl md:text-5xl comic-title mb-4">
@@ -440,7 +623,7 @@ const StoryboardEditorPage = () => {
                       <Edit3 className="w-4 h-4" />
                       进入编辑器
                     </Button>
-                    <Button variant="outline" size="sm" onClick={handleGenerateImages}>
+                    <Button variant="outline" size="sm" onClick={() => handleGenerateImages()}>
                       <Sparkles className="w-4 h-4" />
                       生成图像
                     </Button>
@@ -510,7 +693,7 @@ const StoryboardEditorPage = () => {
 
           {panels.length > 0 && (
             <div className="mt-8 flex justify-center gap-4">
-              <Button variant="comic" size="lg" onClick={handleGenerateImages}>
+              <Button variant="comic" size="lg" onClick={() => handleGenerateImages()}>
                 <Sparkles className="w-5 h-5" />
                 使用 AI 生成所有分镜图像
               </Button>
@@ -526,4 +709,10 @@ const StoryboardEditorPage = () => {
   );
 };
 
-export default StoryboardEditorPage;
+export default function StoryboardEditorPage() {
+  return (
+    <Suspense fallback={null}>
+      <StoryboardEditorPageContent />
+    </Suspense>
+  );
+}

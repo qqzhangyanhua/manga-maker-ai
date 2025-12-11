@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/workflow
  * List user's workflows

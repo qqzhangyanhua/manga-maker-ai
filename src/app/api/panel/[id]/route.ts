@@ -48,6 +48,7 @@ export async function PATCH(
       importance,
       character_name,
       emotion,
+      prompt_used,
     } = body;
 
     // 更新 panel
@@ -63,6 +64,7 @@ export async function PATCH(
         ...(importance !== undefined && { importance }),
         ...(character_name !== undefined && { character_name }),
         ...(emotion !== undefined && { emotion }),
+        ...(prompt_used !== undefined && { prompt_used }),
       },
     });
 

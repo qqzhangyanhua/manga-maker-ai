@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { getUsageSummary } from "@/lib/usage";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/usage - 获取当前用户的当日配额使用情况
 export async function GET() {
   try {

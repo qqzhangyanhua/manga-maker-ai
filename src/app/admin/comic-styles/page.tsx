@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -70,7 +70,7 @@ const ComicStylesAdminPage = () => {
     enabled: true,
   });
 
-  const fetchStyles = async () => {
+  const fetchStyles = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch("/api/admin/comic-styles");
@@ -82,13 +82,13 @@ const ComicStylesAdminPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     if (isAdmin) {
       fetchStyles();
     }
-  }, [isAdmin]);
+  }, [isAdmin, fetchStyles]);
 
   const handleOpenDialog = (style?: ComicStyle) => {
     if (style) {

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/comic-styles - 公开接口，获取启用的风格列表
 export async function GET(req: NextRequest) {
   try {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -21,107 +21,81 @@ import { StoryInfoPanel } from "./components/StoryInfoPanel";
 import { PanelListView } from "./components/PanelListView";
 import { PanelEditDialog } from "./components/PanelEditor/PanelEditDialog";
 import type { Story, Panel } from "./types/script-editor.types";
+import {
+  useStoryData,
+  useUpdateStory,
+  useCreatePanel,
+  useUpdatePanel,
+  useDeletePanel,
+} from "./hooks/useStoryData";
 
 export default function ScriptDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
+  const storyId = params.id as string;
 
-  // State
-  const [story, setStory] = useState<Story | null>(null);
-  const [panels, setPanels] = useState<Panel[]>([]);
-  const [projectId, setProjectId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  // React Query hooks for data management
+  const { data, isLoading, error } = useStoryData(storyId);
+  const updateStory = useUpdateStory(storyId);
+  const createPanel = useCreatePanel(storyId);
+  const updatePanel = useUpdatePanel(storyId);
+  const deletePanel = useDeletePanel(storyId);
+
+  // Local UI state
   const [editMode, setEditMode] = useState(false);
   const [storyForm, setStoryForm] = useState({ title: "", premise: "" });
   const [editingPanel, setEditingPanel] = useState<Partial<Panel> | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [deletingPanelId, setDeletingPanelId] = useState<string | null>(null);
 
+  // Sync form with fetched data
   useEffect(() => {
-    if (params.id) {
-      fetchStoryAndPanels(params.id as string);
-    }
-  }, [params.id]);
-
-  async function fetchStoryAndPanels(id: string) {
-    try {
-      setLoading(true);
-      const [storyRes, panelsRes] = await Promise.all([
-        fetch(`/api/story/${id}`),
-        fetch(`/api/story/${id}/panels`),
-      ]);
-
-      if (!storyRes.ok) throw new Error("Failed to load story");
-      const storyData = await storyRes.json();
-      setStory(storyData.story);
+    if (data?.story) {
       setStoryForm({
-        title: storyData.story.title,
-        premise: storyData.story.premise || "",
+        title: data.story.title,
+        premise: data.story.premise || "",
       });
-
-      if (panelsRes.ok) {
-        const panelsData = await panelsRes.json();
-        setPanels(panelsData.panels || []);
-        setProjectId(panelsData.projectId);
-      }
-    } catch (error) {
-      console.error(error);
-      toast({ title: "Error", description: "加载数据失败", variant: "destructive" });
-    } finally {
-      setLoading(false);
     }
-  }
+  }, [data?.story]);
+
+  // Handle errors
+  useEffect(() => {
+    if (error) {
+      toast({ title: "Error", description: "加载数据失败", variant: "destructive" });
+    }
+  }, [error, toast]);
 
   async function handleUpdateStory() {
-    if (!story) return;
     try {
-      setSaving(true);
-      const res = await fetch(`/api/story/${story.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(storyForm),
-      });
-      if (!res.ok) throw new Error("Failed to update");
-
-      setStory({ ...story, ...storyForm });
+      await updateStory.mutateAsync(storyForm);
       setEditMode(false);
       toast({ title: "剧本已保存" });
     } catch (error) {
       toast({ title: "保存失败", variant: "destructive" });
-    } finally {
-      setSaving(false);
     }
   }
 
   async function handleSavePanel(e: React.FormEvent) {
     e.preventDefault();
-    if (!projectId) return;
+    if (!data?.projectId) return;
 
     try {
       const isNew = !editingPanel?.id;
-      const url = isNew ? "/api/panel" : `/api/panel/${editingPanel.id}`;
-      const method = isNew ? "POST" : "PATCH";
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...editingPanel, project_id: projectId }),
-      });
-
-      if (!res.ok) throw new Error("Operation failed");
-      const data = await res.json();
 
       if (isNew) {
-        setPanels([...panels, data.panel]);
+        await createPanel.mutateAsync({
+          ...editingPanel,
+          project_id: data.projectId,
+        } as any);
+        toast({ title: "分镜已创建" });
       } else {
-        setPanels(panels.map((p) => (p.id === data.panel.id ? data.panel : p)));
+        await updatePanel.mutateAsync(editingPanel as any);
+        toast({ title: "分镜已更新" });
       }
 
       setIsDialogOpen(false);
       setEditingPanel(null);
-      toast({ title: isNew ? "分镜已创建" : "分镜已更新" });
     } catch (error) {
       toast({ title: "操作失败", variant: "destructive" });
     }
@@ -135,10 +109,7 @@ export default function ScriptDetailsPage() {
     if (!deletingPanelId) return;
 
     try {
-      const res = await fetch(`/api/panel/${deletingPanelId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Delete failed");
-
-      setPanels(panels.filter((p) => p.id !== deletingPanelId));
+      await deletePanel.mutateAsync(deletingPanelId);
       toast({ title: "分镜已删除" });
     } catch (error) {
       toast({ title: "删除失败", variant: "destructive" });
@@ -149,7 +120,7 @@ export default function ScriptDetailsPage() {
 
   function openNewPanelDialog() {
     setEditingPanel({
-      project_id: projectId || "",
+      project_id: data?.projectId || "",
       description: "",
       panel_type: "medium",
       importance: "medium",
@@ -173,16 +144,11 @@ export default function ScriptDetailsPage() {
   }
 
   function handleImageGenerated(panelId: string, imageUrl: string) {
-    // 更新对应的 panel 的图片 URL
-    setPanels((prevPanels) =>
-      prevPanels.map((p) =>
-        p.id === panelId ? { ...p, generated_image: imageUrl, image_url: imageUrl } : p
-      )
-    );
+    // React Query will handle the update via cache invalidation
     toast({ title: "图片生成成功" });
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-[50vh]">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -190,7 +156,7 @@ export default function ScriptDetailsPage() {
     );
   }
 
-  if (!story) {
+  if (!data?.story) {
     return (
       <div className="container py-8 text-center">
         <h1 className="text-2xl font-bold">未找到剧本</h1>
@@ -209,10 +175,10 @@ export default function ScriptDetailsPage() {
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>
-          <h1 className="text-2xl font-bold">{story.title}</h1>
+          <h1 className="text-2xl font-bold">{data.story.title}</h1>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Badge variant="outline">{story.genre}</Badge>
-            <span>Updated: {format(new Date(story.updated_at), "yyyy-MM-dd HH:mm")}</span>
+            <Badge variant="outline">{data.story.genre}</Badge>
+            <span>Updated: {format(new Date(data.story.updated_at), "yyyy-MM-dd HH:mm")}</span>
           </div>
         </div>
       </div>
@@ -221,13 +187,17 @@ export default function ScriptDetailsPage() {
         {/* Left: Story Info */}
         <div className="lg:col-span-1">
           <StoryInfoPanel
-            story={story}
+            story={data.story}
             editMode={editMode}
             storyForm={storyForm}
-            saving={saving}
+            saving={updateStory.isPending}
             onEditModeToggle={() => setEditMode(true)}
             onCancel={() => setEditMode(false)}
             onSave={handleUpdateStory}
+            onAutoSave={async (formData) => {
+              // Auto-save using React Query mutation
+              await updateStory.mutateAsync(formData);
+            }}
             onFormChange={(field, value) =>
               setStoryForm({ ...storyForm, [field]: value })
             }
@@ -237,13 +207,17 @@ export default function ScriptDetailsPage() {
         {/* Right: Panels */}
         <div className="lg:col-span-2">
           <PanelListView
-            panels={panels}
-            projectId={projectId}
-            onPanelsChange={setPanels}
+            panels={data.panels}
+            projectId={data.projectId}
+            onPanelsChange={() => { }}
             onEditPanel={openEditPanelDialog}
             onDeletePanel={handleDeletePanel}
             onAddPanel={openNewPanelDialog}
             onImageGenerated={handleImageGenerated}
+            onRefresh={() => {
+              // Trigger React Query to refetch data
+              // This will be handled automatically by mutations
+            }}
             onError={(msg) =>
               toast({ title: "错误", description: msg, variant: "destructive" })
             }
@@ -255,7 +229,7 @@ export default function ScriptDetailsPage() {
       <PanelEditDialog
         open={isDialogOpen}
         panel={editingPanel}
-        characters={story?.characters || []}
+        characters={data.story?.characters || []}
         saving={false}
         onOpenChange={setIsDialogOpen}
         onSave={handleSavePanel}

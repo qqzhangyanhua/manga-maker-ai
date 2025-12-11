@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { ensureDb, prisma } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/admin/usage?userId=...&limit=50&days=7&from=ISO&to=ISO&action=image_generation&status=success
 export async function GET(request: Request) {
   try {

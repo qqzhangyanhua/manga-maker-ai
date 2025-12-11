@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus, Pencil, Trash2, RefreshCw, ArrowLeft } from "lucide-react";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -111,7 +111,7 @@ const AdminCharactersPage = () => {
   const [total, setTotal] = useState(0);
   const [deletingCharacter, setDeletingCharacter] = useState<Character | null>(null);
 
-  const fetchCharacters = async (targetPage = page, targetPageSize = pageSize) => {
+  const fetchCharacters = useCallback(async (targetPage = page, targetPageSize = pageSize) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -140,11 +140,11 @@ const AdminCharactersPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters, page, pageSize, toast]);
 
   useEffect(() => {
     if (isAdmin) fetchCharacters();
-  }, [isAdmin]);
+  }, [isAdmin, fetchCharacters]);
 
   const resetForm = () => {
     setForm({ ...emptyForm });

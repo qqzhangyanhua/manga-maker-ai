@@ -23,6 +23,7 @@ export default function StoryboardEditorPage({
   const [selectedPanelId, setSelectedPanelId] = useState<string | null>(null);
   const [insertDialogOpen, setInsertDialogOpen] = useState(false);
   const [insertAfterOrder, setInsertAfterOrder] = useState<number | null>(null);
+  const [panelSelections, setPanelSelections] = useState<Record<string, { characterId?: string; styleKey?: string }>>({});
 
   // Refs for scrolling
   const segmentRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -33,11 +34,14 @@ export default function StoryboardEditorPage({
     project,
     loading,
     operationLoading,
+    characters,
+    styles,
     handlePanelUpdate,
     handleMerge,
     handleSplit,
     handleInsertPanel,
     handleGenerateSketch,
+    handleGeneratePrompt,
   } = useStoryboardData(projectId);
 
   // 插入分镜（打开对话框）
@@ -49,6 +53,10 @@ export default function StoryboardEditorPage({
   // 执行插入操作
   const handleInsertPanelSubmit = async (description: string, useLLM: boolean) => {
     await handleInsertPanel(description, useLLM, insertAfterOrder);
+  };
+
+  const handleSelectionChange = (panelId: string, selection: { characterId?: string; styleKey?: string }) => {
+    setPanelSelections((prev) => ({ ...prev, [panelId]: selection }));
   };
 
   // 全局快捷键
@@ -157,6 +165,11 @@ export default function StoryboardEditorPage({
           onSplit={handleSplit}
           onInsertAfter={handleInsertAfter}
           onGenerateSketch={handleGenerateSketch}
+          onGeneratePrompt={(panelId, opts) => handleGeneratePrompt(panelId, opts)}
+          onSelectionChange={handleSelectionChange}
+          selections={panelSelections}
+          characters={characters}
+          styles={styles}
           operationLoading={operationLoading}
         />
       </div>

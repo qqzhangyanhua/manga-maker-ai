@@ -361,3 +361,17 @@ export async function waitForTaskCompletion(
         }, 500);
     });
 }
+
+/**
+ * Get task status by ID
+ */
+export async function getTaskStatus(taskId: string): Promise<TaskStatus> {
+    const queue = getImageGenerationQueue();
+    const status = queue.getStatus(taskId);
+
+    if (!status) {
+        throw new Error("Task not found");
+    }
+
+    return status;
+}
