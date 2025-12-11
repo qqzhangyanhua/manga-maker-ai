@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Wand2, RefreshCw, Lightbulb } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -131,14 +132,14 @@ const GeneratorSection = ({ selectedStyle, selectedCharacter }: GeneratorSection
           </div>
 
           {/* Generate Button */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Button
-              variant="comic"
-              size="xl"
-              className="flex-1"
-              disabled={!isReady || isGenerating}
-              onClick={handleGenerate}
-            >
+        <div className="flex flex-col sm:flex-row gap-4">
+          <Button
+            variant="comic"
+            size="xl"
+            className="flex-1"
+            disabled={!isReady || isGenerating}
+            onClick={handleGenerate}
+          >
               {isGenerating ? (
                 <>
                   <RefreshCw className="w-5 h-5 animate-spin" />
@@ -174,6 +175,15 @@ const GeneratorSection = ({ selectedStyle, selectedCharacter }: GeneratorSection
               </div>
             </div>
           </div>
+        </div>
+        <div className="mt-4 text-center">
+          <Link
+            href="/editor"
+            className="inline-flex items-center gap-2 text-comic-green font-semibold hover:underline"
+          >
+            <Sparkles className="w-4 h-4" />
+            直接进入画面精炼工作台
+          </Link>
         </div>
 
         {/* Preview Area (Placeholder) */}

@@ -4,7 +4,7 @@
 
 import { callImageGenerationByType } from "./image-generation";
 
-export type ImageGenerationType = "panel" | "expression" | "outfit" | "character" | "scene";
+export type ImageGenerationType = "panel" | "expression" | "outfit" | "character" | "scene" | "page";
 
 export interface ImageGenerationTask {
     id: string;

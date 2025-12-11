@@ -92,6 +92,25 @@ const HomePage = () => {
 
       <main>
         <HeroSection />
+        <section className="px-4 pt-6">
+          <div className="max-w-5xl mx-auto">
+            <div className="comic-card flex flex-col md:flex-row items-center gap-6 p-6">
+              <div className="flex-1">
+                <p className="text-sm text-muted-foreground uppercase tracking-[0.3em] mb-2">Refine Center</p>
+                <h3 className="font-comic text-3xl text-foreground mb-2">画面精炼中心上线</h3>
+                <p className="text-muted-foreground">
+                  生成后不满意？现在可以直接进入画布拖拽分格、添加气泡或再次 AI 润色，完成整页漫画排版。
+                </p>
+              </div>
+              <a
+                href="/editor"
+                className="shrink-0 inline-flex items-center justify-center px-6 py-3 rounded-full bg-comic-green/90 text-background font-semibold hover:bg-comic-green transition-colors"
+              >
+                进入画面精炼
+              </a>
+            </div>
+          </div>
+        </section>
 
         <section id="styles" className="py-20 px-4">
           <div className="max-w-7xl mx-auto">

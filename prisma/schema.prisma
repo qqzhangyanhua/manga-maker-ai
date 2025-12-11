@@ -261,6 +261,25 @@ model GenerationLog {
   @@map("generation_logs")
 }
 
+model ImagePageVersion {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @db.Uuid
+  project_id String?  @db.Uuid
+  label      String
+  source_type String
+  status     String   @default("completed")
+  image_url  String?
+  task_id    String?
+  metadata   Json?
+  canvas_schema Json?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([user_id, created_at], map: "idx_image_page_versions_user")
+  @@index([task_id], map: "idx_image_page_versions_task")
+  @@map("image_page_versions")
+}
+
 model UsageStat {
   id            Int      @id @default(autoincrement())
   user_id       String   @db.Uuid

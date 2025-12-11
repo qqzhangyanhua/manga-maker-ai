@@ -137,6 +137,22 @@ const bootstrapSqlStatements = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS unique_usage_per_day ON usage_stats(user_id, action, date)`,
   `CREATE INDEX IF NOT EXISTS idx_usage_user_action ON usage_stats(user_id, action)`,
+  `CREATE TABLE IF NOT EXISTS image_page_versions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    project_id UUID,
+    label TEXT NOT NULL,
+    source_type TEXT NOT NULL,
+    status TEXT DEFAULT 'completed',
+    image_url TEXT,
+    task_id TEXT,
+    metadata JSONB,
+    canvas_schema JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_image_page_versions_user ON image_page_versions(user_id, created_at DESC)`,
+  `CREATE INDEX IF NOT EXISTS idx_image_page_versions_task ON image_page_versions(task_id)`,
 ];
 
 export const ensureDb = async () => {

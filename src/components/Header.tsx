@@ -79,6 +79,16 @@ const Header = () => {
             一键生成
           </Link>
           <Link
+            href="/editor"
+            className={cn(
+              "text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1",
+              pathname === "/editor" && "text-foreground"
+            )}
+          >
+            <Sparkles className="w-4 h-4" />
+            画面精炼
+          </Link>
+          <Link
             href="/storyboard"
             className={cn(
               "text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1",
