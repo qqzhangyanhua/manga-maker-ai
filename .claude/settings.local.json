@@ -16,7 +16,11 @@
       "Bash(pnpm dev)",
       "Bash(pnpm build)",
       "Bash(wc:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(powershell -Command \"Get-Content ''D:\\AI\\manga-maker-ai\\src\\app\\api\\character\\outfits\\route.ts'' -Encoding UTF8 | Select-Object -Skip 84 -First 15\")",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"D:\\AI\\manga-maker-ai\\fix_route.ps1\")",
+      "Bash(cat:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []

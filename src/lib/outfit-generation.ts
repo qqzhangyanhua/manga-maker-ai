@@ -1,6 +1,6 @@
-/**
- * 服装生成服务
- * 为角色生成不同服装的图片
+﻿/**
+ * 服装生成服务（强化风格一致性）
+ * 为角色生成不同服装的图片；严格参考角色图片的画风与人物面貌。
  */
 
 import { callImageGenerationByType } from "./image-generation";
@@ -9,7 +9,7 @@ import { callImageGenerationByType } from "./image-generation";
 export const OUTFIT_TYPES = {
   default: "默认装",
   school: "校服",
-  battle: "战斗服",
+  battle: "战斗装",
   casual: "休闲装",
   formal: "正装",
   sleepwear: "睡衣",
@@ -19,7 +19,7 @@ export const OUTFIT_TYPES = {
 
 export type OutfitType = keyof typeof OUTFIT_TYPES;
 
-// 服装提示词模板 - 优化为更详细的描述
+// 服装提示词模板（英文更稳定），仅描述服装，不改变画风/人物
 const OUTFIT_PROMPTS: Record<OutfitType, string> = {
   default: "default standard outfit, everyday clothing, regular casual wear, typical attire",
   school: "school uniform, student outfit, neat blazer, formal tie, crisp white shirt, pleated skirt or trousers, polished school attire, academic look",
@@ -31,28 +31,45 @@ const OUTFIT_PROMPTS: Record<OutfitType, string> = {
   custom: "custom unique outfit, special design, distinctive clothing, original fashion, personalized attire",
 };
 
+// 公共的风格/人物一致性约束（正向）
+const STYLE_LOCK = "keep exactly the same art style as the reference image, same character identity and face shape, same facial features, same hairstyle and hair color, same eye shape and color, same skin tone, consistent linework and color palette, do not change the drawing style";
+
+// 公共负面提示，拒绝风格/人物偏移
+const STYLE_NEGATIVE = "different art style than reference, different person, different face shape, face changed, changed hairstyle, changed hair color, changed eye shape, changed eye color, changed skin tone, off-model, inconsistent style, multiple characters";
+
 /**
  * 生成服装图片
- * 
- * @param characterDescription 角色描述
+ * @param characterDescription 角色描述（不做过度优化）
  * @param outfitType 服装类型
- * @param outfitDescription 服装的具体描述（可选）
- * @param providerType Provider 类型
+ * @param outfitDescription 服装的具体描述（可选，建议仅限服装细节）
+ * @param providerType Provider 类型（默认 image_generation）
+ * @param referenceImageUrl 参考角色图片 URL（强烈建议提供，用于锁定风格）
  * @returns base64 编码的图片
  */
 export async function generateOutfit(
   characterDescription: string,
   outfitType: OutfitType,
   outfitDescription?: string,
-  providerType: string = "image_generation"
+  providerType: string = "image_generation",
+  referenceImageUrl?: string,
 ): Promise<string> {
-  // 构建服装提示词 - 参考专业服装设计规范
   const outfitPrompt = OUTFIT_PROMPTS[outfitType];
   const customDescription = outfitDescription ? `, ${outfitDescription}` : "";
 
-  const fullPrompt = `${characterDescription}, wearing ${outfitPrompt}${customDescription}, full body shot, complete character design, anime manga style, clean white background, professional character outfit reference, highly detailed clothing and fabric, clear design elements, sharp focus, high quality illustration, fashion design sheet`;
+  // 将参考图放入正向提示，要求严格沿用其风格与人物面貌
+  const referencePart = referenceImageUrl ? `, style reference: ${referenceImageUrl}` : "";
 
-  const negativePrompt = `blurry, low quality, distorted, deformed, ugly, bad anatomy, bad proportions, multiple characters, different people, inconsistent style, cropped badly, complex background, scenery, text, watermark, signature, logo, multiple outfits, mixed clothing styles, accessories clutter`;
+  const fullPrompt = `${characterDescription}${referencePart}, wearing ${outfitPrompt}${customDescription}, full body shot, complete character design, anime manga style, clean white background, professional character outfit reference, highly detailed clothing and fabric, clear design elements, sharp focus, high quality illustration, fashion design sheet, ${STYLE_LOCK}`;
+
+  const negativePrompt = `${STYLE_NEGATIVE}, blurry, low quality, distorted, deformed, bad anatomy, bad proportions, cropped badly, complex background, scenery, text, watermark, signature, logo, multiple outfits, mixed clothing styles, accessories clutter`;
+
+  // 观测提示（便于排查）
+  console.log(`\n========== 服装生成提示词 ==========`);
+  console.log(`服装类型: ${OUTFIT_TYPES[outfitType]}`);
+  console.log(`参考图: ${referenceImageUrl || 'N/A'}`);
+  console.log(`完整提示: ${fullPrompt}`);
+  console.log(`负面提示: ${negativePrompt}`);
+  console.log(`==================================\n`);
 
   // 调用图片生成 API
   const result = await callImageGenerationByType({
@@ -66,9 +83,7 @@ export async function generateOutfit(
   });
 
   if (!result.success || result.images.length === 0) {
-    throw new Error(
-      `服装生成失败（${OUTFIT_TYPES[outfitType]}）: ${result.error || "未知错误"}`
-    );
+    throw new Error(`服装生成失败（${OUTFIT_TYPES[outfitType]}）: ${result.error || '未知错误'}`);
   }
 
   return result.images[0];
@@ -84,22 +99,24 @@ export async function generateOutfitAsync(
   outfitType: OutfitType,
   userId: string,
   outfitDescription?: string,
-  wait: boolean = false
+  wait: boolean = false,
+  referenceImageUrl?: string,
 ): Promise<{ taskId: string; imageUrl?: string }> {
   const outfitPrompt = OUTFIT_PROMPTS[outfitType];
   const customDescription = outfitDescription ? `, ${outfitDescription}` : "";
+  const referencePart = referenceImageUrl ? `, style reference: ${referenceImageUrl}` : "";
 
-  const fullPrompt = `${characterDescription}, ${outfitPrompt}${customDescription}, full body, character design, anime style, clean white background, professional character design, detailed clothing, 8k, ultra detailed`;
+  const fullPrompt = `${characterDescription}${referencePart}, ${outfitPrompt}${customDescription}, full body, character design, anime style, clean white background, professional character design, detailed clothing, ${STYLE_LOCK}`;
 
   const { taskId, status } = await generateImage(
     "outfit",
     fullPrompt,
     userId,
     {
-      negativePrompt: `blurry, low quality, distorted, multiple characters, inconsistent style, cropped, background elements, text, watermark, signature, multiple outfits`,
+      negativePrompt: `${STYLE_NEGATIVE}, blurry, low quality, distorted, inconsistent style, cropped, background elements, text, watermark, signature` ,
       width: 512,
       height: 768,
-      metadata: { outfitType, characterDescription, outfitDescription },
+      metadata: { outfitType, characterDescription, outfitDescription, referenceImageUrl },
     }
   );
 

@@ -66,6 +66,9 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
   const [isUploading, setIsUploading] = useState(false);
   const [generateSimilarDialogOpen, setGenerateSimilarDialogOpen] = useState(false);
   
+  // 本地服装列表状态，用于立即响应UI更新
+  const [localOutfits, setLocalOutfits] = useState<Array<{ id: string; outfit_name: string; outfit_type: string; image_url: string | null }>>(character.outfits || []);
+  
   // 三视图独立loading状态
   const [viewGenerating, setViewGenerating] = useState<{front?: boolean; side?: boolean; back?: boolean}>({});
   // 服装生成loading状态
@@ -76,10 +79,10 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
   const { toast } = useToast();
   const { usage, loading: usageLoading, refresh: refreshUsage } = useUsage();
 
-  // Load existing data from character
+  // Load existing data from character and sync with character prop changes
   useState(() => {
     if (character.views) {
-      const views: any = {};
+      const views: Record<string, string> = {};
       character.views.forEach((v) => {
         views[v.view_type] = v.image_url;
       });
@@ -87,11 +90,16 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
     }
     
     if (character.expressions) {
-      const expressions: any = {};
+      const expressions: Record<string, string> = {};
       character.expressions.forEach((e) => {
         expressions[e.expression_type] = e.image_url;
       });
       setExpressionSheet(expressions);
+    }
+    
+    // 同步服装数据
+    if (character.outfits) {
+      setLocalOutfits(character.outfits);
     }
   });
 
@@ -383,12 +391,17 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
             image_url: result.image_url,
           };
           updateCharacterOutfits(updatedOutfit);
-        } else if (onUpdate) {
+        } else {
           // 如果找不到，则重新获取
           const updatedChar = await fetch(`/api/character/${character.id}`);
           if (updatedChar.ok) {
             const charData = await updatedChar.json();
-            onUpdate(charData.character);
+            if (charData.character.outfits) {
+              setLocalOutfits(charData.character.outfits);
+            }
+            if (onUpdate) {
+              onUpdate(charData.character);
+            }
           }
         }
       } else {
@@ -532,26 +545,39 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
 
   // 辅助函数：更新角色数据中的服装列表
   const updateCharacterOutfits = (newOutfit: any) => {
-    if (!onUpdate) return;
-    
-    const existingOutfits = character.outfits || [];
-    const existingIndex = existingOutfits.findIndex(o => o.id === newOutfit.id);
-    
-    let updatedOutfits: any[];
-    if (existingIndex >= 0) {
-      // 更新现有服装
-      updatedOutfits = [...existingOutfits];
-      updatedOutfits[existingIndex] = newOutfit;
-    } else {
-      // 添加新服装
-      updatedOutfits = [...existingOutfits, newOutfit];
-    }
-    
-    // 立即更新角色数据
-    onUpdate({
-      ...character,
-      outfits: updatedOutfits,
+    // 立即更新本地状态，确保UI快速响应
+    setLocalOutfits(prevOutfits => {
+      const existingIndex = prevOutfits.findIndex(o => o.id === newOutfit.id);
+      
+      if (existingIndex >= 0) {
+        // 更新现有服装
+        const updated = [...prevOutfits];
+        updated[existingIndex] = newOutfit;
+        return updated;
+      } else {
+        // 添加新服装
+        return [...prevOutfits, newOutfit];
+      }
     });
+    
+    // 同时通知父组件更新
+    if (onUpdate) {
+      const existingOutfits = character.outfits || [];
+      const existingIndex = existingOutfits.findIndex(o => o.id === newOutfit.id);
+      
+      let updatedOutfits: any[];
+      if (existingIndex >= 0) {
+        updatedOutfits = [...existingOutfits];
+        updatedOutfits[existingIndex] = newOutfit;
+      } else {
+        updatedOutfits = [...existingOutfits, newOutfit];
+      }
+      
+      onUpdate({
+        ...character,
+        outfits: updatedOutfits,
+      });
+    }
   };
 
   const handleCreateOutfit = async (data: {
@@ -587,10 +613,13 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
         updateCharacterOutfits(result.outfit);
       } else {
         // 如果响应中没有outfit，则重新获取
-        if (onUpdate) {
-          const updatedChar = await fetch(`/api/character/${character.id}`);
-          if (updatedChar.ok) {
-            const charData = await updatedChar.json();
+        const updatedChar = await fetch(`/api/character/${character.id}`);
+        if (updatedChar.ok) {
+          const charData = await updatedChar.json();
+          if (charData.character.outfits) {
+            setLocalOutfits(charData.character.outfits);
+          }
+          if (onUpdate) {
             onUpdate(charData.character);
           }
         }
@@ -849,7 +878,7 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {/* Show existing outfits */}
-              {character.outfits && character.outfits.map((outfit) => {
+              {localOutfits.map((outfit) => {
                 const preset = outfitPresets.find(p => p.id === outfit.outfit_type);
                 return (
                   <ImagePreviewCard
@@ -944,7 +973,7 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
               
               {/* Show remaining presets that haven't been created */}
               {outfitPresets
-                .filter(preset => !character.outfits?.some(o => o.outfit_type === preset.id))
+                .filter(preset => !localOutfits.some(o => o.outfit_type === preset.id))
                 .map((outfit) => (
                   <button
                     key={outfit.id}

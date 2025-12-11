@@ -176,8 +176,8 @@ async function callStableDiffusionAPI(
 }
 
 /**
- * 调用 OpenAI DALL-E API
- * API 文档: https://platform.openai.com/docs/api-reference/images/create
+ * 调用 OpenAI DALL-E API 或兼容的图片生成 API（如 Gemini）
+ * 支持流式响应，从 chat completions 接口提取图片
  */
 async function callOpenAIImageAPI(
   baseUrl: string,
@@ -212,7 +212,7 @@ async function callOpenAIImageAPI(
 
   // 移除 base_url 末尾的斜杠
   const normalizedUrl = baseUrl.replace(/\/$/, "");
-  const endpoint = `${normalizedUrl}/v1/images/generations`;
+  const endpoint = `${normalizedUrl}/v1/chat/completions`;
 
   try {
     const response = await fetch(endpoint, {
@@ -223,33 +223,104 @@ async function callOpenAIImageAPI(
       },
       body: JSON.stringify({
         model,
-        prompt,
-        n: batch_size,
-        size: validSizes.includes(size) ? size : "1024x1024",
-        quality: model === "dall-e-3" ? "hd" : undefined,
-        response_format: "b64_json", // 返回 base64 编码的图片
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: prompt,
+              },
+            ],
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 4096,
+        stream: true, // 启用流式响应
       }),
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        `OpenAI API 调用失败: ${response.status} ${response.statusText}\n${JSON.stringify(errorData)}`
-      );
+      const errorText = await response.text();
+      return {
+        success: false,
+        images: [],
+        error: `API 调用失败: ${response.status} ${response.statusText}\n${errorText}`,
+      };
     }
 
-    const data = await response.json();
+    // 处理流式响应
+    const reader = response.body?.getReader();
+    if (!reader) {
+      return {
+        success: false,
+        images: [],
+        error: "无法读取响应流",
+      };
+    }
 
-    // OpenAI 返回格式: { created: number, data: [{ b64_json: string }] }
-    const images = data.data?.map((item: any) => item.b64_json) || [];
+    const decoder = new TextDecoder();
+    let buffer = "";
+    const images: string[] = [];
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.trim() || line.trim() === "data: [DONE]") {
+            continue;
+          }
+
+          if (line.startsWith("data: ")) {
+            try {
+              const jsonStr = line.slice(6);
+              const data = JSON.parse(jsonStr);
+
+              // 提取 delta.content 中的图片
+              const content = data.choices?.[0]?.delta?.content;
+              if (content) {
+                // 匹配 markdown 格式的 base64 图片: ![image](data:image/png;base64,...)
+                const imageRegex = /!\[.*?\]\(data:image\/[^;]+;base64,([^)]+)\)/g;
+                let match;
+                
+                while ((match = imageRegex.exec(content)) !== null) {
+                  const base64Data = match[1];
+                  if (base64Data) {
+                    images.push(base64Data);
+                  }
+                }
+              }
+            } catch (parseError) {
+              console.error("解析 SSE 数据失败:", parseError);
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    if (images.length === 0) {
+      return {
+        success: false,
+        images: [],
+        error: "未从响应中提取到图片数据",
+      };
+    }
 
     return {
       success: true,
       images,
-      info: JSON.stringify({ model, size: validSizes.includes(size) ? size : "1024x1024" }),
+      info: `成功生成 ${images.length} 张图片`,
     };
   } catch (error) {
-    console.error("OpenAI API error:", error);
+    console.error("OpenAI/Gemini API error:", error);
     return {
       success: false,
       images: [],
@@ -293,7 +364,7 @@ export async function generateThreeViews(
 }> {
   // 构建三视图提示词 - 参考专业角色设计规范
   const basePrompt = `${characterDescription}, character turnaround reference sheet, T-pose standing, full body, clean white background, professional character design, anime style, consistent detailed appearance, sharp focus, high quality illustration, character model sheet, reference design`;
-  
+
   const negativePrompt = `blurry, low quality, distorted, deformed, ugly, bad anatomy, multiple characters, inconsistent style, cropped, background elements, scenery, text, watermark, signature, logo, different poses, sitting, action pose`;
 
   const prompts = {

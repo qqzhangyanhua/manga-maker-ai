@@ -14,7 +14,7 @@ const providerSchema = z.object({
   api_key: z.string().default(""),
   priority: z.number().int().positive().default(1),
   enabled: z.boolean().default(true),
-  desc: z.string().optional(),
+  desc: z.string().nullable().optional(),
 });
 
 const handleError = (error: unknown) => {
