@@ -56,12 +56,35 @@ export function WorkflowDashboard() {
     const [loading, setLoading] = useState(false);
     const [showAutoGenerate, setShowAutoGenerate] = useState(false);
 
+    // Load workflows on mount
+    useEffect(() => {
+        loadWorkflows();
+    }, []);
+
     async function loadWorkflows() {
-        // TODO: Implement API to list user's workflows
         setLoading(true);
         try {
-            // Placeholder
-            setWorkflows([]);
+            const response = await fetch("/api/workflow?limit=50");
+            if (!response.ok) {
+                throw new Error("Failed to fetch workflows");
+            }
+            const data = await response.json();
+
+            if (data.success && data.workflows) {
+                // Transform API response to match WorkflowStatus interface
+                const transformedWorkflows: WorkflowStatus[] = data.workflows.map((w: any) => ({
+                    id: w.id,
+                    status: w.status,
+                    currentStep: w.current_step,
+                    progress: w.progress,
+                    result: w.result,
+                    error: w.error,
+                    createdAt: new Date(w.created_at),
+                    startedAt: w.started_at ? new Date(w.started_at) : undefined,
+                    completedAt: w.completed_at ? new Date(w.completed_at) : undefined,
+                }));
+                setWorkflows(transformedWorkflows);
+            }
         } catch (error) {
             console.error("Failed to load workflows:", error);
         } finally {

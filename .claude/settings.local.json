@@ -21,7 +21,10 @@
       "Bash(powershell -ExecutionPolicy Bypass -File \"D:\\AI\\manga-maker-ai\\fix_route.ps1\")",
       "Bash(cat:*)",
       "Bash(ls:*)",
-      "Bash(pnpm type-check:*)"
+      "Bash(pnpm type-check:*)",
+      "Bash(npx prisma migrate:*)",
+      "Bash(npx prisma:*)",
+      "Bash(timeout 10 pnpm dev:*)"
     ],
     "deny": [],
     "ask": []

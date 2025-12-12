@@ -22,6 +22,12 @@ model User {
   role              String?   @default("user")
   status            String?   @default("active")
 
+  // Phase 1 relations
+  panelTemplates  PanelTemplate[]
+  templateLikes   TemplateLike[]
+  generationTasks GenerationTask[]
+  tags            Tag[]
+
   @@map("users")
 }
 
@@ -139,10 +145,12 @@ model Project {
   created_at  DateTime @default(now()) @db.Timestamptz(6)
   updated_at  DateTime @default(now()) @db.Timestamptz(6)
 
-  panels  Panel[]
-  script  StoryScript?
-  Story   Story?       @relation(fields: [storyId], references: [id])
-  storyId String?      @db.Uuid
+  panels          Panel[]
+  script          StoryScript?
+  Story           Story?            @relation(fields: [storyId], references: [id])
+  storyId         String?           @db.Uuid
+  versions        ProjectVersion[] // Phase 1: Version control
+  generationTasks GenerationTask[] // Phase 1: Batch generation
 
   @@index([user_id, status], map: "idx_projects_user_status")
   @@index([story_id], map: "idx_projects_story")
@@ -174,7 +182,8 @@ model Panel {
 
   created_at DateTime @default(now()) @db.Timestamptz(6)
 
-  project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  project  Project        @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  variants PanelVariant[] // Phase 1: Variant generation
 
   @@index([project_id, panel_order], map: "idx_panels_project_order")
   @@map("panels")
@@ -373,3 +382,144 @@ model Workflow {
   @@index([status, created_at], map: "idx_workflows_status_time")
   @@map("workflows")
 }
+
+// ============================================================
+// Phase 1: New Models - Template, Batch Generation, Version Control, Tags
+// ============================================================
+
+// Panel Template - Reusable storyboard layouts
+model PanelTemplate {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String?  @db.Uuid // null = official template
+  name         String   @db.VarChar(100)
+  description  String?  @db.Text
+  panel_count  Int // Number of panels in this template
+  template_data Json // Template structure: { panels: [{ panel_type, camera_angle, shot_size, importance, relative_position }] }
+  tags         String[] @default([])
+  is_public    Boolean  @default(false)
+  is_official  Boolean  @default(false)
+  likes_count  Int      @default(0)
+  usage_count  Int      @default(0)
+  thumbnail_url String?
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  user  User?          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  likes TemplateLike[]
+
+  @@index([user_id], map: "idx_panel_templates_user")
+  @@index([is_public, is_official], map: "idx_panel_templates_public")
+  @@index([tags], map: "idx_panel_templates_tags")
+  @@map("panel_templates")
+}
+
+// Template Likes - Track user likes for templates
+model TemplateLike {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  template_id String   @db.Uuid
+  user_id     String   @db.Uuid
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  template PanelTemplate @relation(fields: [template_id], references: [id], onDelete: Cascade)
+  user     User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([template_id, user_id], map: "unique_template_user_like")
+  @@index([user_id], map: "idx_template_likes_user")
+  @@map("template_likes")
+}
+
+// Generation Task - Track batch generation progress
+model GenerationTask {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id             String    @db.Uuid
+  project_id          String    @db.Uuid
+  panel_ids           String[]  @db.Uuid // List of panel IDs to generate
+  task_type           String // "batch" | "variant"
+  status              String    @default("pending") // "pending" | "processing" | "completed" | "failed" | "cancelled"
+  progress            Int       @default(0) // 0-100
+  current_panel_index Int       @default(0)
+  settings            Json // Generation settings: { style, quality, failureMode }
+  error_logs          Json? // Error logs: [{ panelId, error, timestamp }]
+  created_at          DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime  @default(now()) @db.Timestamptz(6)
+  completed_at        DateTime? @db.Timestamptz(6)
+
+  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id], map: "idx_generation_tasks_user")
+  @@index([project_id], map: "idx_generation_tasks_project")
+  @@index([status], map: "idx_generation_tasks_status")
+  @@map("generation_tasks")
+}
+
+// Panel Variant - Alternative versions of a panel
+model PanelVariant {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  panel_id     String   @db.Uuid
+  image_url    String
+  prompt       String   @db.Text
+  variant_type String // "original" | "composition" | "lighting" | "angle"
+  is_selected  Boolean  @default(false)
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  panel Panel @relation(fields: [panel_id], references: [id], onDelete: Cascade)
+
+  @@index([panel_id], map: "idx_panel_variants_panel")
+  @@index([is_selected], map: "idx_panel_variants_selected")
+  @@map("panel_variants")
+}
+
+// Project Version - Version control for projects
+model ProjectVersion {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id        String   @db.Uuid
+  version_number    Int // Auto-increment version number
+  label             String?  @db.VarChar(100) // User-defined label
+  version_data      Json // Incremental snapshot: { project, panels, script }
+  change_summary    String?  @db.Text // Auto-generated change summary
+  is_auto           Boolean  @default(true) // Auto-save or manual
+  is_pinned         Boolean  @default(false) // Prevent auto-deletion
+  created_by_action String? // "batch_generate" | "apply_template" | "manual"
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+
+  project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@unique([project_id, version_number], map: "unique_project_version")
+  @@index([project_id, created_at], map: "idx_project_versions_time")
+  @@map("project_versions")
+}
+
+// Tag - Universal tagging system
+model Tag {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String   @unique @db.VarChar(50)
+  type        String   @default("user") // "system" | "user"
+  category    String?  @db.VarChar(50) // "style" | "scene_type" | "character_type"
+  created_by  String?  @db.Uuid // null = system tag
+  usage_count Int      @default(0)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  user     User?     @relation(fields: [created_by], references: [id], onDelete: SetNull)
+  taggings Tagging[]
+
+  @@index([type], map: "idx_tags_type")
+  @@index([category], map: "idx_tags_category")
+  @@map("tags")
+}
+
+// Tagging - Polymorphic tagging relationship
+model Tagging {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tag_id        String   @db.Uuid
+  taggable_type String // "Character" | "Scene" | "Project" | "Story" | "PanelTemplate"
+  taggable_id   String   @db.Uuid
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  tag Tag @relation(fields: [tag_id], references: [id], onDelete: Cascade)
+
+  @@unique([tag_id, taggable_type, taggable_id], map: "unique_tagging")
+  @@index([taggable_type, taggable_id], map: "idx_taggings_taggable")
+  @@map("taggings")
+}
+
