@@ -8,13 +8,13 @@ const CONFIG = {
 
   // ========== 漫画生成配置（图像生成模型） ==========
 
-  COMIC_API_KEY: 'sk-pAbyGEFaRsPMEKuNQqSsRcbBMdIbAjtC56ryqhqYU5HxtjQD',//'sk-i4o3ljkbX1aqMHM4xP1CgrqGnC2LhqGL1gt1uzoMCklhE3OT',
-  COMIC_API_BASE: "https://www.packyapi.com/v1",//'https://duckcoding.com/v1',
-  COMIC_MODEL: "gemini-2.5-flash-image",//'gemini-2.5-flash-image',
+  // COMIC_API_KEY: 'sk-pAbyGEFaRsPMEKuNQqSsRcbBMdIbAjtC56ryqhqYU5HxtjQD',//'sk-i4o3ljkbX1aqMHM4xP1CgrqGnC2LhqGL1gt1uzoMCklhE3OT',
+  // COMIC_API_BASE: "https://www.packyapi.com/v1",//'https://duckcoding.com/v1',
+  // COMIC_MODEL: "gemini-2.5-flash-image",//'gemini-2.5-flash-image',
   // https://api.67.si/
-  // COMIC_API_KEY: 'sk-JdGshoRJVioK0c9JpUqhhG446nS1NDh9FdoamBIYAkr4F8a6',//'sk-i4o3ljkbX1aqMHM4xP1CgrqGnC2LhqGL1gt1uzoMCklhE3OT',
-  // COMIC_API_BASE: "https://api.67.si/v1",//'https://duckcoding.com/v1',
-  // COMIC_MODEL: "jimeng-nano-banana",//'gemini-2.5-flash-image',
+  COMIC_API_KEY: 'sk-JdGshoRJVioK0c9JpUqhhG446nS1NDh9FdoamBIYAkr4F8a6',//'sk-i4o3ljkbX1aqMHM4xP1CgrqGnC2LhqGL1gt1uzoMCklhE3OT',
+  COMIC_API_BASE: "https://api.67.si/v1",//'https://duckcoding.com/v1',
+  COMIC_MODEL: "jimeng-nano-banana",//'gemini-2.5-flash-image',
   // yourapi.cn
   // COMIC_API_KEY: 'sk-fT0nwWLU30PnhuzfuviHzCGvMUG1VxY9qT1uZ0z7OGfd3AcH',//'sk-i4o3ljkbX1aqMHM4xP1CgrqGnC2LhqGL1gt1uzoMCklhE3OT',
   // COMIC_API_BASE: "https://yourapi.cn/v1",//'https://duckcoding.com/v1',

@@ -127,9 +127,15 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
 
       if (uploadResponse.ok) {
         const data = await uploadResponse.json();
+        // 添加时间戳参数以破坏浏览器缓存，强制重新加载图片
+        const imageUrl = data.image_url;
+        const urlWithTimestamp = imageUrl.includes('?')
+          ? `${imageUrl}&t=${Date.now()}`
+          : `${imageUrl}?t=${Date.now()}`;
+
         setGeneratedViews((prev) => ({
           ...prev,
-          [currentUploadType]: data.image_url,
+          [currentUploadType]: urlWithTimestamp,
         }));
 
         toast({
@@ -217,7 +223,7 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
     // 设置三个视图都在生成中
     setViewGenerating({ front: true, side: true, back: true });
     setIsGenerating(true);
-    
+
     try {
       const response = await fetch("/api/character/generate-views", {
         method: "POST",
@@ -235,10 +241,15 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
       const data = await response.json();
       const views: any = {};
       Object.entries(data.views).forEach(([viewType, viewData]: [string, any]) => {
-        views[viewType] = viewData.image_url;
+        // 添加时间戳参数以破坏浏览器缓存，强制重新加载图片
+        const imageUrl = viewData.image_url;
+        const urlWithTimestamp = imageUrl.includes('?')
+          ? `${imageUrl}&t=${Date.now()}`
+          : `${imageUrl}?t=${Date.now()}`;
+        views[viewType] = urlWithTimestamp;
       });
       setGeneratedViews(views);
-      
+
       toast({
         title: "三视图生成完成",
         description: "角色的正面、侧面、背面视图已生成",
@@ -252,6 +263,94 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
         if (updatedChar.ok) {
           const charData = await updatedChar.json();
           onUpdate(charData.character);
+        }
+      }
+    } catch (error) {
+      if ((error as any)?.code === "MODEL_NOT_CONFIGURED") {
+        toast({
+          title: "模型未配置",
+          description: error instanceof Error ? error.message : "请先在模型配置中启用对应类型",
+          variant: "destructive",
+          action: (
+            <ToastAction altText="去配置" onClick={() => window.open("/admin/llm-providers", "_blank")}>
+              去配置
+            </ToastAction>
+          ),
+        });
+      } else {
+        toast({
+          title: "生成失败",
+          description: error instanceof Error ? error.message : "网络错误，请稍后重试",
+          variant: "destructive",
+          action: (
+            <ToastAction
+              altText="升级配额"
+              onClick={() =>
+                window.open("mailto:support@example.com?subject=ComicAI%20额度申请", "_blank")
+              }
+            >
+              升级配额
+            </ToastAction>
+          ),
+        });
+      }
+    } finally {
+      setIsGenerating(false);
+      setViewGenerating({});
+    }
+  };
+
+  // 重新生成单个视图
+  const handleRegenerateSingleView = async (viewType: string) => {
+    // 设置当前视图为生成中
+    setViewGenerating({ [viewType]: true });
+    setIsGenerating(true);
+
+    try {
+      const response = await fetch("/api/character/generate-views", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          character_id: character.id,
+          description: character.description || character.name,
+          view_types: [viewType], // 只生成指定的单个视图
+        }),
+      });
+
+      if (!response.ok) {
+        await parseErrorResponse(response, `${viewType === 'front' ? '正面' : viewType === 'side' ? '侧面' : '背面'}视图生成失败`);
+      }
+
+      const data = await response.json();
+
+      // 更新当前视图
+      if (data.views && data.views[viewType]) {
+        // 添加时间戳参数以破坏浏览器缓存，强制重新加载图片
+        const imageUrl = data.views[viewType].image_url;
+        const urlWithTimestamp = imageUrl.includes('?')
+          ? `${imageUrl}&t=${Date.now()}`
+          : `${imageUrl}?t=${Date.now()}`;
+
+        setGeneratedViews(prev => ({
+          ...prev,
+          [viewType]: urlWithTimestamp,
+        }));
+
+        const viewName = viewType === 'front' ? '正面' : viewType === 'side' ? '侧面' : '背面';
+        toast({
+          title: "视图重新生成完成",
+          description: `${viewName}视图已更新`,
+        });
+
+        refreshUsage();
+
+        // Refresh character data
+        if (onUpdate) {
+          const updatedChar = await fetch(`/api/character/${character.id}`);
+          if (updatedChar.ok) {
+            const charData = await updatedChar.json();
+            onUpdate(charData.character);
+          }
         }
       }
     } catch (error) {
@@ -313,9 +412,15 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
 
       if (uploadResponse.ok) {
         const data = await uploadResponse.json();
+        // 添加时间戳参数以破坏浏览器缓存，强制重新加载图片
+        const imageUrl = data.image_url;
+        const urlWithTimestamp = imageUrl.includes('?')
+          ? `${imageUrl}&t=${Date.now()}`
+          : `${imageUrl}?t=${Date.now()}`;
+
         setExpressionSheet((prev) => ({
           ...prev,
-          [currentUploadType]: data.image_url,
+          [currentUploadType]: urlWithTimestamp,
         }));
 
         const expLabel = expressions.find((e) => e.id === currentUploadType)?.label;
@@ -439,9 +544,15 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
       }
 
       const data = await response.json();
+      // 添加时间戳参数以破坏浏览器缓存，强制重新加载图片
+      const imageUrl = data.expressions[expressionId].image_url;
+      const urlWithTimestamp = imageUrl.includes('?')
+        ? `${imageUrl}&t=${Date.now()}`
+        : `${imageUrl}?t=${Date.now()}`;
+
       setExpressionSheet(prev => ({
         ...prev,
-        [expressionId]: data.expressions[expressionId].image_url,
+        [expressionId]: urlWithTimestamp,
       }));
       
       toast({
@@ -502,7 +613,12 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
       const data = await response.json();
       const allExpressions: Record<string, string> = {};
       Object.entries(data.expressions).forEach(([expType, expData]: [string, any]) => {
-        allExpressions[expType] = expData.image_url;
+        // 添加时间戳参数以破坏浏览器缓存，强制重新加载图片
+        const imageUrl = expData.image_url;
+        const urlWithTimestamp = imageUrl.includes('?')
+          ? `${imageUrl}&t=${Date.now()}`
+          : `${imageUrl}?t=${Date.now()}`;
+        allExpressions[expType] = urlWithTimestamp;
       });
       setExpressionSheet(allExpressions);
       
@@ -767,12 +883,12 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
                     setCurrentUploadType(view);
                     setUploadDialogOpen(true);
                   }}
-                  onRegenerate={handleGenerateThreeView}
+                  onRegenerate={() => handleRegenerateSingleView(view)}
                   onReplace={() => {
                     setCurrentUploadType(view);
                     setUploadDialogOpen(true);
                   }}
-                  showGenerateButton={!generatedViews[view as keyof typeof generatedViews]}
+                  showGenerateButton={true}
                   showUploadButton={true}
                 />
               ))}

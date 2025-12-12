@@ -333,11 +333,29 @@ async function callOpenAIImageAPI(
     const decoder = new TextDecoder();
     let buffer = "";
     const images: string[] = [];
+    let chunkCount = 0;
+    let totalBytes = 0;
+    let lastLogTime = Date.now();
+
+    console.log('\n========== 开始处理流式响应 ==========');
 
     try {
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          console.log(`✓ 流式响应读取完成，共 ${chunkCount} 个数据块，总大小: ${(totalBytes / 1024).toFixed(2)} KB`);
+          break;
+        }
+
+        chunkCount++;
+        totalBytes += value.length;
+
+        // 每秒最多打印一次进度
+        const now = Date.now();
+        if (now - lastLogTime > 1000) {
+          console.log(`  接收中... 数据块: ${chunkCount}, 已接收: ${(totalBytes / 1024).toFixed(2)} KB`);
+          lastLogTime = now;
+        }
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
@@ -353,31 +371,71 @@ async function callOpenAIImageAPI(
               const jsonStr = line.slice(6);
               const data = JSON.parse(jsonStr);
 
-              // 提取 delta.content 中的图片
-              const content = data.choices?.[0]?.delta?.content;
-              if (content) {
-                // 匹配 markdown 格式的 base64 图片: ![image](data:image/png;base64,...)
-                const imageRegex = /!\[.*?\]\(data:image\/[^;]+;base64,([^)]+)\)/g;
+              // 提取 delta.content 中的图片（支持多个 choices）
+              const choices = data.choices || [];
+              for (const choice of choices) {
+                const content = choice?.delta?.content;
+                if (!content) continue;
+
+                // 方式 1: 匹配 base64 格式: ![image](data:image/png;base64,...)
+                const base64Regex = /!\[.*?\]\(data:image\/[^;]+;base64,([^)]+)\)/g;
                 let match;
-                
-                while ((match = imageRegex.exec(content)) !== null) {
+
+                while ((match = base64Regex.exec(content)) !== null) {
                   const base64Data = match[1];
                   if (base64Data) {
                     images.push(base64Data);
+                    console.log(`✓ 提取到图片 #${images.length} (choice ${choice.index})，大小: ${(base64Data.length / 1024).toFixed(2)} KB (base64)`);
+                  }
+                }
+
+                // 方式 2: 匹配 URL 格式: ![image](https://...)
+                const urlRegex = /!\[.*?\]\((https?:\/\/[^)]+)\)/g;
+                while ((match = urlRegex.exec(content)) !== null) {
+                  const imageUrl = match[1];
+                  if (imageUrl && !imageUrl.startsWith('data:')) {
+                    // 标记为 URL，稍后下载
+                    images.push(`URL:${imageUrl}`);
+                    console.log(`✓ 提取到图片 URL #${images.length} (choice ${choice.index}): ${imageUrl.substring(0, 80)}...`);
                   }
                 }
               }
             } catch (parseError) {
               console.error("解析 SSE 数据失败:", parseError);
+              console.error("问题行:", line.substring(0, 200));
             }
           }
         }
       }
+    } catch (streamError) {
+      console.error('\n========== 流式响应读取错误 ==========');
+      console.error('错误类型:', streamError instanceof Error ? streamError.name : typeof streamError);
+      console.error('错误消息:', streamError instanceof Error ? streamError.message : String(streamError));
+      console.error('已接收数据块:', chunkCount);
+      console.error('已接收字节:', totalBytes);
+      console.error('已提取图片:', images.length);
+      if (streamError instanceof Error && streamError.stack) {
+        console.error('错误堆栈:', streamError.stack);
+      }
+      console.error('======================================\n');
+
+      return {
+        success: false,
+        images: [],
+        error: `流式响应读取失败: ${streamError instanceof Error ? streamError.message : '未知错误'}`,
+      };
     } finally {
       reader.releaseLock();
     }
 
+    console.log('======================================\n');
+
     if (images.length === 0) {
+      console.error('\n⚠️ 未从响应中提取到图片数据');
+      console.error(`接收到的数据块数: ${chunkCount}`);
+      console.error(`接收到的总字节数: ${totalBytes}`);
+      console.error(`最后的 buffer 内容 (前 500 字符):`, buffer.substring(0, 500));
+
       return {
         success: false,
         images: [],
@@ -385,10 +443,52 @@ async function callOpenAIImageAPI(
       };
     }
 
+    // 处理 URL 格式的图片：下载并转换为 base64
+    console.log('\n========== 处理图片数据 ==========');
+    const processedImages: string[] = [];
+
+    for (let i = 0; i < images.length; i++) {
+      const imageData = images[i];
+
+      if (imageData.startsWith('URL:')) {
+        // URL 格式，需要下载
+        const imageUrl = imageData.substring(4); // 移除 "URL:" 前缀
+        console.log(`下载图片 #${i + 1}: ${imageUrl.substring(0, 80)}...`);
+
+        try {
+          const response = await fetch(imageUrl);
+          if (!response.ok) {
+            throw new Error(`下载失败: ${response.status} ${response.statusText}`);
+          }
+
+          const arrayBuffer = await response.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          const base64 = buffer.toString('base64');
+
+          processedImages.push(base64);
+          console.log(`✓ 图片 #${i + 1} 下载成功，大小: ${(buffer.length / 1024).toFixed(2)} KB`);
+        } catch (downloadError) {
+          console.error(`✗ 图片 #${i + 1} 下载失败:`, downloadError);
+          return {
+            success: false,
+            images: [],
+            error: `下载图片失败: ${downloadError instanceof Error ? downloadError.message : '未知错误'}`,
+          };
+        }
+      } else {
+        // 已经是 base64 格式
+        processedImages.push(imageData);
+        console.log(`✓ 图片 #${i + 1} 已是 base64 格式，大小: ${(imageData.length / 1024).toFixed(2)} KB`);
+      }
+    }
+
+    console.log(`✓ 所有图片处理完成，共 ${processedImages.length} 张`);
+    console.log('==================================\n');
+
     return {
       success: true,
-      images,
-      info: `成功生成 ${images.length} 张图片`,
+      images: processedImages,
+      info: `成功生成 ${processedImages.length} 张图片`,
     };
   } catch (error) {
     console.error("OpenAI/Gemini API error:", error);
@@ -415,14 +515,131 @@ async function callComfyUIAPI(
 
 /**
  * 生成角色三视图（专用函数）
- * 
+ *
  * @param characterDescription 角色描述
  * @param providerType Provider 类型（默认 "image_generation"）
+ * @param referenceImageUrl 参考图 URL（可选）
  * @returns 包含 front, side, back 三张图片的 base64
+ */
+/**
+ * 生成角色视图（支持生成部分或全部视图）
+ * @param characterDescription 角色描述
+ * @param providerType 提供商类型
+ * @param referenceImageUrl 参考图URL（可选）
+ * @param viewTypes 要生成的视图类型数组，默认生成全部三个视图
+ * @returns 生成的视图图片（base64）和对应的提示词
+ */
+export async function generateCharacterViews(
+  characterDescription: string,
+  providerType: string = "image_generation",
+  referenceImageUrl?: string,
+  viewTypes: string[] = ['front', 'side', 'back']
+): Promise<{
+  views: Record<string, string>;
+  prompts: Record<string, string>;
+}> {
+  // 验证 viewTypes
+  const validViewTypes = ['front', 'side', 'back'];
+  const requestedViews = viewTypes.filter(v => validViewTypes.includes(v));
+
+  if (requestedViews.length === 0) {
+    throw new Error('至少需要指定一个有效的视图类型: front, side, back');
+  }
+
+  // 构建三视图提示词 - 根据是否有参考图采用不同策略
+  let basePrompt: string;
+  let negativePrompt: string;
+  const allPrompts: Record<string, string> = {};
+
+  if (referenceImageUrl) {
+    // 【有参考图模式】提示词极简，强调严格遵循参考图
+    console.log('\n========== 视图生成策略：参考图模式 ==========');
+    console.log(`参考图: ${referenceImageUrl}`);
+    console.log(`要生成的视图: ${requestedViews.join(', ')}`);
+    console.log(`策略: 极简提示词，强调保持角色一致性`);
+    console.log('==============================================\n');
+
+    // 核心指令：必须与参考图一致
+    const coreInstruction = [
+      `IMPORTANT: You must draw the EXACT SAME character shown in the reference image.`,
+      `Keep everything identical: face, facial features, body type, proportions, art style, colors, hair, eyes.`,
+      `Character turnaround sheet, T-pose standing, full body, clean white background.`,
+      `Do NOT change the character's appearance, face, or style.`
+    ].join(" ");
+
+    allPrompts.front = `${coreInstruction} Front view, facing forward, straight ahead, centered, symmetrical.`;
+    allPrompts.side = `${coreInstruction} Side view, 90 degree profile, lateral view.`;
+    allPrompts.back = `${coreInstruction} Back view, rear view, from behind.`;
+
+    // 负面提示词：防止偏离参考图
+    negativePrompt = `different character, altered face, changed facial features, different body type, different art style, modified proportions, different person, multiple characters, inconsistent style, different poses, sitting, action pose, blurry, low quality, bad anatomy, cropped, background elements, text, watermark`;
+  } else {
+    // 【无参考图模式】需要详细描述
+    console.log('\n========== 视图生成策略：纯文本模式 ==========');
+    console.log(`角色描述: ${characterDescription}`);
+    console.log(`要生成的视图: ${requestedViews.join(', ')}`);
+    console.log(`策略: 详细提示词，包含画质和风格描述`);
+    console.log('==============================================\n');
+
+    basePrompt = `${characterDescription}, character turnaround reference sheet, T-pose standing, full body, clean white background, professional character design, anime style, consistent detailed appearance, sharp focus, high quality illustration, character model sheet, reference design`;
+
+    allPrompts.front = `${basePrompt}, front view, facing forward, straight ahead, centered composition, symmetrical`;
+    allPrompts.side = `${basePrompt}, side view, 90 degree profile, side angle, lateral view, side perspective`;
+    allPrompts.back = `${basePrompt}, back view, rear view, from behind, backside, posterior view`;
+
+    negativePrompt = `blurry, low quality, distorted, deformed, ugly, bad anatomy, multiple characters, inconsistent style, cropped, background elements, scenery, text, watermark, signature, logo, different poses, sitting, action pose`;
+  }
+
+  // 打印要生成的提示词
+  console.log('\n========== 视图提示词 ==========');
+  requestedViews.forEach(viewType => {
+    console.log(`【${viewType === 'front' ? '正面' : viewType === 'side' ? '侧面' : '背面'}】`);
+    console.log(allPrompts[viewType]);
+    console.log('');
+  });
+  console.log('【负面提示词】');
+  console.log(negativePrompt);
+  console.log('==================================\n');
+
+  // 并行生成请求的视图
+  const generationPromises = requestedViews.map(viewType =>
+    callImageGenerationByType({
+      providerType,
+      prompt: allPrompts[viewType],
+      negative_prompt: negativePrompt,
+      width: 512,
+      height: 768, // 3:4 比例，适合全身人物
+      steps: 25,
+      cfg_scale: 7.5,
+      referenceImageUrl,
+    }).then(result => ({ viewType, result }))
+  );
+
+  const results = await Promise.all(generationPromises);
+
+  // 处理结果
+  const views: Record<string, string> = {};
+  const prompts: Record<string, string> = {};
+
+  for (const { viewType, result } of results) {
+    if (!result.success || !result.images || result.images.length === 0) {
+      throw new Error(`${viewType} 视图生成失败: ${result.error || '未从响应中提取到图片数据'}`);
+    }
+    views[viewType] = result.images[0];
+    prompts[viewType] = allPrompts[viewType];
+  }
+
+  return { views, prompts };
+}
+
+/**
+ * 生成三视图（保持向后兼容）
+ * @deprecated 建议使用 generateCharacterViews 以获得更灵活的控制
  */
 export async function generateThreeViews(
   characterDescription: string,
-  providerType: string = "image_generation"
+  providerType: string = "image_generation",
+  referenceImageUrl?: string
 ): Promise<{
   front: string;
   side: string;
@@ -433,62 +650,24 @@ export async function generateThreeViews(
     back: string;
   };
 }> {
-  // 构建三视图提示词 - 参考专业角色设计规范
-  const basePrompt = `${characterDescription}, character turnaround reference sheet, T-pose standing, full body, clean white background, professional character design, anime style, consistent detailed appearance, sharp focus, high quality illustration, character model sheet, reference design`;
+  // 调用新的灵活函数，生成全部三个视图
+  const result = await generateCharacterViews(
+    characterDescription,
+    providerType,
+    referenceImageUrl,
+    ['front', 'side', 'back']
+  );
 
-  const negativePrompt = `blurry, low quality, distorted, deformed, ugly, bad anatomy, multiple characters, inconsistent style, cropped, background elements, scenery, text, watermark, signature, logo, different poses, sitting, action pose`;
-
-  const prompts = {
-    front: `${basePrompt}, front view, facing forward, straight ahead, centered composition, symmetrical`,
-    side: `${basePrompt}, side view, 90 degree profile, side angle, lateral view, side perspective`,
-    back: `${basePrompt}, back view, rear view, from behind, backside, posterior view`,
-  };
-
-  // 生成三张图片
-  const results = await Promise.all([
-    callImageGenerationByType({
-      providerType,
-      prompt: prompts.front,
-      negative_prompt: negativePrompt,
-      width: 512,
-      height: 768, // 3:4 比例，适合全身人物
-      steps: 25,
-      cfg_scale: 7.5,
-    }),
-    callImageGenerationByType({
-      providerType,
-      prompt: prompts.side,
-      negative_prompt: negativePrompt,
-      width: 512,
-      height: 768,
-      steps: 25,
-      cfg_scale: 7.5,
-    }),
-    callImageGenerationByType({
-      providerType,
-      prompt: prompts.back,
-      negative_prompt: negativePrompt,
-      width: 512,
-      height: 768,
-      steps: 25,
-      cfg_scale: 7.5,
-    }),
-  ]);
-
-  // 检查是否所有生成都成功
-  for (let i = 0; i < results.length; i++) {
-    if (!results[i].success || results[i].images.length === 0) {
-      throw new Error(
-        `三视图生成失败（${["正面", "侧面", "背面"][i]}）: ${results[i].error || "未知错误"}`
-      );
-    }
-  }
-
+  // 转换返回格式以保持向后兼容
   return {
-    front: results[0].images[0],
-    side: results[1].images[0],
-    back: results[2].images[0],
-    prompts,
+    front: result.views.front,
+    side: result.views.side,
+    back: result.views.back,
+    prompts: {
+      front: result.prompts.front,
+      side: result.prompts.side,
+      back: result.prompts.back,
+    },
   };
 }
 
@@ -498,27 +677,69 @@ export async function generateThreeViews(
  * @returns base64 格式的图片数据（包含 data:image/...;base64, 前缀）
  */
 async function urlToBase64(imageUrl: string): Promise<string> {
+  const MAX_IMAGE_SIZE_MB = 3; // 最大 3MB
+  const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
+
   try {
-    console.log(`下载参考图: ${imageUrl}`);
+    console.log(`\n========== 下载参考图 ==========`);
+    console.log(`URL: ${imageUrl}`);
+
     const response = await fetch(imageUrl);
-    
+
     if (!response.ok) {
       throw new Error(`下载参考图失败: ${response.status} ${response.statusText}`);
     }
 
+    // 检查 Content-Length（如果服务器提供）
+    const contentLength = response.headers.get('content-length');
+    if (contentLength) {
+      const sizeBytes = parseInt(contentLength, 10);
+      const sizeMB = sizeBytes / (1024 * 1024);
+      console.log(`Content-Length: ${(sizeBytes / 1024).toFixed(2)} KB (${sizeMB.toFixed(2)} MB)`);
+
+      if (sizeBytes > MAX_IMAGE_SIZE_BYTES) {
+        throw new Error(
+          `参考图过大 (${sizeMB.toFixed(2)} MB)，超过限制 ${MAX_IMAGE_SIZE_MB} MB。` +
+          `大图片会导致请求超时或被服务器拒绝。请使用较小的图片或压缩后再使用。`
+        );
+      }
+    }
+
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+    const sizeMB = buffer.length / (1024 * 1024);
+
+    console.log(`下载完成，实际大小: ${(buffer.length / 1024).toFixed(2)} KB (${sizeMB.toFixed(2)} MB)`);
+
+    // 再次检查实际大小
+    if (buffer.length > MAX_IMAGE_SIZE_BYTES) {
+      throw new Error(
+        `参考图过大 (${sizeMB.toFixed(2)} MB)，超过限制 ${MAX_IMAGE_SIZE_MB} MB。` +
+        `大图片会导致请求超时或被服务器拒绝。请使用较小的图片或压缩后再使用。`
+      );
+    }
+
+    // 警告：接近限制
+    if (buffer.length > MAX_IMAGE_SIZE_BYTES * 0.8) {
+      console.warn(`⚠️ 警告: 参考图较大 (${sizeMB.toFixed(2)} MB)，接近 ${MAX_IMAGE_SIZE_MB} MB 限制，可能导致请求缓慢或失败`);
+    }
+
     const base64 = buffer.toString('base64');
-    
+
     // 从 URL 或 Content-Type 推断图片类型
     const contentType = response.headers.get('content-type') || 'image/png';
     const dataUrl = `data:${contentType};base64,${base64}`;
-    
-    console.log(`参考图下载成功，大小: ${(buffer.length / 1024).toFixed(2)} KB`);
+
+    console.log(`✓ 参考图转换成功，base64 大小: ${(dataUrl.length / 1024).toFixed(2)} KB`);
+    console.log('================================\n');
+
     return dataUrl;
   } catch (error) {
-    console.error('下载参考图失败:', error);
-    throw new Error(`无法下载参考图 ${imageUrl}: ${error instanceof Error ? error.message : '未知错误'}`);
+    console.error('\n========== 参考图下载失败 ==========');
+    console.error('URL:', imageUrl);
+    console.error('错误:', error instanceof Error ? error.message : String(error));
+    console.error('====================================\n');
+    throw new Error(`无法下载参考图: ${error instanceof Error ? error.message : '未知错误'}`);
   }
 }
 
