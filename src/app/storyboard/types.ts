@@ -60,3 +60,47 @@ export type StyleOption = {
   name_en: string;
   description?: string | null;
 };
+
+// 组件 Props 类型
+export type UsageBadgeProps = {
+  label: string;
+  item?: { remaining: number | null; limit: number | null; count: number };
+  loading: boolean;
+};
+
+export type GenerationStrategyProps = {
+  characters: CharacterOption[];
+  styles: StyleOption[];
+  defaultCharacterId: string | undefined;
+  defaultStyleKey: string | undefined;
+  softMode: boolean;
+  promptErrors: Record<string, string>;
+};
+
+export type GenerationSettingsProps = {
+  characters: CharacterOption[];
+  styles: StyleOption[];
+  defaultCharacterId: string | undefined;
+  defaultStyleKey: string | undefined;
+  softMode: boolean;
+  onCharacterChange: (id: string | undefined) => void;
+  onStyleChange: (key: string | undefined) => void;
+  onSoftModeChange: (enabled: boolean) => void;
+};
+
+export type UseStoryboardGenerationOptions = {
+  project: ApiProject;
+  onPanelsUpdate: (updatedPanels: ApiPanel[]) => void;
+  onGenerationStart: () => void;
+  onGenerationEnd: () => void;
+  onError: (message: string) => void;
+};
+
+export type UseImageGenerationOptions = {
+  panelId: string;
+  prompt: string;
+  onSuccess: (imageUrl: string) => void;
+  onError: (error: string) => void;
+};
+
+

@@ -17,35 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
-type User = {
-  id: number;
-  email: string;
-  name: string | null;
-  role: "user" | "admin";
-  status: "active" | "banned";
-  verified: boolean;
-  created_at?: string;
-  updated_at?: string;
-};
-
-type UserForm = {
-  email: string;
-  password: string;
-  name: string;
-  role: "user" | "admin";
-  status: "active" | "banned";
-  verified: boolean;
-};
-
-const emptyForm: UserForm = {
-  email: "",
-  password: "",
-  name: "",
-  role: "user",
-  status: "active",
-  verified: true,
-};
+import { User, UserForm, emptyForm } from "./types";
 
 const AdminUsersPage = () => {
   const { data: currentUser, isLoading: userLoading, error: userError } = useCurrentUser();

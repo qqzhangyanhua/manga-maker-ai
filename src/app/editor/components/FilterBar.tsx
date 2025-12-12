@@ -1,24 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-type FilterBarProps = {
-  projectId: string;
-  taskId: string;
-  page: number;
-  totalPages: number;
-  total: number;
-  pageSize: number;
-  listLoading: boolean;
-  onProjectIdChange: (value: string) => void;
-  onTaskIdChange: (value: string) => void;
-  onApply: () => void;
-  onReset: () => void;
-  onRefresh: () => void;
-  onPrevPage: () => void;
-  onNextPage: () => void;
-  onPageSizeChange: (value: string) => void;
-};
+import { FilterBarProps } from "../types";
 
 export const FilterBar = ({
   projectId,

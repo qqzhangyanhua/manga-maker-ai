@@ -29,16 +29,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-
-interface Story {
-    id: string;
-    title: string;
-    genre: string;
-    premise: string;
-    status: string;
-    created_at: string;
-    updated_at: string;
-}
+import { Story } from "./[id]/types/script-editor.types";
 
 export default function ScriptsPage() {
     const router = useRouter();

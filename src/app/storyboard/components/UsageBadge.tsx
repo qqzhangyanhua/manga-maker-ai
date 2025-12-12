@@ -1,8 +1,4 @@
-type UsageBadgeProps = {
-  label: string;
-  item?: { remaining: number | null; limit: number | null; count: number };
-  loading: boolean;
-};
+import { UsageBadgeProps } from "../types";
 
 export const UsageBadge = ({ label, item, loading }: UsageBadgeProps) => {
   const remaining = item?.remaining ?? null;

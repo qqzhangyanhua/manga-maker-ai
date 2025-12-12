@@ -1,13 +1,4 @@
-import { CharacterOption, StyleOption } from "../types";
-
-type GenerationStrategyProps = {
-  characters: CharacterOption[];
-  styles: StyleOption[];
-  defaultCharacterId: string | undefined;
-  defaultStyleKey: string | undefined;
-  softMode: boolean;
-  promptErrors: Record<string, string>;
-};
+import { CharacterOption, StyleOption, GenerationStrategyProps } from "../types";
 
 export const GenerationStrategy = ({
   characters,

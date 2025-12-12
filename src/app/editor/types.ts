@@ -1,18 +1,36 @@
-import { CanvasSchema } from "@/components/ImageEditor/CanvasWorkspace";
-import { EditorVersion } from "@/components/ImageEditor/VersionTimeline";
+/**
+ * 编辑器相关类型定义
+ */
 
-export type ApiVersion = {
-  id: string;
-  label: string;
-  source_type: string;
-  status: string;
-  image_url?: string | null;
-  task_id?: string | null;
-  project_id?: string | null;
-  metadata?: Record<string, unknown> | null;
-  canvas_schema?: CanvasSchema | null;
-  created_at: string;
-  updated_at: string;
+import { EditorVersion } from "@/components/ImageEditor/VersionTimeline";
+import { CanvasController, CanvasSchema } from "@/components/ImageEditor/CanvasWorkspace";
+
+export type UseImageOptimizerOptions = {
+  currentImage: string | null;
+  activeVersion: string | null;
+  canvasController: React.MutableRefObject<CanvasController | null>;
+  onVersionsUpdate: (updater: (prev: EditorVersion[]) => EditorVersion[]) => void;
+  onActiveVersionChange: (id: string) => void;
+  onLoadingVersionChange: (id: string | null) => void;
+  updateVersionRecord: (id: string, payload: Record<string, unknown>) => Promise<EditorVersion>;
+};
+
+export type FilterBarProps = {
+  projectId: string;
+  taskId: string;
+  page: number;
+  totalPages: number;
+  total: number;
+  pageSize: number;
+  listLoading: boolean;
+  onProjectIdChange: (value: string) => void;
+  onTaskIdChange: (value: string) => void;
+  onApply: () => void;
+  onReset: () => void;
+  onRefresh: () => void;
+  onPrevPage: () => void;
+  onNextPage: () => void;
+  onPageSizeChange: (value: string) => void;
 };
 
 export type VersionFilters = {
@@ -20,23 +38,34 @@ export type VersionFilters = {
   taskId: string;
 };
 
-export const DEFAULT_PLACEHOLDER = "/assets/style-manga.jpg";
+export interface ApiVersion {
+  id: string;
+  pageId: string;
+  status: string;
+  imageUrl: string;
+  canvasSchema: Record<string, unknown> | null;
+  prompt: string | null;
+  strength: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
-export const normalizeVersion = (input: ApiVersion): EditorVersion => {
-  const sourceType = ["original", "optimize", "layout", "upload"].includes(input.source_type)
-    ? (input.source_type as EditorVersion["sourceType"])
-    : "upload";
-  const status = ["pending", "completed", "failed"].includes(input.status)
-    ? (input.status as EditorVersion["status"])
-    : "pending";
+export function normalizeVersion(apiVersion: ApiVersion): EditorVersion {
+  // Map API status to EditorVersion status
+  let status: "pending" | "completed" | "failed" = "pending";
+  if (apiVersion.status === "completed") {
+    status = "completed";
+  } else if (apiVersion.status === "failed") {
+    status = "failed";
+  }
+
   return {
-    id: input.id,
-    label: input.label,
-    sourceType,
+    id: apiVersion.id,
+    label: apiVersion.prompt || "版本",
+    sourceType: "optimize",
     status,
-    thumbnail: input.image_url || DEFAULT_PLACEHOLDER,
-    createdAt: new Date(input.created_at ?? Date.now()),
-    taskId: input.task_id,
-    canvasSchema: input.canvas_schema ?? null,
+    thumbnail: apiVersion.imageUrl,
+    canvasSchema: apiVersion.canvasSchema as CanvasSchema | null,
+    createdAt: new Date(apiVersion.createdAt),
   };
-};
+}

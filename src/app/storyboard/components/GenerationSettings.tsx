@@ -1,17 +1,6 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { CharacterOption, StyleOption } from "../types";
-
-type GenerationSettingsProps = {
-  characters: CharacterOption[];
-  styles: StyleOption[];
-  defaultCharacterId: string | undefined;
-  defaultStyleKey: string | undefined;
-  softMode: boolean;
-  onCharacterChange: (id: string | undefined) => void;
-  onStyleChange: (key: string | undefined) => void;
-  onSoftModeChange: (enabled: boolean) => void;
-};
+import { CharacterOption, StyleOption, GenerationSettingsProps } from "../types";
 
 const NO_SELECTION_VALUE = "__none__";
 

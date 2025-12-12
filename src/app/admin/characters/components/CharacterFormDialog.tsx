@@ -11,17 +11,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Character, CharacterFormData } from "../types";
-
-type CharacterFormDialogProps = {
-  open: boolean;
-  editing: Character | null;
-  form: CharacterFormData;
-  submitting: boolean;
-  onOpenChange: (open: boolean) => void;
-  onFormChange: (form: CharacterFormData) => void;
-  onSubmit: () => void;
-};
+import { Character, CharacterFormData, CharacterFormDialogProps } from "../types";
 
 export const CharacterFormDialog = ({
   open,

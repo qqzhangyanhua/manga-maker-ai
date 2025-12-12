@@ -6,19 +6,7 @@ import HeroSection from "@/components/HeroSection";
 import StyleCard from "@/components/StyleCard";
 import CharacterCard from "@/components/CharacterCard";
 import GeneratorSection from "@/components/GeneratorSection";
-
-interface ComicStyle {
-  id: string;
-  style_key: string;
-  name_zh: string;
-  name_en: string;
-  image_url: string;
-  tag_color: string;
-  description: string | null;
-  sort_order: number;
-  enabled: boolean;
-  usage_count: number;
-}
+import { ComicStyle } from "./admin/comic-styles/types";
 
 const characters = [
   {

@@ -24,6 +24,7 @@ export interface Story {
   status: string;
   outline: Record<string, unknown>;
   characters: StoryCharacter[];
+  created_at: string;
   updated_at: string;
   _syncing?: boolean; // 乐观更新同步标记
 }

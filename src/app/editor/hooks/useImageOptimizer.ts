@@ -3,6 +3,7 @@ import { useToast } from "@/hooks/use-toast";
 import { EditorVersion } from "@/components/ImageEditor/VersionTimeline";
 import { CanvasController } from "@/components/ImageEditor/CanvasWorkspace";
 import { ApiVersion, normalizeVersion } from "../types";
+import { UseImageOptimizerOptions } from "../types";
 
 const pollTaskStatus = async (taskId: string, attempt = 0): Promise<{ imageUrl?: string }> => {
   if (attempt > 60) {
@@ -27,16 +28,6 @@ const pollTaskStatus = async (taskId: string, attempt = 0): Promise<{ imageUrl?:
   }
 
   return pollTaskStatus(taskId, attempt + 1);
-};
-
-type UseImageOptimizerOptions = {
-  currentImage: string | null;
-  activeVersion: string | null;
-  canvasController: React.MutableRefObject<CanvasController | null>;
-  onVersionsUpdate: (updater: (prev: EditorVersion[]) => EditorVersion[]) => void;
-  onActiveVersionChange: (id: string) => void;
-  onLoadingVersionChange: (id: string | null) => void;
-  updateVersionRecord: (id: string, payload: Record<string, unknown>) => Promise<EditorVersion>;
 };
 
 export const useImageOptimizer = ({

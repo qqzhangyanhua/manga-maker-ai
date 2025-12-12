@@ -8,34 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-
-type UsageStat = {
-  id: number;
-  user_id: string;
-  action: string;
-  provider_type: string | null;
-  date: string;
-  count: number;
-  last_used_at: string;
-};
-
-type GenerationLog = {
-  id: string;
-  user_id: string;
-  project_id: string | null;
-  action: string;
-  provider_type: string | null;
-  status: string;
-  duration_ms: number | null;
-  created_at: string;
-  error_message: string | null;
-};
-
-const actionLabels: Record<string, string> = {
-  storyboard_generation: "分镜生成",
-  image_generation: "图像生成",
-  llm_chat: "聊天/LLM",
-};
+import { UsageStat, GenerationLog, actionLabels } from "./types";
 
 const AdminUsagePage = () => {
   const [userId, setUserId] = useState("");

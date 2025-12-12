@@ -58,3 +58,41 @@ export const statusLabel: Record<Character["training_status"], string> = {
   ready: "可用",
   failed: "失败",
 };
+
+// 组件 Props 类型
+export type CharacterFormDialogProps = {
+  open: boolean;
+  editing: Character | null;
+  form: CharacterFormData;
+  submitting: boolean;
+  onOpenChange: (open: boolean) => void;
+  onFormChange: (form: CharacterFormData) => void;
+  onSubmit: () => void;
+};
+
+export type DeleteConfirmDialogProps = {
+  character: Character | null;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+};
+
+export type CharacterTableProps = {
+  characters: Character[];
+  loading: boolean;
+  onEdit: (character: Character) => void;
+  onDelete: (character: Character) => void;
+};
+
+export type CharacterFilterBarProps = {
+  filters: Filters;
+  onFiltersChange: (filters: Filters) => void;
+  onApply: () => void;
+  onReset: () => void;
+};
+
+export type PaginationControlsProps = {
+  page: number;
+  totalPages: number;
+  onPrevPage: () => void;
+  onNextPage: () => void;
+};

@@ -8,13 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Character } from "../types";
-
-type DeleteConfirmDialogProps = {
-  character: Character | null;
-  onOpenChange: (open: boolean) => void;
-  onConfirm: () => void;
-};
+import { DeleteConfirmDialogProps } from "../types";
 
 export const DeleteConfirmDialog = ({
   character,
