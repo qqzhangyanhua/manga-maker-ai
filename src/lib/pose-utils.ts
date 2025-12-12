@@ -1,0 +1,83 @@
+import { PoseData } from "@/components/PoseLab/Mannequin";
+
+/**
+ * 将 PoseData 转换为文本描述
+ * 简单分析关节点位置，生成适合 AI 图像生成的文本提示
+ */
+export function poseToDescription(pose: PoseData): string {
+  const descriptions: string[] = [];
+
+  // 分析手臂姿势
+  const leftArmY = pose.leftWrist[1] - pose.leftShoulder[1];
+  const rightArmY = pose.rightWrist[1] - pose.rightShoulder[1];
+
+  if (leftArmY > 0.3 && rightArmY > 0.3) {
+    descriptions.push("双手举起");
+  } else if (leftArmY > 0.3) {
+    descriptions.push("左手举起");
+  } else if (rightArmY > 0.3) {
+    descriptions.push("右手举起");
+  }
+
+  // 分析手臂前后位置 (Z轴)
+  if (Math.abs(pose.leftWrist[2]) > 0.3 || Math.abs(pose.rightWrist[2]) > 0.3) {
+    descriptions.push("手臂前伸");
+  }
+
+  // 分析腿部姿势
+  const leftLegZ = Math.abs(pose.leftAnkle[2] - pose.leftHip[2]);
+  const rightLegZ = Math.abs(pose.rightAnkle[2] - pose.rightHip[2]);
+  const leftKneeHeight = pose.leftKnee[1];
+  const rightKneeHeight = pose.rightKnee[1];
+
+  if (leftLegZ > 0.3 || rightLegZ > 0.3) {
+    descriptions.push("动态姿势");
+  }
+
+  if (Math.abs(leftKneeHeight - rightKneeHeight) > 0.2) {
+    descriptions.push("不对称站姿");
+  }
+
+  // 分析头部姿势
+  const headTilt = pose.head[2];
+  if (Math.abs(headTilt) > 0.1) {
+    descriptions.push(headTilt > 0 ? "头部向前倾" : "头部向后仰");
+  }
+
+  // 分析身体倾斜
+  const bodyTiltX = pose.chest[0] - pose.hips[0];
+  if (Math.abs(bodyTiltX) > 0.1) {
+    descriptions.push(bodyTiltX > 0 ? "身体向右倾斜" : "身体向左倾斜");
+  }
+
+  // 如果没有明显特征，返回默认描述
+  if (descriptions.length === 0) {
+    return "自然站立姿势";
+  }
+
+  return descriptions.join("，");
+}
+
+/**
+ * 根据预设姿势名称返回更精确的描述
+ */
+export function getPresetPoseDescription(presetName: string): string {
+  const presetDescriptions: Record<string, string> = {
+    "站立": "自然站立姿势，双手放在身体两侧",
+    "战斗姿态": "战斗准备姿态，双手抬起呈防御或攻击姿势，身体微微前倾，充满力量感",
+    "奔跑": "奔跑动作，双臂前后摆动，一腿在前一腿在后，充满动感",
+    "思考": "思考姿势，一只手托着下巴或放在头部附近，身体略微前倾",
+  };
+
+  return presetDescriptions[presetName] || poseToDescription({} as PoseData);
+}
+
+/**
+ * 将姿势描述整合到角色生成提示词中
+ */
+export function buildPosePrompt(
+  characterDescription: string,
+  poseDescription: string
+): string {
+  return `${characterDescription}, ${poseDescription}, full body shot, dynamic pose, detailed`;
+}

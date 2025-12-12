@@ -25,7 +25,8 @@
       "Bash(npx prisma migrate:*)",
       "Bash(npx prisma:*)",
       "Bash(timeout 10 pnpm dev:*)",
-      "Bash(pnpm tsc:*)"
+      "Bash(pnpm tsc:*)",
+      "Bash(pnpm eslint:*)"
     ],
     "deny": [],
     "ask": []

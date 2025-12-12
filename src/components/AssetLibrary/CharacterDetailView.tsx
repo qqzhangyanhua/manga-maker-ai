@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Sparkles, Plus, Shirt, Smile, RotateCcw, Camera, Copy } from "lucide-react";
+import { ArrowLeft, Sparkles, Plus, Shirt, Smile, RotateCcw, Camera, Copy, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
@@ -9,6 +9,7 @@ import CreateOutfitDialog from "./CreateOutfitDialog";
 import ImageUploadDialog from "./ImageUploadDialog";
 import ImagePreviewCard from "./ImagePreviewCard";
 import GenerateSimilarDialog from "./GenerateSimilarDialog";
+import PoseVariantsView from "./PoseVariantsView";
 import { useUsage } from "@/hooks/use-usage";
 
 interface CharacterAsset {
@@ -835,7 +836,7 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-3 w-full max-w-md">
+        <TabsList className="grid grid-cols-4 w-full max-w-2xl">
           <TabsTrigger value="threeview" className="flex items-center gap-1">
             <Camera className="w-4 h-4" />
             三视图
@@ -847,6 +848,10 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
           <TabsTrigger value="wardrobe" className="flex items-center gap-1">
             <Shirt className="w-4 h-4" />
             服装管理
+          </TabsTrigger>
+          <TabsTrigger value="poses" className="flex items-center gap-1">
+            <User className="w-4 h-4" />
+            姿势变体
           </TabsTrigger>
         </TabsList>
 
@@ -1157,6 +1162,11 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
                 ))}
             </div>
           </div>
+        </TabsContent>
+
+        {/* Pose Variants Tab */}
+        <TabsContent value="poses" className="mt-6">
+          <PoseVariantsView character={character} />
         </TabsContent>
       </Tabs>
       </div>
