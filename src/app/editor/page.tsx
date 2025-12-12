@@ -1,120 +1,65 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Header from "@/components/Header";
 import ActionSidebar from "@/components/ImageEditor/ActionSidebar";
-import CanvasWorkspace, { CanvasController, CanvasSchema } from "@/components/ImageEditor/CanvasWorkspace";
+import CanvasWorkspace, { CanvasController } from "@/components/ImageEditor/CanvasWorkspace";
 import VersionTimeline, { EditorVersion } from "@/components/ImageEditor/VersionTimeline";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Sparkles } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-type ApiVersion = {
-  id: string;
-  label: string;
-  source_type: string;
-  status: string;
-  image_url?: string | null;
-  task_id?: string | null;
-  project_id?: string | null;
-  metadata?: Record<string, any> | null;
-  canvas_schema?: CanvasSchema | null;
-  created_at: string;
-  updated_at: string;
-};
-
-const DEFAULT_PLACEHOLDER = "/assets/style-manga.jpg";
+import { useVersionManager } from "./hooks/useVersionManager";
+import { useImageOptimizer } from "./hooks/useImageOptimizer";
+import { usePagination } from "./hooks/usePagination";
+import { FilterBar } from "./components/FilterBar";
 
 const EditorPage = () => {
   const canvasController = useRef<CanvasController | null>(null);
   const activeVersionRef = useRef<string | null>(null);
   const { toast } = useToast();
-  const [isOptimizing, setIsOptimizing] = useState(false);
+
   const [loadingVersion, setLoadingVersion] = useState<string | null>(null);
-  const [versions, setVersions] = useState<EditorVersion[]>([]);
-  const [activeVersion, setActiveVersion] = useState<string | null>(null);
   const [activeTemplate, setActiveTemplate] = useState<string | null>(null);
   const [historyInfo, setHistoryInfo] = useState({ undo: 0, redo: 0 });
-  const [listLoading, setListLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-  const [total, setTotal] = useState(0);
-  const [filters, setFilters] = useState({ projectId: "", taskId: "" });
-  const [filterInputs, setFilterInputs] = useState(filters);
   const [isSavingLayout, setIsSavingLayout] = useState(false);
-  const [timelineStatusFilter, setTimelineStatusFilter] = useState<"all" | "pending" | "completed" | "failed">("all");
+  const [timelineStatusFilter, setTimelineStatusFilter] = useState<
+    "all" | "pending" | "completed" | "failed"
+  >("all");
   const [timelineSortOrder, setTimelineSortOrder] = useState<"desc" | "asc">("desc");
-  const totalPages = Math.max(1, Math.ceil(total / Math.max(pageSize, 1)));
+
   const canUndo = historyInfo.undo > 0;
   const canRedo = historyInfo.redo > 0;
 
-  const normalizeVersion = useCallback((input: ApiVersion): EditorVersion => {
-    const sourceType = ["original", "optimize", "layout", "upload"].includes(input.source_type)
-      ? (input.source_type as EditorVersion["sourceType"])
-      : "upload";
-    const status = ["pending", "completed", "failed"].includes(input.status)
-      ? (input.status as EditorVersion["status"])
-      : "pending";
-    return {
-      id: input.id,
-      label: input.label,
-      sourceType,
-      status,
-      thumbnail: input.image_url || DEFAULT_PLACEHOLDER,
-      createdAt: new Date(input.created_at ?? Date.now()),
-      taskId: input.task_id,
-      canvasSchema: input.canvas_schema ?? null,
-    };
-  }, []);
+  const {
+    versions,
+    setVersions,
+    activeVersion,
+    setActiveVersion,
+    listLoading,
+    fetchVersions,
+    updateVersionRecord,
+    createVersionRecord,
+  } = useVersionManager();
 
-  const fetchVersions = useCallback(
-    async (pageArg: number, pageSizeArg: number, filterArg: { projectId: string; taskId: string }) => {
-      setListLoading(true);
-      try {
-        const params = new URLSearchParams();
-        params.set("page", String(pageArg));
-        params.set("page_size", String(pageSizeArg));
-        params.set("include_schema", "true");
-        if (filterArg.projectId) params.set("project_id", filterArg.projectId);
-        if (filterArg.taskId) params.set("task_id", filterArg.taskId);
-
-        const res = await fetch(`/api/image/page?${params.toString()}`);
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw new Error(data?.error || "获取版本列表失败");
-        }
-        const mapped: EditorVersion[] = (data.versions || []).map((item: ApiVersion) => normalizeVersion(item));
-        setVersions(mapped);
-        setTotal(data.total ?? 0);
-        setPage(pageArg);
-        setPageSize(data.pageSize ?? pageSizeArg);
-
-        if (mapped.length > 0) {
-          setActiveVersion((prev) => {
-            if (prev && mapped.some((v) => v.id === prev)) {
-              return prev;
-            }
-            return mapped[0].id;
-          });
-        } else {
-          setActiveVersion(null);
-        }
-      } catch (error: any) {
-        console.error("加载版本失败:", error);
-        toast({ title: "加载版本失败", description: error?.message || "请稍后再试", variant: "destructive" });
-      } finally {
-        setListLoading(false);
-      }
-    },
-    [normalizeVersion, toast]
-  );
+  const {
+    page,
+    pageSize,
+    total,
+    totalPages,
+    filterInputs,
+    handleFilterInputChange,
+    handleApplyFilters,
+    handleResetFilters,
+    handlePrevPage,
+    handleNextPage,
+    handlePageSizeChange,
+    handleRefresh: refreshPagination,
+  } = usePagination(1, 20, fetchVersions);
 
   useEffect(() => {
-    fetchVersions(page, pageSize, filters);
-  }, [fetchVersions, page, pageSize, filters]);
+    fetchVersions(page, pageSize, { projectId: "", taskId: "" });
+  }, [fetchVersions, page, pageSize]);
 
   useEffect(() => {
     if (!activeVersion) return;
@@ -133,187 +78,15 @@ const EditorPage = () => {
     return null;
   }, [versions, activeVersion]);
 
-  const pollTaskStatus = useCallback(async (taskId: string, attempt = 0): Promise<{ imageUrl?: string }> => {
-    if (attempt > 60) {
-      throw new Error("AI 优化超时，请稍后重试");
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, Math.min(2000 + attempt * 200, 5000)));
-    const res = await fetch(`/api/image/task-status?task_id=${taskId}`);
-
-    if (!res.ok) {
-      throw new Error("查询任务状态失败");
-    }
-
-    const data = await res.json();
-
-    if (data.status === "completed") {
-      return data;
-    }
-
-    if (data.status === "failed") {
-      throw new Error(data.error || "AI 优化失败");
-    }
-
-    return pollTaskStatus(taskId, attempt + 1);
-  }, []);
-
-  const updateVersionRecord = useCallback(
-    async (id: string, payload: Record<string, any>) => {
-      const res = await fetch(`/api/image/page/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.error || "更新版本失败");
-      }
-      return normalizeVersion(data.version);
-    },
-    [normalizeVersion]
-  );
-
-  const createVersionRecord = useCallback(
-    async (payload: {
-      label: string;
-      sourceType: EditorVersion["sourceType"];
-      imageUrl?: string;
-      status?: EditorVersion["status"];
-      projectId?: string;
-      metadata?: Record<string, any>;
-      taskId?: string;
-      canvasSchema?: CanvasSchema | null;
-    }) => {
-      const res = await fetch("/api/image/page", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          label: payload.label,
-          sourceType: payload.sourceType,
-          imageUrl: payload.imageUrl,
-          status: payload.status ?? "completed",
-          projectId: payload.projectId,
-          metadata: payload.metadata,
-          taskId: payload.taskId,
-          canvasSchema: payload.canvasSchema ?? null,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.error || "创建版本失败");
-      }
-      return normalizeVersion(data.version);
-    },
-    [normalizeVersion]
-  );
-
-  const handleOptimize = async ({ prompt, style, strength }: { prompt: string; style: string; strength: number }) => {
-    if (!currentImage) {
-      toast({ title: "请先选择或上传一张图片", variant: "destructive" });
-      return;
-    }
-
-    const previousActive = activeVersion;
-    let pendingVersionId: string | null = null;
-    let taskId: string | null = null;
-    setIsOptimizing(true);
-
-    try {
-      const currentSchema = canvasController.current?.exportSchema();
-      const response = await fetch("/api/image/optimize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt,
-          style,
-          strength,
-          imageUrl: currentImage,
-          versionId: activeVersion,
-          canvasSchema: currentSchema,
-        }),
-      });
-
-      const result = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(result?.error || "AI 优化请求失败");
-      }
-
-      if (!result.version || !result.taskId) {
-        throw new Error("AI 优化返回数据异常");
-      }
-
-      taskId = result.taskId;
-      const versionFromApi = normalizeVersion(result.version as ApiVersion);
-      pendingVersionId = versionFromApi.id;
-
-      setVersions((prev) => [versionFromApi, ...prev]);
-      setActiveVersion(versionFromApi.id);
-      setLoadingVersion(versionFromApi.id);
-
-      toast({ title: "已提交 AI 优化", description: "可继续拖拽分格，完成后自动更新" });
-
-      const taskResult = await pollTaskStatus(taskId);
-      const optimizedImage = taskResult.imageUrl || currentImage;
-
-      const updatedVersion = await updateVersionRecord(versionFromApi.id, {
-        status: "completed",
-        imageUrl: optimizedImage,
-      }).catch(() => null);
-
-      setVersions((prev) =>
-        prev.map((version) =>
-          version.id === versionFromApi.id
-            ? {
-                ...version,
-                status: "completed",
-                thumbnail: optimizedImage,
-                createdAt: new Date(),
-              }
-            : version
-        )
-      );
-      if (updatedVersion) {
-        setVersions((prev) =>
-          prev.map((version) => (version.id === updatedVersion.id ? updatedVersion : version))
-        );
-      }
-
-      setLoadingVersion(null);
-      await canvasController.current?.setBackgroundImage(optimizedImage);
-      toast({
-        title: "AI 优化完成",
-        description: `效果已更新（强度 ${strength}%）`,
-      });
-    } catch (error: any) {
-      console.error("AI 优化失败:", error);
-      if (pendingVersionId) {
-        let updatedFailedVersion: EditorVersion | null = null;
-        try {
-          updatedFailedVersion = await updateVersionRecord(pendingVersionId, { status: "failed" });
-        } catch {
-          updatedFailedVersion = null;
-        }
-        setVersions((prev) =>
-          prev.map((version) =>
-            version.id === pendingVersionId
-              ? updatedFailedVersion ?? { ...version, status: "failed" }
-              : version
-          )
-        );
-        setActiveVersion(previousActive);
-      }
-      setLoadingVersion((prev) => (prev === pendingVersionId ? null : prev));
-      toast({
-        title: "AI 优化失败",
-        description: error?.message || "请稍后再试",
-        variant: "destructive",
-      });
-    } finally {
-      setIsOptimizing(false);
-    }
-  };
+  const { isOptimizing, handleOptimize } = useImageOptimizer({
+    currentImage,
+    activeVersion,
+    canvasController,
+    onVersionsUpdate: setVersions,
+    onActiveVersionChange: setActiveVersion,
+    onLoadingVersionChange: setLoadingVersion,
+    updateVersionRecord,
+  });
 
   const handleTemplateSelect = (type: "single" | "two-column" | "three-grid") => {
     canvasController.current?.addPanelTemplate(type);
@@ -336,38 +109,8 @@ const EditorPage = () => {
     canvasController.current?.redo();
   };
 
-  const handleFilterInputChange = (field: "projectId" | "taskId", value: string) => {
-    setFilterInputs((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleApplyFilters = () => {
-    setFilters(filterInputs);
-    setPage(1);
-  };
-
-  const handleResetFilters = () => {
-    setFilterInputs({ projectId: "", taskId: "" });
-    setFilters({ projectId: "", taskId: "" });
-    setPage(1);
-  };
-
-  const handlePrevPage = () => {
-    setPage((prev) => Math.max(prev - 1, 1));
-  };
-
-  const handleNextPage = () => {
-    setPage((prev) => (prev < totalPages ? prev + 1 : prev));
-  };
-
-  const handlePageSizeChange = (value: string) => {
-    const size = Number(value);
-    if (!Number.isFinite(size) || size <= 0) return;
-    setPageSize(size);
-    setPage(1);
-  };
-
   const handleRefresh = () => {
-    fetchVersions(page, pageSize, filters);
+    fetchVersions(page, pageSize, { projectId: "", taskId: "" });
   };
 
   const handleSaveLayout = async () => {
@@ -378,14 +121,17 @@ const EditorPage = () => {
     const schema = canvasController.current?.exportSchema();
     setIsSavingLayout(true);
     try {
-      const updated = await updateVersionRecord(activeVersion, { canvasSchema: schema ?? { objects: [] } });
+      const updated = await updateVersionRecord(activeVersion, {
+        canvasSchema: schema ?? { objects: [] },
+      });
       if (updated) {
         setVersions((prev) => prev.map((version) => (version.id === updated.id ? updated : version)));
       }
       toast({ title: "布局已保存", description: "版本记录已更新，可随时回溯" });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("保存布局失败:", error);
-      toast({ title: "保存失败", description: error?.message || "请稍后再试", variant: "destructive" });
+      const message = error instanceof Error ? error.message : "请稍后再试";
+      toast({ title: "保存失败", description: message, variant: "destructive" });
     } finally {
       setIsSavingLayout(false);
     }
@@ -408,9 +154,10 @@ const EditorPage = () => {
         });
         setVersions((prev) => [version, ...prev]);
         setActiveVersion(version.id);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("上传版本失败:", error);
-        toast({ title: "保存版本失败", description: error?.message || "请稍后再试", variant: "destructive" });
+        const message = error instanceof Error ? error.message : "请稍后再试";
+        toast({ title: "保存版本失败", description: message, variant: "destructive" });
       }
     };
     reader.readAsDataURL(file);
@@ -430,9 +177,10 @@ const EditorPage = () => {
       });
       setVersions((prev) => [version, ...prev]);
       setActiveVersion(version.id);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("载入外部图片失败:", error);
-      toast({ title: "加载失败", description: error?.message || "请检查链接或跨域设置", variant: "destructive" });
+      const message = error instanceof Error ? error.message : "请检查链接或跨域设置";
+      toast({ title: "加载失败", description: message, variant: "destructive" });
     }
   };
 
@@ -460,7 +208,9 @@ const EditorPage = () => {
         <div className="max-w-7xl mx-auto space-y-8">
           <section className="rounded-2xl border border-border bg-card/60 backdrop-blur p-6 flex flex-col gap-4 lg:flex-row lg:items-center">
             <div className="flex-1">
-              <p className="text-sm text-muted-foreground uppercase tracking-[0.2em] mb-1">Refine Center</p>
+              <p className="text-sm text-muted-foreground uppercase tracking-[0.2em] mb-1">
+                Refine Center
+              </p>
               <h1 className="text-3xl font-comic text-foreground mb-2">画面精炼工作台</h1>
               <p className="text-muted-foreground">
                 对生成结果不满意？试试 AI 重新润色，或在画布上拖拽分格与对白，快速得到可发布的漫画页面。
@@ -496,70 +246,29 @@ const EditorPage = () => {
             <div className="flex flex-col gap-6">
               <CanvasWorkspace
                 initialImage={currentImage}
-                ref={canvasController as any}
+                ref={canvasController as React.RefObject<CanvasController>}
                 onHistoryChange={setHistoryInfo}
                 onTemplateChange={setActiveTemplate}
               />
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
                 <div className="space-y-4">
-                  <div className="border border-border rounded-xl p-4 bg-card/70 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold text-foreground">过滤与分页</p>
-                      <span className="text-xs text-muted-foreground">更精确地定位版本</span>
-                    </div>
-                    <div className="grid gap-2 md:grid-cols-2">
-                      <Input
-                        placeholder="项目 ID（可选）"
-                        value={filterInputs.projectId}
-                        onChange={(e) => handleFilterInputChange("projectId", e.target.value)}
-                      />
-                      <Input
-                        placeholder="任务 ID（可选）"
-                        value={filterInputs.taskId}
-                        onChange={(e) => handleFilterInputChange("taskId", e.target.value)}
-                      />
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button size="sm" onClick={handleApplyFilters}>
-                        应用筛选
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={handleResetFilters}>
-                        重置
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={handleRefresh} disabled={listLoading}>
-                        {listLoading ? "刷新中..." : "刷新列表"}
-                      </Button>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="text-xs text-muted-foreground">
-                        共 {total} 个版本
-                        {listLoading && <span> · 加载中</span>}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button size="sm" variant="outline" onClick={handlePrevPage} disabled={page <= 1}>
-                          上一页
-                        </Button>
-                        <span className="text-xs text-muted-foreground">
-                          第 {page} / {totalPages} 页
-                        </span>
-                        <Button size="sm" variant="outline" onClick={handleNextPage} disabled={page >= totalPages}>
-                          下一页
-                        </Button>
-                        <Select value={String(pageSize)} onValueChange={handlePageSizeChange}>
-                          <SelectTrigger className="w-[120px]">
-                            <SelectValue placeholder="每页条数" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {[10, 20, 50, 100].map((size) => (
-                              <SelectItem key={size} value={String(size)}>
-                                每页 {size} 条
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
+                  <FilterBar
+                    projectId={filterInputs.projectId}
+                    taskId={filterInputs.taskId}
+                    page={page}
+                    totalPages={totalPages}
+                    total={total}
+                    pageSize={pageSize}
+                    listLoading={listLoading}
+                    onProjectIdChange={(value) => handleFilterInputChange("projectId", value)}
+                    onTaskIdChange={(value) => handleFilterInputChange("taskId", value)}
+                    onApply={handleApplyFilters}
+                    onReset={handleResetFilters}
+                    onRefresh={refreshPagination}
+                    onPrevPage={handlePrevPage}
+                    onNextPage={handleNextPage}
+                    onPageSizeChange={handlePageSizeChange}
+                  />
 
                   <VersionTimeline
                     versions={versions}

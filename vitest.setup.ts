@@ -12,6 +12,6 @@ class ResizeObserverMock {
 }
 
 if (!("ResizeObserver" in globalThis)) {
-  // @ts-expect-error - 注入测试专用的 Mock
+  // 注入测试专用的 Mock
   globalThis.ResizeObserver = ResizeObserverMock;
 }

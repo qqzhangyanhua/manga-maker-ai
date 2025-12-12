@@ -525,13 +525,20 @@ MINIO_BUCKET=manga-assets
 ## Code Style Guidelines
 
 1. **TypeScript Strict Mode**: NO `any` types allowed - all types must be explicitly defined
-   - **WARNING**: Current `tsconfig.json` has `"strict": false` - this should be `true` for new code
+   - **WARNING**: Current `tsconfig.json` has `"strict": false` but you MUST write code as if it were `true`
    - When writing new code, explicitly type all parameters, return values, and variables
    - Use `unknown` instead of `any` when the type is genuinely unknown
+   - This is a critical requirement that overrides the tsconfig setting
 2. **Type Definitions**: Extract types to separate `types.ts` files when they're shared across multiple files
-3. **File Length**: Single files must not exceed 500 lines - split into sub-components or hooks
+3. **File Length**: Single files must not exceed 500 lines
+   - If a file exceeds 500 lines, split into sub-components or extract hooks
+   - This applies to both component files and utility files
 4. **Package Manager**: ALWAYS use `pnpm`, NEVER `npm`
+   - Run `pnpm install <package>` to add dependencies
+   - Never use `npm` commands
 5. **No Emojis**: Use proper icons (from `lucide-react`) instead of emoji characters in UI
+   - Import icons: `import { IconName } from "lucide-react"`
+   - Replace all emoji usage with semantic icons
 
 ## Testing & Validation
 
@@ -594,4 +601,10 @@ This is separate from the main Next.js app and serves as a reference implementat
 ## Migration Notes
 
 Migrated from Vite to Next.js 14 App Router. When refactoring legacy code, follow Next.js conventions (Server Components by default, use `"use client"` only when necessary).
-- example是我的demo 除非我主要要求不然不要读取里面的内容
+
+## Important Exclusions
+
+**DO NOT read or modify files in the `example/` directory unless explicitly requested by the user.**
+- The `example/` directory contains a standalone demo application
+- It is separate from the main Next.js application
+- It serves as reference implementation only

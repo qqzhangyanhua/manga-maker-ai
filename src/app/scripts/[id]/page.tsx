@@ -246,7 +246,7 @@ export default function ScriptDetailsPage() {
               projectId={data?.projectId || null}
               characters={characterAssets}
               charactersLoading={isCharactersLoading}
-              onCharactersRefresh={() => refetchCharacters()}
+              onCharactersRefresh={() => { refetchCharacters(); }}
               onPanelsChange={() => { }}
               onEditPanel={(panel) => uiActions.openEditPanelDialog(panel)}
               onDeletePanel={handleDeletePanel}

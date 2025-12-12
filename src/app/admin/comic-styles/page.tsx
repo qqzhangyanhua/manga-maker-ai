@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -19,140 +19,36 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Palette, Plus, Edit2, Trash2, ChevronUp, ChevronDown, Eye, EyeOff } from "lucide-react";
-
-interface ComicStyle {
-  id: string;
-  style_key: string;
-  name_zh: string;
-  name_en: string;
-  image_url: string;
-  tag_color: string;
-  description: string | null;
-  prompt_prefix: string | null;
-  sort_order: number;
-  enabled: boolean;
-  usage_count: number;
-  created_at: string;
-  updated_at: string;
-}
-
-const PRESET_COLORS = [
-  { name: "粉色", value: "bg-comic-pink text-background" },
-  { name: "红色", value: "bg-comic-red text-foreground" },
-  { name: "蓝色", value: "bg-comic-blue text-background" },
-  { name: "紫色", value: "bg-comic-purple text-foreground" },
-  { name: "绿色", value: "bg-comic-green text-background" },
-  { name: "橙色", value: "bg-comic-orange text-background" },
-  { name: "主题色", value: "bg-primary text-background" },
-];
+import { ComicStyle, PRESET_COLORS } from "./types";
+import { useComicStyleList } from "./hooks/useComicStyleList";
+import { useComicStyleForm } from "./hooks/useComicStyleForm";
 
 const ComicStylesAdminPage = () => {
   const { data: currentUser, isLoading: userLoading } = useCurrentUser();
   const { toast } = useToast();
   const isAdmin = (currentUser?.role || "user") === "admin";
 
-  const [styles, setStyles] = useState<ComicStyle[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingStyle, setEditingStyle] = useState<ComicStyle | null>(null);
-  const [submitting, setSubmitting] = useState(false);
   const [deletingStyle, setDeletingStyle] = useState<ComicStyle | null>(null);
 
-  const [form, setForm] = useState({
-    style_key: "",
-    name_zh: "",
-    name_en: "",
-    image_url: "",
-    tag_color: "bg-primary text-background",
-    description: "",
-    prompt_prefix: "",
-    sort_order: 0,
-    enabled: true,
-  });
+  const { styles, loading, fetchStyles, handleToggleEnabled, handleSortChange } =
+    useComicStyleList();
 
-  const fetchStyles = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("/api/admin/comic-styles");
-      if (!res.ok) throw new Error("获取失败");
-      const data = await res.json();
-      setStyles(data.data || []);
-    } catch (error) {
-      toast({ title: "加载失败", variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
+  const {
+    dialogOpen,
+    setDialogOpen,
+    editingStyle,
+    form,
+    setForm,
+    submitting,
+    handleOpenDialog,
+    handleSubmit,
+  } = useComicStyleForm(styles.length, fetchStyles);
 
   useEffect(() => {
     if (isAdmin) {
       fetchStyles();
     }
   }, [isAdmin, fetchStyles]);
-
-  const handleOpenDialog = (style?: ComicStyle) => {
-    if (style) {
-      setEditingStyle(style);
-      setForm({
-        style_key: style.style_key,
-        name_zh: style.name_zh,
-        name_en: style.name_en,
-        image_url: style.image_url,
-        tag_color: style.tag_color,
-        description: style.description || "",
-        prompt_prefix: style.prompt_prefix || "",
-        sort_order: style.sort_order,
-        enabled: style.enabled,
-      });
-    } else {
-      setEditingStyle(null);
-      setForm({
-        style_key: "",
-        name_zh: "",
-        name_en: "",
-        image_url: "",
-        tag_color: "bg-primary text-background",
-        description: "",
-        prompt_prefix: "",
-        sort_order: styles.length,
-        enabled: true,
-      });
-    }
-    setDialogOpen(true);
-  };
-
-  const handleSubmit = async () => {
-    if (!form.style_key || !form.name_zh || !form.name_en || !form.image_url) {
-      toast({ title: "请填写所有必填项", variant: "destructive" });
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      const url = editingStyle
-        ? `/api/admin/comic-styles/${editingStyle.id}`
-        : "/api/admin/comic-styles";
-
-      const res = await fetch(url, {
-        method: editingStyle ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "操作失败");
-      }
-
-      toast({ title: editingStyle ? "更新成功" : "创建成功" });
-      setDialogOpen(false);
-      fetchStyles();
-    } catch (error: any) {
-      toast({ title: error.message, variant: "destructive" });
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   const handleDelete = (style: ComicStyle) => {
     setDeletingStyle(style);
@@ -174,41 +70,6 @@ const ComicStylesAdminPage = () => {
       toast({ title: "删除失败", variant: "destructive" });
     } finally {
       setDeletingStyle(null);
-    }
-  };
-
-  const handleToggleEnabled = async (style: ComicStyle) => {
-    try {
-      const res = await fetch(`/api/admin/comic-styles/${style.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: !style.enabled }),
-      });
-
-      if (!res.ok) throw new Error("切换失败");
-
-      toast({ title: style.enabled ? "已禁用" : "已启用" });
-      fetchStyles();
-    } catch (error) {
-      toast({ title: "操作失败", variant: "destructive" });
-    }
-  };
-
-  const handleSortChange = async (style: ComicStyle, direction: "up" | "down") => {
-    const newOrder = direction === "up" ? style.sort_order - 1 : style.sort_order + 1;
-
-    try {
-      const res = await fetch(`/api/admin/comic-styles/${style.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sort_order: newOrder }),
-      });
-
-      if (!res.ok) throw new Error("调整失败");
-
-      fetchStyles();
-    } catch (error) {
-      toast({ title: "调整失败", variant: "destructive" });
     }
   };
 
@@ -262,7 +123,9 @@ const ComicStylesAdminPage = () => {
               {styles.map((style, index) => (
                 <tr key={style.id} className="border-t border-border">
                   <td className="px-4 py-3">
-                    <div className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${style.tag_color}`}>
+                    <div
+                      className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${style.tag_color}`}
+                    >
                       {style.name_en}
                     </div>
                   </td>
@@ -293,33 +156,27 @@ const ComicStylesAdminPage = () => {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleToggleEnabled(style)}
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => handleToggleEnabled(style)}>
                       {style.enabled ? (
-                        <><Eye className="w-4 h-4 mr-1" />启用</>
+                        <>
+                          <Eye className="w-4 h-4 mr-1" />
+                          启用
+                        </>
                       ) : (
-                        <><EyeOff className="w-4 h-4 mr-1" />禁用</>
+                        <>
+                          <EyeOff className="w-4 h-4 mr-1" />
+                          禁用
+                        </>
                       )}
                     </Button>
                   </td>
                   <td className="px-4 py-3 text-center">{style.usage_count}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleOpenDialog(style)}
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => handleOpenDialog(style)}>
                         <Edit2 className="w-4 h-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(style)}
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => handleDelete(style)}>
                         <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
                     </div>
@@ -331,7 +188,6 @@ const ComicStylesAdminPage = () => {
         </div>
       )}
 
-      {/* 编辑/新增对话框 */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -471,8 +327,10 @@ const ComicStylesAdminPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deletingStyle} onOpenChange={(open) => !open && setDeletingStyle(null)}>
+      <AlertDialog
+        open={!!deletingStyle}
+        onOpenChange={(open) => !open && setDeletingStyle(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>确认删除风格</AlertDialogTitle>
@@ -488,7 +346,10 @@ const ComicStylesAdminPage = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               删除
             </AlertDialogAction>
           </AlertDialogFooter>
