@@ -11,7 +11,7 @@ const ALLOWED_IMAGE_TYPES = [
 const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
 
 // 最大文件大小：5MB
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 // 验证文件类型
 export function validateImageFile(file: File): { valid: boolean; error?: string } {

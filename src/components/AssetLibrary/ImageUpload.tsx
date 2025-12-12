@@ -20,7 +20,7 @@ const ImageUpload = ({
   onUpload,
   onRemove,
   maxFiles = 5,
-  maxSize = 5,
+  maxSize = 10,
   acceptedTypes = ["image/jpeg", "image/png", "image/webp"],
   uploadedUrls = [],
   disabled = false,
