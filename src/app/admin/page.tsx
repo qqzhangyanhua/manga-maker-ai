@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ShieldCheck, Database, Users, Palette, Sparkles, BarChart3, BookOpen } from "lucide-react";
+import { ShieldCheck, Database, Users, Palette, Sparkles, BarChart3, BookOpen, LayoutTemplate } from "lucide-react";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { Button } from "@/components/ui/button";
 
@@ -101,6 +101,22 @@ const AdminHomePage = () => {
             </p>
           </div>
           <Link href="/admin/story-templates">
+            <Button variant="outline" size="sm">
+              进入
+            </Button>
+          </Link>
+        </div>
+        <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
+              <LayoutTemplate className="w-5 h-5" />
+              分镜模板管理
+            </div>
+            <p className="text-muted-foreground text-sm">
+              管理分镜模板，支持新增、编辑官方模板和用户模板。
+            </p>
+          </div>
+          <Link href="/admin/panel-templates">
             <Button variant="outline" size="sm">
               进入
             </Button>
