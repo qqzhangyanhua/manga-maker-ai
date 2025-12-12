@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, Suspense } from "react";
+import { useRouter } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 import Link from "next/link";
@@ -14,6 +15,8 @@ import {
   BookOpen,
   MessageSquare,
   Edit3,
+  FileText,
+  Lightbulb,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -35,18 +38,23 @@ import { UsageBadge } from "./components/UsageBadge";
 import { GenerationSettings } from "./components/GenerationSettings";
 import { GenerationStrategy } from "./components/GenerationStrategy";
 import { PanelDetails } from "./components/PanelDetails";
+import { PanelStats } from "./components/PanelStats";
 
 const StoryboardEditorPageContent = () => {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("freeform");
-  const [panels, setPanels] = useState<PanelData[]>([]);
+
+  // Single source of truth for project data
+  const [currentProject, setCurrentProject] = useState<ApiProject | null>(null);
+
   const [selectedPanel, setSelectedPanel] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [templateData, setTemplateData] = useState<Record<string, string>>({});
-  const [currentProject, setCurrentProject] = useState<ApiProject | null>(null);
   const [defaultCharacterId, setDefaultCharacterId] = useState<string | undefined>(undefined);
   const [defaultStyleKey, setDefaultStyleKey] = useState<string | undefined>(undefined);
   const [softMode, setSoftMode] = useState(true);
   const [promptErrors, setPromptErrors] = useState<Record<string, string>>({});
+  const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
   const { usage, loading: usageLoading, refresh: refreshUsage } = useUsage();
 
@@ -54,29 +62,108 @@ const StoryboardEditorPageContent = () => {
   const { storyId, initialScript } = useStoryIntegration();
   const { characters, styles } = useMetadata();
 
+  // Derive panels from project (single source of truth)
+  const panels: PanelData[] = currentProject?.panels.map(panel => ({
+    id: panel.id,
+    description: panel.description || "",
+    dialogue: panel.dialogue || "",
+    type: (panel.panel_type || "medium") as "closeup" | "medium" | "wide" | "action" | "dialogue" | "transition",
+    importance: (panel.importance || "medium") as "high" | "medium" | "low",
+    cameraAngle: panel.camera_angle || undefined,
+    shotSize: panel.shot_size || undefined,
+    englishPrompt: panel.prompt_used || undefined,
+    generatedImage: panel.generated_image || undefined,
+  })) ?? [];
+
+  const hasGeneratedPanels = panels.length > 0;
+
+  const handleProjectUpdate = (project: ApiProject | null) => {
+    setCurrentProject(project);
+    if (project) {
+      toast({
+        title: "分镜生成成功",
+        description: `已生成 ${project.panels.length} 个分镜画面`,
+      });
+    }
+  };
+
+  const handlePanelsUpdate = (updatedPanels: PanelData[]) => {
+    if (!currentProject) return;
+
+    // Convert PanelData back to ApiPanel format
+    const apiPanels = updatedPanels.map((panel, index) => {
+      // Find the original panel to preserve fields not in PanelData
+      const originalPanel = currentProject.panels.find(p => p.id === panel.id);
+
+      return {
+        id: panel.id,
+        panel_order: index,
+        description: panel.description,
+        dialogue: panel.dialogue || null,
+        panel_type: panel.type,
+        importance: panel.importance,
+        camera_angle: panel.cameraAngle || null,
+        shot_size: panel.shotSize || null,
+        prompt_used: panel.englishPrompt || null,
+        generated_image: panel.generatedImage || null,
+        character_name: originalPanel?.character_name || null,
+        emotion: originalPanel?.emotion || null,
+        script_segment_id: originalPanel?.script_segment_id || null,
+        script_start: originalPanel?.script_start || null,
+        script_end: originalPanel?.script_end || null,
+        visual_prompt: originalPanel?.visual_prompt || null,
+        created_at: originalPanel?.created_at || new Date().toISOString(),
+      };
+    });
+
+    setCurrentProject({
+      ...currentProject,
+      panels: apiPanels,
+    });
+  };
+
   const { isGenerating, handleGenerate, handleGenerateFromTemplate } = useStoryboardGeneration({
     storyId,
-    onProjectUpdate: setCurrentProject,
-    onPanelsUpdate: setPanels,
+    onProjectUpdate: handleProjectUpdate,
+    onPanelsUpdate: handlePanelsUpdate,
     onRefreshUsage: refreshUsage,
   });
 
-  const { promptErrors: imagePromptErrors, handleGenerateImages } = useImageGeneration({
+  const { promptErrors: imagePromptErrors, handleGenerateImages, handleGenerateSingleImage } = useImageGeneration({
     panels,
     currentProject,
     defaultCharacterId,
     defaultStyleKey,
     softMode,
-    onPanelsUpdate: setPanels,
+    onPanelsUpdate: handlePanelsUpdate,
     onPromptErrorsUpdate: setPromptErrors,
     onRefreshUsage: refreshUsage,
     setSoftMode,
   });
 
+  const [generatingSinglePanel, setGeneratingSinglePanel] = useState<string | null>(null);
+
+  const handleSingleImageGeneration = async (panelId: string) => {
+    setGeneratingSinglePanel(panelId);
+    try {
+      await handleGenerateSingleImage(panelId);
+    } finally {
+      setGeneratingSinglePanel(null);
+    }
+  };
+
   const handleDialogueUpdate = (panelId: string, newDialogue: string) => {
-    setPanels((prev) =>
-      prev.map((panel) => (panel.id === panelId ? { ...panel, dialogue: newDialogue } : panel))
+    if (!currentProject) return;
+
+    const updatedPanels = currentProject.panels.map((panel) =>
+      panel.id === panelId ? { ...panel, dialogue: newDialogue } : panel
     );
+
+    setCurrentProject({
+      ...currentProject,
+      panels: updatedPanels,
+    });
+
     toast({
       title: "对白已更新",
       description: "分镜对白已优化",
@@ -93,6 +180,60 @@ const StoryboardEditorPageContent = () => {
       return;
     }
     await handleGenerateFromTemplate(templateData);
+  };
+
+  const handleExport = async () => {
+    if (!currentProject) {
+      toast({
+        title: "无可导出内容",
+        description: "请先生成分镜",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const response = await fetch(`/api/project/${currentProject.id}/export`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ format: "json" }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "导出失败");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `storyboard-${currentProject.title}-${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "导出成功",
+        description: "分镜剧本已导出为 JSON 文件",
+      });
+    } catch (error) {
+      console.error("Export error:", error);
+      toast({
+        title: "导出失败",
+        description: error instanceof Error ? error.message : "未知错误",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleEnterEditor = () => {
+    if (!currentProject) return;
+    router.push(`/storyboard/editor/${currentProject.id}`);
   };
 
   const selectedPanelData = panels.find((item) => item.id === selectedPanel);
@@ -133,7 +274,7 @@ const StoryboardEditorPageContent = () => {
             onSoftModeChange={setSoftMode}
           />
 
-          {panels.length > 0 && (
+          {hasGeneratedPanels && (
             <GenerationStrategy
               characters={characters}
               styles={styles}
@@ -213,7 +354,7 @@ const StoryboardEditorPageContent = () => {
                 </TabsContent>
               </Tabs>
 
-              {panels.length > 0 && (
+              {hasGeneratedPanels && (
                 <div className="comic-card p-6">
                   <div className="flex items-center gap-2 mb-4">
                     <MessageSquare className="w-5 h-5 text-primary" />
@@ -230,15 +371,9 @@ const StoryboardEditorPageContent = () => {
                   <Grid3X3 className="w-5 h-5 text-primary" />
                   <h2 className="font-comic text-xl text-foreground">智能分镜排版</h2>
                 </div>
-                {panels.length > 0 && currentProject && (
+                {hasGeneratedPanels && currentProject && (
                   <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        (window.location.href = `/storyboard/editor/${currentProject.id}`)
-                      }
-                    >
+                    <Button variant="outline" size="sm" onClick={handleEnterEditor}>
                       <Edit3 className="w-4 h-4" />
                       进入编辑器
                     </Button>
@@ -246,50 +381,81 @@ const StoryboardEditorPageContent = () => {
                       <Sparkles className="w-4 h-4" />
                       生成图像
                     </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleExport}
+                      disabled={isExporting}
+                    >
+                      <Download className="w-4 h-4" />
+                      {isExporting ? "导出中..." : "导出"}
+                    </Button>
                   </div>
                 )}
               </div>
 
-              {panels.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b border-border text-xs">
-                  <span className="text-muted-foreground">自动排版：</span>
-                  <span className="px-2 py-0.5 rounded-full bg-comic-red/20 text-comic-red">
-                    高重要度=大格
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full bg-comic-orange/20 text-comic-orange">
-                    动作=宽格
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full bg-comic-blue/20 text-comic-blue">
-                    特写=竖格
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                    过渡=小格
-                  </span>
+              {hasGeneratedPanels ? (
+                <>
+                  <PanelStats panels={panels} />
+
+                  <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b border-border text-xs">
+                    <span className="text-muted-foreground">自动排版：</span>
+                    <span className="px-2 py-0.5 rounded-full bg-comic-red/20 text-comic-red">
+                      高重要度=大格
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-comic-orange/20 text-comic-orange">
+                      动作=宽格
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-comic-blue/20 text-comic-blue">
+                      特写=竖格
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                      过渡=小格
+                    </span>
+                  </div>
+
+                  <AutoLayoutGrid
+                    panels={panels}
+                    selectedPanel={selectedPanel}
+                    onPanelSelect={setSelectedPanel}
+                  />
+
+                  {selectedPanelData && (
+                    <PanelDetails
+                      panel={selectedPanelData}
+                      onGenerateImage={handleSingleImageGeneration}
+                      isGenerating={generatingSinglePanel === selectedPanelData.id}
+                    />
+                  )}
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="rounded-full bg-primary/10 p-6 mb-4">
+                    <FileText className="w-12 h-12 text-primary" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">还没有分镜</h3>
+                  <p className="text-sm text-muted-foreground mb-6 max-w-md">
+                    在左侧输入你的故事剧本，或选择一个叙事模板开始创作。AI
+                    将自动为你拆解出专业的分镜画面。
+                  </p>
+                  <div className="flex flex-col gap-3 text-sm text-muted-foreground">
+                    <div className="flex items-start gap-2">
+                      <Lightbulb className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                      <span>支持粘贴小说、剧本、故事大纲等任何叙事文本</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Lightbulb className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                      <span>AI 会自动分析情节节奏和镜头语言</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Lightbulb className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                      <span>生成后可进一步编辑对白和生成图像</span>
+                    </div>
+                  </div>
                 </div>
               )}
-
-              <AutoLayoutGrid
-                panels={panels}
-                selectedPanel={selectedPanel}
-                onPanelSelect={setSelectedPanel}
-              />
-
-              {selectedPanelData && <PanelDetails panel={selectedPanelData} />}
             </div>
           </div>
-
-          {panels.length > 0 && (
-            <div className="mt-8 flex justify-center gap-4">
-              <Button variant="comic" size="lg" onClick={() => handleGenerateImages()}>
-                <Sparkles className="w-5 h-5" />
-                使用 AI 生成所有分镜图像
-              </Button>
-              <Button variant="outline" size="lg">
-                <Download className="w-5 h-5" />
-                导出分镜剧本
-              </Button>
-            </div>
-          )}
         </div>
       </main>
     </div>

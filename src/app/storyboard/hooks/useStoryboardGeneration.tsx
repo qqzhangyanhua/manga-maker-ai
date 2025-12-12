@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { ToastAction } from "@/components/ui/toast";
 import { PanelData } from "@/components/Storyboard/StoryboardPanel";
 import { ApiProject, ApiPanel } from "../types";
 import { convertApiPanelToLocal, parseErrorResponse } from "../utils";
@@ -51,14 +50,6 @@ export const useStoryboardGeneration = ({
         toast({
           title: "智能分镜拆解完成",
           description: `已生成项目《${data.project.title}》，包含 ${localPanels.length} 个分镜`,
-          action: (
-            <ToastAction
-              altText="进入编辑器"
-              onClick={() => (window.location.href = `/storyboard/editor/${data.project.id}`)}
-            >
-              进入编辑器
-            </ToastAction>
-          ),
         });
         onRefreshUsage();
       }
@@ -68,16 +59,6 @@ export const useStoryboardGeneration = ({
         title: "生成失败",
         description: error instanceof Error ? error.message : "未知错误",
         variant: "destructive",
-        action: (
-          <ToastAction
-            altText="联系管理员"
-            onClick={() =>
-              window.open("mailto:support@example.com?subject=ComicAI%20额度申请", "_blank")
-            }
-          >
-            联系管理员
-          </ToastAction>
-        ),
       });
     } finally {
       setIsGenerating(false);
@@ -223,19 +204,96 @@ export const useImageGeneration = ({
       const description = error instanceof Error ? error.message : "未知错误";
       toast({
         title: "图像生成失败",
+        description: options?.isRetry
+          ? `${description}（柔和模式也失败了）`
+          : `${description}（建议切换到柔和模式重试）`,
+        variant: "destructive",
+      });
+
+      // Auto retry with soft mode if not already retrying
+      if (!options?.isRetry && !softMode) {
+        console.log("Auto-retrying with soft mode...");
+        setSoftMode(true);
+      }
+    }
+  };
+
+  const handleGenerateSingleImage = async (panelId: string) => {
+    if (!currentProject) {
+      toast({
+        title: "请先生成分镜",
+        description: "需要先创建故事板项目才能生成图像",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const panel = panels.find((p) => p.id === panelId);
+    if (!panel) {
+      toast({
+        title: "分镜不存在",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!panel.englishPrompt) {
+      toast({
+        title: "缺少提示词",
+        description: "需要先为此分镜生成提示词",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      toast({
+        title: "开始生成图像",
+        description: "正在为分镜生成 AI 图像...",
+      });
+
+      const response = await fetch("/api/panel/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          panel_id: panelId,
+          prompt: panel.englishPrompt,
+          style: defaultStyleKey,
+          wait: true, // Wait for completion
+        }),
+      });
+
+      if (!response.ok) {
+        await parseErrorResponse(response);
+      }
+
+      const data = await response.json();
+
+      // Update panel with generated image
+      const updatedPanels = panels.map((p) => {
+        if (p.id === panelId) {
+          return {
+            ...p,
+            generatedImage: data.image_url || undefined,
+          };
+        }
+        return p;
+      });
+
+      onPanelsUpdate(updatedPanels);
+
+      toast({
+        title: "图像生成完成",
+        description: "分镜图像已成功生成",
+      });
+      onRefreshUsage();
+    } catch (error) {
+      console.error("Generate single image error:", error);
+      const description = error instanceof Error ? error.message : "未知错误";
+      toast({
+        title: "图像生成失败",
         description,
         variant: "destructive",
-        action: !options?.isRetry ? (
-          <ToastAction
-            altText="柔和模式重试"
-            onClick={() => {
-              setSoftMode(true);
-              handleGenerateImages({ isRetry: true });
-            }}
-          >
-            柔和模式重试
-          </ToastAction>
-        ) : undefined,
       });
     }
   };
@@ -243,5 +301,6 @@ export const useImageGeneration = ({
   return {
     promptErrors,
     handleGenerateImages,
+    handleGenerateSingleImage,
   };
 };

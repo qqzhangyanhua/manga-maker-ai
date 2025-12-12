@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Eye, FileText } from "lucide-react";
+import { Eye, FileText, CheckCircle2, Clock } from "lucide-react";
 
 export interface PanelData {
   id: string;
@@ -12,6 +12,8 @@ export interface PanelData {
   emotion?: string;
   generatedImage?: string;
   englishPrompt?: string;
+  cameraAngle?: string;
+  shotSize?: string;
 }
 
 interface StoryboardPanelProps {
@@ -22,17 +24,18 @@ interface StoryboardPanelProps {
 }
 
 const panelTypeConfig = {
-  closeup: { label: "特写", color: "bg-comic-red/20 border-comic-red", icon: "🎯" },
-  medium: { label: "中景", color: "bg-comic-blue/20 border-comic-blue", icon: "👤" },
-  wide: { label: "全景", color: "bg-comic-green/20 border-comic-green", icon: "🌆" },
-  action: { label: "动作", color: "bg-comic-orange/20 border-comic-orange", icon: "⚡" },
-  dialogue: { label: "对话", color: "bg-comic-purple/20 border-comic-purple", icon: "💬" },
-  transition: { label: "过渡", color: "bg-comic-pink/20 border-comic-pink", icon: "🔄" },
+  closeup: { label: "特写", color: "bg-comic-red/20 border-comic-red" },
+  medium: { label: "中景", color: "bg-comic-blue/20 border-comic-blue" },
+  wide: { label: "全景", color: "bg-comic-green/20 border-comic-green" },
+  action: { label: "动作", color: "bg-comic-orange/20 border-comic-orange" },
+  dialogue: { label: "对话", color: "bg-comic-purple/20 border-comic-purple" },
+  transition: { label: "过渡", color: "bg-comic-pink/20 border-comic-pink" },
 };
 
 const StoryboardPanel = ({ panel, index, isSelected, onClick }: StoryboardPanelProps) => {
   const config = panelTypeConfig[panel.type];
   const [showPrompt, setShowPrompt] = useState(false);
+  const hasImage = !!panel.generatedImage;
 
   return (
     <button
@@ -51,8 +54,27 @@ const StoryboardPanel = ({ panel, index, isSelected, onClick }: StoryboardPanelP
 
       {/* Type Badge */}
       <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-background/80 text-xs font-semibold flex items-center gap-1 z-10">
-        <span>{config.icon}</span>
         <span>{config.label}</span>
+      </div>
+
+      {/* Generation Status Badge */}
+      <div className={cn(
+        "absolute top-10 right-2 px-2 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1 z-10",
+        hasImage
+          ? "bg-green-500/90 text-white"
+          : "bg-orange-500/90 text-white"
+      )}>
+        {hasImage ? (
+          <>
+            <CheckCircle2 className="w-3 h-3" />
+            <span>已生成</span>
+          </>
+        ) : (
+          <>
+            <Clock className="w-3 h-3" />
+            <span>待生成</span>
+          </>
+        )}
       </div>
 
       {/* Generated Image or Placeholder */}

@@ -1,276 +1,128 @@
 # Manga Maker AI
 
-一个基于 AI 的漫画/分镜生成平台，支持"数字演员"角色管理系统，让用户能够创建具有一致外观的漫画角色，并在不同姿势、表情和服装下保持角色一致性。
+一个端到端的 AI 漫画创作平台，覆盖“故事 → 剧本 → 分镜 → 图片 → 画面排版”全流程，内置数字演员管理、风格库、工作流调度与画面精炼工具。
 
-## 核心功能
+## 核心能力
 
-- **角色管理系统（数字演员）**
-  - 三视图生成（正面/侧面/背面）
-  - 表情矩阵（9种情绪）
-  - 服装系统（多套服装管理）
-  - 角色关系图谱
-  - 相似角色生成
-
-- **场景库管理**
-  - 背景/环境资产管理
-  - 场景分类（室内/室外/城市/自然/奇幻/科幻/历史/抽象）
-  - 场景图片上传和引用
-
-- **故事生成系统**
-  - AI 驱动的故事大纲生成
-  - 剧本扩展和细化
-  - 角色设定管理
-  - 故事模板系统
-  - 多种类型支持（悬疑/爱情/冒险/科幻/日常/奇幻）
-
-- **分镜编辑器**
-  - 可视化分镜板编辑
-  - 分镜插入/拆分/合并操作
-  - 镜头角度和景别设置
-  - AI 图片生成集成
-  - 剧本文本管理
-
-- **管理后台**
-  - 用户管理（角色/状态控制）
-  - 漫画风格库管理
-  - LLM 提供商配置
-  - 使用统计和日志查看
+- 故事与剧本：故事大纲生成、模板化提示、可编辑并保存为剧本，支持多类型、角色数、长度控制（`/story`、`/scripts`）。
+- 分镜编辑：文本片段 ↔ 分镜卡片双向定位，插入/拆分/合并分镜，自动保存（500ms 防抖）、快捷键（⌘/Ctrl + M/D/I），支持角色/风格选择、草图/Prompt 生成（`/storyboard/editor/[projectId]`）。
+- 画面精炼中心：画布分格、对白气泡、模板（单格/二分/三格）、版本时间线、AI 润色并更新版本、导出 PNG、布局保存（`/editor`）。
+- 工作流编排：一键创建“故事→脚本→分镜→图片→导出”工作流，轮询状态、查看结果、失败重试（`/workflow`）。
+- 资产与模板：角色/表情/服装（数字演员）、场景库、漫画风格库、Prompt 示例与优化弹窗、故事模板选择（`/assets`、`/templates`、首页风格/角色选择）。
+- 管理与统计：LLM 提供商配置、使用配额统计、生成任务与图片、上传接口、后台管理视图（`/admin`）。
+- 图像生成队列：统一的图片生成队列 + MinIO 上传，支持面板/表情/服装/角色/场景/整页等类型（`src/lib/unified-image-generation.ts`）。
 
 ## 技术栈
 
-- **框架**: Next.js 14 (App Router)
-- **语言**: TypeScript
-- **数据库**: PostgreSQL + Prisma ORM
-- **UI**: React + TailwindCSS + shadcn/ui (Radix UI)
-- **认证**: JWT + bcrypt
-- **AI 集成**: OpenAI-compatible APIs
-- **3D**: Three.js (@react-three/fiber) - 用于姿势实验室
-- **存储**: MinIO (S3-compatible)
-- **邮件**: Nodemailer (SMTP)
+- Next.js 14（App Router）+ React 18 + TypeScript
+- UI：TailwindCSS + shadcn/ui（Radix UI），lucide-react 图标，Three.js/@react-three/fiber 用于姿势/3D 交互
+- 数据层：PostgreSQL + Prisma ORM，MinIO/S3 对象存储
+- AI/LLM：开放的 OpenAI-compatible 接口，通过数据库表 `llm_providers` 配置不同用途（storyboard/story/image/prompt 等）
+- 认证与通信：JWT/bcrypt，Nodemailer SMTP 邮件
+- 测试与质量：ESLint、Vitest（`scripts/run-vitest.mjs`）
+
+## 目录速览
+
+- `src/app`：路由与页面。`api/*` 为后端接口；`storyboard` 分镜工作区；`editor` 画面精炼；`story`/`scripts` 剧本；`workflow` 工作流；`admin` 后台；`auth` 登录注册；`assets` 资产库。
+- `src/components`：UI 与业务组件。`Storyboard` 分镜卡片/脚本面板；`ImageEditor` 画布与时间线；`Workflow`/`Story`/`Template` 等业务模块；`ui` 为 shadcn 基础组件。
+- `src/lib`：服务层与工具。数据库/认证、LLM 选择器、故事与提示构建、统一图片生成队列、MinIO 封装、邮件、用量配额、工作流引擎。
+- `prisma`：`schema.prisma` 数据模型，`seed.ts` 种子脚本。
+- `public/assets`：示例角色/风格图片，供展示与占位。
 
 ## 快速开始
 
-### 前置要求
+### 前置依赖
 
-- Node.js 18+ (推荐使用 [nvm](https://github.com/nvm-sh/nvm))
-- pnpm 8+ (必须使用 pnpm，不要使用 npm)
+- Node.js 18+
+- npm（仓库附带 `package-lock.json`，如需 pnpm 请自担兼容性）
 - PostgreSQL 14+
-- MinIO 或 S3-compatible 存储
+- MinIO 或任意 S3 兼容存储
+- 可用的 OpenAI-compatible 接口与 SMTP 邮箱
 
-### 安装
+### 安装与启动
 
 ```bash
-# 克隆仓库
 git clone <YOUR_GIT_URL>
 cd manga-maker-ai
+npm install
 
-# 安装依赖（必须使用 pnpm）
-pnpm install
+# 生成 Prisma Client
+npx prisma generate
+# 初始化数据库（本地开发可直接创建空库后执行）
+npx prisma migrate dev
+# (可选) 打开 Prisma Studio
+npx prisma studio
+
+# 开发模式
+npm run dev
+# 访问 http://localhost:3000
 ```
 
-### 环境配置
-
-创建 `.env` 文件：
+### 环境变量（`.env.local` 示例）
 
 ```bash
 # 数据库
 DATABASE_URL=postgresql://user:password@localhost:5432/manga_maker
+DATABASE_SSL=false           # 可选，生产如需 SSL 设为 true
 
-# 认证
-AUTH_SECRET=your_random_secret_for_jwt
+# 鉴权
+AUTH_SECRET=replace_with_strong_secret
 
-# 邮件服务 (SMTP)
-EMAIL_HOST=smtp.qq.com
+# 邮件
+EMAIL_HOST=smtp.example.com
 EMAIL_PORT=465
-EMAIL_USER=your@qq.com
+EMAIL_USER=you@example.com
 EMAIL_PASSWORD=your_smtp_key
-EMAIL_FROM="ComicAI <your@qq.com>"
+EMAIL_FROM="ComicAI <you@example.com>"
 
-# MinIO 对象存储
+# 对象存储
 MINIO_ENDPOINT=localhost
-MINIO_PORT=9000
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
 MINIO_USE_SSL=false
-MINIO_BUCKET=manga-assets
+MINIO_BUCKET_NAME=input-image
+
+# (可选) 使用配额
+QUOTA_STORYBOARD_DAILY=20
+QUOTA_STORY_DAILY=30
+QUOTA_IMAGE_DAILY=50
 ```
 
-### 数据库设置
+### 常用命令
 
-```bash
-# 生成 Prisma Client
-npx prisma generate
+- `npm run dev`：本地开发
+- `npm run build` / `npm run start`：生产构建与运行
+- `npm run lint`：ESLint
+- `npm test` / `npm run test:watch`：Vitest
+- `npx prisma migrate dev --name <name>` / `npx prisma migrate deploy`：数据库迁移
 
-# 运行数据库迁移
-npx prisma migrate dev
+## 后端与配置要点
 
-# (可选) 打开 Prisma Studio 查看数据
-npx prisma studio
-```
+- LLM/图片服务：在 `/admin/llm-providers` 或直接写入表 `llm_providers` 配置不同 `provider_type`（如 `storyboard`、`story_generator`、`image_generation`、`prompt_optimizer`），字段包含 `base_url`、`model`、`api_key`、`priority`、`enabled`。
+- 存储：图片生成结果会上传到 MinIO `MINIO_BUCKET_NAME`，需确保桶已存在或具备创建权限。
+- API 路由：`/api/story*`（故事）、`/api/storyboard*`（分镜）、`/api/panel*`（分镜操作）、`/api/image-generation`、`/api/workflow*`、`/api/assets`/`scene`/`character`、`/api/admin/*` 等。
 
-### 启动开发服务器
+## 前端体验入口
 
-```bash
-pnpm dev
-```
+- `/`：首页风格与角色类型选择，生成入口。
+- `/story`：故事生成/模板选择/可编辑并保存。
+- `/storyboard`：分镜项目列表；`/storyboard/editor/[projectId]` 进入分镜编辑（自动保存、快捷键、插入/合并/拆分、草图/提示生成）。
+- `/editor`：画面精炼中心（分格模板、对白气泡、AI 润色、版本时间线、导出/保存布局）。
+- `/workflow`：一键工作流创建与状态监控。
+- `/assets`、`/templates`、`/admin`：资产、模板与后台管理。
 
-访问 http://localhost:3000
+## 已知限制与待办
 
-## 开发命令
+- 真实图片生成依赖已配置的 `image_generation` 提供商；未配置时将报错，需要外部 Stable Diffusion/DALL·E 兼容接口。
+- 工作流导出能力仍为 TODO（`exportFormat` 预留）。
+- LoRA/自训练未实现，角色 `training_status` 目前为占位。
+- 分镜批量选择/批量操作与拖拽排序处于规划中（见 `PHASE_4_COMPLETION.md`）。
+- ControlNet 草图生成 API 预留尚未接入具体服务。
 
-```bash
-# 开发
-pnpm dev              # 启动开发服务器
+## 相关文档
 
-# 构建
-pnpm build            # 构建生产版本
-pnpm start            # 启动生产服务器
-
-# 代码质量
-pnpm lint             # 运行 ESLint
-
-# 测试
-pnpm test             # 运行 Vitest 测试
-pnpm test:watch       # 监听模式运行测试
-
-# 数据库
-npx prisma generate   # 生成 Prisma Client
-npx prisma migrate dev --name <name>  # 创建迁移
-npx prisma migrate deploy             # 应用迁移（生产）
-npx prisma studio     # 打开数据库 GUI
-```
-
-## 项目结构
-
-```
-src/
-├── app/                    # Next.js App Router
-│   ├── api/               # API 路由
-│   │   ├── auth/          # 认证端点
-│   │   ├── character/     # 角色 CRUD 和生成
-│   │   ├── scene/         # 场景库管理
-│   │   ├── story/         # 故事生成和管理
-│   │   ├── panel/         # 分镜操作
-│   │   ├── project/       # 项目管理
-│   │   └── admin/         # 管理后台
-│   ├── admin/             # 管理后台页面
-│   ├── assets/            # 资产库页面
-│   ├── auth/              # 登录/注册页面
-│   ├── scripts/           # 故事/剧本管理页面
-│   ├── storyboard/        # 分镜编辑器页面
-│   └── layout.tsx         # 根布局
-├── components/
-│   ├── AssetLibrary/      # 角色和场景管理组件
-│   ├── Storyboard/        # 分镜编辑器组件
-│   ├── PoseLab/           # 3D 姿势编辑器组件
-│   └── ui/                # shadcn/ui 组件
-├── hooks/                 # 自定义 React Hooks
-├── lib/                   # 共享工具库
-│   ├── auth.ts            # JWT 签名/验证
-│   ├── db.ts              # Prisma 客户端单例
-│   ├── llm-provider.ts    # LLM API 集成
-│   ├── story-generator.ts # 故事生成助手
-│   ├── generation-log.ts  # 生成日志工具
-│   ├── usage.ts           # 使用统计和配额管理
-│   └── mailer.ts          # 邮件验证
-└── app/globals.css        # 全局样式
-
-prisma/
-└── schema.prisma          # 数据库模式
-```
-
-## API 文档
-
-详细的 API 接口文档请参考：
-- [API 接口文档](./docs/api-documentation.md) - 完整的 REST API 参考
-- [CLAUDE.md](./CLAUDE.md) - 项目架构和开发指南
-
-主要 API 端点：
-- `/api/auth/*` - 认证相关
-- `/api/character/*` - 角色管理和生成
-- `/api/scene/*` - 场景库管理
-- `/api/story/*` - 故事生成和管理
-- `/api/project/*` - 项目管理
-- `/api/panel/*` - 分镜操作
-- `/api/admin/*` - 管理后台（需要管理员权限）
-
-## 数据库模型
-
-核心数据模型：
-- `User` - 用户账户（邮箱验证、角色、状态）
-- `Character` - 角色实体（带 LoRA 训练状态）
-- `CharacterView` - 三视图参考图
-- `CharacterExpression` - 表情矩阵
-- `CharacterOutfit` - 服装系统
-- `Scene` - 场景/背景资产
-- `Story` - 故事大纲和角色设定
-- `Project` - 漫画/分镜项目
-- `Panel` - 分镜面板
-- `GeneratedImage` - 生成的图片库
-- `GenerationLog` - AI 生成操作日志
-- `UsageStat` - 使用统计
-
-详细的数据库模式请查看 `prisma/schema.prisma`
-
-## LLM 提供商配置
-
-系统支持多个 LLM 提供商，通过 `llm_providers` 表配置：
-
-```typescript
-{
-  provider_type: "prompt_optimizer" | "character_analyzer" | "story_generator" | "image_generation",
-  provider_name: "openai",
-  model: "gpt-4",
-  base_url: "https://api.openai.com",
-  api_key: "sk-...",
-  priority: 1,      // 数字越小优先级越高
-  enabled: true
-}
-```
-
-系统使用 `provider_type` 作为查找键，自动选择优先级最高的启用提供商。
-
-## 代码规范
-
-1. **严格类型检查**: 禁止使用 `any` 类型，所有类型必须显式定义
-2. **类型定义**: 共享类型提取到独立的 `types.ts` 文件
-3. **文件长度**: 单个文件不超过 500 行，超过则拆分为子组件或 hooks
-4. **包管理器**: 必须使用 `pnpm`，禁止使用 `npm`
-5. **图标使用**: 使用 `lucide-react` 图标，不使用 emoji
-
-## 已知限制
-
-1. **图片生成**: 当前使用占位符 URL，生产环境需要集成：
-   - Stable Diffusion API (ComfyUI, Automatic1111 等)
-   - DALL-E API
-   - 其他图片生成服务
-
-2. **LoRA 训练**: 未实现，角色 `training_status` 始终为 `pending`
-
-3. **MinIO 存储**: 需要本地运行 MinIO 服务器或使用云端 S3-compatible 存储
-
-## 示例应用
-
-`example/` 目录包含一个独立的照片转漫画 Web 应用，演示 AI 生成工作流：
-- 将照片转换为漫画风格分镜
-- 使用 OpenAI GPT 生成剧本
-- 使用 DALL-E 生成图片
-- 纯 HTML/CSS/JavaScript（无框架）
-
-这是独立于主 Next.js 应用的参考实现。
-
-## 贡献指南
-
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/amazing-feature`)
-3. 提交更改 (`git commit -m 'Add amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 开启 Pull Request
-
-## 许可证
-
-[MIT License](LICENSE)
-
-## 支持
-
-如有问题或建议，请提交 [Issue](https://github.com/your-repo/manga-maker-ai/issues)
+- `PHASE_4_COMPLETION.md`：分镜编辑器近期迭代与待办
+- `SCRIPT_EDITOR_IMPLEMENTATION.md`、`SCRIPT_EDITOR_FEATURES.md`：剧本/脚本模块说明
+- `QUICK_START_IMAGE_GEN.md`、`IMAGE_GENERATION_SETUP.md`：图片生成配置
+- `PROMPT_OPTIMIZATION_GUIDE.md`、`PROMPT_OPTIMIZATION_DIALOG` 相关组件：提示词优化
+- `CLAUDE.md`、`docs/`：更多架构与 API 参考
