@@ -26,12 +26,14 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 import { CharacterSelector } from "./CharacterSelector";
+import { CharacterAssetSelector, SceneSelector } from "./AssetSelectors";
 import type { Panel, StoryCharacter } from "../../types/script-editor.types";
 
 interface PanelEditDialogProps {
   open: boolean;
   panel: Partial<Panel> | null;
   characters: StoryCharacter[];
+  storyId: string; // NEW: Required for asset selectors
   saving: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (e: React.FormEvent) => Promise<void>;
@@ -42,6 +44,7 @@ export function PanelEditDialog({
   open,
   panel,
   characters,
+  storyId,
   saving,
   onOpenChange,
   onSave,
@@ -113,9 +116,30 @@ export function PanelEditDialog({
             />
           </div>
 
+          {/* Phase 2: Asset Binding */}
+          <div className="border-t pt-4">
+            <h3 className="text-sm font-medium mb-3">资产绑定 (Asset Binding)</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <CharacterAssetSelector
+                storyId={storyId}
+                characterId={panel.character_id}
+                expressionType={panel.expression_type}
+                outfitId={panel.outfit_id}
+                onCharacterChange={(v) => onChange("character_id", v)}
+                onExpressionChange={(v) => onChange("expression_type", v)}
+                onOutfitChange={(v) => onChange("outfit_id", v)}
+              />
+              <SceneSelector
+                sceneId={panel.scene_id}
+                onSceneChange={(v) => onChange("scene_id", v)}
+              />
+            </div>
+          </div>
+
+          {/* Legacy fields - Keep for backward compatibility */}
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label>角色</Label>
+              <Label>角色 (Legacy)</Label>
               <CharacterSelector
                 characters={characters}
                 value={panel.character_name || ""}
@@ -123,7 +147,7 @@ export function PanelEditDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>情感/表情</Label>
+              <Label>情感/表情 (Legacy)</Label>
               <Input
                 placeholder="例如: 惊讶, 愤怒"
                 value={panel.emotion || ""}

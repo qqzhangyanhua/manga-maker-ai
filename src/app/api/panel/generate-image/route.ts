@@ -36,10 +36,20 @@ export async function POST(req: Request) {
       );
     }
 
-    // 获取panel并验证权限
+    // 获取panel并验证权限，包含资产关联
     const panel = await prisma.panel.findUnique({
       where: { id: panel_id },
-      include: { project: true },
+      include: {
+        project: true,
+        character: {
+          include: {
+            outfits: true,
+            expressions: true,
+          },
+        },
+        outfit: true,
+        scene: true,
+      },
     });
 
     if (!panel) {
@@ -72,9 +82,33 @@ export async function POST(req: Request) {
       throw quotaError;
     }
 
+    // Phase 2: Build enhanced prompt using bound assets
+    let enhancedPrompt = prompt;
+
+    // Add character information
+    if (panel.character) {
+      const charDesc = panel.character.base_prompt || panel.character.character_name;
+      enhancedPrompt += `, character: ${charDesc}`;
+
+      // Add expression if specified
+      if (panel.expression_type) {
+        enhancedPrompt += `, expression: ${panel.expression_type}`;
+      }
+
+      // Add outfit if specified
+      if (panel.outfit) {
+        enhancedPrompt += `, wearing: ${panel.outfit.outfit_name}`;
+      }
+    }
+
+    // Add scene information
+    if (panel.scene) {
+      enhancedPrompt += `, background: ${panel.scene.scene_name} (${panel.scene.scene_type})`;
+    }
+
     // 使用统一图片生成系统
     const stylePrompt = style || panel.project.style || "manga style";
-    const fullPrompt = `${prompt}, ${stylePrompt}, high quality, detailed`;
+    const fullPrompt = `${enhancedPrompt}, ${stylePrompt}, high quality, detailed`;
 
     const { taskId, status } = await generateImage(
       "panel",
@@ -84,7 +118,18 @@ export async function POST(req: Request) {
         style: stylePrompt,
         width: 1024,
         height: 768,
-        metadata: { panel_id, project_id: panel.project_id },
+        metadata: {
+          panel_id,
+          project_id: panel.project_id,
+          character_id: panel.character_id,
+          scene_id: panel.scene_id,
+        },
+        // Phase 2: Pass reference images for IP-Adapter
+        referenceImages: [
+          panel.character?.reference_image,
+          panel.outfit?.image_url,
+          panel.scene?.image_url,
+        ].filter(Boolean) as string[],
       }
     );
 

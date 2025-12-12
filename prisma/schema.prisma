@@ -77,9 +77,17 @@ model Character {
   created_at        DateTime @default(now()) @db.Timestamptz(6)
   updated_at        DateTime @default(now()) @db.Timestamptz(6)
 
+  // Phase 2: New fields for consistency
+  reference_image String? // Main reference image URL for IP-Adapter
+  style_prompt    String? @db.Text // Detailed style description for prompt
+
   views       CharacterView[]
   expressions CharacterExpression[]
   outfits     CharacterOutfit[]
+
+  // Phase 2: New relations
+  story_characters StoryCharacter[]
+  panels           Panel[]
 
   @@index([user_id, training_status], map: "idx_characters_user_status")
   @@map("characters")
@@ -128,6 +136,9 @@ model CharacterOutfit {
 
   character Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
 
+  // Phase 2: Reverse relation
+  panels Panel[]
+
   @@index([character_id, is_default], map: "idx_outfits_character_default")
   @@map("character_outfits")
 }
@@ -166,7 +177,7 @@ model Panel {
   importance      String // high, medium, low
   description     String
   dialogue        String?
-  character_name  String?
+  character_name  String? // DEPRECATED: Use character_id instead
   emotion         String?
   generated_image String?
   prompt_used     String?
@@ -180,12 +191,26 @@ model Panel {
   sketch_image_url  String? // Sketch preview URL
   visual_prompt     String? // Editable visual description
 
+  // Phase 2: Asset binding fields
+  character_id    String? @db.Uuid // FK to Character
+  expression_type String? // neutral, happy, sad, angry, surprised, shy, confident, worried, determined
+  outfit_id       String? @db.Uuid // FK to CharacterOutfit
+  scene_id        String? @db.Uuid // FK to Scene
+
   created_at DateTime @default(now()) @db.Timestamptz(6)
 
   project  Project        @relation(fields: [project_id], references: [id], onDelete: Cascade)
   variants PanelVariant[] // Phase 1: Variant generation
 
+  // Phase 2: Asset relations
+  character Character?      @relation(fields: [character_id], references: [id], onDelete: SetNull)
+  outfit    CharacterOutfit? @relation(fields: [outfit_id], references: [id], onDelete: SetNull)
+  scene     Scene?          @relation(fields: [scene_id], references: [id], onDelete: SetNull)
+
   @@index([project_id, panel_order], map: "idx_panels_project_order")
+  @@index([character_id], map: "idx_panels_character")
+  @@index([scene_id], map: "idx_panels_scene")
+  @@index([outfit_id], map: "idx_panels_outfit")
   @@map("panels")
 }
 
@@ -318,6 +343,9 @@ model Scene {
   created_at  DateTime @default(now()) @db.Timestamptz(6)
   updated_at  DateTime @default(now()) @db.Timestamptz(6)
 
+  // Phase 2: Reverse relation
+  panels Panel[]
+
   @@index([user_id, scene_type], map: "idx_scenes_user_type")
   @@map("scenes")
 }
@@ -348,7 +376,7 @@ model Story {
   premise     String   @db.Text // Story premise/idea
   genre       String // Genre: suspense/romance/adventure/scifi/daily/fantasy
   outline     Json // Story outline: { acts: [...], scenes: [...] }
-  characters  Json // Character setup: [{ name, role, description, arc }]
+  characters  Json? // DEPRECATED: Use story_characters relation instead
   template_id String?  @db.Uuid
   status      String   @default("draft") // draft/completed
   created_at  DateTime @default(now()) @db.Timestamptz(6)
@@ -356,8 +384,35 @@ model Story {
 
   projects Project[] // One story can generate multiple projects
 
+  // Phase 2: Real character relationship
+  story_characters StoryCharacter[]
+
   @@index([user_id, status], map: "idx_stories_user_status")
   @@map("stories")
+}
+
+// ============================================================
+// Phase 2: Story-Character Relationship
+// ============================================================
+
+// StoryCharacter - Many-to-many relationship between Story and Character
+model StoryCharacter {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  story_id      String   @db.Uuid
+  character_id  String   @db.Uuid
+  role          String   @default("supporting") // protagonist, antagonist, supporting, minor
+  character_arc String?  @db.Text // Character development in this story
+  display_order Int      @default(0) // Display order in UI
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  story     Story     @relation(fields: [story_id], references: [id], onDelete: Cascade)
+  character Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
+
+  @@unique([story_id, character_id], map: "unique_story_character")
+  @@index([story_id], map: "idx_story_characters_story")
+  @@index([character_id], map: "idx_story_characters_character")
+  @@map("story_characters")
 }
 
 // Workflow - Automation workflow tracking

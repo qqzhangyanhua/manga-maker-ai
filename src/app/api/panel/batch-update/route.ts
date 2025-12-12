@@ -16,6 +16,11 @@ interface PanelUpdateData {
   importance?: string;
   camera_angle?: string;
   shot_size?: string;
+  // Phase 2: Asset binding fields
+  character_id?: string;
+  expression_type?: string;
+  outfit_id?: string;
+  scene_id?: string;
 }
 
 /**
@@ -70,7 +75,17 @@ export async function POST(req: Request) {
 
     // Build update data
     const updateData: PanelUpdateData = {};
-    const allowedFields = ["panel_type", "importance", "camera_angle", "shot_size"];
+    const allowedFields = [
+      "panel_type",
+      "importance",
+      "camera_angle",
+      "shot_size",
+      // Phase 2: Asset binding fields
+      "character_id",
+      "expression_type",
+      "outfit_id",
+      "scene_id",
+    ];
 
     for (const field of allowedFields) {
       if (updates[field] !== undefined && updates[field] !== null && updates[field] !== "") {

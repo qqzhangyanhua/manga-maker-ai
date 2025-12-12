@@ -42,7 +42,7 @@ export interface Panel {
   camera_angle?: string;
   shot_size?: string;
   dialogue?: string;
-  character_name?: string;
+  character_name?: string; // Deprecated: use character_id instead
   emotion?: string;
   visual_prompt: string;
   prompt_used?: string;
@@ -51,6 +51,11 @@ export interface Panel {
   script_segment_id?: string;
   script_start?: number;
   script_end?: number;
+  // Phase 2: Asset binding fields
+  character_id?: string; // FK to Character
+  expression_type?: string; // Expression type (neutral, happy, sad, etc.)
+  outfit_id?: string; // FK to CharacterOutfit
+  scene_id?: string; // FK to Scene
 }
 
 /**

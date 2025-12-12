@@ -19,6 +19,8 @@ export interface ImageGenerationTask {
     seed?: number;
     userId: string;
     metadata?: Record<string, any>;
+    // Phase 2: Reference images for IP-Adapter
+    referenceImages?: string[];
 }
 
 export interface TaskStatus {
@@ -269,6 +271,7 @@ export async function generateImage(
         width?: number;
         height?: number;
         metadata?: Record<string, any>;
+        referenceImages?: string[]; // Phase 2: Reference images for IP-Adapter
     }
 ): Promise<{ taskId: string; status: TaskStatus }> {
     const queue = getImageGenerationQueue();
@@ -283,6 +286,7 @@ export async function generateImage(
         width: options?.width,
         height: options?.height,
         metadata: options?.metadata,
+        referenceImages: options?.referenceImages,
     });
 
     // Wait a bit for initial processing

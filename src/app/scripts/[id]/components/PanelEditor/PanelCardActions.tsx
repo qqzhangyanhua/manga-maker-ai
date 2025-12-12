@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Edit, MoreHorizontal, Trash2, ImagePlus, Plus, Split, Combine } from "lucide-react";
+import { Edit, MoreHorizontal, Trash2, ImagePlus, Plus, Split, Combine, Sparkles } from "lucide-react";
 import type { Panel } from "../../types/script-editor.types";
 
 interface PanelCardActionsProps {
@@ -22,6 +22,7 @@ interface PanelCardActionsProps {
   onDelete: (id: string) => void;
   onGenerate?: (panel: Panel) => void;
   isGenerating?: boolean;
+  onGenerateVariants?: (panel: Panel) => void; // NEW: Generate variants
   onInsertAfter?: (panel: Panel) => void;
   onSplit?: (panel: Panel) => void;
   onMergeWithNext?: (panel: Panel) => void;
@@ -34,6 +35,7 @@ export function PanelCardActions({
   onDelete,
   onGenerate,
   isGenerating = false,
+  onGenerateVariants,
   onInsertAfter,
   onSplit,
   onMergeWithNext,
@@ -58,6 +60,12 @@ export function PanelCardActions({
                 ? "重新生成图片"
                 : "生成图片"}
             </DropdownMenuItem>
+            {onGenerateVariants && (
+              <DropdownMenuItem onClick={() => onGenerateVariants(panel)}>
+                <Sparkles className="w-4 h-4 mr-2" />
+                生成变体
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
           </>
         )}

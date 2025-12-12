@@ -31,8 +31,16 @@ import {
 } from "./hooks/useStoryData";
 import { useStoryDataOptimized } from "./hooks/useStoryDataOptimized";
 import { useCharacterAssets } from "./hooks/useCharacterAssets";
+import {
+  useStoryCharacters,
+  useAddStoryCharacter,
+  useRemoveStoryCharacter,
+  useUpdateStoryCharacterRole,
+} from "./hooks/useStoryCharacters";
 import { useUIState } from "./hooks/useUIState";
 import { formatErrorForToast, isRetryableError } from "./utils/errorHandling";
+import { StoryCharacterList } from "@/components/StoryCharacter/StoryCharacterList";
+import type { CharacterRole } from "@/components/StoryCharacter/types";
 
 export default function ScriptDetailsPage() {
   const params = useParams();
@@ -54,6 +62,16 @@ export default function ScriptDetailsPage() {
     isLoading: isCharactersLoading,
     refetch: refetchCharacters,
   } = useCharacterAssets();
+
+  // Story characters hooks
+  const {
+    data: storyCharacters = [],
+    isLoading: isStoryCharactersLoading,
+  } = useStoryCharacters(storyId);
+  const addStoryCharacter = useAddStoryCharacter(storyId);
+  const removeStoryCharacter = useRemoveStoryCharacter(storyId);
+  const updateStoryCharacterRole = useUpdateStoryCharacterRole(storyId);
+
   const updateStory = useUpdateStory(storyId);
   const createPanel = useCreatePanel(storyId);
   const updatePanel = useUpdatePanel(storyId);
@@ -176,6 +194,55 @@ export default function ScriptDetailsPage() {
     toast({ title: "图片生成成功" });
   }
 
+  // Story character handlers
+  async function handleAddCharacter(
+    characterId: string,
+    role: CharacterRole
+  ): Promise<void> {
+    try {
+      await addStoryCharacter.mutateAsync({ characterId, role });
+      toast({ title: "角色已添加到故事" });
+    } catch (error) {
+      const errorInfo = formatErrorForToast(error);
+      toast({
+        title: errorInfo.title,
+        description: errorInfo.description,
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleRemoveCharacter(characterId: string): Promise<void> {
+    try {
+      await removeStoryCharacter.mutateAsync(characterId);
+      toast({ title: "角色已从故事移除" });
+    } catch (error) {
+      const errorInfo = formatErrorForToast(error);
+      toast({
+        title: errorInfo.title,
+        description: errorInfo.description,
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleCharacterRoleChange(
+    characterId: string,
+    role: CharacterRole
+  ): Promise<void> {
+    try {
+      await updateStoryCharacterRole.mutateAsync({ characterId, role });
+      toast({ title: "角色类型已更新" });
+    } catch (error) {
+      const errorInfo = formatErrorForToast(error);
+      toast({
+        title: errorInfo.title,
+        description: errorInfo.description,
+        variant: "destructive",
+      });
+    }
+  }
+
   if (isLoading) {
     return <StoryDetailsSkeleton />;
   }
@@ -209,8 +276,8 @@ export default function ScriptDetailsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left: Story Info */}
-        <div className="lg:col-span-1">
+        {/* Left: Story Info & Characters */}
+        <div className="lg:col-span-1 space-y-6">
           <StoryInfoPanel
             story={data.story}
             editMode={uiState.editMode}
@@ -226,6 +293,16 @@ export default function ScriptDetailsPage() {
             onFormChange={(field, value) =>
               uiActions.updateStoryForm({ [field]: value })
             }
+          />
+
+          {/* Story Characters from Library */}
+          <StoryCharacterList
+            storyId={storyId}
+            characters={storyCharacters}
+            onAdd={handleAddCharacter}
+            onRemove={handleRemoveCharacter}
+            onRoleChange={handleCharacterRoleChange}
+            isLoading={isStoryCharactersLoading}
           />
         </div>
 
@@ -266,6 +343,7 @@ export default function ScriptDetailsPage() {
         open={uiState.isDialogOpen}
         panel={uiState.editingPanel}
         characters={data?.story?.characters || []}
+        storyId={storyId}
         saving={false}
         onOpenChange={(open) => !open && uiActions.closePanelDialog()}
         onSave={handleSavePanel}

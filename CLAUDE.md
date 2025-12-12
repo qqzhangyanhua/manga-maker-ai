@@ -127,6 +127,7 @@ prisma/
 
 **Character System (Digital Actor):**
 - `Character` - Main character entity with LoRA training status
+  - **Phase 2 fields**: `reference_image` (for IP-Adapter), `style_prompt` (detailed style description)
 - `CharacterView` - Three-view reference images (front/side/back)
 - `CharacterExpression` - Expression matrix (9 emotions)
 - `CharacterOutfit` - Wardrobe system (multiple outfits per character)
@@ -134,15 +135,21 @@ prisma/
 
 **Scene Library:**
 - `Scene` - Background/environment assets for manga panels with scene types (indoor, outdoor, urban, nature, fantasy, scifi, historical, abstract)
+  - **Phase 2**: Can now be referenced by Panel via `scene_id` FK
 
 **Story System:**
 - `Story` - Story outline and character setup with genre classification (suspense/romance/adventure/scifi/daily/fantasy)
+  - **Phase 2**: `characters` JSON field deprecated, use `story_characters` relation instead
+- `StoryCharacter` - **NEW Phase 2**: Many-to-many relationship between Story and Character
+  - Fields: `story_id`, `character_id`, `role` (protagonist/antagonist/supporting/minor), `character_arc`, `display_order`
 - `StoryTemplate` - Predefined story structures and templates (public or user-owned)
 - `Workflow` - Automation workflow tracking for story-to-comic generation pipelines
 
 **Project Management:**
 - `Project` - Comic/manga projects with style and status (can be linked to Story)
 - `Panel` - Individual storyboard panels with importance levels, panel types, camera angles, shot sizes
+  - **Phase 2 fields**: `character_id` (FK to Character), `expression_type`, `outfit_id` (FK to CharacterOutfit), `scene_id` (FK to Scene)
+  - **Deprecated**: `character_name` (use `character_id` instead)
 - `StoryScript` - Store original script text and segmentation info for script editor
 - `GeneratedImage` - Gallery of generated images with generation params
 
@@ -241,6 +248,11 @@ export async function GET() {
 - `PATCH /api/story/[id]` - Update story
 - `GET /api/story/[id]/panels` - Get panels for story-linked project
 - `POST /api/story/[id]/panels` - Create panels from story
+- **Phase 2 Story-Character APIs:**
+- `POST /api/story/[id]/characters` - Add character from library to story
+- `GET /api/story/[id]/characters` - Get all characters in story with details
+- `DELETE /api/story/[id]/characters/[characterId]` - Remove character from story
+- `PATCH /api/story/[id]/characters/[characterId]` - Update character role/arc in story
 
 **Projects & Panels:**
 - `GET /api/project` - List user's projects
@@ -252,8 +264,16 @@ export async function GET() {
 - `POST /api/panel/insert` - Insert new panel between existing panels
 - `POST /api/panel/split` - Split panel into multiple panels
 - `POST /api/panel/merge` - Merge multiple panels into one
-- `PATCH /api/panel/[id]` - Update panel
+- `PATCH /api/panel/[id]` - Update panel (Phase 2: accepts character_id, expression_type, outfit_id, scene_id)
 - `DELETE /api/panel/[id]` - Delete panel
+- **Phase 2 Panel Asset APIs:**
+- `PATCH /api/panel/batch-update` - Batch update multiple panels with asset bindings
+- `POST /api/panel/[id]/variants` - Generate variants for a panel
+- `GET /api/panel/[id]/variants` - Get all variants for a panel
+- `PATCH /api/panel/variants/[id]/select` - Select a variant as main panel image
+- **Phase 2 Export APIs:**
+- `POST /api/project/[id]/export` - Export project to PNG/PDF/ZIP
+- `GET /api/project/[id]/export/status` - Check export job status
 
 **File Upload:**
 - `POST /api/upload` - Upload files to MinIO storage
@@ -466,6 +486,9 @@ This automatically aggregates daily usage counts in the `usage_stats` table for 
 
 **Outfit types:**
 `default`, `school`, `battle`, `casual`, `formal`, `sleepwear`, `sports`, `custom`
+
+**Character roles (Phase 2):**
+`protagonist` (主角), `antagonist` (反派), `supporting` (配角), `minor` (龙套)
 
 **Story genres:**
 - `suspense` (悬疑) - Mystery, thriller

@@ -1,6 +1,5 @@
-import { useRef, useState } from "react";
-import { useFrame } from "@react-three/fiber";
-import { Sphere, Cylinder, Html } from "@react-three/drei";
+import { useRef, useState, useEffect, forwardRef } from "react";
+import { Sphere, Cylinder, Html, TransformControls } from "@react-three/drei";
 import * as THREE from "three";
 
 interface JointProps {
@@ -8,40 +7,42 @@ interface JointProps {
   name: string;
   selected: boolean;
   onSelect: () => void;
-  onDrag: (position: [number, number, number]) => void;
 }
 
-const Joint = ({ position, name, selected, onSelect, onDrag }: JointProps) => {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const [hovered, setHovered] = useState(false);
+const Joint = forwardRef<THREE.Mesh, JointProps>(
+  ({ position, name, selected, onSelect }, ref) => {
+    const [hovered, setHovered] = useState(false);
 
-  return (
-    <Sphere
-      ref={meshRef}
-      args={[0.08, 16, 16]}
-      position={position}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect();
-      }}
-      onPointerOver={() => setHovered(true)}
-      onPointerOut={() => setHovered(false)}
-    >
-      <meshStandardMaterial
-        color={selected ? "#ef4444" : hovered ? "#fbbf24" : "#3b82f6"}
-        emissive={selected ? "#ef4444" : hovered ? "#fbbf24" : "#1d4ed8"}
-        emissiveIntensity={0.3}
-      />
-      {(selected || hovered) && (
-        <Html distanceFactor={10}>
-          <div className="bg-background/90 px-2 py-1 rounded text-xs font-semibold text-foreground whitespace-nowrap">
-            {name}
-          </div>
-        </Html>
-      )}
-    </Sphere>
-  );
-};
+    return (
+      <Sphere
+        ref={ref}
+        args={[0.08, 16, 16]}
+        position={position}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect();
+        }}
+        onPointerOver={() => setHovered(true)}
+        onPointerOut={() => setHovered(false)}
+      >
+        <meshStandardMaterial
+          color={selected ? "#ef4444" : hovered ? "#fbbf24" : "#3b82f6"}
+          emissive={selected ? "#ef4444" : hovered ? "#fbbf24" : "#1d4ed8"}
+          emissiveIntensity={0.3}
+        />
+        {(selected || hovered) && (
+          <Html distanceFactor={10}>
+            <div className="bg-background/90 px-2 py-1 rounded text-xs font-semibold text-foreground whitespace-nowrap">
+              {name}
+            </div>
+          </Html>
+        )}
+      </Sphere>
+    );
+  }
+);
+
+Joint.displayName = "Joint";
 
 interface BoneProps {
   start: [number, number, number];
@@ -96,18 +97,24 @@ interface MannequinProps {
 const Mannequin = ({ pose, onPoseChange }: MannequinProps) => {
   const [selectedJoint, setSelectedJoint] = useState<keyof PoseData | null>(null);
   const groupRef = useRef<THREE.Group>(null);
+  const jointRefs = useRef<Record<keyof PoseData, THREE.Mesh | null>>({} as Record<keyof PoseData, THREE.Mesh | null>);
 
-  useFrame(() => {
-    if (groupRef.current) {
-      // Subtle idle animation
+  // 监听 TransformControls 的变化并更新姿势
+  const handleTransformChange = () => {
+    if (selectedJoint && jointRefs.current[selectedJoint]) {
+      const mesh = jointRefs.current[selectedJoint];
+      if (mesh) {
+        const newPosition: [number, number, number] = [
+          mesh.position.x,
+          mesh.position.y,
+          mesh.position.z,
+        ];
+        onPoseChange({
+          ...pose,
+          [selectedJoint]: newPosition,
+        });
+      }
     }
-  });
-
-  const handleJointDrag = (joint: keyof PoseData, position: [number, number, number]) => {
-    onPoseChange({
-      ...pose,
-      [joint]: position,
-    });
   };
 
   const joints: { name: string; key: keyof PoseData }[] = [
@@ -153,23 +160,40 @@ const Mannequin = ({ pose, onPoseChange }: MannequinProps) => {
       {bones.map((bone, index) => (
         <Bone key={index} start={pose[bone.start]} end={pose[bone.end]} />
       ))}
-      
+
       {/* Joints */}
       {joints.map((joint) => (
         <Joint
           key={joint.key}
+          ref={(ref) => {
+            if (ref) {
+              jointRefs.current[joint.key] = ref;
+            }
+          }}
           position={pose[joint.key]}
           name={joint.name}
           selected={selectedJoint === joint.key}
           onSelect={() => setSelectedJoint(joint.key)}
-          onDrag={(pos) => handleJointDrag(joint.key, pos)}
         />
       ))}
-      
+
       {/* Head sphere */}
       <Sphere args={[0.15, 16, 16]} position={pose.head}>
         <meshStandardMaterial color="#94a3b8" />
       </Sphere>
+
+      {/* TransformControls for selected joint */}
+      {selectedJoint && jointRefs.current[selectedJoint] && (
+        <TransformControls
+          object={jointRefs.current[selectedJoint]!}
+          mode="translate"
+          onObjectChange={handleTransformChange}
+          showX={true}
+          showY={true}
+          showZ={true}
+          size={0.8}
+        />
+      )}
     </group>
   );
 };

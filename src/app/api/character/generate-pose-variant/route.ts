@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { callChatCompletionByType, ensureLlmProvider } from "@/lib/llm-provider";
-import { generateCharacterViews, base64ToBuffer } from "@/lib/image-generation";
+import { generatePoseVariant, base64ToBuffer } from "@/lib/image-generation";
 import { minioClient, MINIO_BUCKET, ensureBucketExists, getPublicUrl } from "@/lib/minio";
 import { assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
@@ -156,28 +156,28 @@ export async function POST(req: Request) {
       }
     }
 
-    // Step 3: 调用图片生成 API
-    console.log(`开始生成姿势变体: ${pose_description}, 角色描述: ${optimizedDescription}`);
+    // Step 3: 调用姿势变体生成 API（专门的函数，不会强制 T-pose）
+    console.log(`开始生成姿势变体: ${pose_description}`);
+    console.log(`角色描述: ${optimizedDescription}`);
     if (referenceImageUrl) {
       console.log(`使用参考图: ${referenceImageUrl}`);
     }
 
-    const { views: generatedViews, prompts } = await generateCharacterViews(
+    const { image: base64Image, prompt: usedPrompt } = await generatePoseVariant(
       optimizedDescription,
+      pose_description,
       imageProviderType,
-      referenceImageUrl,
-      ["front"] // 只生成正面图
+      referenceImageUrl
     );
+
+    if (!base64Image) {
+      throw new Error("未能生成图片");
+    }
 
     // Step 4: 确保 MinIO bucket 存在
     await ensureBucketExists();
 
     // Step 5: 上传生成的图片到 MinIO
-    const base64Image = generatedViews["front"];
-    if (!base64Image) {
-      throw new Error("未能生成图片");
-    }
-
     // 转换 base64 为 Buffer
     const imageBuffer = base64ToBuffer(base64Image);
 
@@ -205,7 +205,7 @@ export async function POST(req: Request) {
         user_id: payload.userId,
         character_id: character_id,
         image_url: publicUrl,
-        prompt: optimizedDescription,
+        prompt: usedPrompt, // 使用实际生成时的提示词
         style: character.base_prompt || undefined,
         generation_params: {
           pose_name: pose_name || "自定义姿势",

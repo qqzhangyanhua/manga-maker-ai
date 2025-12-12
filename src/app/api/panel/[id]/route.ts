@@ -49,6 +49,11 @@ export async function PATCH(
       character_name,
       emotion,
       prompt_used,
+      // Phase 2: Asset binding fields
+      character_id,
+      expression_type,
+      outfit_id,
+      scene_id,
     } = body;
 
     // 更新 panel
@@ -65,6 +70,11 @@ export async function PATCH(
         ...(character_name !== undefined && { character_name }),
         ...(emotion !== undefined && { emotion }),
         ...(prompt_used !== undefined && { prompt_used }),
+        // Phase 2: Asset binding fields
+        ...(character_id !== undefined && { character_id }),
+        ...(expression_type !== undefined && { expression_type }),
+        ...(outfit_id !== undefined && { outfit_id }),
+        ...(scene_id !== undefined && { scene_id }),
       },
     });
 

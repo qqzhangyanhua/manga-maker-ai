@@ -672,6 +672,105 @@ export async function generateThreeViews(
 }
 
 /**
+ * 生成角色姿势变体（专门用于生成特定姿势的角色图片）
+ * 与 generateCharacterViews 不同：
+ * - 不强制 T-pose 站姿
+ * - 不排除动作姿势
+ * - 专注于单一姿势的生成
+ *
+ * @param characterDescription 角色描述
+ * @param poseDescription 姿势描述（如"思考姿势，一只手托着下巴"）
+ * @param providerType 图片生成模型类型
+ * @param referenceImageUrl 可选的参考图URL
+ * @returns 生成的图片（base64）和使用的提示词
+ */
+export async function generatePoseVariant(
+  characterDescription: string,
+  poseDescription: string,
+  providerType: string = "image_generation",
+  referenceImageUrl?: string
+): Promise<{
+  image: string;
+  prompt: string;
+}> {
+  console.log('\n========== 姿势变体生成 ==========');
+  console.log(`角色描述: ${characterDescription}`);
+  console.log(`姿势描述: ${poseDescription}`);
+  console.log(`参考图: ${referenceImageUrl || '无'}`);
+  console.log('====================================\n');
+
+  let fullPrompt: string;
+  let negativePrompt: string;
+
+  if (referenceImageUrl) {
+    // 【有参考图模式】参考三视图策略，强调保持角色一致性
+    console.log('策略: 参考图模式 - 严格保持角色外观，仅改变姿势');
+
+    // 核心指令：参考三视图的严格一致性要求
+    const coreInstruction = [
+      `IMPORTANT: You must draw the EXACT SAME character shown in the reference image.`,
+      `Keep everything identical: face, facial features, body type, proportions, art style, colors, hair, eyes, clothing.`,
+      `Do NOT change the character's appearance, face, style, or any visual details.`,
+      `Only change: the pose/gesture of the character.`
+    ].join(" ");
+
+    fullPrompt = [
+      coreInstruction,
+      `Character pose: ${poseDescription}.`,
+      `Full body shot, clean background, high quality, detailed, professional illustration.`
+    ].join(' ');
+
+    // 负面提示词：排除角色变化，但允许姿势变化
+    negativePrompt = `different character, altered face, changed facial features, different body type, different art style, modified proportions, different person, different hair, different eyes, different clothing, multiple characters, inconsistent style, blurry, low quality, bad anatomy, cropped, text, watermark, signature`;
+
+  } else {
+    // 【无参考图模式】详细描述角色和姿势
+    console.log('策略: 纯文本模式 - 详细描述角色和姿势');
+
+    fullPrompt = [
+      characterDescription,
+      poseDescription,
+      `full body shot, clean background,`,
+      `professional character illustration, anime style,`,
+      `detailed, high quality, sharp focus, consistent appearance`
+    ].join(', ');
+
+    // 只排除质量问题，不排除姿势变化
+    negativePrompt = `multiple characters, blurry, low quality, distorted, deformed, ugly, bad anatomy, cropped, text, watermark, signature`;
+  }
+
+  console.log('\n========== 生成提示词 ==========');
+  console.log('【正面提示】');
+  console.log(fullPrompt);
+  console.log('\n【负面提示】');
+  console.log(negativePrompt);
+  console.log('=================================\n');
+
+  // 调用图片生成
+  const result = await callImageGenerationByType({
+    providerType,
+    prompt: fullPrompt,
+    negative_prompt: negativePrompt,
+    width: 512,
+    height: 768, // 3:4 比例，适合全身人物
+    steps: 25,
+    cfg_scale: 7.5,
+    referenceImageUrl,
+  });
+
+  if (!result.success || !result.images || result.images.length === 0) {
+    throw new Error(`姿势变体生成失败: ${result.error || '未从响应中提取到图片数据'}`);
+  }
+
+  console.log('✅ 姿势变体生成成功\n');
+
+  return {
+    image: result.images[0],
+    prompt: fullPrompt,
+  };
+}
+
+/**
  * 下载图片并转换为 base64
  * @param imageUrl 图片 URL
  * @returns base64 格式的图片数据（包含 data:image/...;base64, 前缀）

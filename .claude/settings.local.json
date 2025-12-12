@@ -26,7 +26,10 @@
       "Bash(npx prisma:*)",
       "Bash(timeout 10 pnpm dev:*)",
       "Bash(pnpm tsc:*)",
-      "Bash(pnpm eslint:*)"
+      "Bash(pnpm eslint:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(npx prisma validate:*)",
+      "Bash(timeout 20 pnpm dev:*)"
     ],
     "deny": [],
     "ask": []

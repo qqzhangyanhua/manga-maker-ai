@@ -140,31 +140,6 @@ export function StoryInfoPanel({
           </div>
         </CardContent>
       </Card>
-
-      {/* 角色列表 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>角色列表</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {story.characters?.map((char, idx) => (
-              <div
-                key={idx}
-                className="p-3 bg-muted/50 rounded-lg text-sm"
-              >
-                <p className="font-bold">{char.name}</p>
-                <p className="text-muted-foreground mt-1">
-                  {char.role}: {char.description}
-                </p>
-              </div>
-            ))}
-            {(!story.characters || story.characters.length === 0) && (
-              <p className="text-sm text-muted-foreground">无角色信息</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
