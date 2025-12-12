@@ -74,18 +74,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     }
 
     // 准备更新数据
-    const updateData: {
-      name?: string;
-      description?: string | null;
-      panel_count?: number;
-      template_data?: Record<string, unknown>;
-      tags?: string[];
-      thumbnail_url?: string | null;
-      is_public?: boolean;
-      is_official?: boolean;
-      user_id?: string | null;
-      updated_at: Date;
-    } = {
+    const updateData: Record<string, unknown> = {
       ...validated,
       updated_at: new Date(),
     };
@@ -97,7 +86,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 
     const updated = await prisma.panelTemplate.update({
       where: { id },
-      data: updateData,
+      data: updateData as Parameters<typeof prisma.panelTemplate.update>[0]['data'],
     });
 
     return NextResponse.json(updated);

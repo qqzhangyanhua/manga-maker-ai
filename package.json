@@ -60,6 +60,8 @@
     "fabric": "5",
     "input-otp": "^1.4.2",
     "jsonwebtoken": "^9.0.3",
+    "jspdf": "^3.0.4",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.462.0",
     "minio": "^8.0.6",
     "next": "^14.2.0",

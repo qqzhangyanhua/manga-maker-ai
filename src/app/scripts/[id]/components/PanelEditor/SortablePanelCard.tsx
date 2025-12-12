@@ -1,6 +1,6 @@
 /**
  * 可拖拽的分镜卡片组件
- * 包装 PanelCard 并添加拖拽功能
+ * 包装 PanelCard 并添加拖拽功能和批量选择功能
  */
 
 "use client";
@@ -8,6 +8,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PanelCard } from "./PanelCard";
 import type { Panel, GenerationTask } from "../../types/script-editor.types";
 
@@ -18,6 +19,8 @@ interface SortablePanelCardProps {
   generationTask?: GenerationTask;
   onRetryGeneration?: () => void;
   onCancelGeneration?: () => void;
+  isSelected?: boolean;
+  onSelectionChange?: (selected: boolean) => void;
 }
 
 export function SortablePanelCard({
@@ -27,6 +30,8 @@ export function SortablePanelCard({
   generationTask,
   onRetryGeneration,
   onCancelGeneration,
+  isSelected = false,
+  onSelectionChange,
 }: SortablePanelCardProps) {
   const {
     attributes,
@@ -44,7 +49,24 @@ export function SortablePanelCard({
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="relative">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`relative ${isSelected ? "ring-2 ring-primary rounded-lg" : ""}`}
+    >
+      {/* 批量选择复选框 */}
+      {onSelectionChange && (
+        <div className="absolute left-12 top-4 z-10">
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={(checked) => {
+              onSelectionChange(checked === true);
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+
       {/* 拖拽手柄 */}
       <div
         {...attributes}
@@ -54,8 +76,8 @@ export function SortablePanelCard({
         <GripVertical className="w-5 h-5 text-muted-foreground" />
       </div>
 
-      {/* 原有的 PanelCard，添加左边距为拖拽手柄留空间 */}
-      <div className="ml-10">
+      {/* 原有的 PanelCard，添加左边距为拖拽手柄和复选框留空间 */}
+      <div className={onSelectionChange ? "ml-20" : "ml-10"}>
         <PanelCard
           panel={panel}
           index={index}

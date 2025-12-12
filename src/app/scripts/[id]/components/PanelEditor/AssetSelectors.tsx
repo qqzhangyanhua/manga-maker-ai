@@ -155,7 +155,7 @@ export function CharacterAssetSelector({
             <SelectItem value="">无角色</SelectItem>
             {storyCharacters.map((sc) => (
               <SelectItem key={sc.character_id} value={sc.character_id}>
-                {sc.character_name} ({sc.role})
+                {sc.character.name} ({sc.role})
               </SelectItem>
             ))}
           </SelectContent>
@@ -212,7 +212,7 @@ export function CharacterAssetSelector({
       {selectedCharacter && (
         <div className="text-xs text-muted-foreground p-2 bg-muted/50 rounded">
           <p>
-            <strong>角色:</strong> {selectedCharacter.character_name}
+            <strong>角色:</strong> {selectedCharacter.character.name}
           </p>
           <p>
             <strong>角色类型:</strong> {selectedCharacter.role}

@@ -34,6 +34,7 @@ import { PanelCardActions } from "./PanelEditor/PanelCardActions";
 import { InsertPanelDialog } from "./PanelEditor/InsertPanelDialog";
 import { SplitPanelDialog } from "./PanelEditor/SplitPanelDialog";
 import { BatchGenerationDialog } from "./BatchGenerationDialog";
+import { BatchOperationsToolbar } from "./BatchOperationsToolbar";
 import { usePanelDragDrop } from "../hooks/usePanelDragDrop";
 import { usePanelGeneration } from "../hooks/usePanelGeneration";
 import { useBatchGeneration } from "../hooks/useBatchGeneration";
@@ -70,6 +71,9 @@ export function PanelListView({
   onImageGenerated,
   onRefresh,
 }: PanelListViewProps) {
+  // 批量选择状态
+  const [selectedPanelIds, setSelectedPanelIds] = useState<string[]>([]);
+
   // 高级操作对话框状态
   const [insertDialogOpen, setInsertDialogOpen] = useState(false);
   const [insertAfterIndex, setInsertAfterIndex] = useState(0);
@@ -216,6 +220,27 @@ export function PanelListView({
     (p) => (p.prompt_used || p.visual_prompt) && !p.generated_image && !p.image_url
   );
 
+  // 批量删除函数
+  async function handleBatchDelete(ids: string[]): Promise<void> {
+    if (!projectId) {
+      throw new Error("项目 ID 不存在");
+    }
+
+    const response = await fetch("/api/panel/batch-delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ panel_ids: ids }),
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || "批量删除失败");
+    }
+
+    // 触发刷新
+    onRefresh?.();
+  }
+
   return (
     <div className="space-y-6">
       {/* 标题栏 */}
@@ -260,6 +285,17 @@ export function PanelListView({
         </div>
       </div>
 
+      {/* 批量操作工具栏 */}
+      {panels.length > 0 && (
+        <BatchOperationsToolbar
+          panels={panels}
+          selectedPanelIds={selectedPanelIds}
+          onSelectionChange={setSelectedPanelIds}
+          onBatchDelete={handleBatchDelete}
+          onRefresh={onRefresh}
+        />
+      )}
+
       {/* 分镜列表 */}
       {panels.length === 0 ? (
         <div className="text-center py-12 bg-muted/20 rounded-lg border border-dashed">
@@ -303,6 +339,14 @@ export function PanelListView({
                       retry(panel.id, prompt);
                     }}
                     onCancelGeneration={() => clearTask(panel.id)}
+                    isSelected={selectedPanelIds.includes(panel.id)}
+                    onSelectionChange={(selected) => {
+                      if (selected) {
+                        setSelectedPanelIds([...selectedPanelIds, panel.id]);
+                      } else {
+                        setSelectedPanelIds(selectedPanelIds.filter((id) => id !== panel.id));
+                      }
+                    }}
                     actions={
                       <PanelCardActions
                         panel={panel}

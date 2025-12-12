@@ -22,7 +22,7 @@ import { CharacterAssetSelector, SceneSelector } from "./AssetSelectors";
 
 interface BatchAssetBindingDialogProps {
   open: boolean;
-  storyId: string;
+  storyId?: string;
   selectedPanelIds: string[];
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
@@ -78,7 +78,7 @@ export function BatchAssetBindingDialog({
 
       toast({
         title: "批量绑定成功",
-        description: \`已更新 \${data.data.updatedCount} 个分镜\`,
+        description: `已更新 ${data.data.updatedCount} 个分镜`,
       });
 
       onSuccess();

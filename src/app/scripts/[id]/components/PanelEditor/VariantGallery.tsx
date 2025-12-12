@@ -65,7 +65,7 @@ export function VariantGallery({
         taskIds.map(async (taskId) => {
           try {
             const response = await fetch(
-              \`/api/image-generation/status?task_id=\${taskId}\`
+              `/api/image-generation/status?task_id=${taskId}`
             );
             const data = await response.json();
 
@@ -107,7 +107,7 @@ export function VariantGallery({
       setSelectedTaskId(taskId);
 
       const response = await fetch(
-        \`/api/panel/variants/\${taskId}/select\`,
+        `/api/panel/variants/${taskId}/select`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },

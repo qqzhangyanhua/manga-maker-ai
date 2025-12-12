@@ -72,8 +72,8 @@ export async function POST(req: NextRequest) {
         name: validated.name,
         category: validated.category,
         description: validated.description,
-        structure: validated.structure,
-        prompts: validated.prompts,
+        structure: validated.structure as Parameters<typeof prisma.storyTemplate.create>[0]['data']['structure'],
+        prompts: validated.prompts as Parameters<typeof prisma.storyTemplate.create>[0]['data']['prompts'],
         is_public: validated.is_public,
         user_id: validated.is_system ? null : adminCheck.userId, // null = 系统模板
       },

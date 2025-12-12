@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
         name: validated.name,
         description: validated.description,
         panel_count: validated.panel_count,
-        template_data: validated.template_data,
+        template_data: validated.template_data as Parameters<typeof prisma.panelTemplate.create>[0]['data']['template_data'],
         tags: validated.tags,
         thumbnail_url: validated.thumbnail_url,
         is_public: validated.is_public,

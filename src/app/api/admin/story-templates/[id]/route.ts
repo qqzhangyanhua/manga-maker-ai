@@ -73,16 +73,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     }
 
     // 准备更新数据
-    const updateData: {
-      name?: string;
-      category?: string;
-      description?: string;
-      structure?: Record<string, unknown>;
-      prompts?: Record<string, unknown>;
-      is_public?: boolean;
-      user_id?: string | null;
-      updated_at: Date;
-    } = {
+    const updateData: Record<string, unknown> = {
       ...validated,
       updated_at: new Date(),
     };
@@ -93,12 +84,11 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     }
 
     // 移除 is_system 字段（不存在于数据库）
-    // @ts-expect-error - is_system is not in database schema
     delete updateData.is_system;
 
     const updated = await prisma.storyTemplate.update({
       where: { id },
-      data: updateData,
+      data: updateData as Parameters<typeof prisma.storyTemplate.update>[0]['data'],
     });
 
     return NextResponse.json(updated);

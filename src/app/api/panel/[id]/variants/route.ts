@@ -96,21 +96,21 @@ export async function POST(
 
     // Add character information
     if (panel.character) {
-      const charDesc = panel.character.base_prompt || panel.character.character_name;
-      basePrompt += \`, character: \${charDesc}\`;
+      const charDesc = panel.character.base_prompt || panel.character.name;
+      basePrompt += `, character: ${charDesc}`;
 
       if (panel.expression_type) {
-        basePrompt += \`, expression: \${panel.expression_type}\`;
+        basePrompt += `, expression: ${panel.expression_type}`;
       }
 
       if (panel.outfit) {
-        basePrompt += \`, wearing: \${panel.outfit.outfit_name}\`;
+        basePrompt += `, wearing: ${panel.outfit.outfit_name}`;
       }
     }
 
     // Add scene information
     if (panel.scene) {
-      basePrompt += \`, background: \${panel.scene.scene_name}\`;
+      basePrompt += `, background: ${panel.scene.name}`;
     }
 
     // Generate variants based on type
@@ -129,7 +129,7 @@ export async function POST(
           "dynamic composition",
           "cinematic angle",
         ];
-        variantPrompt += \`, \${styleVariations[i % styleVariations.length]}\`;
+        variantPrompt += `, ${styleVariations[i % styleVariations.length]}`;
       } else if (variant_type === "angle") {
         const angleVariations = [
           "eye level view",
@@ -138,7 +138,7 @@ export async function POST(
           "dutch angle",
           "bird's eye view",
         ];
-        variantPrompt += \`, \${angleVariations[i % angleVariations.length]}\`;
+        variantPrompt += `, ${angleVariations[i % angleVariations.length]}`;
       } else if (variant_type === "composition") {
         const compositionVariations = [
           "rule of thirds",
@@ -147,10 +147,10 @@ export async function POST(
           "symmetrical composition",
           "asymmetrical composition",
         ];
-        variantPrompt += \`, \${compositionVariations[i % compositionVariations.length]}\`;
+        variantPrompt += `, ${compositionVariations[i % compositionVariations.length]}`;
       }
 
-      const fullPrompt = \`\${variantPrompt}, \${stylePrompt}, high quality, detailed\`;
+      const fullPrompt = `${variantPrompt}, ${stylePrompt}, high quality, detailed`;
 
       const { taskId } = await generateImage(
         "panel",
@@ -191,7 +191,7 @@ export async function POST(
       success: true,
       task_ids: taskIds,
       variant_count: taskIds.length,
-      message: \`已提交 \${taskIds.length} 个变体生成任务\`,
+      message: `已提交 ${taskIds.length} 个变体生成任务`,
     });
   } catch (error) {
     console.error("Generate panel variants error:", error);

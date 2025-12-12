@@ -87,7 +87,7 @@ export async function POST(req: Request) {
 
     // Add character information
     if (panel.character) {
-      const charDesc = panel.character.base_prompt || panel.character.character_name;
+      const charDesc = panel.character.base_prompt || panel.character.name;
       enhancedPrompt += `, character: ${charDesc}`;
 
       // Add expression if specified
@@ -103,7 +103,7 @@ export async function POST(req: Request) {
 
     // Add scene information
     if (panel.scene) {
-      enhancedPrompt += `, background: ${panel.scene.scene_name} (${panel.scene.scene_type})`;
+      enhancedPrompt += `, background: ${panel.scene.name} (${panel.scene.scene_type})`;
     }
 
     // 使用统一图片生成系统
