@@ -380,17 +380,19 @@ model StoryTemplate {
 
 // Story - Story outline and character setup
 model Story {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id     String   @db.Uuid
-  title       String
-  premise     String   @db.Text // Story premise/idea
-  genre       String // Genre: suspense/romance/adventure/scifi/daily/fantasy
-  outline     Json // Story outline: { acts: [...], scenes: [...] }
-  characters  Json? // DEPRECATED: Use story_characters relation instead
-  template_id String?  @db.Uuid
-  status      String   @default("draft") // draft/completed
-  created_at  DateTime @default(now()) @db.Timestamptz(6)
-  updated_at  DateTime @default(now()) @db.Timestamptz(6)
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String   @db.Uuid
+  title           String
+  premise         String   @db.Text // Story premise/idea
+  genre           String // Genre: suspense/romance/adventure/scifi/daily/fantasy
+  outline         Json // Story outline: { acts: [...], scenes: [...] }
+  characters      Json? // DEPRECATED: Use story_characters relation instead
+  template_id     String?  @db.Uuid
+  status          String   @default("draft") // draft/completed
+  is_sample       Boolean  @default(false) // Sample project for new users
+  sample_category String?  // beginner/intermediate/advanced
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @default(now()) @db.Timestamptz(6)
 
   projects Project[] // One story can generate multiple projects
 
@@ -398,6 +400,7 @@ model Story {
   story_characters StoryCharacter[]
 
   @@index([user_id, status], map: "idx_stories_user_status")
+  @@index([is_sample], map: "idx_stories_sample")
   @@map("stories")
 }
 

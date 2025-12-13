@@ -4,7 +4,7 @@
  */
 
 import { useState, useCallback, useRef } from "react";
-import type { LayoutApiResponse, LayoutSize, LayoutDirection } from "../types/layout.types";
+import type { LayoutApiResponse, LayoutSize, LayoutDirection, LayoutRatio } from "../types/layout.types";
 import type { Panel } from "../types/script-editor.types";
 
 interface UseLayoutOperationsOptions {
@@ -39,7 +39,8 @@ interface UseLayoutOperationsReturn {
   applyLayout: (
     panelIds: string[],
     layoutType: LayoutSize,
-    direction?: LayoutDirection
+    direction?: LayoutDirection,
+    ratio?: LayoutRatio
   ) => Promise<void>;
   breakLayout: (panelId: string) => Promise<void>;
 }
@@ -159,7 +160,8 @@ export function useLayoutOperations(
     async (
       panelIds: string[],
       layoutType: LayoutSize,
-      direction?: LayoutDirection
+      direction?: LayoutDirection,
+      ratio?: LayoutRatio
     ) => {
       if (isApplying) return;
 
@@ -169,11 +171,15 @@ export function useLayoutOperations(
           panelIds: string[];
           layoutType: LayoutSize;
           direction?: LayoutDirection;
+          ratio?: LayoutRatio;
         } = { panelIds, layoutType };
 
         // 2镜和3镜需要方向参数
         if (layoutType === "2" || layoutType === "3") {
           requestBody.direction = direction || "h";
+          if (ratio) {
+            requestBody.ratio = ratio;
+          }
         }
 
         const response = await fetch("/api/panel/batch-layout", {

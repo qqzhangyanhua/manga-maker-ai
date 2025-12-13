@@ -216,6 +216,9 @@ const HomePage = () => {
 
       {/* Trial Dialog */}
       <TrialDialog open={showTrialDialog} onOpenChange={setShowTrialDialog} />
+
+      {/* Onboarding Dialog */}
+      <OnboardingDialog onOpenTrialDialog={handleOpenTrialFromOnboarding} />
     </div>
   );
 };

@@ -15,6 +15,32 @@ export type LayoutSize = "2" | "3" | "4" | "6";
 export type LayoutDirection = "h" | "v"; // horizontal | vertical
 
 /**
+ * 布局比例
+ * 2镜: "1-1" | "1-2" | "2-1"
+ * 3镜: "1-1-1" | "1-2-1" | "2-1-1" | "1-1-2"
+ */
+export type LayoutRatio = string;
+
+/**
+ * 预定义的2镜比例选项
+ */
+export const LAYOUT_RATIOS_2: Array<{ value: LayoutRatio; label: string; weights: number[] }> = [
+  { value: "1-1", label: "1:1 等分", weights: [1, 1] },
+  { value: "1-2", label: "1:2 左小右大", weights: [1, 2] },
+  { value: "2-1", label: "2:1 左大右小", weights: [2, 1] },
+];
+
+/**
+ * 预定义的3镜比例选项
+ */
+export const LAYOUT_RATIOS_3: Array<{ value: LayoutRatio; label: string; weights: number[] }> = [
+  { value: "1-1-1", label: "1:1:1 等分", weights: [1, 1, 1] },
+  { value: "1-2-1", label: "1:2:1 中间大", weights: [1, 2, 1] },
+  { value: "2-1-1", label: "2:1:1 左大", weights: [2, 1, 1] },
+  { value: "1-1-2", label: "1:1:2 右大", weights: [1, 1, 2] },
+];
+
+/**
  * 完整布局类型
  * - single: 独立Panel
  * - 2h/2v: 2镜横排/竖排
@@ -26,7 +52,8 @@ export type LayoutType = "single" | "2h" | "2v" | "3h" | "3v" | "4" | "6";
 
 /**
  * 布局提示值
- * 格式: group_start_{size}_{direction} 或 group_start_{size}
+ * 格式: group_start_{size}_{direction}[_{ratio}] 或 group_start_{size}
+ * 例如: group_start_2_h, group_start_2_h_1-2, group_start_3_v_1-2-1
  */
 export type LayoutHint =
   | "group_start_2_h"
@@ -37,7 +64,8 @@ export type LayoutHint =
   | "group_start_4"
   | "group_start_6"
   | "group_member"
-  | null;
+  | null
+  | string; // 支持带比例的格式如 group_start_2_h_1-2
 
 /**
  * 分镜布局组
@@ -46,6 +74,7 @@ export interface PanelGroup {
   type: LayoutType;
   panels: Panel[];
   groupStartId: string; // 组起始Panel的ID，用于选择整个组
+  ratio?: LayoutRatio; // 布局比例
 }
 
 /**
@@ -63,6 +92,7 @@ export interface BatchLayoutRequest {
   panelIds: string[];
   layoutType: LayoutSize;
   direction?: LayoutDirection; // 2镜和3镜需要方向
+  ratio?: LayoutRatio; // 可选的比例
 }
 
 /**
@@ -91,15 +121,67 @@ export interface LayoutApiResponse {
 export function getLayoutTypeFromHint(hint: string | null | undefined): LayoutType {
   if (!hint) return "single";
 
-  // 新格式: group_start_2_h, group_start_3_v 等
-  if (hint === "group_start_2_h" || hint === "group_start_2") return "2h";
-  if (hint === "group_start_2_v") return "2v";
-  if (hint === "group_start_3_h") return "3h";
-  if (hint === "group_start_3_v") return "3v";
+  // 支持带比例的格式: group_start_2_h_1-2
+  if (hint.startsWith("group_start_2_h") || hint === "group_start_2") return "2h";
+  if (hint.startsWith("group_start_2_v")) return "2v";
+  if (hint.startsWith("group_start_3_h")) return "3h";
+  if (hint.startsWith("group_start_3_v")) return "3v";
   if (hint === "group_start_4") return "4";
   if (hint === "group_start_6") return "6";
 
   return "single";
+}
+
+/**
+ * 从 layout_hint 提取比例
+ */
+export function getRatioFromHint(hint: string | null | undefined): LayoutRatio | null {
+  if (!hint) return null;
+
+  // 格式: group_start_2_h_1-2 或 group_start_3_v_1-2-1
+  const parts = hint.split("_");
+  if (parts.length >= 5) {
+    // 最后一部分是比例，如 "1-2" 或 "1-2-1"
+    const ratioPart = parts.slice(4).join("_");
+    if (/^\d+-\d+(-\d+)?$/.test(ratioPart)) {
+      return ratioPart;
+    }
+  }
+  return null;
+}
+
+/**
+ * 构建带比例的 layout_hint
+ */
+export function buildLayoutHint(
+  size: LayoutSize,
+  direction?: LayoutDirection,
+  ratio?: LayoutRatio
+): string {
+  let hint = `group_start_${size}`;
+
+  if (size === "2" || size === "3") {
+    hint += `_${direction || "h"}`;
+    if (ratio && ratio !== getDefaultRatio(size)) {
+      hint += `_${ratio}`;
+    }
+  }
+
+  return hint;
+}
+
+/**
+ * 获取默认比例
+ */
+export function getDefaultRatio(size: LayoutSize): LayoutRatio {
+  switch (size) {
+    case "2":
+      return "1-1";
+    case "3":
+      return "1-1-1";
+    default:
+      return "1-1";
+  }
 }
 
 /**
@@ -150,6 +232,7 @@ export function groupPanelsByLayout(panels: Panel[]): PanelGroup[] {
   let currentGroup: Panel[] = [];
   let currentLayoutType: LayoutType = "single";
   let currentGroupStartId = "";
+  let currentRatio: LayoutRatio | undefined = undefined;
 
   // 确保按 panel_order 排序
   const sortedPanels = [...panels].sort((a, b) => a.panel_order - b.panel_order);
@@ -162,10 +245,12 @@ export function groupPanelsByLayout(panels: Panel[]): PanelGroup[] {
           type: currentLayoutType,
           panels: currentGroup,
           groupStartId: currentGroupStartId || currentGroup[0].id,
+          ratio: currentRatio,
         });
       }
       // 开始新组
       currentLayoutType = getLayoutTypeFromHint(panel.layout_hint);
+      currentRatio = getRatioFromHint(panel.layout_hint) || undefined;
       currentGroup = [panel];
       currentGroupStartId = panel.id;
     } else if (isGroupMember(panel)) {
@@ -178,10 +263,12 @@ export function groupPanelsByLayout(panels: Panel[]): PanelGroup[] {
           type: currentLayoutType,
           panels: currentGroup,
           groupStartId: currentGroupStartId || currentGroup[0].id,
+          ratio: currentRatio,
         });
         currentGroup = [];
         currentLayoutType = "single";
         currentGroupStartId = "";
+        currentRatio = undefined;
       }
       // 添加独立Panel作为单独的组
       groups.push({
@@ -198,6 +285,7 @@ export function groupPanelsByLayout(panels: Panel[]): PanelGroup[] {
       type: currentLayoutType,
       panels: currentGroup,
       groupStartId: currentGroupStartId || currentGroup[0].id,
+      ratio: currentRatio,
     });
   }
 
@@ -292,4 +380,51 @@ export function getLayoutPanelCount(type: LayoutType): number {
     default:
       return 1;
   }
+}
+
+/**
+ * 将比例字符串转换为权重数组
+ * "1-2" -> [1, 2]
+ * "1-2-1" -> [1, 2, 1]
+ */
+export function parseRatioWeights(ratio: LayoutRatio | undefined): number[] {
+  if (!ratio) return [];
+  return ratio.split("-").map(Number);
+}
+
+/**
+ * 获取自定义比例的 CSS grid-template-columns/rows 样式
+ * @param type 布局类型
+ * @param ratio 比例字符串，如 "1-2" 或 "1-2-1"
+ * @returns CSS 样式值，如 "1fr 2fr" 或 "1fr 2fr 1fr"
+ */
+export function getLayoutGridTemplate(type: LayoutType, ratio?: LayoutRatio): string | null {
+  // 竖排布局使用 grid-template-rows
+  const isVertical = type === "2v" || type === "3v";
+
+  // 如果没有自定义比例，返回 null（使用默认的等分）
+  if (!ratio) return null;
+
+  const weights = parseRatioWeights(ratio);
+  if (weights.length === 0) return null;
+
+  // 检查是否是默认比例（所有权重相等）
+  const isDefault = weights.every((w) => w === weights[0]);
+  if (isDefault) return null;
+
+  // 生成 CSS 值，如 "1fr 2fr" 或 "1fr 2fr 1fr"
+  return weights.map((w) => `${w}fr`).join(" ");
+}
+
+/**
+ * 获取比例的显示名称
+ */
+export function getRatioDisplayName(ratio: LayoutRatio | undefined, size: LayoutSize): string {
+  if (!ratio) {
+    return size === "2" ? "1:1 等分" : "1:1:1 等分";
+  }
+
+  const ratios = size === "2" ? LAYOUT_RATIOS_2 : LAYOUT_RATIOS_3;
+  const found = ratios.find((r) => r.value === ratio);
+  return found?.label || ratio.replace(/-/g, ":");
 }

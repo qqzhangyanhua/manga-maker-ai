@@ -13,11 +13,38 @@ export const dynamic = "force-dynamic";
 
 type LayoutSize = "2" | "3" | "4" | "6";
 type LayoutDirection = "h" | "v";
+type LayoutRatio = string; // e.g., "1-2", "2-1", "1-2-1"
 
 interface BatchLayoutRequest {
   panelIds: string[];
   layoutType: LayoutSize;
   direction?: LayoutDirection; // 2镜和3镜需要方向，默认横排
+  ratio?: LayoutRatio; // 可选的比例，如 "1-2", "2-1", "1-2-1"
+}
+
+// 验证比例格式
+function isValidRatio(ratio: string, size: LayoutSize): boolean {
+  const parts = ratio.split("-");
+  const expectedParts = parseInt(size, 10);
+
+  if (parts.length !== expectedParts) return false;
+
+  return parts.every((p) => {
+    const num = parseInt(p, 10);
+    return !isNaN(num) && num > 0 && num <= 10;
+  });
+}
+
+// 获取默认比例
+function getDefaultRatio(size: LayoutSize): string {
+  switch (size) {
+    case "2":
+      return "1-1";
+    case "3":
+      return "1-1-1";
+    default:
+      return "";
+  }
 }
 
 /**
@@ -29,6 +56,7 @@ interface BatchLayoutRequest {
  * - panelIds: string[] (required, must match layoutType count: 2, 3, 4, or 6)
  * - layoutType: "2" | "3" | "4" | "6" (required)
  * - direction: "h" | "v" (optional, for 2镜/3镜, default "h")
+ * - ratio: string (optional, e.g., "1-2", "2-1", "1-2-1")
  *
  * Rules:
  * - panelIds must be consecutive in panel_order
@@ -53,7 +81,7 @@ export async function PATCH(req: Request) {
 
     // Parse request body
     const body: BatchLayoutRequest = await req.json();
-    const { panelIds, layoutType, direction = "h" } = body;
+    const { panelIds, layoutType, direction = "h", ratio } = body;
 
     // Validate layoutType
     const validLayoutTypes: LayoutSize[] = ["2", "3", "4", "6"];
@@ -70,6 +98,16 @@ export async function PATCH(req: Request) {
         { error: "无效的布局方向，支持: h(横排), v(竖排)" },
         { status: 400 }
       );
+    }
+
+    // Validate ratio if provided
+    if (ratio && (layoutType === "2" || layoutType === "3")) {
+      if (!isValidRatio(ratio, layoutType)) {
+        return NextResponse.json(
+          { error: `无效的布局比例格式，${layoutType}镜需要${layoutType}个数字，如 ${getDefaultRatio(layoutType)}` },
+          { status: 400 }
+        );
+      }
     }
 
     const expectedCount = parseInt(layoutType, 10);
@@ -147,11 +185,15 @@ export async function PATCH(req: Request) {
     const sortedPanelIds = sortedPanels.map((p) => p.id);
 
     // Build layout_hint value
-    // For 2镜/3镜: group_start_{size}_{direction} (e.g., group_start_2_h, group_start_3_v)
+    // For 2镜/3镜: group_start_{size}_{direction}[_{ratio}] (e.g., group_start_2_h, group_start_2_h_1-2)
     // For 4镜/6镜: group_start_{size} (no direction needed)
     let layoutHintValue: string;
     if (layoutType === "2" || layoutType === "3") {
       layoutHintValue = `group_start_${layoutType}_${direction}`;
+      // 只有非默认比例才添加到 hint 中
+      if (ratio && ratio !== getDefaultRatio(layoutType)) {
+        layoutHintValue += `_${ratio}`;
+      }
     } else {
       layoutHintValue = `group_start_${layoutType}`;
     }
@@ -182,15 +224,21 @@ export async function PATCH(req: Request) {
 
     // Build display name
     const directionName = direction === "h" ? "横排" : "竖排";
-    const displayName = (layoutType === "2" || layoutType === "3")
+    let displayName = (layoutType === "2" || layoutType === "3")
       ? `${layoutType}镜${directionName}`
       : `${layoutType}镜`;
+
+    // 添加比例信息到显示名称
+    if (ratio && ratio !== getDefaultRatio(layoutType)) {
+      displayName += ` (${ratio.replace(/-/g, ":")})`;
+    }
 
     return NextResponse.json({
       success: true,
       data: {
         layoutType,
         direction: (layoutType === "2" || layoutType === "3") ? direction : null,
+        ratio: ratio || null,
         panelCount: updatedPanels.length,
         panels: updatedPanels,
       },

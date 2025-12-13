@@ -12,6 +12,10 @@ import BatchOperationToolbar from "@/components/Storyboard/BatchOperationToolbar
 import BatchCameraDialog, {
   type BatchCameraUpdates,
 } from "@/components/Storyboard/BatchCameraDialog";
+import BatchDeleteDialog from "@/components/Storyboard/BatchDeleteDialog";
+import BatchStyleDialog, {
+  type BatchStyleUpdates,
+} from "@/components/Storyboard/BatchStyleDialog";
 import { useStoryboardData } from "@/hooks/use-storyboard-data";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { useBatchSelection } from "@/hooks/use-batch-selection";
@@ -35,6 +39,8 @@ export default function StoryboardEditorPage({
 
   // 批量操作弹窗状态
   const [batchCameraDialogOpen, setBatchCameraDialogOpen] = useState(false);
+  const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false);
+  const [batchStyleDialogOpen, setBatchStyleDialogOpen] = useState(false);
 
   // Refs for scrolling
   const segmentRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -44,8 +50,12 @@ export default function StoryboardEditorPage({
   const batchSelection = useBatchSelection();
 
   // 批量操作 Hook
-  const { batchUpdateCamera, operationLoading: batchOperationLoading } =
-    useBatchOperations();
+  const {
+    batchUpdateCamera,
+    batchUpdateStyle,
+    batchDeletePanels,
+    operationLoading: batchOperationLoading,
+  } = useBatchOperations();
 
   // 使用自定义 Hook 管理数据和操作
   const {
@@ -144,14 +154,22 @@ export default function StoryboardEditorPage({
     });
   }, [batchSelection, toast]);
 
-  // 批量删除（占位）
+  // 批量删除 - 打开确认弹窗
   const handleBatchDelete = useCallback(() => {
-    toast({
-      title: "批量删除",
-      description: `已选中 ${batchSelection.getSelectedCount()} 个分镜，功能开发中...`,
-      variant: "destructive",
-    });
-  }, [batchSelection, toast]);
+    setBatchDeleteDialogOpen(true);
+  }, []);
+
+  // 批量删除确认回调
+  const handleBatchDeleteConfirm = useCallback(async () => {
+    const selectedIds = batchSelection.getSelectedIds();
+    const success = await batchDeletePanels(selectedIds);
+    if (success) {
+      // 刷新数据
+      refetch?.();
+      // 退出多选模式
+      batchSelection.exitSelectionMode();
+    }
+  }, [batchSelection, batchDeletePanels, refetch]);
 
   // 全局快捷键
   useKeyboardShortcuts({
@@ -324,6 +342,14 @@ export default function StoryboardEditorPage({
         onOpenChange={setBatchCameraDialogOpen}
         selectedPanelIds={batchSelection.getSelectedIds()}
         onConfirm={handleBatchCameraConfirm}
+      />
+
+      {/* Batch Delete Dialog */}
+      <BatchDeleteDialog
+        open={batchDeleteDialogOpen}
+        onOpenChange={setBatchDeleteDialogOpen}
+        selectedCount={batchSelection.getSelectedCount()}
+        onConfirm={handleBatchDeleteConfirm}
       />
     </div>
   );
