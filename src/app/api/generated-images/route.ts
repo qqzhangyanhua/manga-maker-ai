@@ -50,6 +50,7 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20")));
     const style = searchParams.get("style");
+    const sourceType = searchParams.get("source_type");
     const characterId = searchParams.get("character_id");
     const search = searchParams.get("search");
 
@@ -57,6 +58,7 @@ export async function GET(req: NextRequest) {
     const where: {
       user_id: string;
       style?: string;
+      source_type?: string;
       character_id?: string;
       prompt?: { contains: string; mode: "insensitive" };
     } = {
@@ -65,6 +67,10 @@ export async function GET(req: NextRequest) {
 
     if (style) {
       where.style = style;
+    }
+
+    if (sourceType) {
+      where.source_type = sourceType;
     }
 
     if (characterId) {
@@ -120,6 +126,8 @@ export async function GET(req: NextRequest) {
  * - prompt: string (required)
  * - style: string (optional)
  * - character_id: string (optional)
+ * - source_type: string (optional) - panel/character/pose/scene/other
+ * - source_id: string (optional) - 对应来源的ID（如 panel_id）
  * - generation_params: object (optional) - { model, steps, cfg_scale, seed, etc. }
  */
 export async function POST(req: NextRequest) {
@@ -145,7 +153,7 @@ export async function POST(req: NextRequest) {
 
     // Parse request body
     const body = await req.json();
-    const { image_url, prompt, style, character_id, generation_params } = body;
+    const { image_url, prompt, style, character_id, source_type, source_id, generation_params } = body;
 
     // Validate required fields
     if (!image_url || typeof image_url !== "string" || image_url.trim().length === 0) {
@@ -173,6 +181,20 @@ export async function POST(req: NextRequest) {
     if (character_id && typeof character_id !== "string") {
       return NextResponse.json(
         { success: false, error: "角色ID必须是字符串" },
+        { status: 400 }
+      );
+    }
+
+    if (source_type && typeof source_type !== "string") {
+      return NextResponse.json(
+        { success: false, error: "source_type 必须是字符串" },
+        { status: 400 }
+      );
+    }
+
+    if (source_id && typeof source_id !== "string") {
+      return NextResponse.json(
+        { success: false, error: "source_id 必须是字符串" },
         { status: 400 }
       );
     }
@@ -212,6 +234,8 @@ export async function POST(req: NextRequest) {
         image_url: image_url.trim(),
         prompt: prompt.trim(),
         style: style?.trim() || null,
+        source_type: source_type?.trim() || null,
+        source_id: source_id?.trim() || null,
         character_id: character_id || null,
         generation_params: generation_params || null
       }

@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Sparkles, FolderOpen, FileText, LogOut, ShieldCheck, BookOpen, LayoutTemplate, ChevronDown, Palette, Workflow } from "lucide-react";
+import { Sparkles, FolderOpen, FileText, LogOut, ShieldCheck, BookOpen, LayoutTemplate, ChevronDown, Palette, Workflow, BarChart3, Grid3X3, Images } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useToast } from "@/hooks/use-toast";
@@ -101,6 +101,12 @@ const Header = () => {
                   分镜编辑
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/projects" className="flex items-center gap-2 cursor-pointer">
+                  <Grid3X3 className="w-4 h-4" />
+                  分镜项目
+                </Link>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -133,6 +139,12 @@ const Header = () => {
                   资产库
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/generated" className="flex items-center gap-2 cursor-pointer">
+                  <Images className="w-4 h-4" />
+                  生成图库
+                </Link>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -161,6 +173,14 @@ const Header = () => {
               <span className="hidden sm:inline text-sm text-muted-foreground">
                 你好，{currentUser.name || currentUser.email}
               </span>
+              {isAdmin && (
+                <Link href="/admin/usage" className="hidden lg:block">
+                  <Button variant="outline" size="sm">
+                    <BarChart3 className="w-4 h-4 mr-1" />
+                    用量日志
+                  </Button>
+                </Link>
+              )}
               <Link href="/storyboard" className="hidden sm:block">
                 <Button variant="outline" size="sm">
                   <FileText className="w-4 h-4" />

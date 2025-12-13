@@ -42,6 +42,8 @@ import { PanelStats } from "./components/PanelStats";
 import { TemplateWithMeta } from "@/types/template";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+const TEMPLATE_NONE_VALUE = "__none__";
+
 const StoryboardEditorPageContent = () => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("freeform");
@@ -285,12 +287,17 @@ const StoryboardEditorPageContent = () => {
           <UsageBadge label="聊天/LLM" item={usage?.llm_chat} loading={usageLoading} />
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">分镜模板</span>
-            <Select value={selectedPanelTemplateId || ""} onValueChange={(value) => setSelectedPanelTemplateId(value || null)}>
+            <Select
+              value={selectedPanelTemplateId ?? TEMPLATE_NONE_VALUE}
+              onValueChange={(value) =>
+                setSelectedPanelTemplateId(value === TEMPLATE_NONE_VALUE ? null : value)
+              }
+            >
               <SelectTrigger className="w-[220px]">
                 <SelectValue placeholder="可选：官方模板" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">不使用模板</SelectItem>
+                <SelectItem value={TEMPLATE_NONE_VALUE}>不使用模板</SelectItem>
                 {panelTemplates.map((tpl) => (
                   <SelectItem key={tpl.id} value={tpl.id}>
                     {tpl.name} · {tpl.template_data?.meta?.category || "模板"}

@@ -235,6 +235,8 @@ model GeneratedImage {
   image_url         String
   prompt            String
   style             String?
+  source_type       String? // panel | character | pose | scene | other
+  source_id         String? @db.Uuid
   character_id      String?  @db.Uuid
   generation_params Json? // Store model, steps, cfg, etc.
   created_at        DateTime @default(now()) @db.Timestamptz(6)
@@ -577,4 +579,3 @@ model Tagging {
   @@index([taggable_type, taggable_id], map: "idx_taggings_taggable")
   @@map("taggings")
 }
-

@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect } from "react";
+import { BarChart3, BookOpen, FileText, Images } from "lucide-react";
 import Header from "@/components/Header";
 import HeroSection from "@/components/HeroSection";
 import StyleCard from "@/components/StyleCard";
@@ -52,6 +54,32 @@ const HomePage = () => {
   const [stylesLoading, setStylesLoading] = useState(true);
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
   const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
+  const recordShortcuts = [
+    {
+      title: "剧本记录",
+      description: "查看所有生成的故事与剧本，继续修改或派生分镜",
+      href: "/scripts",
+      icon: FileText,
+    },
+    {
+      title: "分镜项目",
+      description: "查看所有分镜项目，进入编辑器继续修改",
+      href: "/projects",
+      icon: BookOpen,
+    },
+    {
+      title: "生成图库",
+      description: "按时间回溯所有生成图片，支持筛选与收藏",
+      href: "/generated",
+      icon: Images,
+    },
+    {
+      title: "用量与日志",
+      description: "管理员可在此审计生成日志与配额消耗",
+      href: "/admin/usage",
+      icon: BarChart3,
+    },
+  ];
 
   // 从 API 加载风格数据
   useEffect(() => {
@@ -96,6 +124,42 @@ const HomePage = () => {
               >
                 进入画面精炼
               </a>
+            </div>
+          </div>
+        </section>
+
+        {/* 快捷记录入口 */}
+        <section className="px-4 pt-12">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+              <div>
+                <h2 className="font-comic text-3xl text-foreground">生成记录直达</h2>
+                <p className="text-muted-foreground">剧本、分镜、漫画素材与日志一键进入，方便快速回溯</p>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                需要登录后访问，管理员可查看更多日志
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {recordShortcuts.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.title}
+                    href={item.href}
+                    className="group rounded-xl border border-border bg-card/60 hover:border-primary/50 transition-colors p-4 flex flex-col gap-3"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <span className="font-semibold text-foreground group-hover:text-primary">{item.title}</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
+                    <span className="text-sm text-primary font-medium">立即进入 →</span>
+                  </Link>
+                );
+              })}
             </div>
           </div>
         </section>
