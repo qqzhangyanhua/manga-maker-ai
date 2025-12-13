@@ -169,6 +169,8 @@ class ImageGenerationQueue {
             steps: task.steps || 30,
             cfg_scale: task.cfg || 7,
             seed: task.seed,
+            // Phase 2: Pass multiple reference images
+            referenceImageUrls: task.referenceImages,
         });
 
         // Update progress

@@ -4,7 +4,7 @@ import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
-import { generateImage, waitForTaskCompletion } from "@/lib/unified-image-generation";
+import { findBestReferenceImage } from "@/lib/character-reference";
 
 // POST /api/panel/generate-image - 为单个分镜生成图像
 export async function POST(req: Request) {
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     userId = payload.userId;
 
     const body = await req.json();
-    const { panel_id, prompt, style, wait = false } = body;
+    const { panel_id, prompt, style, wait } = body; // 不设置默认值，后面统一处理
 
     if (!panel_id || !prompt) {
       return NextResponse.json(
@@ -36,15 +36,26 @@ export async function POST(req: Request) {
       );
     }
 
-    // 获取panel并验证权限，包含资产关联
+    // 获取panel并验证权限，包含资产关联（含表情和三视图以便智能查找参考图）
     const panel = await prisma.panel.findUnique({
       where: { id: panel_id },
       include: {
         project: true,
         character: {
           include: {
+            expressions: {
+              select: {
+                expression_type: true,
+                image_url: true,
+              },
+            },
+            views: {
+              select: {
+                view_type: true,
+                image_url: true,
+              },
+            },
             outfits: true,
-            expressions: true,
           },
         },
         outfit: true,
@@ -106,45 +117,102 @@ export async function POST(req: Request) {
       enhancedPrompt += `, background: ${panel.scene.name} (${panel.scene.scene_type})`;
     }
 
-    // 使用统一图片生成系统
-    const stylePrompt = style || panel.project.style || "manga style";
-    const fullPrompt = `${enhancedPrompt}, ${stylePrompt}, high quality, detailed`;
+    // 智能查找角色参考图（优先级：reference_image → base_image_url → neutral表情 → 任意表情 → 正面三视图）
+    const referenceImages: string[] = [];
 
-    const { taskId, status } = await generateImage(
-      "panel",
-      fullPrompt,
-      userId,
-      {
-        style: stylePrompt,
-        width: 1024,
-        height: 768,
-        metadata: {
-          panel_id,
-          project_id: panel.project_id,
-          character_id: panel.character_id,
-          scene_id: panel.scene_id,
-        },
-        // Phase 2: Pass reference images for IP-Adapter
-        referenceImages: [
-          panel.character?.reference_image,
-          panel.outfit?.image_url,
-          panel.scene?.image_url,
-        ].filter(Boolean) as string[],
-      }
-    );
+    if (panel.character) {
+      const characterRef = findBestReferenceImage({
+        id: panel.character.id,
+        name: panel.character.name,
+        reference_image: panel.character.reference_image,
+        base_image_url: panel.character.base_image_url,
+        expressions: panel.character.expressions,
+        views: panel.character.views,
+      });
 
-    // If wait=true, wait for completion
-    let imageUrl: string | undefined;
-    if (wait) {
-      const result = await waitForTaskCompletion(taskId, 60000);
-      if (result.status === "completed") {
-        imageUrl = result.imageUrl;
-      } else if (result.status === "failed") {
-        throw new Error(result.error || "Image generation failed");
+      if (characterRef) {
+        referenceImages.push(characterRef);
+        console.log(`✓ 分镜 ${panel_id} 将使用角色参考图: ${characterRef}`);
+      } else {
+        console.log(`ℹ 分镜 ${panel_id} 的角色 ${panel.character.name} 没有可用的参考图`);
       }
     }
 
-    // 更新panel的generated_image (如果已完成)
+    // Add outfit reference image if available
+    if (panel.outfit?.image_url) {
+      referenceImages.push(panel.outfit.image_url);
+      console.log(`✓ 分镜 ${panel_id} 将使用服装参考图: ${panel.outfit.image_url}`);
+    }
+
+    // Add scene reference image if available
+    if (panel.scene?.image_url) {
+      referenceImages.push(panel.scene.image_url);
+      console.log(`✓ 分镜 ${panel_id} 将使用场景参考图: ${panel.scene.image_url}`);
+    }
+
+    console.log(`分镜 ${panel_id} 总共使用 ${referenceImages.length} 张参考图`);
+
+    // 使用统一图片生成系统 - 直接同步生成（不使用队列）
+    const stylePrompt = style || panel.project.style || "manga style";
+    const fullPrompt = `${enhancedPrompt}, ${stylePrompt}, high quality, detailed`;
+
+    console.log(`🚀 开始直接生成图片...`);
+    console.log(`  - Prompt: ${fullPrompt.substring(0, 100)}...`);
+    console.log(`  - 参考图数量: ${referenceImages.length}`);
+
+    // 直接调用图片生成，不使用队列
+    const { callImageGenerationByType } = await import("@/lib/image-generation");
+
+    let imageUrl: string | undefined;
+    try {
+      const result = await callImageGenerationByType({
+        providerType: "image_generation",
+        prompt: fullPrompt,
+        width: 1024,
+        height: 768,
+        referenceImageUrls: referenceImages,
+      });
+
+      console.log(`📊 图片生成结果:`, { success: result.success, images: result.images?.length });
+
+      if (!result.success || !result.images || result.images.length === 0) {
+        throw new Error(result.error || "图片生成失败");
+      }
+
+      // 上传到 MinIO
+      const { base64ToBuffer } = await import("@/lib/image-generation");
+      const { minioClient, MINIO_BUCKET, ensureBucketExists, getPublicUrl } = await import("@/lib/minio");
+
+      await ensureBucketExists();
+
+      // 转换 base64 为 Buffer
+      const imageBuffer = base64ToBuffer(result.images[0]);
+
+      // 生成对象名
+      const timestamp = Date.now();
+      const objectName = `generated/${userId}/panel/${timestamp}_${panel_id}.png`;
+
+      console.log(`📤 上传图片到 MinIO: ${objectName}`);
+
+      // 上传到 MinIO
+      await minioClient.putObject(
+        MINIO_BUCKET,
+        objectName,
+        imageBuffer,
+        imageBuffer.length,
+        { "Content-Type": "image/png" }
+      );
+
+      // 生成公开访问 URL
+      imageUrl = getPublicUrl(objectName);
+      console.log(`✅ 图片生成并上传成功: ${imageUrl}`);
+
+    } catch (genError) {
+      console.error(`❌ 图片生成失败:`, genError);
+      throw genError;
+    }
+
+    // 更新panel的generated_image
     if (imageUrl) {
       await prisma.panel.update({
         where: { id: panel_id },
@@ -153,6 +221,7 @@ export async function POST(req: Request) {
           prompt_used: prompt,
         },
       });
+      console.log(`✓ Panel ${panel_id} 的 generated_image 已更新`);
     }
 
     if (userId) {
@@ -160,22 +229,18 @@ export async function POST(req: Request) {
         userId,
         action: "image_generation",
         providerType: "image_generation",
-        status: imageUrl ? "success" : "pending",
+        status: "success",
         durationMs: Date.now() - startedAt,
-        requestPayload: { panel_id, style },
-        responsePayload: { panel_id, task_id: taskId },
+        requestPayload: { panel_id, prompt, style, reference_images_count: referenceImages.length },
+        responsePayload: { panel_id, image_url: imageUrl },
       });
     }
 
     return NextResponse.json({
       success: true,
-      task_id: taskId,
-      status: status.status,
       image_url: imageUrl,
       usage: usageSnapshot,
-      message: wait
-        ? "图片生成完成"
-        : "图片生成任务已提交,请使用task_id查询进度",
+      message: "图片生成完成",
     });
   } catch (error) {
     console.error("Generate image error:", error);

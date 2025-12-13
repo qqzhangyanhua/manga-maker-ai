@@ -13,6 +13,7 @@ import {
   CardHeader,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { User, AlertCircle } from "lucide-react";
 import { PanelGenerationProgress } from "./PanelGenerationProgress";
 import type { Panel, GenerationTask } from "../../types/script-editor.types";
 
@@ -38,13 +39,26 @@ export function PanelCard({
   return (
     <Card className="group hover:border-primary/50 transition-colors">
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Badge variant="secondary">Shot #{index + 1}</Badge>
           {panel.shot_size && (
             <Badge variant="outline">{panel.shot_size}</Badge>
           )}
           {panel.camera_angle && (
             <Badge variant="outline">{panel.camera_angle}</Badge>
+          )}
+
+          {/* 角色绑定状态 */}
+          {panel.character_id ? (
+            <Badge variant="default" className="bg-green-500/10 text-green-700 border-green-500/20">
+              <User className="w-3 h-3 mr-1" />
+              角色已绑定
+            </Badge>
+          ) : (
+            <Badge variant="default" className="bg-amber-500/10 text-amber-700 border-amber-500/20">
+              <AlertCircle className="w-3 h-3 mr-1" />
+              未绑定角色
+            </Badge>
           )}
         </div>
         {actions}

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { X, GripVertical, User } from "lucide-react";
+import { X, GripVertical, User, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RoleSelector } from "./RoleSelector";
 import {
@@ -17,6 +17,8 @@ interface StoryCharacterCardProps {
   onRoleChange: (characterId: string, role: CharacterRole) => Promise<void>;
   onRemove: (characterId: string) => Promise<void>;
   isDragging?: boolean;
+  isSelected?: boolean;
+  onSelect?: (characterId: string) => void;
 }
 
 export function StoryCharacterCard({
@@ -24,6 +26,8 @@ export function StoryCharacterCard({
   onRoleChange,
   onRemove,
   isDragging,
+  isSelected = false,
+  onSelect,
 }: StoryCharacterCardProps) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
@@ -62,12 +66,24 @@ export function StoryCharacterCard({
       className={`
         flex items-center gap-3 p-3 rounded-lg border bg-card
         transition-all duration-200
-        ${isDragging ? "shadow-lg ring-2 ring-primary" : "hover:bg-accent/50"}
+        ${isDragging ? "shadow-lg ring-2 ring-primary" : ""}
+        ${isSelected ? "border-primary border-2 bg-primary/5" : "hover:bg-accent/50 cursor-pointer"}
         ${isRemoving ? "opacity-50" : ""}
       `}
+      onClick={() => onSelect?.(character.id)}
     >
+      {/* Selection indicator */}
+      {isSelected && (
+        <div className="flex-shrink-0">
+          <CheckCircle2 className="w-5 h-5 text-primary" />
+        </div>
+      )}
+
       {/* Drag handle */}
-      <div className="cursor-grab text-muted-foreground hover:text-foreground">
+      <div
+        className="cursor-grab text-muted-foreground hover:text-foreground"
+        onClick={(e) => e.stopPropagation()}
+      >
         <GripVertical className="w-4 h-4" />
       </div>
 
@@ -104,18 +120,23 @@ export function StoryCharacterCard({
       </div>
 
       {/* Role selector */}
-      <RoleSelector
-        value={role}
-        onChange={handleRoleChange}
-        disabled={isUpdating || isRemoving}
-      />
+      <div onClick={(e) => e.stopPropagation()}>
+        <RoleSelector
+          value={role}
+          onChange={handleRoleChange}
+          disabled={isUpdating || isRemoving}
+        />
+      </div>
 
       {/* Remove button */}
       <Button
         variant="ghost"
         size="icon"
         className="h-8 w-8 text-muted-foreground hover:text-destructive"
-        onClick={handleRemove}
+        onClick={(e) => {
+          e.stopPropagation();
+          handleRemove();
+        }}
         disabled={isRemoving}
       >
         <X className="w-4 h-4" />

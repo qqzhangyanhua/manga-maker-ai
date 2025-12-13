@@ -7,6 +7,7 @@ import { generateCharacterViews, base64ToBuffer } from "@/lib/image-generation";
 import { minioClient, MINIO_BUCKET, ensureBucketExists, getPublicUrl } from "@/lib/minio";
 import { assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
+import { findBestReferenceImage } from "@/lib/character-reference";
 
 const DEFAULT_IMAGE_PROVIDER_TYPE = "image_generation_turnaround";
 const DEFAULT_PROMPT_PROVIDER_TYPE = "storyboard";
@@ -102,8 +103,18 @@ export async function POST(req: Request) {
         user_id: payload.userId,
       },
       include: {
-        views: true,
-        expressions: true,
+        views: {
+          select: {
+            view_type: true,
+            image_url: true,
+          },
+        },
+        expressions: {
+          select: {
+            expression_type: true,
+            image_url: true,
+          },
+        },
       },
     });
 
@@ -113,7 +124,7 @@ export async function POST(req: Request) {
 
     // Step 1: 使用 LLM 优化角色描述（可选，提高生成质量）
     const characterDesc = description || character.description || character.name;
-    
+
     let optimizedDescription = characterDesc;
     try {
       const systemPrompt = `你是一个专业的角色设计师。请将用户的角色描述优化为适合 AI 绘画的详细提示词。
@@ -138,58 +149,15 @@ export async function POST(req: Request) {
       console.warn("LLM 优化失败，使用原始描述:", error);
     }
 
-    // Step 2: 智能查找参考图（优先级：base_image_url → neutral表情 → 任意表情 → 正面三视图）
-    let referenceImageUrl: string | undefined;
-
-    console.log('\n========== 查找角色参考图 ==========');
-    console.log(`角色ID: ${character.id}`);
-    console.log(`角色名称: ${character.name}`);
-    console.log(`base_image_url: ${character.base_image_url || '无'}`);
-    console.log(`表情数量: ${character.expressions.length}`);
-    if (character.expressions.length > 0) {
-      console.log(`  - 表情类型: ${character.expressions.map(e => e.expression_type).join(', ')}`);
-    }
-    console.log(`三视图数量: ${character.views?.length || 0}`);
-    if (character.views && character.views.length > 0) {
-      console.log(`  - 视图类型: ${character.views.map(v => v.view_type).join(', ')}`);
-    }
-
-    // 第一优先级：使用角色的主图片（base_image_url）
-    if (character.base_image_url) {
-      referenceImageUrl = character.base_image_url;
-      console.log(`✓ 使用角色主图作为参考图: ${referenceImageUrl}`);
-    }
-    // 第二优先级：使用 neutral 表情作为参考
-    else if (character.expressions.length > 0) {
-      const neutralExpression = character.expressions.find(exp => exp.expression_type === 'neutral');
-      if (neutralExpression?.image_url) {
-        referenceImageUrl = neutralExpression.image_url;
-        console.log(`✓ 使用角色的 neutral 表情作为参考图: ${referenceImageUrl}`);
-      } else {
-        // 使用任意一张表情图
-        referenceImageUrl = character.expressions[0].image_url;
-        console.log(`✓ 使用角色的 ${character.expressions[0].expression_type} 表情作为参考图: ${referenceImageUrl}`);
-      }
-    }
-    // 第三优先级：使用正面三视图（注意：这可能导致循环依赖，仅在重新生成时有效）
-    else if (character.views && character.views.length > 0) {
-      const frontView = character.views.find(v => v.view_type === 'front');
-      if (frontView?.image_url) {
-        referenceImageUrl = frontView.image_url;
-        console.log(`✓ 使用角色的正面三视图作为参考图: ${referenceImageUrl}`);
-      } else if (character.views[0]?.image_url) {
-        // 如果没有正面图，使用第一张三视图
-        referenceImageUrl = character.views[0].image_url;
-        console.log(`✓ 使用角色的 ${character.views[0].view_type} 三视图作为参考图: ${referenceImageUrl}`);
-      }
-    }
-
-    // 如果还是没有找到参考图
-    if (!referenceImageUrl) {
-      console.warn('✗ 未找到可用的参考图，将不使用参考图生成');
-      console.warn('提示：请确保角色有 base_image_url、表情图或三视图');
-    }
-    console.log('====================================\n');
+    // Step 2: 智能查找参考图（使用通用函数）
+    const referenceImageUrl = findBestReferenceImage({
+      id: character.id,
+      name: character.name,
+      reference_image: character.reference_image,
+      base_image_url: character.base_image_url,
+      expressions: character.expressions,
+      views: character.views,
+    });
 
     // Step 3: 调用图片生成 API 生成指定的视图
     console.log(`开始生成视图: ${requestedViews.join(', ')}, 角色描述: ${optimizedDescription}`);

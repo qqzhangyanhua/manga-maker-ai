@@ -3,7 +3,7 @@
  * 使用 useReducer 集中管理所有 UI 状态
  */
 
-import { useReducer, useCallback } from 'react';
+import { useReducer, useCallback, useMemo } from 'react';
 import type { Panel } from '../types/script-editor.types';
 
 // UI 状态类型定义
@@ -128,44 +128,44 @@ function uiReducer(state: UIState, action: UIAction): UIState {
 export function useUIState() {
   const [state, dispatch] = useReducer(uiReducer, initialState);
 
-  // 封装常用操作为便捷方法
-  const actions = {
-    setEditMode: useCallback((editMode: boolean) => {
+  // 封装常用操作为便捷方法 - 使用 useMemo 确保 actions 对象引用稳定
+  const actions = useMemo(() => ({
+    setEditMode: (editMode: boolean) => {
       dispatch({ type: 'SET_EDIT_MODE', payload: editMode });
-    }, []),
+    },
 
-    updateStoryForm: useCallback((updates: Partial<UIState['storyForm']>) => {
+    updateStoryForm: (updates: Partial<UIState['storyForm']>) => {
       dispatch({ type: 'UPDATE_STORY_FORM', payload: updates });
-    }, []),
+    },
 
-    setStoryForm: useCallback((form: UIState['storyForm']) => {
+    setStoryForm: (form: UIState['storyForm']) => {
       dispatch({ type: 'SET_STORY_FORM', payload: form });
-    }, []),
+    },
 
-    openNewPanelDialog: useCallback((projectId: string) => {
+    openNewPanelDialog: (projectId: string) => {
       dispatch({ type: 'OPEN_NEW_PANEL_DIALOG', payload: projectId });
-    }, []),
+    },
 
-    openEditPanelDialog: useCallback((panel: Panel) => {
+    openEditPanelDialog: (panel: Panel) => {
       dispatch({ type: 'OPEN_EDIT_PANEL_DIALOG', payload: panel });
-    }, []),
+    },
 
-    closePanelDialog: useCallback(() => {
+    closePanelDialog: () => {
       dispatch({ type: 'CLOSE_PANEL_DIALOG' });
-    }, []),
+    },
 
-    updatePanelField: useCallback((field: string, value: string) => {
+    updatePanelField: (field: string, value: string) => {
       dispatch({ type: 'UPDATE_PANEL_FIELD', payload: { field, value } });
-    }, []),
+    },
 
-    setDeletingPanel: useCallback((panelId: string | null) => {
+    setDeletingPanel: (panelId: string | null) => {
       dispatch({ type: 'SET_DELETING_PANEL', payload: panelId });
-    }, []),
+    },
 
-    resetForm: useCallback(() => {
+    resetForm: () => {
       dispatch({ type: 'RESET_FORM' });
-    }, []),
-  };
+    },
+  }), [dispatch]);
 
   return { state, dispatch, actions };
 }

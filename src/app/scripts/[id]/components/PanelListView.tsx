@@ -133,6 +133,19 @@ export function PanelListView({
       return;
     }
 
+    // 检查是否绑定了角色
+    if (!panel.character_id) {
+      const confirmGenerate = window.confirm(
+        "⚠️ 未绑定角色参考\n\n" +
+        "当前分镜没有绑定角色，将不会使用角色参考图生成。\n" +
+        "建议先编辑分镜，在「资产绑定」区域选择角色。\n\n" +
+        "是否继续生成？"
+      );
+      if (!confirmGenerate) {
+        return;
+      }
+    }
+
     const prompt = panel.prompt_used || panel.visual_prompt || panel.description;
     try {
       await generateSingle(panel.id, prompt);

@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Select,
   SelectContent,
@@ -14,7 +14,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Loader2, Sparkles, AlertCircle } from "lucide-react";
 import type { StoryCharacterWithDetails } from "@/components/StoryCharacter/types";
 
 // Character asset types
@@ -44,6 +46,7 @@ interface CharacterAssetSelectorProps {
   characterId?: string;
   expressionType?: string;
   outfitId?: string;
+  panelDescription?: string; // NEW: 分镜描述，用于智能推荐
   onCharacterChange: (characterId: string) => void;
   onExpressionChange: (expressionType: string) => void;
   onOutfitChange: (outfitId: string) => void;
@@ -55,6 +58,51 @@ interface SceneSelectorProps {
 }
 
 /**
+ * 智能推荐角色
+ * 根据分镜描述中的关键词匹配角色
+ */
+function useSmartRecommendation(
+  description: string | undefined,
+  storyCharacters: StoryCharacterWithDetails[]
+): StoryCharacterWithDetails | null {
+  return useMemo(() => {
+    if (!description || storyCharacters.length === 0) return null;
+
+    const lowerDesc = description.toLowerCase();
+
+    // 1. 精确匹配角色名字
+    for (const sc of storyCharacters) {
+      const charName = sc.character.name.toLowerCase();
+      if (lowerDesc.includes(charName)) {
+        return sc;
+      }
+    }
+
+    // 2. 匹配角色类型关键词
+    const roleKeywords: Record<string, string[]> = {
+      protagonist: ["主角", "主人公", "hero", "protagonist"],
+      antagonist: ["反派", "敌人", "villain", "antagonist", "enemy"],
+      supporting: ["配角", "supporting", "助手", "朋友", "friend"],
+    };
+
+    for (const sc of storyCharacters) {
+      const keywords = roleKeywords[sc.role] || [];
+      for (const keyword of keywords) {
+        if (lowerDesc.includes(keyword)) {
+          return sc;
+        }
+      }
+    }
+
+    // 3. 优先推荐主角
+    const protagonist = storyCharacters.find((sc) => sc.role === "protagonist");
+    if (protagonist) return protagonist;
+
+    return null;
+  }, [description, storyCharacters]);
+}
+
+/**
  * Character Asset Selector - Character, Expression, Outfit
  */
 export function CharacterAssetSelector({
@@ -62,6 +110,7 @@ export function CharacterAssetSelector({
   characterId,
   expressionType,
   outfitId,
+  panelDescription,
   onCharacterChange,
   onExpressionChange,
   onOutfitChange,
@@ -71,6 +120,12 @@ export function CharacterAssetSelector({
   >([]);
   const [outfits, setOutfits] = useState<CharacterOutfit[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // 智能推荐
+  const recommendedCharacter = useSmartRecommendation(
+    panelDescription,
+    storyCharacters
+  );
 
   // Fetch story characters
   useEffect(() => {
@@ -139,8 +194,47 @@ export function CharacterAssetSelector({
     );
   }
 
+  const hasRecommendation = recommendedCharacter && !characterId;
+
   return (
     <div className="space-y-4">
+      {/* 智能推荐提示 */}
+      {hasRecommendation && (
+        <div className="flex items-start gap-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+          <Sparkles className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+          <div className="flex-1 space-y-2">
+            <p className="text-sm text-blue-700">
+              💡 智能推荐：检测到可能需要角色「
+              <strong>{recommendedCharacter.character.name}</strong>」(
+              {recommendedCharacter.role === "protagonist" ? "主角" : recommendedCharacter.role === "antagonist" ? "反派" : recommendedCharacter.role === "supporting" ? "配角" : "龙套"})
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={() => onCharacterChange(recommendedCharacter.character_id)}
+            >
+              应用推荐
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* 无角色警告 */}
+      {!characterId && storyCharacters.length === 0 && (
+        <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+          <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm text-amber-700">
+              ⚠️ 故事中还没有添加角色，生成时将不使用角色参考图
+            </p>
+            <p className="text-xs text-amber-600 mt-1">
+              请先在左侧「故事角色」区域添加角色
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Character Selector */}
       <div className="space-y-2">
         <Label>角色 (Character)</Label>
@@ -155,7 +249,7 @@ export function CharacterAssetSelector({
             <SelectItem value="">无角色</SelectItem>
             {storyCharacters.map((sc) => (
               <SelectItem key={sc.character_id} value={sc.character_id}>
-                {sc.character.name} ({sc.role})
+                {sc.character.name} ({sc.role === "protagonist" ? "主角" : sc.role === "antagonist" ? "反派" : sc.role === "supporting" ? "配角" : "龙套"})
               </SelectItem>
             ))}
           </SelectContent>
@@ -215,7 +309,14 @@ export function CharacterAssetSelector({
             <strong>角色:</strong> {selectedCharacter.character.name}
           </p>
           <p>
-            <strong>角色类型:</strong> {selectedCharacter.role}
+            <strong>角色类型:</strong>{" "}
+            {selectedCharacter.role === "protagonist"
+              ? "主角"
+              : selectedCharacter.role === "antagonist"
+              ? "反派"
+              : selectedCharacter.role === "supporting"
+              ? "配角"
+              : "龙套"}
           </p>
           {selectedCharacter.character_arc && (
             <p>

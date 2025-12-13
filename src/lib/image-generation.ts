@@ -19,7 +19,8 @@ export interface ImageGenerationParams {
   sampler_name?: string;
   seed?: number;
   batch_size?: number;
-  referenceImageUrl?: string; // 参考图URL，将被转换为base64并发送给模型
+  referenceImageUrl?: string; // 单个参考图URL（向后兼容）
+  referenceImageUrls?: string[]; // 多个参考图URLs（Phase 2新增）
 }
 
 export interface ImageGenerationResult {
@@ -221,6 +222,7 @@ async function callOpenAIImageAPI(
     height = 1024,
     batch_size = 1,
     referenceImageUrl,
+    referenceImageUrls,
   } = params;
 
   if (!apiKey) {
@@ -245,31 +247,44 @@ async function callOpenAIImageAPI(
   const normalizedUrl = baseUrl.replace(/\/$/, "");
   const endpoint = `${normalizedUrl}/v1/chat/completions`;
 
+  // 合并参考图：优先使用 referenceImageUrls，否则使用 referenceImageUrl
+  const allReferenceUrls: string[] = [];
+  if (referenceImageUrls && referenceImageUrls.length > 0) {
+    allReferenceUrls.push(...referenceImageUrls);
+  } else if (referenceImageUrl) {
+    allReferenceUrls.push(referenceImageUrl);
+  }
+
   // 如果有参考图，先下载并转换为 base64
-  let referenceImageBase64: string | undefined;
-  if (referenceImageUrl) {
-    try {
-      referenceImageBase64 = await urlToBase64(referenceImageUrl);
-      console.log('✓ 参考图已转换为 base64，将一起发送给模型');
-    } catch (error) {
-      console.warn('⚠️ 参考图转换失败，将不使用参考图:', error);
-      // 继续执行，但不使用参考图
+  const referenceImagesBase64: string[] = [];
+  if (allReferenceUrls.length > 0) {
+    console.log(`开始处理 ${allReferenceUrls.length} 张参考图...`);
+    for (const [index, url] of allReferenceUrls.entries()) {
+      try {
+        const base64 = await urlToBase64(url);
+        referenceImagesBase64.push(base64);
+        console.log(`✓ 参考图 ${index + 1}/${allReferenceUrls.length} 已转换为 base64`);
+      } catch (error) {
+        console.warn(`⚠️ 参考图 ${index + 1} 转换失败，跳过:`, error);
+      }
     }
+    console.log(`✓ 成功转换 ${referenceImagesBase64.length}/${allReferenceUrls.length} 张参考图`);
   }
 
   // 构建 content 数组
   const contentArray: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
-  
+
   // 如果有参考图，先放参考图
-  if (referenceImageBase64) {
+  for (const [index, base64Image] of referenceImagesBase64.entries()) {
     contentArray.push({
       type: "image_url",
       image_url: {
-        url: referenceImageBase64,
+        url: base64Image,
       },
     });
+    console.log(`  添加参考图 ${index + 1} 到请求 (${(base64Image.length / 1024).toFixed(2)} KB)`);
   }
-  
+
   // 然后放文本提示词
   contentArray.push({
     type: "text",
@@ -281,9 +296,10 @@ async function callOpenAIImageAPI(
   console.log(`Endpoint: ${endpoint}`);
   console.log(`Model: ${model}`);
   console.log(`API Key: ${apiKey.substring(0, 10)}...`);
-  console.log(`是否包含参考图: ${referenceImageBase64 ? '是' : '否'}`);
-  if (referenceImageBase64) {
-    console.log(`参考图大小: ${(referenceImageBase64.length / 1024).toFixed(2)} KB (base64)`);
+  console.log(`参考图数量: ${referenceImagesBase64.length}`);
+  if (referenceImagesBase64.length > 0) {
+    const totalSize = referenceImagesBase64.reduce((sum, img) => sum + img.length, 0);
+    console.log(`参考图总大小: ${(totalSize / 1024).toFixed(2)} KB (base64)`);
   }
   console.log(`Prompt: ${prompt.substring(0, 100)}...`);
   console.log(`Size: ${size}`);

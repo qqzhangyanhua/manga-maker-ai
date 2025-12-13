@@ -31,15 +31,18 @@ export const ProviderTable = ({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="min-w-[60px]">ID</TableHead>
-              <TableHead className="min-w-[120px]">Type</TableHead>
+              <TableHead className="w-[80px] min-w-[80px] sticky left-0 bg-muted z-20 shadow-[inset_-1px_0_0_0_hsl(var(--border))]">
+                ID
+              </TableHead>
+              <TableHead className="min-w-[120px] sticky left-[80px] bg-muted z-20 shadow-[inset_-1px_0_0_0_hsl(var(--border))]">
+                Type
+              </TableHead>
               <TableHead className="min-w-[100px]">Name</TableHead>
               <TableHead className="min-w-[150px]">Model</TableHead>
               <TableHead className="min-w-[200px]">Base URL</TableHead>
               <TableHead className="min-w-[80px]">Priority</TableHead>
-              <TableHead className="min-w-[80px]">Enabled</TableHead>
               <TableHead className="min-w-[200px]">描述</TableHead>
-              <TableHead className="min-w-[140px] sticky right-0 bg-muted z-10 text-right shadow-[inset_0_0_0_1px_hsl(var(--border))]">
+              <TableHead className="min-w-[140px] sticky right-0 bg-muted z-20 text-right shadow-[inset_1px_0_0_0_hsl(var(--border))]">
                 操作
               </TableHead>
             </TableRow>
@@ -47,42 +50,38 @@ export const ProviderTable = ({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   正在加载...
                 </TableCell>
               </TableRow>
             ) : providers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   暂无配置，先在上方添加一条记录。
                 </TableCell>
               </TableRow>
             ) : (
               providers.map((p) => (
                 <TableRow key={p.id}>
-                  <TableCell>{p.id}</TableCell>
-                  <TableCell className="font-medium">{p.provider_type}</TableCell>
+                  <TableCell className="sticky left-0 bg-background z-10 shadow-[inset_-1px_0_0_0_hsl(var(--border))] p-0 relative">
+                    <div className={`absolute inset-y-0 left-0 w-1 ${p.enabled ? "bg-green-500" : "bg-muted-foreground/30"}`} />
+                    <div className="px-4 py-2 h-full flex items-center">
+                      {p.id}
+                    </div>
+                  </TableCell>
+                  <TableCell className="font-medium sticky left-[80px] bg-background z-10 shadow-[inset_-1px_0_0_0_hsl(var(--border))]">
+                    {p.provider_type}
+                  </TableCell>
                   <TableCell>{p.provider_name}</TableCell>
                   <TableCell>{p.model}</TableCell>
                   <TableCell className="max-w-[200px] truncate" title={p.base_url}>
                     {p.base_url}
                   </TableCell>
                   <TableCell>{p.priority}</TableCell>
-                  <TableCell>
-                    <span
-                      className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        p.enabled
-                          ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                          : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
-                      }`}
-                    >
-                      {p.enabled ? "是" : "否"}
-                    </span>
-                  </TableCell>
                   <TableCell className="max-w-[200px] truncate" title={p.desc || ""}>
                     {p.desc || "-"}
                   </TableCell>
-                  <TableCell className="sticky right-0 bg-background z-10 shadow-[inset_0_0_0_1px_hsl(var(--border))]">
+                  <TableCell className="sticky right-0 bg-background z-10 shadow-[inset_1px_0_0_0_hsl(var(--border))]">
                     <div className="flex items-center justify-end gap-1">
                       <Button
                         size="icon"

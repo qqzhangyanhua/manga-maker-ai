@@ -119,9 +119,10 @@ export function usePanelGeneration({
 
   /**
    * 生成单个分镜图片
+   * 直接等待后端返回结果（完全同步）
    */
   const generateSingle = useCallback(
-    async (panelId: string, prompt: string, wait = false) => {
+    async (panelId: string, prompt: string) => {
       try {
         // 初始化任务状态
         setGeneratingPanels((prev) => {
@@ -129,22 +130,23 @@ export function usePanelGeneration({
           newMap.set(panelId, {
             panelId,
             taskId: "",
-            status: "pending",
-            progress: 0,
+            status: "processing",
+            progress: 50, // 显示处理中
           });
           return newMap;
         });
 
-        // 使用去重的请求函数
+        // 调用生成接口（后端会同步等待完成并返回图片URL）
         const data = await dedupedGenerateImage(panelId, prompt);
 
-        // 如果等待模式且已完成
-        if (wait && data.image_url) {
+        // 检查返回的数据
+        if (data.success && data.image_url) {
+          // 生成成功
           setGeneratingPanels((prev) => {
             const newMap = new Map(prev);
             newMap.set(panelId, {
               panelId,
-              taskId: data.task_id || "",
+              taskId: "",
               status: "completed",
               progress: 100,
               imageUrl: data.image_url,
@@ -153,21 +155,11 @@ export function usePanelGeneration({
           });
           onSuccess?.(panelId, data.image_url);
         } else {
-          // 异步模式：开始轮询
-          setGeneratingPanels((prev) => {
-            const newMap = new Map(prev);
-            newMap.set(panelId, {
-              panelId,
-              taskId: data.task_id,
-              status: "processing",
-              progress: 10,
-            });
-            return newMap;
-          });
-          startPolling(panelId, data.task_id);
+          // 生成失败
+          throw new Error(data.error || "生成失败：未返回图片URL");
         }
 
-        return data.task_id;
+        return panelId;
       } catch (error) {
         const errorMsg =
           error instanceof Error ? error.message : "生成失败";
@@ -188,7 +180,7 @@ export function usePanelGeneration({
         throw error;
       }
     },
-    [onSuccess, onError, startPolling, dedupedGenerateImage]
+    [onSuccess, onError, dedupedGenerateImage]
   );
 
   /**

@@ -125,6 +125,7 @@ export function PanelEditDialog({
                 characterId={panel.character_id}
                 expressionType={panel.expression_type}
                 outfitId={panel.outfit_id}
+                panelDescription={panel.description} // 传递描述用于智能推荐
                 onCharacterChange={(v) => onChange("character_id", v)}
                 onExpressionChange={(v) => onChange("expression_type", v)}
                 onOutfitChange={(v) => onChange("outfit_id", v)}

@@ -48,6 +48,9 @@ export default function ScriptDetailsPage() {
   const { toast } = useToast();
   const storyId = params.id as string;
 
+  // Selected character for quick panel binding
+  const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
+
   // React Query hooks for data management - 使用优化版渐进式加载
   const {
     data,
@@ -187,9 +190,18 @@ export default function ScriptDetailsPage() {
     }
   }
 
-  function handleImageGenerated(panelId: string, imageUrl: string) {
+  async function handleImageGenerated(panelId: string, imageUrl: string) {
     // React Query will handle the update via cache invalidation
     toast({ title: "图片生成成功" });
+  }
+
+  function handleAddPanel() {
+    if (!data?.projectId) return;
+    uiActions.openNewPanelDialog(data.projectId);
+    // Auto-bind selected character if exists
+    if (selectedCharacterId) {
+      uiActions.updatePanelField("character_id", selectedCharacterId);
+    }
   }
 
   // Story character handlers
@@ -301,6 +313,8 @@ export default function ScriptDetailsPage() {
             onRemove={handleRemoveCharacter}
             onRoleChange={handleCharacterRoleChange}
             isLoading={isStoryCharactersLoading}
+            selectedCharacterId={selectedCharacterId}
+            onSelectedCharacterChange={setSelectedCharacterId}
           />
         </div>
 
@@ -325,7 +339,7 @@ export default function ScriptDetailsPage() {
               onPanelsChange={() => { }}
               onEditPanel={(panel) => uiActions.openEditPanelDialog(panel)}
               onDeletePanel={handleDeletePanel}
-              onAddPanel={() => uiActions.openNewPanelDialog(data?.projectId || "")}
+              onAddPanel={handleAddPanel}
               onImageGenerated={handleImageGenerated}
               onRefresh={() => refetchPanels?.()}
               onError={(msg) =>

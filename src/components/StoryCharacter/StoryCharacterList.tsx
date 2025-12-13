@@ -14,6 +14,8 @@ interface StoryCharacterListProps {
   onRemove: (characterId: string) => Promise<void>;
   onRoleChange: (characterId: string, role: CharacterRole) => Promise<void>;
   isLoading?: boolean;
+  selectedCharacterId?: string | null;
+  onSelectedCharacterChange?: (characterId: string | null) => void;
 }
 
 export function StoryCharacterList({
@@ -23,6 +25,8 @@ export function StoryCharacterList({
   onRemove,
   onRoleChange,
   isLoading,
+  selectedCharacterId,
+  onSelectedCharacterChange,
 }: StoryCharacterListProps) {
   const [showSelector, setShowSelector] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
@@ -39,6 +43,19 @@ export function StoryCharacterList({
       setIsAdding(false);
     }
   };
+
+  const handleCharacterSelect = (characterId: string) => {
+    // Toggle selection: if already selected, deselect
+    if (selectedCharacterId === characterId) {
+      onSelectedCharacterChange?.(null);
+    } else {
+      onSelectedCharacterChange?.(characterId);
+    }
+  };
+
+  const selectedCharacter = characters.find(
+    (sc) => sc.character_id === selectedCharacterId
+  );
 
   if (isLoading) {
     return (
@@ -70,6 +87,15 @@ export function StoryCharacterList({
         </Button>
       </div>
 
+      {/* Selection hint */}
+      {selectedCharacter && (
+        <div className="text-xs text-muted-foreground p-2 bg-primary/10 border border-primary/20 rounded-lg">
+          当前选中：<strong>{selectedCharacter.character.name}</strong>
+          （{selectedCharacter.role === "protagonist" ? "主角" : selectedCharacter.role === "antagonist" ? "反派" : selectedCharacter.role === "supporting" ? "配角" : "龙套"}）
+          - 新建分镜时将自动绑定此角色
+        </div>
+      )}
+
       {/* Character list */}
       {characters.length === 0 ? (
         <div className="text-center py-8 border rounded-lg bg-muted/20">
@@ -95,6 +121,8 @@ export function StoryCharacterList({
               storyCharacter={sc}
               onRoleChange={onRoleChange}
               onRemove={onRemove}
+              isSelected={sc.character_id === selectedCharacterId}
+              onSelect={handleCharacterSelect}
             />
           ))}
         </div>
