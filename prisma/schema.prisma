@@ -197,6 +197,14 @@ model Panel {
   outfit_id       String? @db.Uuid // FK to CharacterOutfit
   scene_id        String? @db.Uuid // FK to Scene
 
+  // Phase 3: Layout grouping for multi-panel layouts (2镜/4镜/6镜)
+  // null = independent panel (1镜)
+  // "group_start_2" = start of 2-panel layout group
+  // "group_start_4" = start of 4-panel layout group
+  // "group_start_6" = start of 6-panel layout group
+  // "group_member" = belongs to previous group
+  layout_hint String?
+
   created_at DateTime @default(now()) @db.Timestamptz(6)
 
   project  Project        @relation(fields: [project_id], references: [id], onDelete: Cascade)

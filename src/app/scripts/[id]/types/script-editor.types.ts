@@ -56,6 +56,8 @@ export interface Panel {
   expression_type?: string; // Expression type (neutral, happy, sad, etc.)
   outfit_id?: string; // FK to CharacterOutfit
   scene_id?: string; // FK to Scene
+  // Phase 3: Layout grouping (2镜/4镜/6镜)
+  layout_hint?: string | null; // "group_start_2" | "group_start_4" | "group_start_6" | "group_member" | null
 }
 
 /**

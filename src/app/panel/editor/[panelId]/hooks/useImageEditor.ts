@@ -336,11 +336,39 @@ export function useImageEditor() {
 
     setSaving(true);
     try {
+      let imageUrlToSave = currentImage;
+
+      // 如果是 base64 图片，先上传到 MinIO
+      if (currentImage.startsWith("data:")) {
+        toast({
+          title: "正在上传图片",
+          description: "请稍候...",
+        });
+
+        const uploadResponse = await fetch("/api/upload/base64", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            base64Data: currentImage,
+            filename: `panel-${panelId}-${Date.now()}.png`,
+          }),
+        });
+
+        if (!uploadResponse.ok) {
+          const uploadData = await uploadResponse.json();
+          throw new Error(uploadData.error || "图片上传失败");
+        }
+
+        const uploadData = await uploadResponse.json();
+        imageUrlToSave = uploadData.url;
+      }
+
+      // 保存图片 URL 到数据库
       const response = await fetch(`/api/panel/${panelId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          generated_image: currentImage,
+          generated_image: imageUrlToSave,
         }),
       });
 

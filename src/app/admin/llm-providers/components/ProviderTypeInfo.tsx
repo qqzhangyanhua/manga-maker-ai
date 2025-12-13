@@ -72,6 +72,15 @@ export const ProviderTypeInfo = () => {
             </p>
           </div>
           <div>
+            <strong className="text-blue-900 dark:text-blue-100">image_edit</strong>
+            <p className="text-xs mt-1">
+              图片编辑/改图：根据用户的修改需求生成 img2img 适用的详细提示词，保持原图主体与构图
+            </p>
+            <p className="text-xs text-blue-600 dark:text-blue-300">
+              使用位置：/api/panel/[id]/ai-edit（分镜图片修改，先用 LLM 生成修改提示词再交给图像模型）
+            </p>
+          </div>
+          <div>
             <strong className="text-blue-900 dark:text-blue-100">prompt_optimizer</strong>
             <p className="text-xs mt-1">用于提示词优化：增强和优化用户输入的提示词质量</p>
             <p className="text-xs text-blue-600 dark:text-blue-300">使用位置：/api/prompt/optimize</p>
@@ -88,5 +97,4 @@ export const ProviderTypeInfo = () => {
     </div>
   );
 };
-
 

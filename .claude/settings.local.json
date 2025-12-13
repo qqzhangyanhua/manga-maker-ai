@@ -34,7 +34,9 @@
       "mcp__sequential-thinking__sequentialthinking",
       "Bash(pnpm install:*)",
       "Bash(npm install:*)",
-      "Bash(npm view:*)"
+      "Bash(npm view:*)",
+      "Bash(npx prisma migrate dev:*)",
+      "Bash(npx prisma db push)"
     ],
     "deny": [],
     "ask": []

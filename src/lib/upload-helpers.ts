@@ -143,3 +143,53 @@ export function extractObjectNameFromUrl(url: string): string | null {
     return null;
   }
 }
+
+// 上传 base64 图片到 MinIO
+export async function uploadBase64Image(
+  base64Data: string,
+  filename: string
+): Promise<string> {
+  try {
+    // 解析 base64 数据
+    const matches = base64Data.match(/^data:(.+);base64,(.+)$/);
+    if (!matches) {
+      throw new Error("无效的 base64 格式");
+    }
+
+    const mimeType = matches[1];
+    const base64String = matches[2];
+
+    // 验证 MIME 类型
+    if (!ALLOWED_IMAGE_TYPES.includes(mimeType)) {
+      throw new Error(`不支持的图片类型: ${mimeType}`);
+    }
+
+    // 将 base64 转换为 Buffer
+    const buffer = Buffer.from(base64String, "base64");
+
+    // 检查文件大小
+    if (buffer.length > MAX_FILE_SIZE) {
+      throw new Error(`文件大小不能超过 ${MAX_FILE_SIZE / 1024 / 1024}MB`);
+    }
+
+    // 确保 bucket 存在
+    await ensureBucketExists();
+
+    // 生成对象名（使用时间戳避免冲突）
+    const timestamp = Date.now();
+    const randomStr = Math.random().toString(36).substring(2, 8);
+    const extension = filename.match(/\.[^.]+$/)?.[0] || ".png";
+    const objectName = `panels/${timestamp}_${randomStr}${extension}`;
+
+    // 上传到 MinIO
+    await minioClient.putObject(MINIO_BUCKET, objectName, buffer, buffer.length, {
+      "Content-Type": mimeType,
+    });
+
+    // 返回公开访问 URL
+    return getPublicUrl(objectName);
+  } catch (error) {
+    console.error("Upload base64 error:", error);
+    throw error instanceof Error ? error : new Error("上传失败");
+  }
+}

@@ -91,6 +91,7 @@ export async function PATCH(
       character_name,
       emotion,
       prompt_used,
+      generated_image,
       // Phase 2: Asset binding fields
       character_id,
       expression_type,
@@ -112,6 +113,7 @@ export async function PATCH(
         ...(character_name !== undefined && { character_name }),
         ...(emotion !== undefined && { emotion }),
         ...(prompt_used !== undefined && { prompt_used }),
+        ...(generated_image !== undefined && { generated_image }),
         // Phase 2: Asset binding fields
         ...(character_id !== undefined && { character_id }),
         ...(expression_type !== undefined && { expression_type }),
