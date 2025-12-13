@@ -16,9 +16,10 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Search, Filter, X, Plus, Info } from "lucide-react";
-import { PanelTemplate, SuccessResponse } from "@/types/template";
+import { Search, Filter, X, Plus, Info, Users, SlidersHorizontal } from "lucide-react";
+import { TemplateWithMeta, SuccessResponse, TemplateCategory } from "@/types/template";
 import { useToast } from "@/hooks/use-toast";
+import { Slider } from "@/components/ui/slider";
 
 const COMMON_TAGS = [
   "对话", "战斗", "情感", "动作", "悬疑",
@@ -41,9 +42,12 @@ export default function TemplatesPage() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [panelCountRange, setPanelCountRange] = useState("all");
   const [activeTab, setActiveTab] = useState<"official" | "community" | "my">("official");
-  const [selectedTemplate, setSelectedTemplate] = useState<PanelTemplate | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateWithMeta | null>(null);
   const [showApplyDialog, setShowApplyDialog] = useState(false);
   const [page, setPage] = useState(1);
+  const [category, setCategory] = useState<TemplateCategory | "all">("all");
+  const [difficulty, setDifficulty] = useState<"all" | "newbie" | "pro">("all");
+  const [targetCharacters, setTargetCharacters] = useState<number | null>(null);
 
   // Build query params
   const buildQueryParams = () => {
@@ -74,7 +78,7 @@ export default function TemplatesPage() {
         throw new Error("Failed to fetch templates");
       }
       const json: SuccessResponse<{
-        templates: Array<PanelTemplate & { user?: { id: string; name: string | null; image: string | null } }>;
+        templates: Array<TemplateWithMeta & { user?: { id: string; name: string | null; image: string | null } }>;
         likedTemplateIds: string[];
         pagination: { total: number; page: number; limit: number; totalPages: number };
       }> = await response.json();
@@ -84,6 +88,19 @@ export default function TemplatesPage() {
 
   // Get liked template IDs from API response
   const likedTemplateIds = data?.likedTemplateIds ? new Set(data.likedTemplateIds) : new Set<string>();
+
+  // Client-side meta过滤
+  const filteredTemplates = (data?.templates || []).filter((t) => {
+    const meta = t.template_data?.meta;
+    if (category !== "all" && meta?.category !== category) return false;
+    if (difficulty !== "all" && meta?.complexityLevel !== difficulty) return false;
+    if (targetCharacters && meta?.recommendedCharacters) {
+      const { min, max } = meta.recommendedCharacters;
+      if (min && targetCharacters < min) return false;
+      if (max && targetCharacters > max) return false;
+    }
+    return true;
+  });
 
   // Like/unlike template mutation
   const likeMutation = useMutation({
@@ -172,9 +189,18 @@ export default function TemplatesPage() {
     setSelectedTags([]);
     setPanelCountRange("all");
     setPage(1);
+    setCategory("all");
+    setDifficulty("all");
+    setTargetCharacters(null);
   };
 
-  const hasFilters = searchQuery || selectedTags.length > 0 || (panelCountRange !== "all");
+  const hasFilters =
+    searchQuery ||
+    selectedTags.length > 0 ||
+    panelCountRange !== "all" ||
+    category !== "all" ||
+    difficulty !== "all" ||
+    targetCharacters !== null;
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
@@ -263,39 +289,107 @@ export default function TemplatesPage() {
               </Badge>
             ))}
           </div>
+
+          {/* 模板元信息筛选 */}
+          <div className="flex flex-wrap gap-3 items-center">
+            <div className="flex items-center gap-2">
+              <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+              <Select
+                value={category}
+                onValueChange={(value) => {
+                  setCategory(value as TemplateCategory | "all");
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="类型" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部类型</SelectItem>
+                  <SelectItem value="short">短篇</SelectItem>
+                  <SelectItem value="strip">条漫</SelectItem>
+                  <SelectItem value="four">四格</SelectItem>
+                  <SelectItem value="comic">分幕</SelectItem>
+                  <SelectItem value="blank">空白</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Select
+                value={difficulty}
+                onValueChange={(value) => {
+                  setDifficulty(value as "all" | "newbie" | "pro");
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="难度" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部难度</SelectItem>
+                  <SelectItem value="newbie">新手友好</SelectItem>
+                  <SelectItem value="pro">进阶</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">角色数</span>
+              <div className="w-40">
+                <Slider
+                  min={1}
+                  max={6}
+                  step={1}
+                  value={[targetCharacters ?? 3]}
+                  onValueChange={([value]) => setTargetCharacters(value)}
+                />
+              </div>
+              <span className="text-sm text-muted-foreground w-6 text-center">
+                {targetCharacters ?? "—"}
+              </span>
+              <Button variant="ghost" size="sm" onClick={() => setTargetCharacters(null)}>
+                重置
+              </Button>
+            </div>
+          </div>
         </div>
 
         {/* Template grid */}
         <TabsContent value="official" className="mt-6">
           <TemplateGrid
-            templates={data?.templates || []}
+            templates={filteredTemplates}
             isLoading={isLoading}
             likedTemplateIds={likedTemplateIds}
             onLike={handleLike}
             onApply={handleApplyClick}
             emptyMessage="暂无官方模板"
+            targetCharacters={targetCharacters}
           />
         </TabsContent>
 
         <TabsContent value="community" className="mt-6">
           <TemplateGrid
-            templates={data?.templates || []}
+            templates={filteredTemplates}
             isLoading={isLoading}
             likedTemplateIds={likedTemplateIds}
             onLike={handleLike}
             onApply={handleApplyClick}
             emptyMessage="暂无社区模板"
+            targetCharacters={targetCharacters}
           />
         </TabsContent>
 
         <TabsContent value="my" className="mt-6">
           <TemplateGrid
-            templates={data?.templates || []}
+            templates={filteredTemplates}
             isLoading={isLoading}
             likedTemplateIds={likedTemplateIds}
             onLike={handleLike}
             onApply={handleApplyClick}
             emptyMessage="您还没有创建任何模板"
+            targetCharacters={targetCharacters}
           />
         </TabsContent>
       </Tabs>

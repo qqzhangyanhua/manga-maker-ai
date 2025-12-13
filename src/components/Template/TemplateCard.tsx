@@ -4,11 +4,12 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Heart, Download, Eye, Users } from "lucide-react";
-import { PanelTemplate } from "@/types/template";
+import { TemplateWithMeta } from "@/types/template";
 import { useState } from "react";
+import { TemplateDetailDialog } from "./TemplateDetailDialog";
 
 interface TemplateCardProps {
-  template: PanelTemplate & {
+  template: TemplateWithMeta & {
     user?: {
       id: string;
       name: string | null;
@@ -18,11 +19,37 @@ interface TemplateCardProps {
   onLike?: (templateId: string, isLiked: boolean) => void;
   onApply?: (templateId: string) => void;
   isLiked?: boolean;
+  targetCharacters?: number | null;
 }
 
-export function TemplateCard({ template, onLike, onApply, isLiked = false }: TemplateCardProps) {
+export function TemplateCard({ template, onLike, onApply, isLiked = false, targetCharacters }: TemplateCardProps) {
   const [liked, setLiked] = useState(isLiked);
   const [likesCount, setLikesCount] = useState(template.likes_count);
+  const meta = template.template_data?.meta;
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  const categoryMap: Record<string, string> = {
+    short: "短篇",
+    strip: "条漫",
+    four: "四格",
+    comic: "分幕",
+    blank: "空白",
+  };
+
+  const categoryLabel = meta?.category ? categoryMap[meta.category] || "模板" : "模板";
+  const recommendedPanels = meta?.recommendedPanelCount ?? template.panel_count;
+  const complexityLabel = meta?.complexityLevel === "pro" ? "进阶" : "新手友好";
+  const cameraPlan = meta?.cameraPlan;
+  const compatibility = (() => {
+    let score = 100;
+    if (targetCharacters && meta?.recommendedCharacters) {
+      const { min, max } = meta.recommendedCharacters;
+      if (min && targetCharacters < min) score -= 15;
+      if (max && targetCharacters > max) score -= 15;
+    }
+    if (meta?.complexityLevel === "pro") score -= 5;
+    return Math.max(60, Math.min(100, score));
+  })();
 
   const handleLike = async () => {
     const newLikedState = !liked;
@@ -50,9 +77,14 @@ export function TemplateCard({ template, onLike, onApply, isLiked = false }: Tem
               </div>
             </div>
           )}
-          {template.is_official && (
-            <Badge className="absolute top-2 left-2 bg-primary/90">官方</Badge>
-          )}
+          <div className="absolute top-2 left-2 flex gap-2">
+            {template.is_official && (
+              <Badge className="bg-primary/90">官方</Badge>
+            )}
+            <Badge variant="secondary" className="bg-background/80 text-foreground">
+              {categoryLabel}
+            </Badge>
+          </div>
         </div>
 
         {/* Template info */}
@@ -79,6 +111,25 @@ export function TemplateCard({ template, onLike, onApply, isLiked = false }: Tem
       </CardHeader>
 
       <CardContent className="space-y-2">
+        {/* Meta info */}
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>推荐分镜：{recommendedPanels} 格</span>
+          <span>{meta?.styleHint || complexityLabel}</span>
+        </div>
+
+        {cameraPlan && (
+          <div className="text-xs text-muted-foreground leading-relaxed">
+            镜头分布：全景 {cameraPlan.wide ?? 0} · 中景 {cameraPlan.medium ?? 0} · 特写 {cameraPlan.closeup ?? 0}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>适配度：{compatibility}%</span>
+          {meta?.recommendedCharacters && (
+            <span>建议角色 {meta.recommendedCharacters.min ?? "-"}-{meta.recommendedCharacters.max ?? "-"}</span>
+          )}
+        </div>
+
         {/* Stats */}
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <div className="flex items-center gap-3">
@@ -121,7 +172,21 @@ export function TemplateCard({ template, onLike, onApply, isLiked = false }: Tem
           <Download className="h-4 w-4 mr-1" />
           应用
         </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setDetailOpen(true)}
+        >
+          <Eye className="h-4 w-4 mr-1" />
+          详情
+        </Button>
       </CardFooter>
+
+      <TemplateDetailDialog
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        template={template}
+      />
     </Card>
   );
 }

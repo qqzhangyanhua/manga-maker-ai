@@ -21,6 +21,61 @@ export function useBatchGeneration(storyId: string, projectId: string) {
     const [tasks, setTasks] = useState<Map<string, GenerationTask>>(new Map());
     const [isGenerating, setIsGenerating] = useState(false);
 
+    const pollTaskStatus = useCallback(
+        async (taskMap: Map<string, GenerationTask>) => {
+            const pollInterval = setInterval(async () => {
+                let allCompleted = true;
+                const updatedTasks = new Map(taskMap);
+
+                for (const [panelId, task] of updatedTasks) {
+                    if (task.status === 'completed' || task.status === 'failed') {
+                        continue;
+                    }
+
+                    allCompleted = false;
+
+                    try {
+                        const res = await fetch(`/api/image/task-status?task_id=${task.taskId}`);
+                        const data = await res.json();
+
+                        updatedTasks.set(panelId, {
+                            ...task,
+                            status: data.status,
+                            progress: data.progress || 0,
+                            imageUrl: data.imageUrl,
+                            error: data.error,
+                        });
+
+                        // 如果完成,更新缓存
+                        if (data.status === 'completed' && data.imageUrl) {
+                            queryClient.setQueryData(['story', storyId], (old: any) => {
+                                if (!old) return old;
+                                return {
+                                    ...old,
+                                    panels: old.panels.map((p: Panel) =>
+                                        p.id === panelId
+                                            ? { ...p, generated_image: data.imageUrl, image_url: data.imageUrl }
+                                            : p
+                                    ),
+                                };
+                            });
+                        }
+                    } catch (error) {
+                        console.error(`Poll task ${task.taskId} error:`, error);
+                    }
+                }
+
+                setTasks(new Map(updatedTasks));
+
+                if (allCompleted) {
+                    clearInterval(pollInterval);
+                    setIsGenerating(false);
+                }
+            }, 2000); // 每2秒轮询一次
+        },
+        [queryClient, storyId]
+    );
+
     const startBatchGeneration = useCallback(
         async (panels: Panel[]) => {
             setIsGenerating(true);
@@ -61,62 +116,7 @@ export function useBatchGeneration(storyId: string, projectId: string) {
                 throw error;
             }
         },
-        [projectId]
-    );
-
-    const pollTaskStatus = useCallback(
-        async (taskMap: Map<string, GenerationTask>) => {
-            const pollInterval = setInterval(async () => {
-                let allCompleted = true;
-                const updatedTasks = new Map(taskMap);
-
-                for (const [panelId, task] of updatedTasks) {
-                    if (task.status === 'completed' || task.status === 'failed') {
-                        continue;
-                    }
-
-                    allCompleted = false;
-
-                    try {
-                        const res = await fetch(`/api/image/task-status?task_id=${task.taskId}`);
-                        const data = await res.json();
-
-                        updatedTasks.set(panelId, {
-                            ...task,
-                            status: data.status,
-                            progress: data.progress || 0,
-                            imageUrl: data.imageUrl,
-                            error: data.error,
-                        });
-
-                        // 如果完成，更新缓存
-                        if (data.status === 'completed' && data.imageUrl) {
-                            queryClient.setQueryData(['story', storyId], (old: any) => {
-                                if (!old) return old;
-                                return {
-                                    ...old,
-                                    panels: old.panels.map((p: Panel) =>
-                                        p.id === panelId
-                                            ? { ...p, generated_image: data.imageUrl, image_url: data.imageUrl }
-                                            : p
-                                    ),
-                                };
-                            });
-                        }
-                    } catch (error) {
-                        console.error(`Poll task ${task.taskId} error:`, error);
-                    }
-                }
-
-                setTasks(new Map(updatedTasks));
-
-                if (allCompleted) {
-                    clearInterval(pollInterval);
-                    setIsGenerating(false);
-                }
-            }, 2000); // 每2秒轮询一次
-        },
-        [queryClient, storyId]
+        [projectId, pollTaskStatus]
     );
 
     const cancelGeneration = useCallback(() => {

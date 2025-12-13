@@ -3,12 +3,14 @@ import { useToast } from "@/hooks/use-toast";
 import { PanelData } from "@/components/Storyboard/StoryboardPanel";
 import { ApiProject, ApiPanel } from "../types";
 import { convertApiPanelToLocal, parseErrorResponse } from "../utils";
+import { TemplateWithMeta } from "@/types/template";
 
 type UseStoryboardGenerationOptions = {
   storyId: string | null;
   onProjectUpdate: (project: ApiProject) => void;
   onPanelsUpdate: (panels: PanelData[]) => void;
   onRefreshUsage: () => void;
+  panelTemplate?: TemplateWithMeta | null;
 };
 
 export const useStoryboardGeneration = ({
@@ -16,9 +18,38 @@ export const useStoryboardGeneration = ({
   onProjectUpdate,
   onPanelsUpdate,
   onRefreshUsage,
+  panelTemplate,
 }: UseStoryboardGenerationOptions) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
+
+  const applyCameraPlan = (panels: PanelData[]): PanelData[] => {
+    const cameraPlan = panelTemplate?.template_data?.meta?.cameraPlan;
+    if (!cameraPlan) return panels;
+
+    const total = panels.length;
+    const counts = {
+      wide: Math.min(cameraPlan.wide ?? 0, total),
+      medium: Math.min(cameraPlan.medium ?? 0, total),
+      closeup: Math.min(cameraPlan.closeup ?? 0, total),
+    };
+
+    const updated = [...panels];
+    let idx = 0;
+
+    const assign = (count: number, shot: string) => {
+      for (let i = 0; i < count && idx < updated.length; i += 1) {
+        updated[idx] = { ...updated[idx], shotSize: shot };
+        idx += 1;
+      }
+    };
+
+    assign(counts.wide, "wide");
+    assign(counts.medium, "medium");
+    assign(counts.closeup, "closeup");
+
+    return updated;
+  };
 
   const handleGenerate = async (script: string) => {
     setIsGenerating(true);
@@ -43,8 +74,15 @@ export const useStoryboardGeneration = ({
       const data = await response.json();
 
       if (data.project) {
+        let localPanels = data.project.panels.map(convertApiPanelToLocal);
+        localPanels = applyCameraPlan(localPanels);
+        // 将分配后的 shot_size 写回项目对象，保持同步
+        data.project.panels = data.project.panels.map((panel: ApiPanel, index: number) => ({
+          ...panel,
+          shot_size: localPanels[index]?.shotSize || panel.shot_size,
+        }));
+
         onProjectUpdate(data.project);
-        const localPanels = data.project.panels.map(convertApiPanelToLocal);
         onPanelsUpdate(localPanels);
 
         toast({

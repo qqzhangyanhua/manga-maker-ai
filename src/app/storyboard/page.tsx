@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, Suspense, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +39,8 @@ import { GenerationSettings } from "./components/GenerationSettings";
 import { GenerationStrategy } from "./components/GenerationStrategy";
 import { PanelDetails } from "./components/PanelDetails";
 import { PanelStats } from "./components/PanelStats";
+import { TemplateWithMeta } from "@/types/template";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const StoryboardEditorPageContent = () => {
   const router = useRouter();
@@ -55,12 +57,31 @@ const StoryboardEditorPageContent = () => {
   const [softMode, setSoftMode] = useState(true);
   const [promptErrors, setPromptErrors] = useState<Record<string, string>>({});
   const [isExporting, setIsExporting] = useState(false);
+  const [panelTemplates, setPanelTemplates] = useState<TemplateWithMeta[]>([]);
+  const [selectedPanelTemplateId, setSelectedPanelTemplateId] = useState<string | null>(null);
   const { toast } = useToast();
   const { usage, loading: usageLoading, refresh: refreshUsage } = useUsage();
 
   // Custom hooks
   const { storyId, initialScript } = useStoryIntegration();
   const { characters, styles } = useMetadata();
+
+  // 加载官方模板元数据，用于镜头分配与节拍参考
+  useEffect(() => {
+    const loadPanelTemplates = async () => {
+      try {
+        const res = await fetch("/api/templates?type=official&limit=50");
+        if (!res.ok) return;
+        const json = await res.json();
+        setPanelTemplates(json.data?.templates || []);
+      } catch (error) {
+        console.error("加载官方模板失败:", error);
+      }
+    };
+    loadPanelTemplates();
+  }, []);
+
+  const selectedPanelTemplate = panelTemplates.find((t) => t.id === selectedPanelTemplateId) || null;
 
   // Derive panels from project (single source of truth)
   const panels: PanelData[] = currentProject?.panels.map(panel => ({
@@ -127,6 +148,7 @@ const StoryboardEditorPageContent = () => {
     onProjectUpdate: handleProjectUpdate,
     onPanelsUpdate: handlePanelsUpdate,
     onRefreshUsage: refreshUsage,
+    panelTemplate: selectedPanelTemplate,
   });
 
   const { promptErrors: imagePromptErrors, handleGenerateImages, handleGenerateSingleImage } = useImageGeneration({
@@ -252,16 +274,32 @@ const StoryboardEditorPageContent = () => {
             返回首页
           </Link>
 
-          <div className="flex flex-wrap gap-3 mb-6 items-center">
-            <div className="text-sm text-muted-foreground">今日用量</div>
-            <UsageBadge
-              label="分镜生成"
-              item={usage?.storyboard_generation}
-              loading={usageLoading}
-            />
-            <UsageBadge label="图像生成" item={usage?.image_generation} loading={usageLoading} />
-            <UsageBadge label="聊天/LLM" item={usage?.llm_chat} loading={usageLoading} />
+        <div className="flex flex-wrap gap-3 mb-6 items-center">
+          <div className="text-sm text-muted-foreground">今日用量</div>
+          <UsageBadge
+            label="分镜生成"
+            item={usage?.storyboard_generation}
+            loading={usageLoading}
+          />
+          <UsageBadge label="图像生成" item={usage?.image_generation} loading={usageLoading} />
+          <UsageBadge label="聊天/LLM" item={usage?.llm_chat} loading={usageLoading} />
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">分镜模板</span>
+            <Select value={selectedPanelTemplateId || ""} onValueChange={(value) => setSelectedPanelTemplateId(value || null)}>
+              <SelectTrigger className="w-[220px]">
+                <SelectValue placeholder="可选：官方模板" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">不使用模板</SelectItem>
+                {panelTemplates.map((tpl) => (
+                  <SelectItem key={tpl.id} value={tpl.id}>
+                    {tpl.name} · {tpl.template_data?.meta?.category || "模板"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+        </div>
 
           <GenerationSettings
             characters={characters}
@@ -317,7 +355,7 @@ const StoryboardEditorPageContent = () => {
                     </p>
                     <ScriptInput
                       key={initialScript}
-                      onGenerate={handleGenerate}
+                      onGenerate={(script) => handleGenerate(script)}
                       isGenerating={isGenerating}
                       initialValue={initialScript}
                     />

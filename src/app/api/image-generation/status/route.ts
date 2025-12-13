@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getTaskStatus } from "@/lib/unified-image-generation";
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/image-generation/status?task_id=xxx
  * Get image generation task status

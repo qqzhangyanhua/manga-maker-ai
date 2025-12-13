@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { fabric } from "fabric";
 
 export type CanvasSchema = {
@@ -79,26 +79,53 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialImage, ready]);
 
-    const notifyHistory = () => {
+    const notifyHistory = useCallback(() => {
       onHistoryChange?.({
         undo: historyRef.current.length,
         redo: futureRef.current.length,
       });
-    };
+    }, [onHistoryChange]);
 
-    const notifyTemplate = () => {
+    const notifyTemplate = useCallback(() => {
       onTemplateChange?.(templateRef.current);
-    };
+    }, [onTemplateChange]);
 
-    const captureSnapshot = (): Record<string, any>[] => {
+    const captureSnapshot = useCallback((): Record<string, any>[] => {
       if (!canvasRef.current) return [];
       return canvasRef.current
         .getObjects()
         .filter((obj) => obj.get("data-panel") || obj.get("data-bubble"))
         .map((obj) => obj.toObject(["data-panel", "data-bubble"]));
-    };
+    }, []);
 
-    const applySnapshot = (objects: Record<string, any>[] | null | undefined) => {
+    const clearGuideObjects = useCallback(() => {
+      if (!canvasRef.current) return;
+      const canvas = canvasRef.current;
+      const toRemove = canvas.getObjects().filter((obj) => obj.get("data-panel"));
+      toRemove.forEach((obj) => canvas.remove(obj));
+    }, []);
+
+    const pushHistory = useCallback(() => {
+      const snapshot = captureSnapshot();
+      historyRef.current = [...historyRef.current, snapshot].slice(-HISTORY_LIMIT);
+      futureRef.current = [];
+      notifyHistory();
+    }, [captureSnapshot, notifyHistory]);
+
+    const clearOverlays = useCallback((trackHistory: boolean = true) => {
+      if (trackHistory) {
+        pushHistory();
+      }
+      if (!canvasRef.current) return;
+      const canvas = canvasRef.current;
+      const toRemove = canvas
+        .getObjects()
+        .filter((obj) => obj.get("data-panel") || obj.get("data-bubble"));
+      toRemove.forEach((obj) => canvas.remove(obj));
+      canvas.renderAll();
+    }, [pushHistory]);
+
+    const applySnapshot = useCallback((objects: Record<string, any>[] | null | undefined) => {
       if (!canvasRef.current) return;
       clearOverlays(false);
       if (!objects || objects.length === 0) {
@@ -110,14 +137,7 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
         enlivened.forEach((obj) => canvas.add(obj));
         canvas.renderAll();
       });
-    };
-
-    const pushHistory = () => {
-      const snapshot = captureSnapshot();
-      historyRef.current = [...historyRef.current, snapshot].slice(-HISTORY_LIMIT);
-      futureRef.current = [];
-      notifyHistory();
-    };
+    }, [clearOverlays]);
 
     const setBackground = async (url: string) => {
       return new Promise<void>((resolve) => {
@@ -151,7 +171,7 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
       });
     };
 
-    const addPanelTemplate = (type: "single" | "two-column" | "three-grid") => {
+    const addPanelTemplate = useCallback((type: "single" | "two-column" | "three-grid") => {
       if (!canvasRef.current) return;
       pushHistory();
       templateRef.current = type;
@@ -209,9 +229,9 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
         }
       }
       canvas.renderAll();
-    };
+    }, [pushHistory, notifyTemplate, clearGuideObjects]);
 
-    const addBubble = () => {
+    const addBubble = useCallback(() => {
       if (!canvasRef.current) return;
       pushHistory();
       const bubble = new fabric.Textbox("双击编辑对白", {
@@ -230,27 +250,7 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
       bubble.set("data-bubble", true);
       canvasRef.current.add(bubble);
       canvasRef.current.setActiveObject(bubble);
-    };
-
-    const clearGuideObjects = () => {
-      if (!canvasRef.current) return;
-      const canvas = canvasRef.current;
-      const toRemove = canvas.getObjects().filter((obj) => obj.get("data-panel"));
-      toRemove.forEach((obj) => canvas.remove(obj));
-    };
-
-    const clearOverlays = (trackHistory: boolean = true) => {
-      if (trackHistory) {
-        pushHistory();
-      }
-      if (!canvasRef.current) return;
-      const canvas = canvasRef.current;
-      const toRemove = canvas
-        .getObjects()
-        .filter((obj) => obj.get("data-panel") || obj.get("data-bubble"));
-      toRemove.forEach((obj) => canvas.remove(obj));
-      canvas.renderAll();
-    };
+    }, [pushHistory]);
 
     const exportImage = async () => {
       if (!canvasRef.current) return null;
@@ -263,7 +263,7 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
       });
     };
 
-    const exportSchema = (): CanvasSchema => {
+    const exportSchema = useCallback((): CanvasSchema => {
       const snapshot = captureSnapshot();
       return {
         objects: snapshot,
@@ -271,9 +271,9 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
         future: futureRef.current,
         template: templateRef.current,
       };
-    };
+    }, [captureSnapshot]);
 
-    const loadSchema = async (schema?: CanvasSchema | null) => {
+    const loadSchema = useCallback(async (schema?: CanvasSchema | null) => {
       if (!canvasRef.current) return;
       historyRef.current = (schema?.history as Record<string, any>[][]) || [];
       futureRef.current = (schema?.future as Record<string, any>[][]) || [];
@@ -281,25 +281,25 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
       notifyHistory();
       notifyTemplate();
       applySnapshot(schema?.objects || null);
-    };
+    }, [notifyHistory, notifyTemplate, applySnapshot]);
 
-    const undo = () => {
+    const undo = useCallback(() => {
       if (!canvasRef.current || historyRef.current.length === 0) return;
       const current = captureSnapshot();
       const previous = historyRef.current.pop();
       futureRef.current = [...futureRef.current, current].slice(-HISTORY_LIMIT);
       applySnapshot(previous || []);
       notifyHistory();
-    };
+    }, [captureSnapshot, applySnapshot, notifyHistory]);
 
-    const redo = () => {
+    const redo = useCallback(() => {
       if (!canvasRef.current || futureRef.current.length === 0) return;
       const current = captureSnapshot();
       const nextSnapshot = futureRef.current.pop();
       historyRef.current = [...historyRef.current, current].slice(-HISTORY_LIMIT);
       applySnapshot(nextSnapshot || []);
       notifyHistory();
-    };
+    }, [captureSnapshot, applySnapshot, notifyHistory]);
 
     useImperativeHandle(
       ref,
@@ -315,7 +315,7 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
         loadSchema,
         getActiveTemplate: () => templateRef.current,
       }),
-      []
+      [addPanelTemplate, addBubble, clearOverlays, exportSchema, loadSchema, redo, undo]
     );
 
     return (

@@ -102,7 +102,7 @@ export function ReferenceGuidedGenerationDialog({
     if (panel) {
       setPrompt(panel.prompt_used || panel.visual_prompt || panel.description || "");
     }
-  }, [panel?.id]);
+  }, [panel]);
 
   const resetState = () => {
     setSoftMode(true);

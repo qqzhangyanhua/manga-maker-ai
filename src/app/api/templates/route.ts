@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { ensureOfficialTemplatesSeed } from "@/lib/templates";
 import type { PanelTemplate, SuccessResponse } from "@/types/template";
 
 /**
@@ -26,6 +27,9 @@ import type { PanelTemplate, SuccessResponse } from "@/types/template";
  */
 export async function GET(req: NextRequest) {
   try {
+    // 如果缺少官方模板，自动注入预置模板（幂等）
+    await ensureOfficialTemplatesSeed();
+
     // Optional authentication
     const cookieStore = await cookies();
     const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
@@ -108,6 +112,7 @@ export async function GET(req: NextRequest) {
         name: true,
         description: true,
         panel_count: true,
+        template_data: true,
         tags: true,
         is_public: true,
         is_official: true,

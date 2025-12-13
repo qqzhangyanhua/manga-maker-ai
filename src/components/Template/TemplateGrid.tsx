@@ -1,11 +1,11 @@
 "use client";
 
 import { TemplateCard } from "./TemplateCard";
-import { PanelTemplate } from "@/types/template";
+import { TemplateWithMeta } from "@/types/template";
 import { Loader2 } from "lucide-react";
 
 interface TemplateGridProps {
-  templates: Array<PanelTemplate & {
+  templates: Array<TemplateWithMeta & {
     user?: {
       id: string;
       name: string | null;
@@ -17,6 +17,7 @@ interface TemplateGridProps {
   onLike?: (templateId: string, isLiked: boolean) => void;
   onApply?: (templateId: string) => void;
   emptyMessage?: string;
+  targetCharacters?: number | null;
 }
 
 export function TemplateGrid({
@@ -25,7 +26,8 @@ export function TemplateGrid({
   likedTemplateIds = new Set(),
   onLike,
   onApply,
-  emptyMessage = "暂无模板"
+  emptyMessage = "暂无模板",
+  targetCharacters = null
 }: TemplateGridProps) {
   if (isLoading) {
     return (
@@ -52,6 +54,7 @@ export function TemplateGrid({
           isLiked={likedTemplateIds.has(template.id)}
           onLike={onLike}
           onApply={onApply}
+          targetCharacters={targetCharacters}
         />
       ))}
     </div>

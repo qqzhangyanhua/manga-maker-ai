@@ -3,6 +3,8 @@ import { cookies } from 'next/headers';
 import { AUTH_COOKIE_NAME, verifyAuthToken } from '@/lib/auth';
 import { getTaskStatus } from '@/lib/unified-image-generation';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/image/task-status?task_id=xxx
  * 查询图片生成任务状态

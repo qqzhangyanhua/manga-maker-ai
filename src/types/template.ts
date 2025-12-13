@@ -27,6 +27,7 @@ export interface PanelTemplate {
 
 export interface TemplateData {
   panels: TemplatePanelConfig[];
+  meta?: TemplateMeta;
 }
 
 export interface TemplatePanelConfig {
@@ -36,6 +37,60 @@ export interface TemplatePanelConfig {
   importance: "high" | "medium" | "low" | null;
   relative_position: number;
 }
+
+export type TemplateCategory = "short" | "strip" | "four" | "comic" | "blank";
+
+export interface TemplateMeta {
+  category?: TemplateCategory;
+  recommendedPanelCount?: number;
+  styleHint?: string;
+  loglineExample?: string;
+  beats?: Array<{
+    title: string;
+    summary: string;
+    scene?: string;
+  }>;
+  dialogueGuidelines?: {
+    maxLinesPerBubble?: number;
+    maxCharsPerBubble?: number;
+    tone?: string;
+    tips?: string[];
+  };
+  cameraPlan?: {
+    wide?: number;
+    medium?: number;
+    closeup?: number;
+    special?: string[];
+  };
+  promptSnippets?: string[];
+  negativePrompts?: string[];
+  colorPalette?: string[];
+  layoutPresets?: string[];
+  recommendedGenres?: string[];
+  recommendedCharacters?: {
+    min?: number;
+    max?: number;
+    relationshipTips?: string;
+  };
+  complexityLevel?: "newbie" | "pro";
+  autoFill?: {
+    applyBeatsToStory?: boolean;
+    applyCameraToPanels?: boolean;
+    applyPromptSnippets?: boolean;
+  };
+  locks?: {
+    layout?: boolean;
+    beatCount?: boolean;
+  };
+  defaultLLMProviderType?: string;
+  tags?: string[];
+  version?: string;
+  isFeatured?: boolean;
+}
+
+export type TemplateWithMeta = PanelTemplate & {
+  template_data: TemplateData;
+};
 
 export interface CreateTemplateInput {
   name: string;

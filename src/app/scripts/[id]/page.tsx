@@ -90,10 +90,8 @@ export default function ScriptDetailsPage() {
       premise: data.story.premise || "",
     });
   }, [
-    data?.story?.id,
-    data?.story?.title,
-    data?.story?.premise,
-    uiActions.setStoryForm,
+    data?.story,
+    uiActions,
     uiState.editMode,
   ]);
 
