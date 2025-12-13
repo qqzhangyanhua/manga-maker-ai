@@ -114,6 +114,7 @@ export function PanelListView({
   // 单个分镜生成时的参考图选择对话框
   const [singlePanelReferenceDialogOpen, setSinglePanelReferenceDialogOpen] = useState(false);
   const [generatingPanel, setGeneratingPanel] = useState<Panel | null>(null);
+  const [isGeneratingSingle, setIsGeneratingSingle] = useState(false);
 
   // 配置拖拽传感器（需要移动至少 5px 才触发拖拽，避免误触）
   const sensors = useSensors(
@@ -156,6 +157,24 @@ export function PanelListView({
     panels[0]?.project_id || '',
     projectId || ''
   );
+
+  // 合并单个生成状态到 generatingPanels Map
+  const mergedGeneratingPanels = useMemo(() => {
+    const merged = new Map(generatingPanels);
+
+    // 如果有单个分镜正在生成，添加到 Map 中
+    if (isGeneratingSingle && generatingPanel) {
+      merged.set(generatingPanel.id, {
+        panelId: generatingPanel.id,
+        taskId: 'single-generation',
+        status: 'processing',
+        progress: 50,
+        startedAt: new Date(),
+      });
+    }
+
+    return merged;
+  }, [generatingPanels, isGeneratingSingle, generatingPanel]);
 
   // 布局操作逻辑
   const layoutOps = useLayoutOperations({
@@ -292,6 +311,18 @@ export function PanelListView({
     const prompt = generatingPanel.prompt_used || generatingPanel.visual_prompt || generatingPanel.description;
     const referenceImageUrls = referenceImages.map(img => img.url);
 
+    // 关闭参考图对话框
+    setSinglePanelReferenceDialogOpen(false);
+
+    // 设置 loading 状态
+    setIsGeneratingSingle(true);
+
+    // 显示生成中的 toast
+    toast({
+      title: "正在生成...",
+      description: `分镜 #${generatingPanel.panel_order} 正在生成图片，请稍候`,
+    });
+
     try {
       console.log(`[PanelListView] 生成分镜 ${generatingPanel.id}，参考图数量: ${referenceImageUrls.length}`);
 
@@ -321,9 +352,13 @@ export function PanelListView({
       });
     } catch (error) {
       console.error("[PanelListView] 生成失败:", error);
-      onError(error instanceof Error ? error.message : "生成失败");
+      toast({
+        title: "生成失败",
+        description: error instanceof Error ? error.message : "生成失败",
+        variant: "destructive",
+      });
     } finally {
-      setSinglePanelReferenceDialogOpen(false);
+      setIsGeneratingSingle(false);
       setGeneratingPanel(null);
     }
   };
@@ -568,7 +603,7 @@ export function PanelListView({
                     layoutOps.selectPanelWithModifiers(panelId, panels, modifiers)
                   }
                   onBreakLayout={() => layoutOps.breakLayout(group.groupStartId)}
-                  generatingPanels={generatingPanels}
+                  generatingPanels={mergedGeneratingPanels}
                   onEditPanel={onEditPanel}
                   onDeletePanel={onDeletePanel}
                   onGenerateSingle={handleGenerateSingle}
@@ -614,7 +649,7 @@ export function PanelListView({
                         isSelected={false}
                         onSelect={() => {}}
                         onBreakLayout={() => layoutOps.breakLayout(group.groupStartId)}
-                        generatingPanels={generatingPanels}
+                        generatingPanels={mergedGeneratingPanels}
                         onEditPanel={onEditPanel}
                         onDeletePanel={onDeletePanel}
                         onGenerateSingle={handleGenerateSingle}
