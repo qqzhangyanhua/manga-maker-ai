@@ -184,6 +184,12 @@ export async function PATCH(req: Request) {
     const sortedPanels = [...panels].sort((a, b) => a.panel_order - b.panel_order);
     const sortedPanelIds = sortedPanels.map((p) => p.id);
 
+    // 保存之前的 layout_hint 值（用于撤销）
+    const previousHints = sortedPanels.map((p) => ({
+      id: p.id,
+      hint: p.layout_hint,
+    }));
+
     // Build layout_hint value
     // For 2镜/3镜: group_start_{size}_{direction}[_{ratio}] (e.g., group_start_2_h, group_start_2_h_1-2)
     // For 4镜/6镜: group_start_{size} (no direction needed)
@@ -241,6 +247,7 @@ export async function PATCH(req: Request) {
         ratio: ratio || null,
         panelCount: updatedPanels.length,
         panels: updatedPanels,
+        previousHints, // 用于撤销
       },
       message: `成功创建 ${displayName} 布局组`,
     });

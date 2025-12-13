@@ -482,6 +482,8 @@ export function PanelListView({
               layoutOps.applyLayout(layoutOps.selectedPanelIds, layoutType, direction, ratio)
             }
             onBatchApplyLayout={handleBatchApplyLayout}
+            canUndo={layoutOps.canUndo}
+            onUndo={layoutOps.undoLastOperation}
             onClearSelection={layoutOps.clearSelection}
           />
         </TooltipProvider>

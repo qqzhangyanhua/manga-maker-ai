@@ -73,6 +73,10 @@ export function useLayoutOperations(
   // 记录最后选中的Panel ID，用于Shift范围选择
   const lastSelectedIdRef = useRef<string | null>(null);
 
+  // 历史记录栈（最多保存10条）
+  const [history, setHistory] = useState<LayoutHistoryEntry[]>([]);
+  const MAX_HISTORY = 10;
+
   const enterLayoutMode = useCallback(() => {
     setIsLayoutMode(true);
     setSelectedPanelIds([]);
@@ -204,12 +208,28 @@ export function useLayoutOperations(
           body: JSON.stringify(requestBody),
         });
 
-        const data: LayoutApiResponse = await response.json();
+        const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(
-            (data as unknown as { error: string }).error || "应用布局失败"
-          );
+          throw new Error(data.error || "应用布局失败");
+        }
+
+        // 保存历史记录（用于撤销）
+        if (data.data?.previousHints) {
+          const entry: LayoutHistoryEntry = {
+            type: "apply",
+            panelIds,
+            previousHints: data.data.previousHints,
+            timestamp: Date.now(),
+          };
+          setHistory((prev) => {
+            const newHistory = [...prev, entry];
+            // 限制历史记录数量
+            if (newHistory.length > MAX_HISTORY) {
+              return newHistory.slice(-MAX_HISTORY);
+            }
+            return newHistory;
+          });
         }
 
         // 成功后清空选择并退出布局模式
@@ -259,10 +279,47 @@ export function useLayoutOperations(
     [isApplying, onSuccess, onError]
   );
 
+  // 撤销最近的布局操作
+  const undoLastOperation = useCallback(async () => {
+    if (history.length === 0 || isApplying) return;
+
+    const lastEntry = history[history.length - 1];
+
+    setIsApplying(true);
+    try {
+      const response = await fetch("/api/panel/restore-layout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hints: lastEntry.previousHints }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "撤销失败");
+      }
+
+      // 从历史记录中移除
+      setHistory((prev) => prev.slice(0, -1));
+      onSuccess?.();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "撤销失败";
+      onError?.(message);
+    } finally {
+      setIsApplying(false);
+    }
+  }, [history, isApplying, onSuccess, onError]);
+
+  // 清空历史记录
+  const clearHistory = useCallback(() => {
+    setHistory([]);
+  }, []);
+
   return {
     isLayoutMode,
     selectedPanelIds,
     isApplying,
+    canUndo: history.length > 0,
     enterLayoutMode,
     exitLayoutMode,
     togglePanelSelection,
@@ -271,5 +328,7 @@ export function useLayoutOperations(
     clearSelection,
     applyLayout,
     breakLayout,
+    undoLastOperation,
+    clearHistory,
   };
 }

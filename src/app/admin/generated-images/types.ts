@@ -39,6 +39,7 @@ export interface GeneratedImageWithUser extends GeneratedImage {
  * 生成图片过滤条件
  */
 export interface GeneratedImageFilter {
+  [key: string]: string | undefined;
   userId?: string;
   sourceType?: string;
   style?: string;

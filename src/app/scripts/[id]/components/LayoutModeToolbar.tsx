@@ -22,6 +22,7 @@ import {
   FolderOpen,
   Trash2,
   Layers,
+  Undo2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +67,7 @@ interface LayoutModeToolbarProps {
   selectedPanelIds: string[];
   panels: Panel[];
   isApplying: boolean;
+  canUndo?: boolean;
   onEnterLayoutMode: () => void;
   onExitLayoutMode: () => void;
   onApplyLayout: (
@@ -78,6 +80,7 @@ interface LayoutModeToolbarProps {
     direction?: LayoutDirection,
     ratio?: LayoutRatio
   ) => Promise<void>;
+  onUndo?: () => Promise<void>;
   onClearSelection: () => void;
 }
 
@@ -86,10 +89,12 @@ export function LayoutModeToolbar({
   selectedPanelIds,
   panels,
   isApplying,
+  canUndo = false,
   onEnterLayoutMode,
   onExitLayoutMode,
   onApplyLayout,
   onBatchApplyLayout,
+  onUndo,
   onClearSelection,
 }: LayoutModeToolbarProps) {
   const selectionCount = selectedPanelIds.length;
@@ -617,6 +622,24 @@ export function LayoutModeToolbar({
             </Button>
           </TooltipTrigger>
           <TooltipContent>取消所有选择</TooltipContent>
+        </Tooltip>
+      )}
+
+      {/* 撤销按钮 */}
+      {canUndo && onUndo && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onUndo}
+              disabled={isApplying}
+            >
+              <Undo2 className="w-4 h-4 mr-1" />
+              撤销
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>撤销最近的布局操作</TooltipContent>
         </Tooltip>
       )}
 
