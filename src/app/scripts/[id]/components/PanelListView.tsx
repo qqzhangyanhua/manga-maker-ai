@@ -17,7 +17,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Plus, ImageIcon, Images, Sparkles } from "lucide-react";
+import { Plus, ImageIcon, Images, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -55,6 +55,7 @@ interface PanelListViewProps {
   storyId?: string; // 故事 ID
   currentChapterId?: string | null; // 当前章节 ID（用于过滤分镜）
   onGeneratePanelsForChapter?: (chapterId: string) => void; // AI生成分镜回调
+  isGeneratingPanels?: boolean; // AI生成分镜的 loading 状态
   characters: CharacterReference[];
   charactersLoading?: boolean;
   onCharactersRefresh?: () => void | Promise<void>;
@@ -73,6 +74,7 @@ export function PanelListView({
   storyId,
   currentChapterId,
   onGeneratePanelsForChapter,
+  isGeneratingPanels = false,
   characters,
   charactersLoading = false,
   onCharactersRefresh,
@@ -437,8 +439,19 @@ export function PanelListView({
               size="sm"
               type="button"
               onClick={() => onGeneratePanelsForChapter(currentChapterId)}
+              disabled={isGeneratingPanels}
             >
-              <Sparkles className="w-4 h-4 mr-2" />AI生成分镜
+              {isGeneratingPanels ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  生成中...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  AI生成分镜
+                </>
+              )}
             </Button>
           )}
           <Button

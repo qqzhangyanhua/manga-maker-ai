@@ -407,6 +407,7 @@ export default function ScriptDetailsPage() {
                     storyId={storyId}
                     currentChapterId={currentChapterId}
                     onGeneratePanelsForChapter={handleGeneratePanelsForChapter}
+                    isGeneratingPanels={generatePanelsForChapter.isPending}
                     characters={characterAssets}
                     charactersLoading={isCharactersLoading}
                     onCharactersRefresh={() => { refetchCharacters(); }}
