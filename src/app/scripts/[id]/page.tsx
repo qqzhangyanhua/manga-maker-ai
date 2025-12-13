@@ -45,7 +45,6 @@ import { useUIState } from "./hooks/useUIState";
 import { formatErrorForToast, isRetryableError } from "./utils/errorHandling";
 import { StoryCharacterList } from "@/components/StoryCharacter/StoryCharacterList";
 import type { CharacterRole } from "@/components/StoryCharacter/types";
-import { ComposeMultiDialog } from "./components/ComposeMultiDialog";
 
 export default function ScriptDetailsPage() {
   const params = useParams();
@@ -55,13 +54,6 @@ export default function ScriptDetailsPage() {
 
   // 当前章节状态
   const [currentChapterId, setCurrentChapterId] = useState<string | null>(null);
-
-  // 批量选择状态（用于多格合成）
-  const [selectedPanelIds, setSelectedPanelIds] = useState<string[]>([]);
-
-  // 多格合成对话框状态
-  const [composeDialogOpen, setComposeDialogOpen] = useState(false);
-  const [composePanelIds, setComposePanelIds] = useState<string[]>([]);
 
   // React Query hooks for data management - 使用优化版渐进式加载
   const {
@@ -268,14 +260,41 @@ export default function ScriptDetailsPage() {
 
   // AI生成分镜（章节级别）
   async function handleGeneratePanelsForChapter(chapterId: string): Promise<void> {
-    if (!data?.projectId) {
-      toast({ title: "项目不存在", variant: "destructive" });
+    if (!data?.story) {
+      toast({ title: "故事不存在", variant: "destructive" });
       return;
     }
 
     try {
+      let projectId = data.projectId;
+
+      // 如果 Story 还没有关联 Project，先创建一个
+      if (!projectId) {
+        const createProjectRes = await fetch("/api/project", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: data.story.title,
+            description: data.story.premise || "AI生成的漫画项目",
+            story_id: storyId,
+            status: "in_progress",
+          }),
+        });
+
+        if (!createProjectRes.ok) {
+          const error = await createProjectRes.json();
+          throw new Error(error.error || "创建项目失败");
+        }
+
+        const createProjectData = await createProjectRes.json();
+        projectId = createProjectData.project.id;
+
+        // 刷新页面数据以获取新的 projectId
+        await refetchPanels?.();
+      }
+
       await generatePanelsForChapter.mutateAsync({
-        projectId: data.projectId,
+        projectId: projectId,
         overwrite: false,
       });
       toast({
@@ -291,12 +310,6 @@ export default function ScriptDetailsPage() {
         variant: "destructive",
       });
     }
-  }
-
-  // 打开多格合成对话框
-  function handleCompose(panelIds: string[]): void {
-    setComposePanelIds(panelIds);
-    setComposeDialogOpen(true);
   }
 
   if (isLoading) {
@@ -406,9 +419,6 @@ export default function ScriptDetailsPage() {
                     onError={(msg) =>
                       toast({ title: "错误", description: msg, variant: "destructive" })
                     }
-                    selectedPanelIds={selectedPanelIds}
-                    onSelectionChange={setSelectedPanelIds}
-                    onCompose={handleCompose}
                   />
                 )}
               </TabsContent>
@@ -449,22 +459,6 @@ export default function ScriptDetailsPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-
-        {/* 多格合成对话框 */}
-        <ComposeMultiDialog
-          open={composeDialogOpen}
-          panels={data?.panels || []}
-          selectedPanelIds={composePanelIds}
-          onOpenChange={setComposeDialogOpen}
-          onSuccess={() => {
-            refetchPanels?.();
-            setSelectedPanelIds([]);
-            toast({
-              title: "合成成功",
-              description: "多格图片已生成",
-            });
-          }}
-        />
       </div>
     </ErrorBoundary>
   );

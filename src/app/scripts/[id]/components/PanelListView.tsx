@@ -34,14 +34,11 @@ import { SortablePanelCard } from "./PanelEditor/SortablePanelCard";
 import { PanelCardActions } from "./PanelEditor/PanelCardActions";
 import { InsertPanelDialog } from "./PanelEditor/InsertPanelDialog";
 import { SplitPanelDialog } from "./PanelEditor/SplitPanelDialog";
-import { BatchGenerationDialog } from "./BatchGenerationDialog";
-import { BatchOperationsToolbar } from "./BatchOperationsToolbar";
 import { LayoutModeToolbar } from "./LayoutModeToolbar";
 import { LayoutPreview } from "./LayoutPreview";
 import { PanelLayoutGroup } from "./PanelLayoutGroup";
 import { usePanelDragDrop } from "../hooks/usePanelDragDrop";
 import { usePanelGeneration } from "../hooks/usePanelGeneration";
-import { useBatchGeneration } from "../hooks/useBatchGeneration";
 import { useLayoutOperations } from "../hooks/useLayoutOperations";
 import { ReferenceGuidedGenerationDialog } from "./PanelEditor/ReferenceGuidedGenerationDialog";
 import { MultiPanelGenerateDialog } from "./MultiPanelGenerateDialog";
@@ -68,9 +65,6 @@ interface PanelListViewProps {
   onError: (message: string) => void;
   onImageGenerated?: (panelId: string, imageUrl: string) => void;
   onRefresh?: () => void; // New callback to trigger data refresh
-  selectedPanelIds?: string[]; // 批量选择的分镜IDs
-  onSelectionChange?: (ids: string[]) => void; // 批量选择状态变更
-  onCompose?: (panelIds: string[]) => void; // 多格合成回调
 }
 
 export function PanelListView({
@@ -89,9 +83,6 @@ export function PanelListView({
   onError,
   onImageGenerated,
   onRefresh,
-  selectedPanelIds: externalSelectedPanelIds = [],
-  onSelectionChange: externalOnSelectionChange,
-  onCompose,
 }: PanelListViewProps) {
   const { toast } = useToast();
 
@@ -101,20 +92,12 @@ export function PanelListView({
     return panels.filter((p) => p.chapter_id === currentChapterId);
   }, [panels, currentChapterId]);
 
-  // 批量选择状态（内部状态）
-  const [internalSelectedPanelIds, setInternalSelectedPanelIds] = useState<string[]>([]);
-
-  // 使用外部状态或内部状态
-  const selectedPanelIds = externalOnSelectionChange ? externalSelectedPanelIds : internalSelectedPanelIds;
-  const setSelectedPanelIds = externalOnSelectionChange || setInternalSelectedPanelIds;
-
   // 高级操作对话框状态
   const [insertDialogOpen, setInsertDialogOpen] = useState(false);
   const [insertAfterIndex, setInsertAfterIndex] = useState(0);
   const [splitDialogOpen, setSplitDialogOpen] = useState(false);
   const [splitPanel, setSplitPanel] = useState<Panel | null>(null);
   const [mergingPanels, setMergingPanels] = useState<{ current: Panel; next: Panel } | null>(null);
-  const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [guidedDialogOpen, setGuidedDialogOpen] = useState(false);
   const [targetPanel, setTargetPanel] = useState<Panel | null>(null);
   const [multiPanelDialogOpen, setMultiPanelDialogOpen] = useState(false);
@@ -158,13 +141,6 @@ export function PanelListView({
       onError(error);
     },
   });
-
-  // 批量生成逻辑
-  const batchGeneration = useBatchGeneration(
-    // Extract storyId from panels if available
-    filteredPanels[0]?.project_id || '',
-    projectId || ''
-  );
 
   // 合并单个生成状态到 generatingPanels Map
   const mergedGeneratingPanels = useMemo(() => {
@@ -232,7 +208,7 @@ export function PanelListView({
     }
 
     return { selectedPanels, availableLayouts };
-  }, [layoutOps.isLayoutMode, layoutOps.selectedPanelIds, panels]);
+  }, [layoutOps.isLayoutMode, layoutOps.selectedPanelIds, filteredPanels]);
 
   // 批量应用布局到所有未组合的分镜
   const handleBatchApplyLayout = async (
@@ -445,32 +421,6 @@ export function PanelListView({
     onRefresh?.();
   };
 
-  // 计算待生成的分镜数量
-  const panelsToGenerate = filteredPanels.filter(
-    (p) => (p.prompt_used || p.visual_prompt) && !p.generated_image && !p.image_url
-  );
-
-  // 批量删除函数
-  async function handleBatchDelete(ids: string[]): Promise<void> {
-    if (!projectId) {
-      throw new Error("项目 ID 不存在");
-    }
-
-    const response = await fetch("/api/panel/batch-delete", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ panel_ids: ids }),
-    });
-
-    if (!response.ok) {
-      const data = await response.json();
-      throw new Error(data.error || "批量删除失败");
-    }
-
-    // 触发刷新
-    onRefresh?.();
-  }
-
   return (
     <div className="space-y-6">
       {/* 标题栏 */}
@@ -514,37 +464,12 @@ export function PanelListView({
           >
             <Sparkles className="w-4 h-4 mr-2" />锁脸生成
           </Button>
-          {panelsToGenerate.length > 0 && (
-            <Button
-              variant="outline"
-              onClick={() => {
-                setBatchDialogOpen(true);
-                batchGeneration.startBatchGeneration(panelsToGenerate);
-              }}
-              disabled={panelsToGenerate.length === 0 || batchGeneration.isGenerating}
-            >
-              <Images className="w-4 h-4 mr-2" />
-              批量生成 ({panelsToGenerate.length})
-            </Button>
-          )}
           <Button onClick={onAddPanel} disabled={!projectId}>
             <Plus className="w-4 h-4 mr-2" />
             添加分镜
           </Button>
         </div>
       </div>
-
-      {/* 批量操作工具栏 */}
-      {panels.length > 0 && !layoutOps.isLayoutMode && (
-        <BatchOperationsToolbar
-          panels={panels}
-          selectedPanelIds={selectedPanelIds}
-          onSelectionChange={setSelectedPanelIds}
-          onBatchDelete={handleBatchDelete}
-          onRefresh={onRefresh}
-          onCompose={onCompose}
-        />
-      )}
 
       {/* 布局模式工具栏 */}
       {panels.length > 0 && (
@@ -738,16 +663,6 @@ export function PanelListView({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Batch Generation Progress Dialog */}
-      <BatchGenerationDialog
-        open={batchDialogOpen}
-        tasks={batchGeneration.tasks}
-        onClose={() => {
-          setBatchDialogOpen(false);
-          batchGeneration.cancelGeneration();
-        }}
-      />
 
       {/* 角色参考引导生成 */}
       <ReferenceGuidedGenerationDialog

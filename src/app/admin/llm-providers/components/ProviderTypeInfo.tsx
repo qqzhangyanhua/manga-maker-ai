@@ -53,8 +53,6 @@ export const ProviderTypeInfo = () => {
               <strong>使用位置：</strong>
               <br />
               • /api/chapter/[id]/generate-panels - AI为章节生成分镜
-              <br />
-              • /api/panel/[id]/optimize - AI优化分镜内容
             </p>
           </div>
           <div>
@@ -106,8 +104,16 @@ export const ProviderTypeInfo = () => {
           </div>
           <div>
             <strong className="text-blue-900 dark:text-blue-100">prompt_optimizer</strong>
-            <p className="text-xs mt-1">用于提示词优化：增强和优化用户输入的提示词质量</p>
-            <p className="text-xs text-blue-600 dark:text-blue-300">使用位置：/api/prompt/optimize</p>
+            <p className="text-xs mt-1">
+              提示词优化器：增强和优化用户输入的提示词质量，优化分镜对话、画面描述和视觉提示词
+            </p>
+            <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+              <strong>使用位置：</strong>
+              <br />
+              • /api/prompt/optimize - 通用提示词优化
+              <br />
+              • /api/panel/[id]/optimize - AI优化分镜内容（对话、画面描述、视觉提示词）
+            </p>
           </div>
           <div>
             <strong className="text-blue-900 dark:text-blue-100">character_analyzer</strong>

@@ -30,6 +30,13 @@ export async function GET(
         // Get story
         const story = await prisma.story.findUnique({
             where: { id },
+            include: {
+                projects: {
+                    select: { id: true },
+                    take: 1,
+                    orderBy: { updated_at: 'desc' }
+                }
+            }
         });
 
         if (!story) {
@@ -40,9 +47,18 @@ export async function GET(
             return NextResponse.json({ error: "无权访问" }, { status: 403 });
         }
 
+        // Extract projectId if exists
+        const projectId = story.projects && story.projects.length > 0
+            ? story.projects[0].id
+            : null;
+
+        // Remove projects from story object
+        const { projects, ...storyData } = story;
+
         return NextResponse.json({
             success: true,
-            story,
+            story: storyData,
+            projectId,
         });
     } catch (error) {
         console.error("Get story error:", error);

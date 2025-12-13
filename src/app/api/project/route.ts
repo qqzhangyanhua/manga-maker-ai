@@ -38,6 +38,71 @@ export async function GET() {
   }
 }
 
+// POST /api/project - 创建新项目
+export async function POST(req: Request) {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+
+    if (!token) {
+      return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
+
+    const payload = verifyAuthToken(token);
+    if (!payload?.userId) {
+      return NextResponse.json({ error: "无效的token" }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { title, description, style, story_id, status, cover_image } = body;
+
+    // 验证必填字段
+    if (!title || typeof title !== "string" || title.trim().length === 0) {
+      return NextResponse.json({ error: "项目标题不能为空" }, { status: 400 });
+    }
+
+    // 如果提供了 story_id，验证 Story 是否存在且属于当前用户
+    if (story_id) {
+      const story = await prisma.story.findUnique({
+        where: { id: story_id },
+      });
+
+      if (!story) {
+        return NextResponse.json({ error: "关联的故事不存在" }, { status: 404 });
+      }
+
+      if (story.user_id !== payload.userId) {
+        return NextResponse.json({ error: "无权关联该故事" }, { status: 403 });
+      }
+    }
+
+    // 创建项目
+    const project = await prisma.project.create({
+      data: {
+        user_id: payload.userId,
+        title: title.trim(),
+        description: description?.trim() || null,
+        style: style || null,
+        story_id: story_id || null,
+        status: status || "draft",
+        cover_image: cover_image || null,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      project,
+      message: "项目创建成功",
+    });
+  } catch (error) {
+    console.error("Create project error:", error);
+    return NextResponse.json(
+      { error: "创建项目失败" },
+      { status: 500 }
+    );
+  }
+}
+
 // DELETE /api/project?id=xxx - 删除项目
 export async function DELETE(req: Request) {
   try {
