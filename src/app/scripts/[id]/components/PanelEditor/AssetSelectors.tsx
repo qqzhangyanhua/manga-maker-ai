@@ -239,14 +239,14 @@ export function CharacterAssetSelector({
       <div className="space-y-2">
         <Label>角色 (Character)</Label>
         <Select
-          value={characterId || ""}
-          onValueChange={onCharacterChange}
+          value={characterId || "__none__"}
+          onValueChange={(v) => onCharacterChange(v === "__none__" ? "" : v)}
         >
           <SelectTrigger>
             <SelectValue placeholder="选择角色" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">无角色</SelectItem>
+            <SelectItem value="__none__">无角色</SelectItem>
             {storyCharacters.map((sc) => (
               <SelectItem key={sc.character_id} value={sc.character_id}>
                 {sc.character.name} ({sc.role === "protagonist" ? "主角" : sc.role === "antagonist" ? "反派" : sc.role === "supporting" ? "配角" : "龙套"})
@@ -261,14 +261,14 @@ export function CharacterAssetSelector({
         <div className="space-y-2">
           <Label>表情 (Expression)</Label>
           <Select
-            value={expressionType || ""}
-            onValueChange={onExpressionChange}
+            value={expressionType || "__none__"}
+            onValueChange={(v) => onExpressionChange(v === "__none__" ? "" : v)}
           >
             <SelectTrigger>
               <SelectValue placeholder="选择表情" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">默认表情</SelectItem>
+              <SelectItem value="__none__">默认表情</SelectItem>
               {expressionTypes.map((exp) => (
                 <SelectItem key={exp.value} value={exp.value}>
                   {exp.label}
@@ -284,14 +284,14 @@ export function CharacterAssetSelector({
         <div className="space-y-2">
           <Label>服装 (Outfit)</Label>
           <Select
-            value={outfitId || ""}
-            onValueChange={onOutfitChange}
+            value={outfitId || "__none__"}
+            onValueChange={(v) => onOutfitChange(v === "__none__" ? "" : v)}
           >
             <SelectTrigger>
               <SelectValue placeholder="选择服装" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">默认服装</SelectItem>
+              <SelectItem value="__none__">默认服装</SelectItem>
               {outfits.map((outfit) => (
                 <SelectItem key={outfit.id} value={outfit.id}>
                   {outfit.outfit_name} ({outfit.outfit_type})
@@ -367,12 +367,15 @@ export function SceneSelector({ sceneId, onSceneChange }: SceneSelectorProps) {
   return (
     <div className="space-y-2">
       <Label>场景 (Scene)</Label>
-      <Select value={sceneId || ""} onValueChange={onSceneChange}>
+      <Select
+        value={sceneId || "__none__"}
+        onValueChange={(v) => onSceneChange(v === "__none__" ? "" : v)}
+      >
         <SelectTrigger>
           <SelectValue placeholder="选择场景" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">无场景</SelectItem>
+          <SelectItem value="__none__">无场景</SelectItem>
           {scenes.map((scene) => (
             <SelectItem key={scene.id} value={scene.id}>
               {scene.scene_name} ({scene.scene_type})

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -121,7 +121,7 @@ export default function ScriptDetailsPage() {
     } catch (error) {
       const errorInfo = formatErrorForToast(error);
       const canRetry = isRetryableError(error);
-      
+
       toast({
         title: errorInfo.title,
         description: errorInfo.description,
@@ -271,114 +271,115 @@ export default function ScriptDetailsPage() {
   return (
     <ErrorBoundary>
       <div className="container py-8 space-y-8">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.push("/scripts")}>
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold">{data.story.title}</h1>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Badge variant="outline">{data.story.genre}</Badge>
-            <span>Updated: {format(new Date(data.story.updated_at), "yyyy-MM-dd HH:mm")}</span>
+        {/* Header */}
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => router.push("/scripts")}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">{data.story.title}</h1>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Badge variant="outline">{data.story.genre}</Badge>
+              <span>Updated: {format(new Date(data.story.updated_at), "yyyy-MM-dd HH:mm")}</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left: Story Info & Characters */}
-        <div className="lg:col-span-1 space-y-6">
-          <StoryInfoPanel
-            story={data.story}
-            editMode={uiState.editMode}
-            storyForm={uiState.storyForm}
-            saving={updateStory.isPending}
-            onEditModeToggle={() => uiActions.setEditMode(true)}
-            onCancel={() => uiActions.setEditMode(false)}
-            onSave={handleUpdateStory}
-            onAutoSave={async (formData) => {
-              // Auto-save using React Query mutation
-              await updateStory.mutateAsync(formData);
-            }}
-            onFormChange={(field, value) =>
-              uiActions.updateStoryForm({ [field]: value })
-            }
-          />
-
-          {/* Story Characters from Library */}
-          <StoryCharacterList
-            storyId={storyId}
-            characters={storyCharacters}
-            onAdd={handleAddCharacter}
-            onRemove={handleRemoveCharacter}
-            onRoleChange={handleCharacterRoleChange}
-            isLoading={isStoryCharactersLoading}
-            selectedCharacterId={selectedCharacterId}
-            onSelectedCharacterChange={setSelectedCharacterId}
-          />
-        </div>
-
-        {/* Right: Panels */}
-        <div className="lg:col-span-2">
-          {isPanelsLoading ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span className="text-sm text-muted-foreground">加载分镜列表中...</span>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <PanelListView
-              panels={data?.panels || []}
-              projectId={data?.projectId || null}
-              characters={characterAssets}
-              charactersLoading={isCharactersLoading}
-              onCharactersRefresh={() => { refetchCharacters(); }}
-              onPanelsChange={() => { }}
-              onEditPanel={(panel) => uiActions.openEditPanelDialog(panel)}
-              onDeletePanel={handleDeletePanel}
-              onAddPanel={handleAddPanel}
-              onImageGenerated={handleImageGenerated}
-              onRefresh={() => refetchPanels?.()}
-              onError={(msg) =>
-                toast({ title: "错误", description: msg, variant: "destructive" })
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left: Story Info & Characters */}
+          <div className="lg:col-span-1 space-y-6">
+            <StoryInfoPanel
+              story={data.story}
+              editMode={uiState.editMode}
+              storyForm={uiState.storyForm}
+              saving={updateStory.isPending}
+              onEditModeToggle={() => uiActions.setEditMode(true)}
+              onCancel={() => uiActions.setEditMode(false)}
+              onSave={handleUpdateStory}
+              onAutoSave={async (formData) => {
+                // Auto-save using React Query mutation
+                await updateStory.mutateAsync(formData);
+              }}
+              onFormChange={(field, value) =>
+                uiActions.updateStoryForm({ [field]: value })
               }
             />
-          )}
+
+            {/* Story Characters from Library */}
+            <StoryCharacterList
+              storyId={storyId}
+              characters={storyCharacters}
+              onAdd={handleAddCharacter}
+              onRemove={handleRemoveCharacter}
+              onRoleChange={handleCharacterRoleChange}
+              isLoading={isStoryCharactersLoading}
+              selectedCharacterId={selectedCharacterId}
+              onSelectedCharacterChange={setSelectedCharacterId}
+            />
+          </div>
+
+          {/* Right: Panels */}
+          <div className="lg:col-span-2">
+            {isPanelsLoading ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span className="text-sm text-muted-foreground">加载分镜列表中...</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <PanelListView
+                panels={data?.panels || []}
+                projectId={data?.projectId || null}
+                characters={characterAssets}
+                charactersLoading={isCharactersLoading}
+                onCharactersRefresh={() => { refetchCharacters(); }}
+                onPanelsChange={() => { }}
+                onEditPanel={(panel) => uiActions.openEditPanelDialog(panel)}
+                onDeletePanel={handleDeletePanel}
+                onAddPanel={handleAddPanel}
+                onImageGenerated={handleImageGenerated}
+                onRefresh={() => refetchPanels?.()}
+                onError={(msg) =>
+                  toast({ title: "错误", description: msg, variant: "destructive" })
+                }
+                selectedCharacterId={selectedCharacterId}
+              />
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Edit/Create Dialog */}
-      <PanelEditDialog
-        open={uiState.isDialogOpen}
-        panel={uiState.editingPanel}
-        characters={data?.story?.characters || []}
-        storyId={storyId}
-        saving={false}
-        onOpenChange={(open) => !open && uiActions.closePanelDialog()}
-        onSave={handleSavePanel}
-        onChange={uiActions.updatePanelField}
-      />
+        {/* Edit/Create Dialog */}
+        <PanelEditDialog
+          open={uiState.isDialogOpen}
+          panel={uiState.editingPanel}
+          characters={data?.story?.characters || []}
+          storyId={storyId}
+          saving={false}
+          onOpenChange={(open) => !open && uiActions.closePanelDialog()}
+          onSave={handleSavePanel}
+          onChange={uiActions.updatePanelField}
+        />
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!uiState.deletingPanelId} onOpenChange={(open) => !open && uiActions.setDeletingPanel(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认删除</AlertDialogTitle>
-            <AlertDialogDescription>
-              确定要删除这个分镜吗？此操作无法撤销。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeletePanel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              删除
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={!!uiState.deletingPanelId} onOpenChange={(open) => !open && uiActions.setDeletingPanel(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>确认删除</AlertDialogTitle>
+              <AlertDialogDescription>
+                确定要删除这个分镜吗？此操作无法撤销。
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>取消</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDeletePanel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                删除
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </ErrorBoundary>
   );

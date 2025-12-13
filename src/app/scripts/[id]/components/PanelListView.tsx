@@ -55,6 +55,7 @@ interface PanelListViewProps {
   onError: (message: string) => void;
   onImageGenerated?: (panelId: string, imageUrl: string) => void;
   onRefresh?: () => void; // New callback to trigger data refresh
+  selectedCharacterId?: string | null; // Selected character from story character list
 }
 
 export function PanelListView({
@@ -70,6 +71,7 @@ export function PanelListView({
   onError,
   onImageGenerated,
   onRefresh,
+  selectedCharacterId,
 }: PanelListViewProps) {
   // 批量选择状态
   const [selectedPanelIds, setSelectedPanelIds] = useState<string[]>([]);
@@ -135,14 +137,48 @@ export function PanelListView({
 
     // 检查是否绑定了角色
     if (!panel.character_id) {
-      const confirmGenerate = window.confirm(
-        "⚠️ 未绑定角色参考\n\n" +
-        "当前分镜没有绑定角色，将不会使用角色参考图生成。\n" +
-        "建议先编辑分镜，在「资产绑定」区域选择角色。\n\n" +
-        "是否继续生成？"
-      );
-      if (!confirmGenerate) {
-        return;
+      // 如果左侧选择了故事角色，自动绑定
+      if (selectedCharacterId) {
+        try {
+          console.log(`[PanelListView] 自动绑定左侧选中的角色 ${selectedCharacterId} 到分镜 ${panel.id}`);
+
+          // 更新分镜绑定角色
+          const response = await fetch(`/api/panel/${panel.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              character_id: selectedCharacterId,
+            }),
+          });
+
+          if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || "绑定角色失败");
+          }
+
+          // 刷新数据以获取更新后的分镜
+          await onRefresh?.();
+
+          // 使用更新后的 character_id 继续生成
+          panel = { ...panel, character_id: selectedCharacterId };
+        } catch (error) {
+          console.error("[PanelListView] 自动绑定角色失败:", error);
+          onError(error instanceof Error ? error.message : "绑定角色失败");
+          return;
+        }
+      } else {
+        // 没有选中角色，弹出警告
+        const confirmGenerate = window.confirm(
+          "⚠️ 未绑定角色参考\n\n" +
+          "当前分镜没有绑定角色，将不会使用角色参考图生成。\n" +
+          "建议：\n" +
+          "1. 在左侧「故事角色」区域选择一个角色\n" +
+          "2. 或者编辑分镜，在「资产绑定」区域选择角色\n\n" +
+          "是否继续生成？"
+        );
+        if (!confirmGenerate) {
+          return;
+        }
       }
     }
 
