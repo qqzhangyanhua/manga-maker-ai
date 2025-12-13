@@ -39,7 +39,9 @@
       "Bash(npx prisma db push)",
       "Bash(pnpm lint:*)",
       "Bash(npx eslint:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(pnpm exec tsc:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

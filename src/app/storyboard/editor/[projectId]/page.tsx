@@ -9,9 +9,13 @@ import ScriptEditorPane from "@/components/Storyboard/ScriptEditorPane";
 import PanelPane from "@/components/Storyboard/PanelPane";
 import InsertPanelDialog from "@/components/Storyboard/InsertPanelDialog";
 import BatchOperationToolbar from "@/components/Storyboard/BatchOperationToolbar";
+import BatchCameraDialog, {
+  type BatchCameraUpdates,
+} from "@/components/Storyboard/BatchCameraDialog";
 import { useStoryboardData } from "@/hooks/use-storyboard-data";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { useBatchSelection } from "@/hooks/use-batch-selection";
+import { useBatchOperations } from "@/hooks/use-batch-operations";
 import { useToast } from "@/hooks/use-toast";
 
 export default function StoryboardEditorPage({
@@ -29,12 +33,19 @@ export default function StoryboardEditorPage({
   const [insertAfterOrder, setInsertAfterOrder] = useState<number | null>(null);
   const [panelSelections, setPanelSelections] = useState<Record<string, { characterId?: string; styleKey?: string }>>({});
 
+  // 批量操作弹窗状态
+  const [batchCameraDialogOpen, setBatchCameraDialogOpen] = useState(false);
+
   // Refs for scrolling
   const segmentRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const panelRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // 批量选择 Hook
   const batchSelection = useBatchSelection();
+
+  // 批量操作 Hook
+  const { batchUpdateCamera, operationLoading: batchOperationLoading } =
+    useBatchOperations();
 
   // 使用自定义 Hook 管理数据和操作
   const {
@@ -49,10 +60,14 @@ export default function StoryboardEditorPage({
     handleInsertPanel,
     handleGenerateSketch,
     handleGeneratePrompt,
+    refetch,
   } = useStoryboardData(projectId);
 
   // 获取所有分镜ID数组（用于范围选择）
-  const allPanelIds = project?.panels.map((p) => p.id) || [];
+  const allPanelIds = useMemo(
+    () => project?.panels.map((p) => p.id) || [],
+    [project?.panels]
+  );
 
   // Shift+点击范围选择
   const handleShiftBatchSelect = useCallback(
@@ -85,7 +100,7 @@ export default function StoryboardEditorPage({
     setPanelSelections((prev) => ({ ...prev, [panelId]: selection }));
   };
 
-  // 批量操作回调（占位，后续实现）
+  // 批量角色替换（占位）
   const handleBatchCharacter = useCallback(() => {
     toast({
       title: "批量角色替换",
@@ -93,6 +108,7 @@ export default function StoryboardEditorPage({
     });
   }, [batchSelection, toast]);
 
+  // 批量风格调整（占位）
   const handleBatchStyle = useCallback(() => {
     toast({
       title: "批量风格调整",
@@ -100,13 +116,27 @@ export default function StoryboardEditorPage({
     });
   }, [batchSelection, toast]);
 
+  // 批量镜头调整 - 打开弹窗
   const handleBatchCamera = useCallback(() => {
-    toast({
-      title: "批量镜头调整",
-      description: `已选中 ${batchSelection.getSelectedCount()} 个分镜，功能开发中...`,
-    });
-  }, [batchSelection, toast]);
+    setBatchCameraDialogOpen(true);
+  }, []);
 
+  // 批量镜头调整确认回调
+  const handleBatchCameraConfirm = useCallback(
+    async (updates: BatchCameraUpdates) => {
+      const selectedIds = batchSelection.getSelectedIds();
+      const success = await batchUpdateCamera(selectedIds, updates);
+      if (success) {
+        // 刷新数据
+        refetch?.();
+        // 退出多选模式
+        batchSelection.exitSelectionMode();
+      }
+    },
+    [batchSelection, batchUpdateCamera, refetch]
+  );
+
+  // 批量生成（占位）
   const handleBatchGenerate = useCallback(() => {
     toast({
       title: "批量生成",
@@ -114,6 +144,7 @@ export default function StoryboardEditorPage({
     });
   }, [batchSelection, toast]);
 
+  // 批量删除（占位）
   const handleBatchDelete = useCallback(() => {
     toast({
       title: "批量删除",
@@ -229,6 +260,7 @@ export default function StoryboardEditorPage({
           <BatchOperationToolbar
             selectedCount={batchSelection.getSelectedCount()}
             totalCount={project.panels.length}
+            operationLoading={batchOperationLoading}
             onSelectAll={() => batchSelection.selectAll(allPanelIds)}
             onClearSelection={batchSelection.clearSelection}
             onExitSelectionMode={batchSelection.exitSelectionMode}
@@ -284,6 +316,14 @@ export default function StoryboardEditorPage({
         onOpenChange={setInsertDialogOpen}
         onInsert={handleInsertPanelSubmit}
         insertAfterOrder={insertAfterOrder}
+      />
+
+      {/* Batch Camera Dialog */}
+      <BatchCameraDialog
+        open={batchCameraDialogOpen}
+        onOpenChange={setBatchCameraDialogOpen}
+        selectedPanelIds={batchSelection.getSelectedIds()}
+        onConfirm={handleBatchCameraConfirm}
       />
     </div>
   );

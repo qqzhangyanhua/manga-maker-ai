@@ -31,6 +31,7 @@ type UseStoryboardDataReturn = {
     panelId: string,
     options?: { characterId?: string; styleKey?: string; soften?: boolean; aspectRatio?: string }
   ) => Promise<void>;
+  refetch: () => Promise<void>;
 };
 
 /**
@@ -50,26 +51,34 @@ export function useStoryboardData(projectId: string): UseStoryboardDataReturn {
   const [styles, setStyles] = useState<StoryboardStyle[]>([]);
 
   // 加载项目数据
-  useEffect(() => {
-    const fetchProject = async () => {
-      try {
-        const response = await fetch(`/api/project/${projectId}`);
-        if (!response.ok) {
-          throw new Error("加载项目失败");
-        }
-        const data = await response.json();
-        setProject(data.project);
-      } catch (error) {
-        console.error("Fetch project error:", error);
-        toast({
-          title: "加载失败",
-          description: error instanceof Error ? error.message : "未知错误",
-          variant: "destructive",
-        });
-        router.push("/storyboard");
-      } finally {
-        setLoading(false);
+  const fetchProject = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/project/${projectId}`);
+      if (!response.ok) {
+        throw new Error("加载项目失败");
       }
+      const data = await response.json();
+      setProject(data.project);
+    } catch (error) {
+      console.error("Fetch project error:", error);
+      toast({
+        title: "加载失败",
+        description: error instanceof Error ? error.message : "未知错误",
+        variant: "destructive",
+      });
+    }
+  }, [projectId, toast]);
+
+  // 重新加载数据
+  const refetch = useCallback(async () => {
+    await fetchProject();
+  }, [fetchProject]);
+
+  // 初始加载
+  useEffect(() => {
+    const loadData = async () => {
+      await fetchProject();
+      setLoading(false);
     };
 
     const fetchCharactersAndStyles = async () => {
@@ -104,9 +113,9 @@ export function useStoryboardData(projectId: string): UseStoryboardDataReturn {
       }
     };
 
-    fetchProject();
+    loadData();
     fetchCharactersAndStyles();
-  }, [projectId, router, toast]);
+  }, [fetchProject]);
 
   // 更新分镜
   const handlePanelUpdate = useCallback(
@@ -370,5 +379,6 @@ export function useStoryboardData(projectId: string): UseStoryboardDataReturn {
     handleInsertPanel,
     handleGenerateSketch,
     handleGeneratePrompt,
+    refetch,
   };
 }

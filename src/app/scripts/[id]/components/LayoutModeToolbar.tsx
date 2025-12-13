@@ -1,6 +1,6 @@
 /**
  * 布局模式工具栏组件
- * 用于选择Panel并应用布局（2镜/4镜/6镜）
+ * 用于选择Panel并应用布局（2镜/3镜/4镜/6镜）
  */
 
 "use client";
@@ -10,6 +10,10 @@ import {
   LayoutGrid,
   Grid2X2,
   Grid3X3,
+  Columns2,
+  Rows2,
+  Columns3,
+  Rows3,
   Ungroup,
   Check,
   X,
@@ -21,7 +25,14 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { Panel } from "../types/script-editor.types";
+import type { LayoutSize, LayoutDirection } from "../types/layout.types";
 import { isSelectionContinuous, isInLayoutGroup } from "../types/layout.types";
 
 interface LayoutModeToolbarProps {
@@ -31,7 +42,7 @@ interface LayoutModeToolbarProps {
   isApplying: boolean;
   onEnterLayoutMode: () => void;
   onExitLayoutMode: () => void;
-  onApplyLayout: (layoutType: "2" | "4" | "6") => void;
+  onApplyLayout: (layoutType: LayoutSize, direction?: LayoutDirection) => void;
   onClearSelection: () => void;
 }
 
@@ -63,6 +74,7 @@ export function LayoutModeToolbar({
 
   // 计算各布局类型是否可用
   const canApply2 = selectionCount === 2 && isContinuous && !hasGroupedPanels;
+  const canApply3 = selectionCount === 3 && isContinuous && !hasGroupedPanels;
   const canApply4 = selectionCount === 4 && isContinuous && !hasGroupedPanels;
   const canApply6 = selectionCount === 6 && isContinuous && !hasGroupedPanels;
 
@@ -96,7 +108,7 @@ export function LayoutModeToolbar({
           </Button>
         </TooltipTrigger>
         <TooltipContent>
-          选择多个分镜组合为 2镜/4镜/6镜 布局
+          选择多个分镜组合为 2镜/3镜/4镜/6镜 布局
         </TooltipContent>
       </Tooltip>
     );
@@ -104,7 +116,7 @@ export function LayoutModeToolbar({
 
   // 布局模式：显示完整工具栏
   return (
-    <div className="flex items-center gap-2 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+    <div className="flex items-center gap-2 p-3 bg-primary/5 border border-primary/20 rounded-lg flex-wrap">
       {/* 选择状态 */}
       <div className="flex items-center gap-2 mr-2">
         <Badge variant={selectionCount > 0 ? "default" : "secondary"}>
@@ -120,58 +132,106 @@ export function LayoutModeToolbar({
             含已组合
           </Badge>
         )}
+        {/* 快捷键提示 */}
+        {selectionCount === 0 && (
+          <span className="text-xs text-muted-foreground">
+            点击选择 | Shift连选 | Ctrl/Cmd多选
+          </span>
+        )}
       </div>
 
       {/* 分隔线 */}
       <div className="h-6 w-px bg-border" />
 
-      {/* 布局按钮 */}
-      <div className="flex items-center gap-1">
+      {/* 2镜布局（带方向选择） */}
+      <DropdownMenu>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant={canApply2 ? "default" : "outline"}
-              size="sm"
-              onClick={() => onApplyLayout("2")}
-              disabled={!canApply2 || isApplying}
-            >
-              <Grid2X2 className="w-4 h-4 mr-1" />
-              2镜
-            </Button>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant={canApply2 ? "default" : "outline"}
+                size="sm"
+                disabled={!canApply2 || isApplying}
+              >
+                <Grid2X2 className="w-4 h-4 mr-1" />
+                2镜
+              </Button>
+            </DropdownMenuTrigger>
           </TooltipTrigger>
           <TooltipContent>{getTooltipMessage(2)}</TooltipContent>
         </Tooltip>
+        <DropdownMenuContent>
+          <DropdownMenuItem onClick={() => onApplyLayout("2", "h")}>
+            <Columns2 className="w-4 h-4 mr-2" />
+            横排 (左右)
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onApplyLayout("2", "v")}>
+            <Rows2 className="w-4 h-4 mr-2" />
+            竖排 (上下)
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
+      {/* 3镜布局（带方向选择） */}
+      <DropdownMenu>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant={canApply4 ? "default" : "outline"}
-              size="sm"
-              onClick={() => onApplyLayout("4")}
-              disabled={!canApply4 || isApplying}
-            >
-              <LayoutGrid className="w-4 h-4 mr-1" />
-              4镜
-            </Button>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant={canApply3 ? "default" : "outline"}
+                size="sm"
+                disabled={!canApply3 || isApplying}
+              >
+                <Columns3 className="w-4 h-4 mr-1" />
+                3镜
+              </Button>
+            </DropdownMenuTrigger>
           </TooltipTrigger>
-          <TooltipContent>{getTooltipMessage(4)}</TooltipContent>
+          <TooltipContent>{getTooltipMessage(3)}</TooltipContent>
         </Tooltip>
+        <DropdownMenuContent>
+          <DropdownMenuItem onClick={() => onApplyLayout("3", "h")}>
+            <Columns3 className="w-4 h-4 mr-2" />
+            横排 (三列)
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onApplyLayout("3", "v")}>
+            <Rows3 className="w-4 h-4 mr-2" />
+            竖排 (三行)
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant={canApply6 ? "default" : "outline"}
-              size="sm"
-              onClick={() => onApplyLayout("6")}
-              disabled={!canApply6 || isApplying}
-            >
-              <Grid3X3 className="w-4 h-4 mr-1" />
-              6镜
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>{getTooltipMessage(6)}</TooltipContent>
-        </Tooltip>
-      </div>
+      {/* 4镜布局 */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant={canApply4 ? "default" : "outline"}
+            size="sm"
+            onClick={() => onApplyLayout("4")}
+            disabled={!canApply4 || isApplying}
+          >
+            <LayoutGrid className="w-4 h-4 mr-1" />
+            4镜
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{getTooltipMessage(4)}</TooltipContent>
+      </Tooltip>
+
+      {/* 6镜布局 */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant={canApply6 ? "default" : "outline"}
+            size="sm"
+            onClick={() => onApplyLayout("6")}
+            disabled={!canApply6 || isApplying}
+          >
+            <Grid3X3 className="w-4 h-4 mr-1" />
+            6镜
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{getTooltipMessage(6)}</TooltipContent>
+      </Tooltip>
 
       {/* 分隔线 */}
       <div className="h-6 w-px bg-border" />
@@ -187,7 +247,7 @@ export function LayoutModeToolbar({
               disabled={isApplying}
             >
               <Ungroup className="w-4 h-4 mr-1" />
-              清空选择
+              清空
             </Button>
           </TooltipTrigger>
           <TooltipContent>取消所有选择</TooltipContent>

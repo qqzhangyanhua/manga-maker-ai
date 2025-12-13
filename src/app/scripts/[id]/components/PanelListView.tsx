@@ -37,6 +37,7 @@ import { SplitPanelDialog } from "./PanelEditor/SplitPanelDialog";
 import { BatchGenerationDialog } from "./BatchGenerationDialog";
 import { BatchOperationsToolbar } from "./BatchOperationsToolbar";
 import { LayoutModeToolbar } from "./LayoutModeToolbar";
+import { LayoutPreview } from "./LayoutPreview";
 import { PanelLayoutGroup } from "./PanelLayoutGroup";
 import { usePanelDragDrop } from "../hooks/usePanelDragDrop";
 import { usePanelGeneration } from "../hooks/usePanelGeneration";
@@ -101,7 +102,7 @@ export function PanelListView({
   );
 
   // 拖拽逻辑
-  const { isDragging, handleDragStart, handleDragEnd, handleDragCancel } =
+  const { isDragging, draggingGroupIds, handleDragStart, handleDragEnd, handleDragCancel } =
     usePanelDragDrop({
       panels,
       projectId,
@@ -145,6 +146,43 @@ export function PanelListView({
 
   // 按布局分组的Panel列表
   const panelGroups = useMemo(() => groupPanelsByLayout(panels), [panels]);
+
+  // 计算布局预览数据
+  const layoutPreviewData = useMemo(() => {
+    if (!layoutOps.isLayoutMode || layoutOps.selectedPanelIds.length === 0) {
+      return { selectedPanels: [], availableLayouts: [] };
+    }
+
+    // 获取选中的Panel（按panel_order排序）
+    const selectedPanels = layoutOps.selectedPanelIds
+      .map((id) => panels.find((p) => p.id === id))
+      .filter((p): p is Panel => p !== undefined)
+      .sort((a, b) => a.panel_order - b.panel_order);
+
+    const count = selectedPanels.length;
+
+    // 根据选中数量确定可用布局
+    type LayoutOption = { size: "2" | "3" | "4" | "6"; direction?: "h" | "v"; label: string };
+    const availableLayouts: LayoutOption[] = [];
+
+    if (count === 2) {
+      availableLayouts.push(
+        { size: "2", direction: "h", label: "2镜横排" },
+        { size: "2", direction: "v", label: "2镜竖排" }
+      );
+    } else if (count === 3) {
+      availableLayouts.push(
+        { size: "3", direction: "h", label: "3镜横排" },
+        { size: "3", direction: "v", label: "3镜竖排" }
+      );
+    } else if (count === 4) {
+      availableLayouts.push({ size: "4", label: "4镜网格" });
+    } else if (count === 6) {
+      availableLayouts.push({ size: "6", label: "6镜网格" });
+    }
+
+    return { selectedPanels, availableLayouts };
+  }, [layoutOps.isLayoutMode, layoutOps.selectedPanelIds, panels]);
 
   // 生成单个分镜图片
   const handleGenerateSingle = async (panel: Panel) => {
@@ -373,12 +411,20 @@ export function PanelListView({
             isApplying={layoutOps.isApplying}
             onEnterLayoutMode={layoutOps.enterLayoutMode}
             onExitLayoutMode={layoutOps.exitLayoutMode}
-            onApplyLayout={(layoutType) =>
-              layoutOps.applyLayout(layoutOps.selectedPanelIds, layoutType)
+            onApplyLayout={(layoutType, direction) =>
+              layoutOps.applyLayout(layoutOps.selectedPanelIds, layoutType, direction)
             }
             onClearSelection={layoutOps.clearSelection}
           />
         </TooltipProvider>
+      )}
+
+      {/* 布局预览 */}
+      {layoutOps.isLayoutMode && layoutPreviewData.selectedPanels.length > 0 && (
+        <LayoutPreview
+          selectedPanels={layoutPreviewData.selectedPanels}
+          availableLayouts={layoutPreviewData.availableLayouts}
+        />
       )}
 
       {/* 分镜列表 */}
@@ -411,6 +457,7 @@ export function PanelListView({
                   group={group}
                   isLayoutMode={true}
                   isSelected={isGroupSelected}
+                  selectedPanelIds={layoutOps.selectedPanelIds}
                   onSelect={(selected) => {
                     if (selected) {
                       layoutOps.selectPanelGroup(groupPanelIds);
@@ -423,6 +470,9 @@ export function PanelListView({
                       });
                     }
                   }}
+                  onSelectWithModifiers={(panelId, modifiers) =>
+                    layoutOps.selectPanelWithModifiers(panelId, panels, modifiers)
+                  }
                   onBreakLayout={() => layoutOps.breakLayout(group.groupStartId)}
                   generatingPanels={generatingPanels}
                   onEditPanel={onEditPanel}
@@ -454,26 +504,36 @@ export function PanelListView({
               strategy={verticalListSortingStrategy}
             >
               <div className="space-y-4">
-                {panelGroups.map((group) => (
-                  <PanelLayoutGroup
-                    key={group.groupStartId}
-                    group={group}
-                    isLayoutMode={false}
-                    isSelected={false}
-                    onSelect={() => {}}
-                    onBreakLayout={() => layoutOps.breakLayout(group.groupStartId)}
-                    generatingPanels={generatingPanels}
-                    onEditPanel={onEditPanel}
-                    onDeletePanel={onDeletePanel}
-                    onGenerateSingle={handleGenerateSingle}
-                    onInsertAfter={handleInsertAfter}
-                    onSplit={handleSplit}
-                    onMergeWithNext={handleMergeWithNext}
-                    onRetryGeneration={retry}
-                    onCancelGeneration={clearTask}
-                    allPanels={panels}
-                  />
-                ))}
+                {panelGroups.map((group) => {
+                  // 检查这个组是否正在被拖拽
+                  const isGroupDragging = draggingGroupIds.length > 1 &&
+                    group.panels.some((p) => draggingGroupIds.includes(p.id));
+
+                  return (
+                    <div
+                      key={group.groupStartId}
+                      className={isGroupDragging ? "ring-2 ring-primary ring-offset-2 rounded-lg transition-all" : ""}
+                    >
+                      <PanelLayoutGroup
+                        group={group}
+                        isLayoutMode={false}
+                        isSelected={false}
+                        onSelect={() => {}}
+                        onBreakLayout={() => layoutOps.breakLayout(group.groupStartId)}
+                        generatingPanels={generatingPanels}
+                        onEditPanel={onEditPanel}
+                        onDeletePanel={onDeletePanel}
+                        onGenerateSingle={handleGenerateSingle}
+                        onInsertAfter={handleInsertAfter}
+                        onSplit={handleSplit}
+                        onMergeWithNext={handleMergeWithNext}
+                        onRetryGeneration={retry}
+                        onCancelGeneration={clearTask}
+                        allPanels={panels}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             </SortableContext>
 

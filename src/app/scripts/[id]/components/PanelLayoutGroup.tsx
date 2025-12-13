@@ -1,12 +1,22 @@
 /**
  * 分镜布局组组件
- * 用于渲染 2镜/4镜/6镜 布局组
+ * 用于渲染 2镜/3镜/4镜/6镜 布局组
+ * 支持快捷键：Shift连续选择、Ctrl/Cmd多选
  */
 
 "use client";
 
-import { useMemo } from "react";
-import { Grid2X2, Grid3X3, LayoutGrid, Ungroup } from "lucide-react";
+import { useMemo, useCallback, type MouseEvent } from "react";
+import {
+  Grid2X2,
+  Grid3X3,
+  LayoutGrid,
+  Ungroup,
+  Columns2,
+  Rows2,
+  Columns3,
+  Rows3,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -21,11 +31,24 @@ import type { Panel, GenerationTask } from "../types/script-editor.types";
 import type { PanelGroup, LayoutType } from "../types/layout.types";
 import { getLayoutTypeName } from "../types/layout.types";
 
+/**
+ * 选择修饰键类型
+ */
+interface SelectionModifiers {
+  shiftKey: boolean;
+  ctrlKey: boolean;
+  metaKey: boolean;
+}
+
 interface PanelLayoutGroupProps {
   group: PanelGroup;
   isLayoutMode: boolean;
   isSelected: boolean;
+  /** 选中的Panel IDs（用于判断单个Panel是否选中） */
+  selectedPanelIds?: string[];
   onSelect: (selected: boolean) => void;
+  /** 带修饰键的选择回调 */
+  onSelectWithModifiers?: (panelId: string, modifiers: SelectionModifiers) => void;
   onBreakLayout: () => void;
   generatingPanels: Map<string, GenerationTask>;
   onEditPanel: (panel: Panel) => void;
@@ -44,8 +67,14 @@ interface PanelLayoutGroupProps {
  */
 function getLayoutIcon(type: LayoutType) {
   switch (type) {
-    case "2":
-      return <Grid2X2 className="w-4 h-4" />;
+    case "2h":
+      return <Columns2 className="w-4 h-4" />;
+    case "2v":
+      return <Rows2 className="w-4 h-4" />;
+    case "3h":
+      return <Columns3 className="w-4 h-4" />;
+    case "3v":
+      return <Rows3 className="w-4 h-4" />;
     case "4":
       return <LayoutGrid className="w-4 h-4" />;
     case "6":
@@ -60,8 +89,14 @@ function getLayoutIcon(type: LayoutType) {
  */
 function getGridStyle(type: LayoutType): string {
   switch (type) {
-    case "2":
+    case "2h":
       return "grid grid-cols-2 gap-3";
+    case "2v":
+      return "grid grid-cols-1 gap-3";
+    case "3h":
+      return "grid grid-cols-3 gap-3";
+    case "3v":
+      return "grid grid-cols-1 gap-3";
     case "4":
       return "grid grid-cols-2 gap-3";
     case "6":
@@ -75,7 +110,9 @@ export function PanelLayoutGroup({
   group,
   isLayoutMode,
   isSelected,
+  selectedPanelIds = [],
   onSelect,
+  onSelectWithModifiers,
   onBreakLayout,
   generatingPanels,
   onEditPanel,
@@ -97,6 +134,29 @@ export function PanelLayoutGroup({
     return allPanels.findIndex((p) => p.id === lastPanel.id);
   }, [panels, allPanels]);
 
+  /**
+   * 处理Panel点击（支持快捷键）
+   */
+  const handlePanelClick = useCallback(
+    (panelId: string, e: MouseEvent) => {
+      if (!isLayoutMode) return;
+
+      // 如果有修饰键支持回调，使用它
+      if (onSelectWithModifiers) {
+        onSelectWithModifiers(panelId, {
+          shiftKey: e.shiftKey,
+          ctrlKey: e.ctrlKey,
+          metaKey: e.metaKey,
+        });
+      } else {
+        // 降级为简单的切换选择
+        const isPanelSelected = selectedPanelIds.includes(panelId);
+        onSelect(!isPanelSelected);
+      }
+    },
+    [isLayoutMode, onSelectWithModifiers, selectedPanelIds, onSelect]
+  );
+
   // 单个Panel直接渲染
   if (isSinglePanel && panels.length === 1) {
     const panel = panels[0];
@@ -106,16 +166,18 @@ export function PanelLayoutGroup({
       generationTask?.status === "processing" ||
       generationTask?.status === "pending";
     const canMergeWithNext = panelIndex < allPanels.length - 1;
+    const isPanelSelected = selectedPanelIds.includes(panel.id);
 
     return (
       <div
-        className={`relative ${isLayoutMode && isSelected ? "ring-2 ring-primary rounded-lg" : ""}`}
+        className={`relative cursor-pointer ${isLayoutMode && isPanelSelected ? "ring-2 ring-primary rounded-lg" : ""}`}
+        onClick={(e) => handlePanelClick(panel.id, e)}
       >
         {/* 布局模式下的选择复选框 */}
         {isLayoutMode && (
           <div className="absolute left-2 top-4 z-10">
             <Checkbox
-              checked={isSelected}
+              checked={isPanelSelected}
               onCheckedChange={(checked) => onSelect(checked === true)}
               onClick={(e) => e.stopPropagation()}
             />

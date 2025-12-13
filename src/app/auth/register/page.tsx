@@ -2,8 +2,8 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Mail, ShieldCheck, ArrowLeft } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Mail, ShieldCheck, ArrowLeft, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,12 @@ import { useToast } from "@/hooks/use-toast";
 
 const RegisterPage = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
+
+  // 获取 trial 参数
+  const trialId = searchParams.get("trial");
+  const hasTrialWork = !!trialId;
 
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -75,6 +80,31 @@ const RegisterPage = () => {
         toast({ title: "注册失败", description: data.message || "请稍后再试", variant: "destructive" });
         return;
       }
+
+      // 如果有 trialId，尝试关联体验作品
+      if (trialId) {
+        try {
+          const claimRes = await fetch("/api/trial/claim", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ trialId }),
+          });
+          const claimData = await claimRes.json();
+
+          if (claimRes.ok && claimData.storyId) {
+            toast({
+              title: "注册成功",
+              description: "体验作品已保存到你的账号，正在跳转..."
+            });
+            router.replace(`/scripts/${claimData.storyId}`);
+            return;
+          }
+        } catch (claimError) {
+          console.error("关联体验作品失败:", claimError);
+          // 关联失败不影响注册成功
+        }
+      }
+
       toast({ title: "注册成功", description: "已为你自动登录" });
       router.replace("/");
     } catch (error) {
@@ -106,6 +136,20 @@ const RegisterPage = () => {
             <p className="text-muted-foreground">
               完成邮箱验证后即可使用分镜生成、剧本创作等功能，验证码将发送到你的邮箱，10 分钟内有效。
             </p>
+
+            {/* 体验作品保存提示 */}
+            {hasTrialWork && (
+              <div className="rounded-lg border-2 border-primary/50 bg-primary/5 p-4 space-y-2">
+                <h3 className="font-semibold flex items-center gap-2 text-primary">
+                  <Sparkles className="w-4 h-4" />
+                  保存你的体验作品
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  完成注册后，你刚才生成的 4 格漫画将自动保存到你的账号，你可以继续编辑和导出。
+                </p>
+              </div>
+            )}
+
             <div className="rounded-lg border border-border bg-card p-4 space-y-3">
               <h3 className="font-semibold flex items-center gap-2">
                 <Mail className="w-4 h-4" />
