@@ -28,8 +28,13 @@ import {
 import { PanelCard } from "./PanelEditor/PanelCard";
 import { PanelCardActions } from "./PanelEditor/PanelCardActions";
 import type { Panel, GenerationTask } from "../types/script-editor.types";
-import type { PanelGroup, LayoutType } from "../types/layout.types";
-import { getLayoutTypeName } from "../types/layout.types";
+import type { PanelGroup, LayoutType, LayoutRatio } from "../types/layout.types";
+import {
+  getLayoutTypeName,
+  getLayoutGridTemplate,
+  getRatioDisplayName,
+  getLayoutSizeFromType,
+} from "../types/layout.types";
 
 /**
  * 选择修饰键类型
@@ -85,9 +90,9 @@ function getLayoutIcon(type: LayoutType) {
 }
 
 /**
- * 获取布局网格样式
+ * 获取布局网格样式类名
  */
-function getGridStyle(type: LayoutType): string {
+function getGridClassName(type: LayoutType): string {
   switch (type) {
     case "2h":
       return "grid grid-cols-2 gap-3";
@@ -104,6 +109,24 @@ function getGridStyle(type: LayoutType): string {
     default:
       return "";
   }
+}
+
+/**
+ * 获取自定义比例的内联样式
+ */
+function getGridInlineStyle(
+  type: LayoutType,
+  ratio?: LayoutRatio
+): React.CSSProperties | undefined {
+  const template = getLayoutGridTemplate(type, ratio);
+  if (!template) return undefined;
+
+  // 竖排布局使用 grid-template-rows
+  const isVertical = type === "2v" || type === "3v";
+  if (isVertical) {
+    return { gridTemplateRows: template };
+  }
+  return { gridTemplateColumns: template };
 }
 
 export function PanelLayoutGroup({
@@ -125,7 +148,7 @@ export function PanelLayoutGroup({
   onCancelGeneration,
   allPanels,
 }: PanelLayoutGroupProps) {
-  const { type, panels } = group;
+  const { type, panels, ratio } = group;
   const isSinglePanel = type === "single";
 
   // 计算最后一个Panel的索引（用于判断是否可以合并）
@@ -237,6 +260,12 @@ export function PanelLayoutGroup({
           <Badge variant="secondary" className="flex items-center gap-1">
             {getLayoutIcon(type)}
             {getLayoutTypeName(type)}布局
+            {/* 显示自定义比例 */}
+            {ratio && (
+              <span className="text-xs opacity-75">
+                ({ratio.replace(/-/g, ":")})
+              </span>
+            )}
           </Badge>
           <span className="text-sm text-muted-foreground">
             #{panels[0].panel_order} - #{panels[panels.length - 1].panel_order}
@@ -265,7 +294,10 @@ export function PanelLayoutGroup({
       </div>
 
       {/* 布局组内的Panel网格 */}
-      <div className={getGridStyle(type)}>
+      <div
+        className={getGridClassName(type)}
+        style={getGridInlineStyle(type, ratio)}
+      >
         {panels.map((panel, idx) => {
           const panelIndex = allPanels.findIndex((p) => p.id === panel.id);
           const generationTask = generatingPanels.get(panel.id);

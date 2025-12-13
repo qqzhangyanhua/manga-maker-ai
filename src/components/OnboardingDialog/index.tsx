@@ -88,8 +88,8 @@ export function OnboardingDialog({ onOpenTrialDialog }: OnboardingDialogProps) {
         router.push("/story");
         break;
       case "explore":
-        // 跳转到模板/示例页面
-        router.push("/templates");
+        // 跳转到示例项目页面
+        router.push("/samples");
         break;
     }
   }, [selectedChoice, dontShowAgain, router, onOpenTrialDialog]);

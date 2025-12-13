@@ -41,7 +41,8 @@
       "Bash(npx eslint:*)",
       "Bash(mkdir:*)",
       "Bash(pnpm exec tsc:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(npx prisma db seed:*)"
     ],
     "deny": [],
     "ask": []

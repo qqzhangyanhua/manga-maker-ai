@@ -16,6 +16,10 @@ import BatchDeleteDialog from "@/components/Storyboard/BatchDeleteDialog";
 import BatchStyleDialog, {
   type BatchStyleUpdates,
 } from "@/components/Storyboard/BatchStyleDialog";
+import BatchCharacterDialog, {
+  type BatchCharacterUpdates,
+} from "@/components/Storyboard/BatchCharacterDialog";
+import BatchGenerateDialog from "@/components/Storyboard/BatchGenerateDialog";
 import { useStoryboardData } from "@/hooks/use-storyboard-data";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { useBatchSelection } from "@/hooks/use-batch-selection";
@@ -41,6 +45,8 @@ export default function StoryboardEditorPage({
   const [batchCameraDialogOpen, setBatchCameraDialogOpen] = useState(false);
   const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false);
   const [batchStyleDialogOpen, setBatchStyleDialogOpen] = useState(false);
+  const [batchCharacterDialogOpen, setBatchCharacterDialogOpen] = useState(false);
+  const [batchGenerateDialogOpen, setBatchGenerateDialogOpen] = useState(false);
 
   // Refs for scrolling
   const segmentRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -53,6 +59,7 @@ export default function StoryboardEditorPage({
   const {
     batchUpdateCamera,
     batchUpdateStyle,
+    batchUpdateCharacter,
     batchDeletePanels,
     operationLoading: batchOperationLoading,
   } = useBatchOperations();
@@ -110,21 +117,45 @@ export default function StoryboardEditorPage({
     setPanelSelections((prev) => ({ ...prev, [panelId]: selection }));
   };
 
-  // 批量角色替换（占位）
+  // 批量角色替换 - 打开弹窗
   const handleBatchCharacter = useCallback(() => {
-    toast({
-      title: "批量角色替换",
-      description: `已选中 ${batchSelection.getSelectedCount()} 个分镜，功能开发中...`,
-    });
-  }, [batchSelection, toast]);
+    setBatchCharacterDialogOpen(true);
+  }, []);
 
-  // 批量风格调整（占位）
+  // 批量角色替换确认回调
+  const handleBatchCharacterConfirm = useCallback(
+    async (updates: BatchCharacterUpdates) => {
+      const selectedIds = batchSelection.getSelectedIds();
+      const success = await batchUpdateCharacter(selectedIds, updates);
+      if (success) {
+        // 刷新数据
+        refetch?.();
+        // 退出多选模式
+        batchSelection.exitSelectionMode();
+      }
+    },
+    [batchSelection, batchUpdateCharacter, refetch]
+  );
+
+  // 批量风格调整 - 打开弹窗
   const handleBatchStyle = useCallback(() => {
-    toast({
-      title: "批量风格调整",
-      description: `已选中 ${batchSelection.getSelectedCount()} 个分镜，功能开发中...`,
-    });
-  }, [batchSelection, toast]);
+    setBatchStyleDialogOpen(true);
+  }, []);
+
+  // 批量风格调整确认回调
+  const handleBatchStyleConfirm = useCallback(
+    async (updates: BatchStyleUpdates) => {
+      const selectedIds = batchSelection.getSelectedIds();
+      const success = await batchUpdateStyle(selectedIds, updates);
+      if (success) {
+        // 刷新数据
+        refetch?.();
+        // 退出多选模式
+        batchSelection.exitSelectionMode();
+      }
+    },
+    [batchSelection, batchUpdateStyle, refetch]
+  );
 
   // 批量镜头调整 - 打开弹窗
   const handleBatchCamera = useCallback(() => {
@@ -146,13 +177,18 @@ export default function StoryboardEditorPage({
     [batchSelection, batchUpdateCamera, refetch]
   );
 
-  // 批量生成（占位）
+  // 批量生成 - 打开弹窗
   const handleBatchGenerate = useCallback(() => {
-    toast({
-      title: "批量生成",
-      description: `已选中 ${batchSelection.getSelectedCount()} 个分镜，功能开发中...`,
-    });
-  }, [batchSelection, toast]);
+    setBatchGenerateDialogOpen(true);
+  }, []);
+
+  // 批量生成完成回调
+  const handleBatchGenerateComplete = useCallback(() => {
+    // 刷新数据
+    refetch?.();
+    // 退出多选模式
+    batchSelection.exitSelectionMode();
+  }, [batchSelection, refetch]);
 
   // 批量删除 - 打开确认弹窗
   const handleBatchDelete = useCallback(() => {
@@ -350,6 +386,31 @@ export default function StoryboardEditorPage({
         onOpenChange={setBatchDeleteDialogOpen}
         selectedCount={batchSelection.getSelectedCount()}
         onConfirm={handleBatchDeleteConfirm}
+      />
+
+      {/* Batch Style Dialog */}
+      <BatchStyleDialog
+        open={batchStyleDialogOpen}
+        onOpenChange={setBatchStyleDialogOpen}
+        selectedPanelIds={batchSelection.getSelectedIds()}
+        onConfirm={handleBatchStyleConfirm}
+      />
+
+      {/* Batch Character Dialog */}
+      <BatchCharacterDialog
+        open={batchCharacterDialogOpen}
+        onOpenChange={setBatchCharacterDialogOpen}
+        selectedPanelIds={batchSelection.getSelectedIds()}
+        characters={characters}
+        onConfirm={handleBatchCharacterConfirm}
+      />
+
+      {/* Batch Generate Dialog */}
+      <BatchGenerateDialog
+        open={batchGenerateDialogOpen}
+        onOpenChange={setBatchGenerateDialogOpen}
+        selectedPanelIds={batchSelection.getSelectedIds()}
+        onComplete={handleBatchGenerateComplete}
       />
     </div>
   );

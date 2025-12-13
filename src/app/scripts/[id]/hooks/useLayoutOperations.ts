@@ -1,11 +1,22 @@
 /**
  * 分镜布局操作Hook
  * 管理布局模式状态和API调用
+ * 支持撤销最近的布局操作
  */
 
 import { useState, useCallback, useRef } from "react";
 import type { LayoutApiResponse, LayoutSize, LayoutDirection, LayoutRatio } from "../types/layout.types";
 import type { Panel } from "../types/script-editor.types";
+
+/**
+ * 布局操作历史记录
+ */
+interface LayoutHistoryEntry {
+  type: "apply" | "break";
+  panelIds: string[];
+  previousHints: { id: string; hint: string | null }[];
+  timestamp: number;
+}
 
 interface UseLayoutOperationsOptions {
   onSuccess?: () => void;
@@ -25,6 +36,7 @@ interface UseLayoutOperationsReturn {
   isLayoutMode: boolean;
   selectedPanelIds: string[];
   isApplying: boolean;
+  canUndo: boolean;
   enterLayoutMode: () => void;
   exitLayoutMode: () => void;
   togglePanelSelection: (panelId: string) => void;
@@ -43,6 +55,10 @@ interface UseLayoutOperationsReturn {
     ratio?: LayoutRatio
   ) => Promise<void>;
   breakLayout: (panelId: string) => Promise<void>;
+  /** 撤销最近的布局操作 */
+  undoLastOperation: () => Promise<void>;
+  /** 清空历史记录 */
+  clearHistory: () => void;
 }
 
 export function useLayoutOperations(

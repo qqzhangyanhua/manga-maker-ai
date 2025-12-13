@@ -50,7 +50,7 @@ export const ONBOARDING_CHOICES = [
   {
     id: "explore" as const,
     title: "浏览示例",
-    description: "查看其他用户的漫画作品",
+    description: "从优质示例入手，一键复制到你的账号",
     recommended: false,
   },
 ];

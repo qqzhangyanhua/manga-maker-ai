@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import Link from "next/link";
-import { BarChart3, BookOpen, FileText, Images, Sparkles, Zap, Play, ArrowRight } from "lucide-react";
+import { BarChart3, BookOpen, FileText, Images, Sparkles, Zap, Play, ArrowRight, Layers } from "lucide-react";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { WorkflowGuide } from "@/components/WorkflowGuide";
@@ -10,6 +10,12 @@ import { TrialDialog } from "@/components/TrialDialog";
 import { OnboardingDialog } from "@/components/OnboardingDialog";
 
 const recordShortcuts = [
+  {
+    title: "示例项目",
+    description: "浏览优质示例，一键复制到你的账号开始学习",
+    href: "/samples",
+    icon: Layers,
+  },
   {
     title: "剧本记录",
     description: "查看所有生成的故事与剧本，继续修改或派生分镜",
@@ -160,14 +166,14 @@ const HomePage = () => {
                   快速入口
                 </h2>
                 <p className="text-muted-foreground">
-                  剧本、分镜、漫画素材一键进入
+                  示例项目、剧本、分镜、漫画素材一键进入
                 </p>
               </div>
               <div className="text-xs text-muted-foreground">
                 需要登录后访问
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               {recordShortcuts.map((item) => {
                 const Icon = item.icon;
                 return (

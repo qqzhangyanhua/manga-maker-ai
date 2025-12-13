@@ -46,7 +46,8 @@ import { useLayoutOperations } from "../hooks/useLayoutOperations";
 import { ReferenceGuidedGenerationDialog } from "./PanelEditor/ReferenceGuidedGenerationDialog";
 import type { Panel } from "../types/script-editor.types";
 import type { CharacterReference } from "../types/character.types";
-import { groupPanelsByLayout } from "../types/layout.types";
+import { groupPanelsByLayout, isInLayoutGroup } from "../types/layout.types";
+import type { LayoutSize, LayoutDirection, LayoutRatio } from "../types/layout.types";
 
 interface PanelListViewProps {
   panels: Panel[];
@@ -183,6 +184,72 @@ export function PanelListView({
 
     return { selectedPanels, availableLayouts };
   }, [layoutOps.isLayoutMode, layoutOps.selectedPanelIds, panels]);
+
+  // 批量应用布局到所有未组合的分镜
+  const handleBatchApplyLayout = async (
+    layoutType: LayoutSize,
+    direction?: LayoutDirection,
+    ratio?: LayoutRatio
+  ) => {
+    const requiredCount = parseInt(layoutType, 10);
+
+    // 找出所有未组合的分镜（按 panel_order 排序）
+    const ungroupedPanels = panels
+      .filter((p) => !isInLayoutGroup(p))
+      .sort((a, b) => a.panel_order - b.panel_order);
+
+    // 分组：找出连续的分镜组
+    const groups: Panel[][] = [];
+    let currentGroup: Panel[] = [];
+
+    for (let i = 0; i < ungroupedPanels.length; i++) {
+      const panel = ungroupedPanels[i];
+
+      if (currentGroup.length === 0) {
+        currentGroup.push(panel);
+      } else {
+        const lastPanel = currentGroup[currentGroup.length - 1];
+        // 检查是否连续
+        if (panel.panel_order === lastPanel.panel_order + 1) {
+          currentGroup.push(panel);
+        } else {
+          // 不连续，保存当前组并开始新组
+          if (currentGroup.length >= requiredCount) {
+            groups.push(currentGroup);
+          }
+          currentGroup = [panel];
+        }
+      }
+
+      // 当组满足数量时，保存并开始新组
+      if (currentGroup.length === requiredCount) {
+        groups.push(currentGroup);
+        currentGroup = [];
+      }
+    }
+
+    // 处理最后一组
+    if (currentGroup.length >= requiredCount) {
+      // 只取前 requiredCount 个
+      groups.push(currentGroup.slice(0, requiredCount));
+    }
+
+    if (groups.length === 0) {
+      onError("没有足够的连续分镜可以应用布局");
+      return;
+    }
+
+    // 依次应用布局
+    try {
+      for (const group of groups) {
+        const panelIds = group.map((p) => p.id);
+        await layoutOps.applyLayout(panelIds, layoutType, direction, ratio);
+      }
+      onRefresh?.();
+    } catch (error) {
+      onError(error instanceof Error ? error.message : "批量应用布局失败");
+    }
+  };
 
   // 生成单个分镜图片
   const handleGenerateSingle = async (panel: Panel) => {
@@ -411,9 +478,10 @@ export function PanelListView({
             isApplying={layoutOps.isApplying}
             onEnterLayoutMode={layoutOps.enterLayoutMode}
             onExitLayoutMode={layoutOps.exitLayoutMode}
-            onApplyLayout={(layoutType, direction) =>
-              layoutOps.applyLayout(layoutOps.selectedPanelIds, layoutType, direction)
+            onApplyLayout={(layoutType, direction, ratio) =>
+              layoutOps.applyLayout(layoutOps.selectedPanelIds, layoutType, direction, ratio)
             }
+            onBatchApplyLayout={handleBatchApplyLayout}
             onClearSelection={layoutOps.clearSelection}
           />
         </TooltipProvider>
