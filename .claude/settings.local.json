@@ -44,7 +44,8 @@
       "Bash(curl:*)",
       "Bash(npx prisma db seed:*)",
       "Bash(grep:*)",
-      "Bash(pnpm run build:*)"
+      "Bash(pnpm run build:*)",
+      "Bash(psql:*)"
     ],
     "deny": [],
     "ask": []

@@ -56,6 +56,8 @@ interface PanelListViewProps {
   panels: Panel[];
   projectId: string | null;
   storyId?: string; // 故事 ID
+  currentChapterId?: string | null; // 当前章节 ID（用于过滤分镜）
+  onGeneratePanelsForChapter?: (chapterId: string) => void; // AI生成分镜回调
   characters: CharacterReference[];
   charactersLoading?: boolean;
   onCharactersRefresh?: () => void | Promise<void>;
@@ -66,7 +68,6 @@ interface PanelListViewProps {
   onError: (message: string) => void;
   onImageGenerated?: (panelId: string, imageUrl: string) => void;
   onRefresh?: () => void; // New callback to trigger data refresh
-  selectedCharacterId?: string | null; // Selected character from story character list
   selectedPanelIds?: string[]; // 批量选择的分镜IDs
   onSelectionChange?: (ids: string[]) => void; // 批量选择状态变更
   onCompose?: (panelIds: string[]) => void; // 多格合成回调
@@ -76,6 +77,8 @@ export function PanelListView({
   panels,
   projectId,
   storyId,
+  currentChapterId,
+  onGeneratePanelsForChapter,
   characters,
   charactersLoading = false,
   onCharactersRefresh,
@@ -86,12 +89,17 @@ export function PanelListView({
   onError,
   onImageGenerated,
   onRefresh,
-  selectedCharacterId,
   selectedPanelIds: externalSelectedPanelIds = [],
   onSelectionChange: externalOnSelectionChange,
   onCompose,
 }: PanelListViewProps) {
   const { toast } = useToast();
+
+  // 过滤当前章节的分镜
+  const filteredPanels = useMemo(() => {
+    if (!currentChapterId) return panels;
+    return panels.filter((p) => p.chapter_id === currentChapterId);
+  }, [panels, currentChapterId]);
 
   // 批量选择状态（内部状态）
   const [internalSelectedPanelIds, setInternalSelectedPanelIds] = useState<string[]>([]);
@@ -128,7 +136,7 @@ export function PanelListView({
   // 拖拽逻辑
   const { isDragging, draggingGroupIds, handleDragStart, handleDragEnd, handleDragCancel } =
     usePanelDragDrop({
-      panels,
+      panels: filteredPanels,
       projectId,
       onPanelsChange,
       onError,
@@ -154,7 +162,7 @@ export function PanelListView({
   // 批量生成逻辑
   const batchGeneration = useBatchGeneration(
     // Extract storyId from panels if available
-    panels[0]?.project_id || '',
+    filteredPanels[0]?.project_id || '',
     projectId || ''
   );
 
@@ -187,7 +195,7 @@ export function PanelListView({
   });
 
   // 按布局分组的Panel列表
-  const panelGroups = useMemo(() => groupPanelsByLayout(panels), [panels]);
+  const panelGroups = useMemo(() => groupPanelsByLayout(filteredPanels), [filteredPanels]);
 
   // 计算布局预览数据
   const layoutPreviewData = useMemo(() => {
@@ -197,7 +205,7 @@ export function PanelListView({
 
     // 获取选中的Panel（按panel_order排序）
     const selectedPanels = layoutOps.selectedPanelIds
-      .map((id) => panels.find((p) => p.id === id))
+      .map((id) => filteredPanels.find((p) => p.id === id))
       .filter((p): p is Panel => p !== undefined)
       .sort((a, b) => a.panel_order - b.panel_order);
 
@@ -438,7 +446,7 @@ export function PanelListView({
   };
 
   // 计算待生成的分镜数量
-  const panelsToGenerate = panels.filter(
+  const panelsToGenerate = filteredPanels.filter(
     (p) => (p.prompt_used || p.visual_prompt) && !p.generated_image && !p.image_url
   );
 
@@ -469,14 +477,25 @@ export function PanelListView({
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold flex items-center gap-2">
           <ImageIcon className="w-5 h-5" />
-          分镜列表 ({panels.length})
+          分镜列表 ({filteredPanels.length})
         </h2>
         <div className="flex gap-2">
+          {/* AI生成分镜按钮（章节级别） */}
+          {currentChapterId && onGeneratePanelsForChapter && (
+            <Button
+              variant="default"
+              size="sm"
+              type="button"
+              onClick={() => onGeneratePanelsForChapter(currentChapterId)}
+            >
+              <Sparkles className="w-4 h-4 mr-2" />AI生成分镜
+            </Button>
+          )}
           <Button
             variant="secondary"
             type="button"
             onClick={() => setMultiPanelDialogOpen(true)}
-            disabled={panels.length === 0}
+            disabled={filteredPanels.length === 0}
           >
             <Sparkles className="w-4 h-4 mr-2" />多镜生成
           </Button>
@@ -485,7 +504,7 @@ export function PanelListView({
             type="button"
             disabled={charactersLoading || characters.length === 0}
             onClick={() => {
-              const candidate = panels.find((p) => !p.generated_image && !p.image_url) || panels[0];
+              const candidate = filteredPanels.find((p) => !p.generated_image && !p.image_url) || filteredPanels[0];
               if (candidate) {
                 openGuidedDialog(candidate);
               } else {
@@ -600,7 +619,7 @@ export function PanelListView({
                     }
                   }}
                   onSelectWithModifiers={(panelId, modifiers) =>
-                    layoutOps.selectPanelWithModifiers(panelId, panels, modifiers)
+                    layoutOps.selectPanelWithModifiers(panelId, filteredPanels, modifiers)
                   }
                   onBreakLayout={() => layoutOps.breakLayout(group.groupStartId)}
                   generatingPanels={mergedGeneratingPanels}
@@ -612,7 +631,7 @@ export function PanelListView({
                   onMergeWithNext={handleMergeWithNext}
                   onRetryGeneration={retry}
                   onCancelGeneration={clearTask}
-                  allPanels={panels}
+                  allPanels={filteredPanels}
                 />
               );
             })}
@@ -629,7 +648,7 @@ export function PanelListView({
             onDragCancel={handleDragCancel}
           >
             <SortableContext
-              items={panels.map((p) => p.id)}
+              items={filteredPanels.map((p) => p.id)}
               strategy={verticalListSortingStrategy}
             >
               <div className="space-y-4">
@@ -658,7 +677,7 @@ export function PanelListView({
                         onMergeWithNext={handleMergeWithNext}
                         onRetryGeneration={retry}
                         onCancelGeneration={clearTask}
-                        allPanels={panels}
+                        allPanels={filteredPanels}
                       />
                     </div>
                   );

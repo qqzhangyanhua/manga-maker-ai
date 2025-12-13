@@ -158,8 +158,7 @@ model Project {
 
   panels          Panel[]
   script          StoryScript?
-  Story           Story?            @relation(fields: [storyId], references: [id])
-  storyId         String?           @db.Uuid
+  Story           Story?            @relation(fields: [story_id], references: [id])
   versions        ProjectVersion[] // Phase 1: Version control
   generationTasks GenerationTask[] // Phase 1: Batch generation
 
@@ -197,6 +196,9 @@ model Panel {
   outfit_id       String? @db.Uuid // FK to CharacterOutfit
   scene_id        String? @db.Uuid // FK to Scene
 
+  // Chapter grouping (optional, for story-based projects)
+  chapter_id String? @db.Uuid // FK to Chapter
+
   // Phase 3: Layout grouping for multi-panel layouts (2镜/4镜/6镜)
   // null = independent panel (1镜)
   // "group_start_2" = start of 2-panel layout group
@@ -214,11 +216,13 @@ model Panel {
   character Character?      @relation(fields: [character_id], references: [id], onDelete: SetNull)
   outfit    CharacterOutfit? @relation(fields: [outfit_id], references: [id], onDelete: SetNull)
   scene     Scene?          @relation(fields: [scene_id], references: [id], onDelete: SetNull)
+  chapter   Chapter?        @relation(fields: [chapter_id], references: [id], onDelete: SetNull)
 
   @@index([project_id, panel_order], map: "idx_panels_project_order")
   @@index([character_id], map: "idx_panels_character")
   @@index([scene_id], map: "idx_panels_scene")
   @@index([outfit_id], map: "idx_panels_outfit")
+  @@index([chapter_id], map: "idx_panels_chapter")
   @@map("panels")
 }
 
@@ -395,6 +399,7 @@ model Story {
   updated_at      DateTime @default(now()) @db.Timestamptz(6)
 
   projects Project[] // One story can generate multiple projects
+  chapters Chapter[] // Story chapters
 
   // Phase 2: Real character relationship
   story_characters StoryCharacter[]
@@ -402,6 +407,23 @@ model Story {
   @@index([user_id, status], map: "idx_stories_user_status")
   @@index([is_sample], map: "idx_stories_sample")
   @@map("stories")
+}
+
+// Chapter - Story chapters for structured storytelling
+model Chapter {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  story_id      String   @db.Uuid
+  title         String // Chapter title (e.g., "第一章：相遇")
+  summary       String?  @db.Text // Chapter summary for AI panel generation
+  chapter_order Int // Display order in story
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  story  Story   @relation(fields: [story_id], references: [id], onDelete: Cascade)
+  panels Panel[]
+
+  @@index([story_id, chapter_order], map: "idx_chapters_story_order")
+  @@map("chapters")
 }
 
 // ============================================================

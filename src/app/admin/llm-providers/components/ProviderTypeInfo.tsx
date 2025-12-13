@@ -34,6 +34,30 @@ export const ProviderTypeInfo = () => {
             </p>
           </div>
           <div>
+            <strong className="text-blue-900 dark:text-blue-100">chapter_generator</strong>
+            <p className="text-xs mt-1">
+              章节生成器：从故事大纲自动生成结构化章节划分和每章梗概
+            </p>
+            <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+              <strong>使用位置：</strong>
+              <br />
+              • /api/story/[id]/generate-chapters - AI生成故事章节结构
+            </p>
+          </div>
+          <div>
+            <strong className="text-blue-900 dark:text-blue-100">script_analyzer</strong>
+            <p className="text-xs mt-1">
+              分镜脚本生成器：从章节梗概生成详细分镜脚本，包含画面描述、对话、镜头设计等
+            </p>
+            <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+              <strong>使用位置：</strong>
+              <br />
+              • /api/chapter/[id]/generate-panels - AI为章节生成分镜
+              <br />
+              • /api/panel/[id]/optimize - AI优化分镜内容
+            </p>
+          </div>
+          <div>
             <strong className="text-blue-900 dark:text-blue-100">workflow</strong>
             <p className="text-xs mt-1">用于自动化工作流：从剧本到完整漫画的端到端自动生成</p>
             <p className="text-xs text-blue-600 dark:text-blue-300">

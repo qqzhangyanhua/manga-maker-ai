@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -19,9 +20,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { StoryInfoPanel } from "./components/StoryInfoPanel";
+import { ChapterList } from "./components/ChapterList";
 import { PanelListView } from "./components/PanelListView";
 import { PanelEditDialog } from "./components/PanelEditor/PanelEditDialog";
 import { StoryDetailsSkeleton } from "./components/StoryDetailsSkeleton";
+import { StoryImagesGallery } from "./components/StoryImagesGallery";
 import type { Story, Panel } from "./types/script-editor.types";
 import {
   useUpdateStory,
@@ -37,6 +40,7 @@ import {
   useRemoveStoryCharacter,
   useUpdateStoryCharacterRole,
 } from "./hooks/useStoryCharacters";
+import { useGeneratePanelsForChapter } from "./hooks/useChapterData";
 import { useUIState } from "./hooks/useUIState";
 import { formatErrorForToast, isRetryableError } from "./utils/errorHandling";
 import { StoryCharacterList } from "@/components/StoryCharacter/StoryCharacterList";
@@ -49,8 +53,8 @@ export default function ScriptDetailsPage() {
   const { toast } = useToast();
   const storyId = params.id as string;
 
-  // Selected character for quick panel binding
-  const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
+  // 当前章节状态
+  const [currentChapterId, setCurrentChapterId] = useState<string | null>(null);
 
   // 批量选择状态（用于多格合成）
   const [selectedPanelIds, setSelectedPanelIds] = useState<string[]>([]);
@@ -87,6 +91,11 @@ export default function ScriptDetailsPage() {
   const createPanel = useCreatePanel(storyId);
   const updatePanel = useUpdatePanel(storyId);
   const deletePanel = useDeletePanel(storyId);
+
+  // 为章节生成分镜
+  const generatePanelsForChapter = useGeneratePanelsForChapter(
+    currentChapterId || ""
+  );
 
   // Unified UI state management
   const { state: uiState, actions: uiActions } = useUIState();
@@ -206,10 +215,6 @@ export default function ScriptDetailsPage() {
   function handleAddPanel() {
     if (!data?.projectId) return;
     uiActions.openNewPanelDialog(data.projectId);
-    // Auto-bind selected character if exists
-    if (selectedCharacterId) {
-      uiActions.updatePanelField("character_id", selectedCharacterId);
-    }
   }
 
   // Story character handlers
@@ -261,6 +266,33 @@ export default function ScriptDetailsPage() {
     }
   }
 
+  // AI生成分镜（章节级别）
+  async function handleGeneratePanelsForChapter(chapterId: string): Promise<void> {
+    if (!data?.projectId) {
+      toast({ title: "项目不存在", variant: "destructive" });
+      return;
+    }
+
+    try {
+      await generatePanelsForChapter.mutateAsync({
+        projectId: data.projectId,
+        overwrite: false,
+      });
+      toast({
+        title: "分镜已生成",
+        description: "AI已为当前章节生成分镜脚本",
+      });
+      refetchPanels?.();
+    } catch (error) {
+      const errorInfo = formatErrorForToast(error);
+      toast({
+        title: errorInfo.title,
+        description: errorInfo.description,
+        variant: "destructive",
+      });
+    }
+  }
+
   // 打开多格合成对话框
   function handleCompose(panelIds: string[]): void {
     setComposePanelIds(panelIds);
@@ -299,8 +331,8 @@ export default function ScriptDetailsPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left: Story Info & Characters */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Left: Story Info, Characters & Chapters */}
           <div className="lg:col-span-1 space-y-6">
             <StoryInfoPanel
               story={data.story}
@@ -319,6 +351,13 @@ export default function ScriptDetailsPage() {
               }
             />
 
+            {/* Chapter List */}
+            <ChapterList
+              storyId={storyId}
+              currentChapterId={currentChapterId}
+              onChapterSelect={setCurrentChapterId}
+            />
+
             {/* Story Characters from Library */}
             <StoryCharacterList
               storyId={storyId}
@@ -327,45 +366,57 @@ export default function ScriptDetailsPage() {
               onRemove={handleRemoveCharacter}
               onRoleChange={handleCharacterRoleChange}
               isLoading={isStoryCharactersLoading}
-              selectedCharacterId={selectedCharacterId}
-              onSelectedCharacterChange={setSelectedCharacterId}
             />
           </div>
 
-          {/* Right: Panels */}
-          <div className="lg:col-span-2">
-            {isPanelsLoading ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span className="text-sm text-muted-foreground">加载分镜列表中...</span>
+          {/* Right: Panels & Images Gallery */}
+          <div className="lg:col-span-3">
+            <Tabs defaultValue="panels" className="w-full">
+              <TabsList className="mb-4">
+                <TabsTrigger value="panels">分镜列表</TabsTrigger>
+                <TabsTrigger value="gallery">生成图库</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="panels">
+                {isPanelsLoading ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span className="text-sm text-muted-foreground">加载分镜列表中...</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            ) : (
-              <PanelListView
-                panels={data?.panels || []}
-                projectId={data?.projectId || null}
-                storyId={storyId}
-                characters={characterAssets}
-                charactersLoading={isCharactersLoading}
-                onCharactersRefresh={() => { refetchCharacters(); }}
-                onPanelsChange={() => { }}
-                onEditPanel={(panel) => uiActions.openEditPanelDialog(panel)}
-                onDeletePanel={handleDeletePanel}
-                onAddPanel={handleAddPanel}
-                onImageGenerated={handleImageGenerated}
-                onRefresh={() => refetchPanels?.()}
-                onError={(msg) =>
-                  toast({ title: "错误", description: msg, variant: "destructive" })
-                }
-                selectedCharacterId={selectedCharacterId}
-                selectedPanelIds={selectedPanelIds}
-                onSelectionChange={setSelectedPanelIds}
-                onCompose={handleCompose}
-              />
-            )}
+                ) : (
+                  <PanelListView
+                    panels={data?.panels || []}
+                    projectId={data?.projectId || null}
+                    storyId={storyId}
+                    currentChapterId={currentChapterId}
+                    onGeneratePanelsForChapter={handleGeneratePanelsForChapter}
+                    characters={characterAssets}
+                    charactersLoading={isCharactersLoading}
+                    onCharactersRefresh={() => { refetchCharacters(); }}
+                    onPanelsChange={() => { }}
+                    onEditPanel={(panel) => uiActions.openEditPanelDialog(panel)}
+                    onDeletePanel={handleDeletePanel}
+                    onAddPanel={handleAddPanel}
+                    onImageGenerated={handleImageGenerated}
+                    onRefresh={() => refetchPanels?.()}
+                    onError={(msg) =>
+                      toast({ title: "错误", description: msg, variant: "destructive" })
+                    }
+                    selectedPanelIds={selectedPanelIds}
+                    onSelectionChange={setSelectedPanelIds}
+                    onCompose={handleCompose}
+                  />
+                )}
+              </TabsContent>
+
+              <TabsContent value="gallery">
+                <StoryImagesGallery storyId={storyId} projectId={data?.projectId} />
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
 

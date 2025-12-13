@@ -30,6 +30,36 @@ export interface Story {
 }
 
 /**
+ * 章节接口
+ */
+export interface Chapter {
+  id: string;
+  story_id: string;
+  title: string;
+  summary: string | null;
+  chapter_order: number;
+  created_at: string;
+  updated_at: string;
+  _syncing?: boolean; // 乐观更新同步标记
+}
+
+/**
+ * 章节表单数据（用于创建/编辑）
+ */
+export interface ChapterFormData {
+  title: string;
+  summary?: string;
+}
+
+/**
+ * 带分镜的章节（用于前端显示）
+ */
+export interface ChapterWithPanels extends Chapter {
+  panels: Panel[];
+  panelCount?: number;
+}
+
+/**
  * 分镜接口
  */
 export interface Panel {
@@ -56,6 +86,8 @@ export interface Panel {
   expression_type?: string; // Expression type (neutral, happy, sad, etc.)
   outfit_id?: string; // FK to CharacterOutfit
   scene_id?: string; // FK to Scene
+  // Chapter grouping (optional, for story-based projects)
+  chapter_id?: string; // FK to Chapter
   // Phase 3: Layout grouping (2镜/4镜/6镜)
   layout_hint?: string | null; // "group_start_2" | "group_start_4" | "group_start_6" | "group_member" | null
 }
