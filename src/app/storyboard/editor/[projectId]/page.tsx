@@ -3,7 +3,7 @@
 import { useState, useRef, use } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
-import { ArrowLeft, Save, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Grid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ScriptEditorPane from "@/components/Storyboard/ScriptEditorPane";
 import PanelPane from "@/components/Storyboard/PanelPane";
@@ -134,6 +134,12 @@ export default function StoryboardEditorPage({
             <div className="text-xs text-muted-foreground hidden lg:block">
               快捷键: ⌘M 合并 · ⌘D 拆分 · ⌘I 插入
             </div>
+            <Link href={`/storyboard/layout/${projectId}`}>
+              <Button variant="outline" size="sm">
+                <Grid className="w-4 h-4 mr-2" />
+                排版
+              </Button>
+            </Link>
             <Button variant="comic" size="sm">
               <Save className="w-4 h-4" />
               保存项目

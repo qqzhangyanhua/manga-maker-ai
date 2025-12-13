@@ -30,7 +30,11 @@
       "mcp__ide__getDiagnostics",
       "Bash(npx prisma validate:*)",
       "Bash(timeout 20 pnpm dev:*)",
-      "Bash(pnpm run lint:*)"
+      "Bash(pnpm run lint:*)",
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(pnpm install:*)",
+      "Bash(npm install:*)",
+      "Bash(npm view:*)"
     ],
     "deny": [],
     "ask": []

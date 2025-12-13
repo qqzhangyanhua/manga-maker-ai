@@ -191,7 +191,7 @@ export default function ScriptDetailsPage() {
   }
 
   async function handleImageGenerated(panelId: string, imageUrl: string) {
-    // React Query will handle the update via cache invalidation
+    await refetchPanels?.();
     toast({ title: "图片生成成功" });
   }
 

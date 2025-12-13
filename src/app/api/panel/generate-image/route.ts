@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
 import { findBestReferenceImage } from "@/lib/character-reference";
+import { generateImage } from "@/lib/unified-image-generation";
 
 // POST /api/panel/generate-image - 为单个分镜生成图像
 export async function POST(req: Request) {

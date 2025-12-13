@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { fabric } from "fabric";
+import * as fabric from "fabric";
 
 export type CanvasSchema = {
   objects: Record<string, any>[] | null;
@@ -21,48 +21,64 @@ export type CanvasController = {
   exportSchema: () => CanvasSchema;
   loadSchema: (schema?: CanvasSchema | null) => Promise<void>;
   getActiveTemplate: () => string | null;
+  setCanvasHeight?: (height: number) => Promise<void>;
+  addPanelImage?: (options: {
+    url: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    panelId: string;
+    panelOrder: number;
+  }) => Promise<void>;
 };
 
 type CanvasWorkspaceProps = {
   initialImage?: string | null;
   onHistoryChange?: (info: { undo: number; redo: number }) => void;
   onTemplateChange?: (template: string | null) => void;
+  autoHeight?: boolean;
+  initialHeight?: number;
 };
 
 const CANVAS_WIDTH = 800;
-const CANVAS_HEIGHT = 1000;
+const DEFAULT_CANVAS_HEIGHT = 1000;
 const HISTORY_LIMIT = 20;
 
 /**
  * Fabric.js 画布封装，支持撤销/重做与模板同步
  */
 const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
-  ({ initialImage, onHistoryChange, onTemplateChange }, ref) => {
-    const containerRef = useRef<HTMLDivElement | null>(null);
+  ({ initialImage, onHistoryChange, onTemplateChange, autoHeight = false, initialHeight }, ref) => {
+    const containerRef = useRef<HTMLCanvasElement | null>(null);
     const canvasRef = useRef<fabric.Canvas | null>(null);
     const historyRef = useRef<Record<string, any>[][]>([]);
     const futureRef = useRef<Record<string, any>[][]>([]);
     const templateRef = useRef<string | null>(null);
     const [ready, setReady] = useState(false);
+    const [canvasHeight, setCanvasHeight] = useState(initialHeight || DEFAULT_CANVAS_HEIGHT);
 
     useEffect(() => {
       if (containerRef.current && !canvasRef.current) {
         canvasRef.current = new fabric.Canvas(containerRef.current, {
           width: CANVAS_WIDTH,
-          height: CANVAS_HEIGHT,
+          height: canvasHeight,
           backgroundColor: "#f5f5f5",
           selection: true,
         });
-        canvasRef.current.add(
-          new fabric.Text("上传或选择一张图片开始编辑", {
-            left: CANVAS_WIDTH / 2,
-            top: CANVAS_HEIGHT / 2,
-            fontSize: 20,
-            fill: "#999",
-            originX: "center",
-            originY: "center",
-          })
-        );
+        
+        if (!autoHeight) {
+          canvasRef.current.add(
+            new fabric.Text("上传或选择一张图片开始编辑", {
+              left: CANVAS_WIDTH / 2,
+              top: canvasHeight / 2,
+              fontSize: 20,
+              fill: "#999",
+              originX: "center",
+              originY: "center",
+            })
+          );
+        }
         setReady(true);
       }
 
@@ -70,7 +86,7 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
         canvasRef.current?.dispose();
         canvasRef.current = null;
       };
-    }, []);
+    }, [canvasHeight, autoHeight]);
 
     useEffect(() => {
       if (initialImage && ready) {
@@ -133,42 +149,91 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
         return;
       }
       const canvas = canvasRef.current;
-      fabric.util.enlivenObjects(objects, (enlivened) => {
+      // Fabric v6 API change: enlivenObjects returns a Promise
+      fabric.util.enlivenObjects(objects).then((enlivened: fabric.FabricObject[]) => {
         enlivened.forEach((obj) => canvas.add(obj));
         canvas.renderAll();
       });
     }, [clearOverlays]);
 
     const setBackground = async (url: string) => {
-      return new Promise<void>((resolve) => {
-        if (!canvasRef.current) return resolve();
-        fabric.Image.fromURL(
-          url,
-          (img) => {
-            const canvas = canvasRef.current!;
-            const scaleX = CANVAS_WIDTH / img.width!;
-            const scaleY = CANVAS_HEIGHT / img.height!;
-            const scale = Math.min(scaleX, scaleY);
-            img.scale(scale);
-            canvas.setBackgroundImage(
-              img,
-              () => {
-                canvas.renderAll();
-                resolve();
-              },
-              {
-                originX: "left",
-                originY: "top",
-                crossOrigin: "anonymous",
-              }
-            );
-          },
-          {
-            crossOrigin: "anonymous",
-            selectable: false,
-          }
-        );
-      });
+      if (!canvasRef.current) return;
+
+      try {
+        const img = await fabric.FabricImage.fromURL(url, {
+          crossOrigin: "anonymous",
+        });
+
+        const canvas = canvasRef.current;
+        const scaleX = CANVAS_WIDTH / img.width!;
+        const scaleY = canvasHeight / img.height!;
+        const scale = Math.min(scaleX, scaleY);
+        img.scale(scale);
+
+        // Fabric v6: directly set backgroundImage property
+        canvas.backgroundImage = img;
+        canvas.renderAll();
+      } catch (error) {
+        console.error("Failed to load background image:", error);
+      }
+    };
+
+    // Set canvas height dynamically
+    const setCanvasHeightFn = async (height: number) => {
+      if (!canvasRef.current) return;
+      setCanvasHeight(height);
+      canvasRef.current.setHeight(height);
+      canvasRef.current.renderAll();
+    };
+
+    // Add panel image to canvas
+    const addPanelImage = async (options: {
+      url: string;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      panelId: string;
+      panelOrder: number;
+    }) => {
+      if (!canvasRef.current) {
+        throw new Error("Canvas not ready");
+      }
+
+      try {
+        const img = await fabric.FabricImage.fromURL(options.url, {
+          crossOrigin: "anonymous",
+        });
+
+        if (!img) {
+          throw new Error("Failed to load image");
+        }
+
+        // Scale image to fit specified dimensions
+        const scaleX = options.width / img.width!;
+        const scaleY = options.height / img.height!;
+        img.scale(Math.min(scaleX, scaleY));
+
+        // Position image
+        img.set({
+          left: options.x,
+          top: options.y,
+          selectable: true,
+          evented: true,
+        });
+
+        // Set metadata
+        img.set('data-panel-id', options.panelId);
+        img.set('data-panel-order', options.panelOrder);
+        img.set('data-panel', true);
+
+        // Add to canvas
+        canvasRef.current.add(img);
+        canvasRef.current.renderAll();
+      } catch (error) {
+        console.error("Failed to add panel image:", error);
+        throw error;
+      }
     };
 
     const addPanelTemplate = useCallback((type: "single" | "two-column" | "three-grid") => {
@@ -194,7 +259,7 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
           left: padding,
           top: padding,
           width: CANVAS_WIDTH - padding * 2,
-          height: CANVAS_HEIGHT - padding * 2,
+          height: canvasHeight - padding * 2,
         });
         rect.set("data-panel", true);
         canvas.add(rect);
@@ -206,13 +271,13 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
             left: padding + i * (columnWidth + padding),
             top: padding,
             width: columnWidth,
-            height: CANVAS_HEIGHT - padding * 2,
+            height: canvasHeight - padding * 2,
           });
           rect.set("data-panel", true);
           canvas.add(rect);
         }
       } else {
-        const rowHeight = (CANVAS_HEIGHT - padding * 4) / 3;
+        const rowHeight = (canvasHeight - padding * 4) / 3;
         const columnWidth = (CANVAS_WIDTH - padding * 3) / 2;
         for (let row = 0; row < 3; row++) {
           for (let col = 0; col < 2; col++) {
@@ -236,7 +301,7 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
       pushHistory();
       const bubble = new fabric.Textbox("双击编辑对白", {
         left: CANVAS_WIDTH / 2 - 100,
-        top: CANVAS_HEIGHT / 2 - 50,
+        top: canvasHeight / 2 - 50,
         width: 200,
         fill: "#0f172a",
         fontSize: 20,
@@ -254,8 +319,7 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
 
     const exportImage = async () => {
       if (!canvasRef.current) return null;
-      const bg = canvasRef.current.backgroundImage;
-      if (!bg) return null;
+      // For layout mode, export the entire canvas even without background
       return canvasRef.current.toDataURL({
         format: "png",
         multiplier: 1,
@@ -314,6 +378,8 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
         exportSchema,
         loadSchema,
         getActiveTemplate: () => templateRef.current,
+        setCanvasHeight: setCanvasHeightFn,
+        addPanelImage,
       }),
       [addPanelTemplate, addBubble, clearOverlays, exportSchema, loadSchema, redo, undo]
     );
@@ -324,13 +390,13 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
           <div>
             <p className="text-sm text-muted-foreground">画布尺寸</p>
             <p className="font-medium text-foreground">
-              {CANVAS_WIDTH} x {CANVAS_HEIGHT}
+              {CANVAS_WIDTH} x {canvasHeight}
             </p>
           </div>
           <div className="text-xs text-muted-foreground">支持拖拽、缩放、撤销 (⌘/Ctrl + Z)</div>
         </div>
         <div className="flex-1 overflow-auto flex items-center justify-center bg-slate-900/40 p-4">
-          <canvas ref={containerRef as any} className="shadow-2xl rounded-lg border border-slate-800" />
+          <canvas ref={containerRef} className="shadow-2xl rounded-lg border border-slate-800" />
         </div>
       </div>
     );
@@ -340,3 +406,4 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
 CanvasWorkspace.displayName = "CanvasWorkspace";
 
 export default CanvasWorkspace;
+export { CanvasWorkspace };

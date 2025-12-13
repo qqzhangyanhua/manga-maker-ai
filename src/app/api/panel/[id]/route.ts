@@ -3,6 +3,48 @@ import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
+export async function GET(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    // 验证用户身份
+    const cookieStore = await cookies();
+    const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+
+    if (!token) {
+      return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
+
+    const payload = verifyAuthToken(token);
+    if (!payload?.userId) {
+      return NextResponse.json({ error: "无效的token" }, { status: 401 });
+    }
+
+    const panelId = params.id;
+
+    // 获取 panel
+    const panel = await prisma.panel.findUnique({
+      where: { id: panelId },
+      include: { project: true },
+    });
+
+    if (!panel) {
+      return NextResponse.json({ error: "分镜不存在" }, { status: 404 });
+    }
+
+    if (panel.project.user_id !== payload.userId) {
+      return NextResponse.json({ error: "无权限访问此分镜" }, { status: 403 });
+    }
+
+    return NextResponse.json(panel);
+  } catch (error) {
+    console.error("Get panel error:", error);
+    const message = error instanceof Error ? error.message : "未知错误";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
 export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
