@@ -44,6 +44,7 @@ export interface StoryWithUser extends Story {
  * 故事过滤条件
  */
 export interface StoryFilter {
+  [key: string]: string | undefined;
   keyword?: string;
   userId?: string;
   genre?: string;

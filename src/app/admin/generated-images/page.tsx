@@ -59,17 +59,17 @@ export default function GeneratedImagesPage() {
     initialPageSize: 20,
   });
 
-  // 从 extra 中获取用户映射和用户列表
-  const userMap = (extra.userMap || {}) as Record<string, UserBrief>;
+  // 从 extra 中获取用户列表
   const allUsers = (extra.allUsers || []) as UserBrief[];
 
   // 将图片数据与用户信息合并
   const imagesWithUser: GeneratedImageWithUser[] = useMemo(() => {
+    const userMap = (extra.userMap || {}) as Record<string, UserBrief>;
     return items.map((image) => ({
       ...image,
       user: userMap[image.user_id],
     }));
-  }, [items, userMap]);
+  }, [items, extra.userMap]);
 
   // 选择操作
   const handleToggleSelect = useCallback((id: string) => {

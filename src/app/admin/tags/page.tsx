@@ -34,7 +34,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RotateCcw, Trash2, Edit, Plus, Tags } from "lucide-react";
+import { RotateCcw, Trash2, Edit, Plus, Tags, GitMerge } from "lucide-react";
 import type { Tag, TagFilter, TagFormData } from "./types";
 import {
   TAG_TYPES,
@@ -43,6 +43,7 @@ import {
   getCategoryLabel,
   getEmptyForm,
 } from "./types";
+import { TagMergeDialog } from "./components";
 
 /**
  * 标签管理页面
@@ -60,6 +61,10 @@ export default function TagsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingTag, setDeletingTag] = useState<Tag | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // 合并对话框状态
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
+  const [mergingTag, setMergingTag] = useState<Tag | null>(null);
 
   // 使用通用列表 hook
   const {
@@ -163,6 +168,31 @@ export default function TagsPage() {
       toast({ title: message, variant: "destructive" });
     } finally {
       setDeleting(false);
+    }
+  };
+
+  // 合并标签
+  const handleMerge = async (sourceTagId: string, targetTagId: string) => {
+    try {
+      const response = await fetch("/api/admin/tags/merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceTagId, targetTagId }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "合并失败");
+      }
+
+      toast({ title: result.message || "合并成功" });
+      setMergeDialogOpen(false);
+      setMergingTag(null);
+      refetch();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "合并失败";
+      toast({ title: message, variant: "destructive" });
+      throw error; // 让对话框知道失败了
     }
   };
 
@@ -273,7 +303,7 @@ export default function TagsPage() {
                 <TableHead className="w-[100px]">分类</TableHead>
                 <TableHead className="w-[100px]">使用次数</TableHead>
                 <TableHead className="w-[150px]">创建时间</TableHead>
-                <TableHead className="w-[100px]">操作</TableHead>
+                <TableHead className="w-[120px]">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -299,8 +329,21 @@ export default function TagsPage() {
                         size="icon"
                         className="h-8 w-8"
                         onClick={() => handleOpenEdit(tag)}
+                        title="编辑"
                       >
                         <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => {
+                          setMergingTag(tag);
+                          setMergeDialogOpen(true);
+                        }}
+                        title="合并到其他标签"
+                      >
+                        <GitMerge className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -310,6 +353,7 @@ export default function TagsPage() {
                           setDeletingTag(tag);
                           setDeleteDialogOpen(true);
                         }}
+                        title="删除"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -416,6 +460,15 @@ export default function TagsPage() {
         loading={deleting}
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleDelete}
+      />
+
+      {/* 合并对话框 */}
+      <TagMergeDialog
+        open={mergeDialogOpen}
+        tags={tags}
+        sourceTag={mergingTag}
+        onOpenChange={setMergeDialogOpen}
+        onMerge={handleMerge}
       />
     </div>
   );

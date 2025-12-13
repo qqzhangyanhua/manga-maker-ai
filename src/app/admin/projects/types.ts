@@ -42,6 +42,7 @@ export interface ProjectWithUser extends Project {
  * 项目过滤条件
  */
 export interface ProjectFilter {
+  [key: string]: string | undefined;
   keyword?: string;
   userId?: string;
   status?: string;

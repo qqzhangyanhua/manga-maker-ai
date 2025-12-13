@@ -1,7 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { ShieldCheck, Database, Users, Palette, Sparkles, BarChart3, BookOpen, LayoutTemplate } from "lucide-react";
+import {
+  ShieldCheck,
+  Database,
+  Users,
+  Palette,
+  Sparkles,
+  BarChart3,
+  BookOpen,
+  LayoutTemplate,
+  FileText,
+  ImageIcon,
+  Map,
+  FolderKanban,
+  GitBranch,
+  ListTodo,
+  Tags,
+} from "lucide-react";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { Button } from "@/components/ui/button";
 
@@ -57,11 +73,14 @@ const AdminHomePage = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
-              <Database className="w-5 h-5" />
+      {/* 系统配置模块 */}
+      <div>
+        <h2 className="text-xl font-semibold mb-4">系统配置</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
+                <Database className="w-5 h-5" />
               管理模型配置
             </div>
             <p className="text-muted-foreground text-sm">
@@ -169,6 +188,149 @@ const AdminHomePage = () => {
               进入
             </Button>
           </Link>
+        </div>
+        </div>
+      </div>
+
+      {/* 运营监控模块 */}
+      <div>
+        <h2 className="text-xl font-semibold mb-4">运营监控</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
+                <FileText className="w-5 h-5" />
+                生成日志
+              </div>
+              <p className="text-muted-foreground text-sm">
+                监控所有 AI 生成调用，查看请求/响应详情、成功率和耗时统计。
+              </p>
+            </div>
+            <Link href="/admin/generation-logs">
+              <Button variant="outline" size="sm">
+                进入
+              </Button>
+            </Link>
+          </div>
+          <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
+                <ImageIcon className="w-5 h-5" />
+                生成图片
+              </div>
+              <p className="text-muted-foreground text-sm">
+                审核管理所有 AI 生成的图片，支持批量删除和详情查看。
+              </p>
+            </div>
+            <Link href="/admin/generated-images">
+              <Button variant="outline" size="sm">
+                进入
+              </Button>
+            </Link>
+          </div>
+          <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
+                <GitBranch className="w-5 h-5" />
+                工作流监控
+              </div>
+              <p className="text-muted-foreground text-sm">
+                查看自动化工作流执行状态，支持取消和重试操作。
+              </p>
+            </div>
+            <Link href="/admin/workflows">
+              <Button variant="outline" size="sm">
+                进入
+              </Button>
+            </Link>
+          </div>
+          <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
+                <ListTodo className="w-5 h-5" />
+                生成任务
+              </div>
+              <p className="text-muted-foreground text-sm">
+                监控批量图片生成任务队列，查看进度和取消任务。
+              </p>
+            </div>
+            <Link href="/admin/generation-tasks">
+              <Button variant="outline" size="sm">
+                进入
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* 业务数据管理 */}
+      <div>
+        <h2 className="text-xl font-semibold mb-4">业务数据</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
+                <Map className="w-5 h-5" />
+                场景管理
+              </div>
+              <p className="text-muted-foreground text-sm">
+                管理场景库，包括室内、室外、城市、自然等各类场景资源。
+              </p>
+            </div>
+            <Link href="/admin/scenes">
+              <Button variant="outline" size="sm">
+                进入
+              </Button>
+            </Link>
+          </div>
+          <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
+                <BookOpen className="w-5 h-5" />
+                故事管理
+              </div>
+              <p className="text-muted-foreground text-sm">
+                查看和管理用户创建的故事，包括大纲和脚本内容。
+              </p>
+            </div>
+            <Link href="/admin/stories">
+              <Button variant="outline" size="sm">
+                进入
+              </Button>
+            </Link>
+          </div>
+          <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
+                <FolderKanban className="w-5 h-5" />
+                项目管理
+              </div>
+              <p className="text-muted-foreground text-sm">
+                管理用户的漫画项目，查看面板数量和项目状态。
+              </p>
+            </div>
+            <Link href="/admin/projects">
+              <Button variant="outline" size="sm">
+                进入
+              </Button>
+            </Link>
+          </div>
+          <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
+                <Tags className="w-5 h-5" />
+                标签管理
+              </div>
+              <p className="text-muted-foreground text-sm">
+                管理系统标签和用户标签，支持按类型和分类筛选。
+              </p>
+            </div>
+            <Link href="/admin/tags">
+              <Button variant="outline" size="sm">
+                进入
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     </div>

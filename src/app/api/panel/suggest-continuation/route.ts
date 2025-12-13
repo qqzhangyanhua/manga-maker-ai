@@ -108,7 +108,7 @@ export async function POST(req: Request) {
         panels: {
           orderBy: { panel_order: "asc" },
         },
-        story: true,
+        Story: true,
         script: true,
       },
     });
@@ -217,7 +217,7 @@ function buildContextSummary(
     title: string;
     description: string | null;
     style: string | null;
-    story: { title: string; genre: string; synopsis: string | null } | null;
+    Story: { title: string; genre: string; premise: string } | null;
     script: { content: string } | null;
   },
   panels: {
@@ -242,11 +242,11 @@ function buildContextSummary(
   }
 
   // 故事信息
-  if (project.story) {
-    parts.push(`【故事标题】${project.story.title}`);
-    parts.push(`【故事类型】${project.story.genre}`);
-    if (project.story.synopsis) {
-      parts.push(`【故事梗概】${project.story.synopsis}`);
+  if (project.Story) {
+    parts.push(`【故事标题】${project.Story.title}`);
+    parts.push(`【故事类型】${project.Story.genre}`);
+    if (project.Story.premise) {
+      parts.push(`【故事梗概】${project.Story.premise}`);
     }
   }
 

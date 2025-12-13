@@ -3,7 +3,7 @@
 import { useState, useRef, use, useCallback, useMemo } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
-import { ArrowLeft, Save, Loader2, Grid, CheckSquare } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Grid, CheckSquare, Sparkles, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ScriptEditorPane from "@/components/Storyboard/ScriptEditorPane";
 import PanelPane from "@/components/Storyboard/PanelPane";
@@ -20,6 +20,8 @@ import BatchCharacterDialog, {
   type BatchCharacterUpdates,
 } from "@/components/Storyboard/BatchCharacterDialog";
 import BatchGenerateDialog from "@/components/Storyboard/BatchGenerateDialog";
+import ContinuationSuggestionDialog from "@/components/Storyboard/ContinuationSuggestionDialog";
+import OptimizationSuggestionDialog from "@/components/Storyboard/OptimizationSuggestionDialog";
 import { useStoryboardData } from "@/hooks/use-storyboard-data";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { useBatchSelection } from "@/hooks/use-batch-selection";
@@ -47,6 +49,11 @@ export default function StoryboardEditorPage({
   const [batchStyleDialogOpen, setBatchStyleDialogOpen] = useState(false);
   const [batchCharacterDialogOpen, setBatchCharacterDialogOpen] = useState(false);
   const [batchGenerateDialogOpen, setBatchGenerateDialogOpen] = useState(false);
+
+  // AI 建议弹窗状态
+  const [continuationDialogOpen, setContinuationDialogOpen] = useState(false);
+  const [optimizationDialogOpen, setOptimizationDialogOpen] = useState(false);
+  const [optimizationPanelId, setOptimizationPanelId] = useState<string | null>(null);
 
   // Refs for scrolling
   const segmentRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -207,6 +214,74 @@ export default function StoryboardEditorPage({
     }
   }, [batchSelection, batchDeletePanels, refetch]);
 
+  // AI 续写建议 - 采纳建议
+  const handleAdoptContinuation = useCallback(
+    async (suggestion: {
+      description: string;
+      visual_prompt: string;
+      dialogue: string | null;
+      emotion: string | null;
+      camera_angle: string;
+      shot_size: string;
+      panel_type: string;
+    }) => {
+      if (!project) return;
+
+      // 获取最后一个分镜的 order
+      const lastPanel = project.panels[project.panels.length - 1];
+      const insertOrder = lastPanel?.panel_order ?? 0;
+
+      // 调用插入分镜 API
+      const response = await fetch("/api/panel/insert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          project_id: project.id,
+          insert_after_order: insertOrder,
+          description: suggestion.description,
+          use_llm: false,
+          // 额外字段
+          visual_prompt: suggestion.visual_prompt,
+          dialogue: suggestion.dialogue,
+          emotion: suggestion.emotion,
+          camera_angle: suggestion.camera_angle,
+          shot_size: suggestion.shot_size,
+          panel_type: suggestion.panel_type,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "插入分镜失败");
+      }
+
+      // 刷新数据
+      await refetch?.();
+    },
+    [project, refetch]
+  );
+
+  // AI 优化建议 - 打开弹窗
+  const handleOpenOptimization = useCallback((panelId: string) => {
+    setOptimizationPanelId(panelId);
+    setOptimizationDialogOpen(true);
+  }, []);
+
+  // AI 优化建议 - 应用优化
+  const handleApplyOptimization = useCallback(
+    async (updates: {
+      camera_angle?: string;
+      shot_size?: string;
+      panel_type?: string;
+      visual_prompt?: string;
+    }) => {
+      if (!optimizationPanelId) return;
+
+      await handlePanelUpdate(optimizationPanelId, updates);
+    },
+    [optimizationPanelId, handlePanelUpdate]
+  );
+
   // 全局快捷键
   useKeyboardShortcuts({
     selectedPanelId,
@@ -285,6 +360,31 @@ export default function StoryboardEditorPage({
             <div className="text-xs text-muted-foreground hidden lg:block">
               快捷键: ⌘M 合并 · ⌘D 拆分 · ⌘I 插入
             </div>
+            {/* AI 建议按钮 */}
+            {!batchSelection.isSelectionMode && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setContinuationDialogOpen(true)}
+                  className="text-primary border-primary/50 hover:bg-primary/10"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  AI 续写
+                </Button>
+                {selectedPanelId && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOpenOptimization(selectedPanelId)}
+                    className="text-yellow-600 border-yellow-600/50 hover:bg-yellow-600/10"
+                  >
+                    <Lightbulb className="w-4 h-4 mr-2" />
+                    优化建议
+                  </Button>
+                )}
+              </>
+            )}
             {/* 多选模式切换按钮 */}
             {!batchSelection.isSelectionMode && (
               <Button
@@ -412,6 +512,36 @@ export default function StoryboardEditorPage({
         selectedPanelIds={batchSelection.getSelectedIds()}
         onComplete={handleBatchGenerateComplete}
       />
+
+      {/* AI 续写建议弹窗 */}
+      <ContinuationSuggestionDialog
+        open={continuationDialogOpen}
+        onOpenChange={setContinuationDialogOpen}
+        projectId={projectId}
+        afterPanelId={selectedPanelId || undefined}
+        onAdopt={handleAdoptContinuation}
+      />
+
+      {/* AI 优化建议弹窗 */}
+      {optimizationPanelId && (
+        <OptimizationSuggestionDialog
+          open={optimizationDialogOpen}
+          onOpenChange={(open) => {
+            setOptimizationDialogOpen(open);
+            if (!open) setOptimizationPanelId(null);
+          }}
+          panelId={optimizationPanelId}
+          currentPanel={
+            project.panels.find((p) => p.id === optimizationPanelId) || {
+              description: "",
+              camera_angle: null,
+              shot_size: null,
+              panel_type: "medium",
+            }
+          }
+          onApply={handleApplyOptimization}
+        />
+      )}
     </div>
   );
 }

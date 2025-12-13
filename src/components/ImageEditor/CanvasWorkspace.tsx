@@ -156,7 +156,7 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
       });
     }, [clearOverlays]);
 
-    const setBackground = async (url: string) => {
+    const setBackground = useCallback(async (url: string) => {
       if (!canvasRef.current) return;
 
       try {
@@ -176,7 +176,7 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
       } catch (error) {
         console.error("Failed to load background image:", error);
       }
-    };
+    }, [canvasHeight]);
 
     // Set canvas height dynamically
     const setCanvasHeightFn = async (height: number) => {
@@ -294,7 +294,7 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
         }
       }
       canvas.renderAll();
-    }, [pushHistory, notifyTemplate, clearGuideObjects]);
+    }, [pushHistory, notifyTemplate, clearGuideObjects, canvasHeight]);
 
     const addBubble = useCallback(() => {
       if (!canvasRef.current) return;
@@ -315,7 +315,7 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
       bubble.set("data-bubble", true);
       canvasRef.current.add(bubble);
       canvasRef.current.setActiveObject(bubble);
-    }, [pushHistory]);
+    }, [pushHistory, canvasHeight]);
 
     const exportImage = async () => {
       if (!canvasRef.current) return null;
@@ -381,7 +381,7 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
         setCanvasHeight: setCanvasHeightFn,
         addPanelImage,
       }),
-      [addPanelTemplate, addBubble, clearOverlays, exportSchema, loadSchema, redo, undo]
+      [addPanelTemplate, addBubble, clearOverlays, exportSchema, loadSchema, redo, undo, setBackground]
     );
 
     return (

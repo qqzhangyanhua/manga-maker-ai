@@ -64,15 +64,15 @@ export default function ProjectsPage() {
     initialPageSize: 20,
   });
 
-  const userMap = (extra.userMap || {}) as Record<string, UserBrief>;
   const allUsers = (extra.allUsers || []) as UserBrief[];
 
   const projectsWithUser: ProjectWithUser[] = useMemo(() => {
+    const userMap = (extra.userMap || {}) as Record<string, UserBrief>;
     return items.map((project) => ({
       ...project,
       user: userMap[project.user_id],
     }));
-  }, [items, userMap]);
+  }, [items, extra.userMap]);
 
   // 删除操作
   const handleDelete = async () => {

@@ -75,15 +75,15 @@ export default function ScenesPage() {
     initialPageSize: 20,
   });
 
-  const userMap = (extra.userMap || {}) as Record<string, UserBrief>;
   const allUsers = (extra.allUsers || []) as UserBrief[];
 
   const scenesWithUser: SceneWithUser[] = useMemo(() => {
+    const userMap = (extra.userMap || {}) as Record<string, UserBrief>;
     return items.map((scene) => ({
       ...scene,
       user: userMap[scene.user_id],
     }));
-  }, [items, userMap]);
+  }, [items, extra.userMap]);
 
   // 删除操作
   const handleDelete = async () => {

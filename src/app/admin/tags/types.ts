@@ -36,6 +36,7 @@ export interface TagFormData {
  * 标签过滤条件
  */
 export interface TagFilter {
+  [key: string]: string | undefined;
   keyword?: string;
   type?: string;
   category?: string;

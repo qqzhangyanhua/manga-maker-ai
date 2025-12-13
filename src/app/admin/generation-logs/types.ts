@@ -40,6 +40,7 @@ export interface GenerationLogWithUser extends GenerationLog {
  * 生成日志过滤条件
  */
 export interface GenerationLogFilter {
+  [key: string]: string | undefined;
   userId?: string;
   action?: string;
   status?: string;

@@ -44,6 +44,7 @@ export interface WorkflowWithUser extends Workflow {
  * 工作流过滤条件
  */
 export interface WorkflowFilter {
+  [key: string]: string | undefined;
   userId?: string;
   type?: string;
   status?: string;

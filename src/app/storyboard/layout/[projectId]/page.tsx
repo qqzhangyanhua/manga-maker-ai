@@ -47,73 +47,8 @@ export default function LayoutEditorPage({
   // Canvas controller
   const canvasRef = useRef<CanvasController>(null);
 
-  // Load project and layout version
-  useEffect(() => {
-    loadProjectAndLayout();
-  }, [projectId]);
-
-  const loadProjectAndLayout = async () => {
-    try {
-      setLoading(true);
-
-      // Load project
-      const projectResponse = await fetch(`/api/project/${projectId}`);
-      if (!projectResponse.ok) {
-        throw new Error("Failed to load project");
-      }
-      const projectData = await projectResponse.json();
-      const loadedProject = projectData.project;
-      
-      // Filter panels with images
-      const panelsWithImages = loadedProject.panels.filter(
-        (p: any) => p.generated_image
-      );
-
-      setProject({
-        ...loadedProject,
-        panels: panelsWithImages,
-      });
-
-      // Load existing layout version
-      const versionResponse = await fetch(
-        `/api/image/page?project_id=${projectId}&source_type=layout`
-      );
-      if (versionResponse.ok) {
-        const versionData = await versionResponse.json();
-        const versions = versionData.versions?.filter(
-          (v: any) => v.source_type === "layout"
-        );
-        if (versions && versions.length > 0) {
-          const latest = versions[0]; // Already sorted by created_at desc
-          setLayoutVersion(latest);
-          
-          // Load schema into canvas
-          if (canvasRef.current && latest.canvas_schema) {
-            await canvasRef.current.loadSchema(latest.canvas_schema);
-          }
-        }
-      }
-
-      // If no existing layout, auto-arrange panels
-      if (!layoutVersion && panelsWithImages.length > 0) {
-        setTimeout(() => {
-          autoArrangePanels(panelsWithImages);
-        }, 500);
-      }
-    } catch (error) {
-      console.error("Load error:", error);
-      toast({
-        title: "加载失败",
-        description: error instanceof Error ? error.message : "未知错误",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Auto arrange panels in canvas
-  const autoArrangePanels = async (panels: LayoutProject["panels"]) => {
+  const autoArrangePanels = useCallback(async (panels: LayoutProject["panels"]) => {
     if (!canvasRef.current) return;
 
     try {
@@ -158,7 +93,74 @@ export default function LayoutEditorPage({
         variant: "destructive",
       });
     }
-  };
+  }, [toast]);
+
+  // Load project and layout version
+  const loadProjectAndLayout = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      // Load project
+      const projectResponse = await fetch(`/api/project/${projectId}`);
+      if (!projectResponse.ok) {
+        throw new Error("Failed to load project");
+      }
+      const projectData = await projectResponse.json();
+      const loadedProject = projectData.project;
+
+      // Filter panels with images
+      const panelsWithImages = loadedProject.panels.filter(
+        (p: { generated_image: string | null }) => p.generated_image
+      );
+
+      setProject({
+        ...loadedProject,
+        panels: panelsWithImages,
+      });
+
+      // Load existing layout version
+      const versionResponse = await fetch(
+        `/api/image/page?project_id=${projectId}&source_type=layout`
+      );
+      let hasExistingLayout = false;
+      if (versionResponse.ok) {
+        const versionData = await versionResponse.json();
+        const versions = versionData.versions?.filter(
+          (v: { source_type: string }) => v.source_type === "layout"
+        );
+        if (versions && versions.length > 0) {
+          const latest = versions[0]; // Already sorted by created_at desc
+          setLayoutVersion(latest);
+          hasExistingLayout = true;
+
+          // Load schema into canvas
+          if (canvasRef.current && latest.canvas_schema) {
+            await canvasRef.current.loadSchema(latest.canvas_schema);
+          }
+        }
+      }
+
+      // If no existing layout, auto-arrange panels
+      if (!hasExistingLayout && panelsWithImages.length > 0) {
+        setTimeout(() => {
+          autoArrangePanels(panelsWithImages);
+        }, 500);
+      }
+    } catch (error) {
+      console.error("Load error:", error);
+      toast({
+        title: "加载失败",
+        description: error instanceof Error ? error.message : "未知错误",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [projectId, toast, autoArrangePanels]);
+
+  useEffect(() => {
+    loadProjectAndLayout();
+  }, [loadProjectAndLayout]);
 
   // Save layout
   const handleSave = async () => {

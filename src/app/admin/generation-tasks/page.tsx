@@ -55,15 +55,15 @@ export default function GenerationTasksPage() {
     initialPageSize: 20,
   });
 
-  const userMap = (extra.userMap || {}) as Record<string, UserBrief>;
   const allUsers = (extra.allUsers || []) as UserBrief[];
 
   const tasksWithUser: GenerationTaskWithUser[] = useMemo(() => {
+    const userMap = (extra.userMap || {}) as Record<string, UserBrief>;
     return items.map((task) => ({
       ...task,
       user: userMap[task.user_id],
     }));
-  }, [items, userMap]);
+  }, [items, extra.userMap]);
 
   // 取消任务
   const handleCancel = async (id: string) => {

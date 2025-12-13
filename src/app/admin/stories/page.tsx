@@ -74,15 +74,15 @@ export default function StoriesPage() {
     initialPageSize: 20,
   });
 
-  const userMap = (extra.userMap || {}) as Record<string, UserBrief>;
   const allUsers = (extra.allUsers || []) as UserBrief[];
 
   const storiesWithUser: StoryWithUser[] = useMemo(() => {
+    const userMap = (extra.userMap || {}) as Record<string, UserBrief>;
     return items.map((story) => ({
       ...story,
       user: userMap[story.user_id],
     }));
-  }, [items, userMap]);
+  }, [items, extra.userMap]);
 
   // 删除操作
   const handleDelete = async () => {

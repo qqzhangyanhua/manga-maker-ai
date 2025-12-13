@@ -64,15 +64,15 @@ export default function WorkflowsPage() {
     initialPageSize: 20,
   });
 
-  const userMap = (extra.userMap || {}) as Record<string, UserBrief>;
   const allUsers = (extra.allUsers || []) as UserBrief[];
 
   const workflowsWithUser: WorkflowWithUser[] = useMemo(() => {
+    const userMap = (extra.userMap || {}) as Record<string, UserBrief>;
     return items.map((workflow) => ({
       ...workflow,
       user: userMap[workflow.user_id],
     }));
-  }, [items, userMap]);
+  }, [items, extra.userMap]);
 
   // 执行工作流操作
   const handleAction = async (id: string, action: "cancel" | "retry") => {

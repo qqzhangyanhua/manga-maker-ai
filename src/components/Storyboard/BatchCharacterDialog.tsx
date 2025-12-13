@@ -32,7 +32,7 @@ import { NO_CHANGE_VALUE } from "@/constants/panel-options";
 import {
   EXPRESSION_TYPES,
   EXPRESSION_LABELS,
-} from "@/lib/expression-generation";
+} from "@/constants/expression-types";
 
 interface Character {
   id: string;

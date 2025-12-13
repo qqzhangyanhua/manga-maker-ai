@@ -40,6 +40,7 @@ export interface SceneWithUser extends Scene {
  * 场景过滤条件
  */
 export interface SceneFilter {
+  [key: string]: string | undefined;
   keyword?: string;
   userId?: string;
   sceneType?: string;

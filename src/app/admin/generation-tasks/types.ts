@@ -42,6 +42,7 @@ export interface GenerationTaskWithUser extends GenerationTask {
  * 生成任务过滤条件
  */
 export interface GenerationTaskFilter {
+  [key: string]: string | undefined;
   userId?: string;
   taskType?: string;
   status?: string;

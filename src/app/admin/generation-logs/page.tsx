@@ -44,17 +44,17 @@ export default function GenerationLogsPage() {
     initialPageSize: 20,
   });
 
-  // 从 extra 中获取用户映射和用户列表
-  const userMap = (extra.userMap || {}) as Record<string, UserBrief>;
+  // 从 extra 中获取用户列表
   const allUsers = (extra.allUsers || []) as UserBrief[];
 
   // 将日志数据与用户信息合并
   const logsWithUser: GenerationLogWithUser[] = useMemo(() => {
+    const userMap = (extra.userMap || {}) as Record<string, UserBrief>;
     return items.map((log) => ({
       ...log,
       user: userMap[log.user_id],
     }));
-  }, [items, userMap]);
+  }, [items, extra.userMap]);
 
   // 查看详情
   const handleViewDetail = (log: GenerationLogWithUser) => {
