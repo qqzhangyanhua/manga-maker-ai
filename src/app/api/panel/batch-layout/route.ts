@@ -1,7 +1,7 @@
 /**
  * Panel Batch Layout API
  *
- * PATCH /api/panel/batch-layout - Apply layout grouping to multiple panels (2镜/4镜/6镜)
+ * PATCH /api/panel/batch-layout - Apply layout grouping to multiple panels (2镜/3镜/4镜/6镜)
  */
 
 import { NextResponse } from "next/server";
@@ -11,11 +11,13 @@ import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-type LayoutType = "2" | "4" | "6";
+type LayoutSize = "2" | "3" | "4" | "6";
+type LayoutDirection = "h" | "v";
 
 interface BatchLayoutRequest {
   panelIds: string[];
-  layoutType: LayoutType;
+  layoutType: LayoutSize;
+  direction?: LayoutDirection; // 2镜和3镜需要方向，默认横排
 }
 
 /**
@@ -24,12 +26,13 @@ interface BatchLayoutRequest {
  * Apply layout grouping to multiple consecutive panels
  *
  * Body:
- * - panelIds: string[] (required, must match layoutType count: 2, 4, or 6)
- * - layoutType: "2" | "4" | "6" (required)
+ * - panelIds: string[] (required, must match layoutType count: 2, 3, 4, or 6)
+ * - layoutType: "2" | "3" | "4" | "6" (required)
+ * - direction: "h" | "v" (optional, for 2镜/3镜, default "h")
  *
  * Rules:
  * - panelIds must be consecutive in panel_order
- * - panelIds count must match layoutType (2 for "2", 4 for "4", 6 for "6")
+ * - panelIds count must match layoutType
  * - All panels must belong to the same project
  * - User must own the project
  */
@@ -50,13 +53,21 @@ export async function PATCH(req: Request) {
 
     // Parse request body
     const body: BatchLayoutRequest = await req.json();
-    const { panelIds, layoutType } = body;
+    const { panelIds, layoutType, direction = "h" } = body;
 
     // Validate layoutType
-    const validLayoutTypes: LayoutType[] = ["2", "4", "6"];
+    const validLayoutTypes: LayoutSize[] = ["2", "3", "4", "6"];
     if (!layoutType || !validLayoutTypes.includes(layoutType)) {
       return NextResponse.json(
-        { error: "无效的布局类型，支持: 2镜, 4镜, 6镜" },
+        { error: "无效的布局类型，支持: 2镜, 3镜, 4镜, 6镜" },
+        { status: 400 }
+      );
+    }
+
+    // Validate direction for 2镜 and 3镜
+    if ((layoutType === "2" || layoutType === "3") && direction !== "h" && direction !== "v") {
+      return NextResponse.json(
+        { error: "无效的布局方向，支持: h(横排), v(竖排)" },
         { status: 400 }
       );
     }
@@ -135,12 +146,22 @@ export async function PATCH(req: Request) {
     const sortedPanels = [...panels].sort((a, b) => a.panel_order - b.panel_order);
     const sortedPanelIds = sortedPanels.map((p) => p.id);
 
+    // Build layout_hint value
+    // For 2镜/3镜: group_start_{size}_{direction} (e.g., group_start_2_h, group_start_3_v)
+    // For 4镜/6镜: group_start_{size} (no direction needed)
+    let layoutHintValue: string;
+    if (layoutType === "2" || layoutType === "3") {
+      layoutHintValue = `group_start_${layoutType}_${direction}`;
+    } else {
+      layoutHintValue = `group_start_${layoutType}`;
+    }
+
     // Apply layout in a transaction
     await prisma.$transaction([
       // Set first panel as group start
       prisma.panel.update({
         where: { id: sortedPanelIds[0] },
-        data: { layout_hint: `group_start_${layoutType}` },
+        data: { layout_hint: layoutHintValue },
       }),
       // Set remaining panels as group members
       prisma.panel.updateMany({
@@ -159,14 +180,21 @@ export async function PATCH(req: Request) {
       orderBy: { panel_order: "asc" },
     });
 
+    // Build display name
+    const directionName = direction === "h" ? "横排" : "竖排";
+    const displayName = (layoutType === "2" || layoutType === "3")
+      ? `${layoutType}镜${directionName}`
+      : `${layoutType}镜`;
+
     return NextResponse.json({
       success: true,
       data: {
         layoutType,
+        direction: (layoutType === "2" || layoutType === "3") ? direction : null,
         panelCount: updatedPanels.length,
         panels: updatedPanels,
       },
-      message: `成功创建 ${layoutType}镜 布局组`,
+      message: `成功创建 ${displayName} 布局组`,
     });
   } catch (error) {
     console.error("Batch layout panels error:", error);

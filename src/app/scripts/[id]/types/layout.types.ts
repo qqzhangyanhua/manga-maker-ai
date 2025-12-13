@@ -5,15 +5,35 @@
 import type { Panel } from "./script-editor.types";
 
 /**
- * 布局类型
+ * 布局类型（数字部分）
  */
-export type LayoutType = "single" | "2" | "4" | "6";
+export type LayoutSize = "2" | "3" | "4" | "6";
+
+/**
+ * 布局方向
+ */
+export type LayoutDirection = "h" | "v"; // horizontal | vertical
+
+/**
+ * 完整布局类型
+ * - single: 独立Panel
+ * - 2h/2v: 2镜横排/竖排
+ * - 3h/3v: 3镜横排/竖排
+ * - 4: 4镜（2x2网格）
+ * - 6: 6镜（3x2网格）
+ */
+export type LayoutType = "single" | "2h" | "2v" | "3h" | "3v" | "4" | "6";
 
 /**
  * 布局提示值
+ * 格式: group_start_{size}_{direction} 或 group_start_{size}
  */
 export type LayoutHint =
-  | "group_start_2"
+  | "group_start_2_h"
+  | "group_start_2_v"
+  | "group_start_2" // 兼容旧数据，等同于 2_h
+  | "group_start_3_h"
+  | "group_start_3_v"
   | "group_start_4"
   | "group_start_6"
   | "group_member"
@@ -41,7 +61,8 @@ export interface LayoutModeState {
  */
 export interface BatchLayoutRequest {
   panelIds: string[];
-  layoutType: "2" | "4" | "6";
+  layoutType: LayoutSize;
+  direction?: LayoutDirection; // 2镜和3镜需要方向
 }
 
 /**
@@ -69,10 +90,35 @@ export interface LayoutApiResponse {
  */
 export function getLayoutTypeFromHint(hint: string | null | undefined): LayoutType {
   if (!hint) return "single";
-  if (hint === "group_start_2") return "2";
+
+  // 新格式: group_start_2_h, group_start_3_v 等
+  if (hint === "group_start_2_h" || hint === "group_start_2") return "2h";
+  if (hint === "group_start_2_v") return "2v";
+  if (hint === "group_start_3_h") return "3h";
+  if (hint === "group_start_3_v") return "3v";
   if (hint === "group_start_4") return "4";
   if (hint === "group_start_6") return "6";
+
   return "single";
+}
+
+/**
+ * 从 LayoutType 获取 LayoutSize
+ */
+export function getLayoutSizeFromType(type: LayoutType): LayoutSize | null {
+  if (type === "single") return null;
+  if (type === "2h" || type === "2v") return "2";
+  if (type === "3h" || type === "3v") return "3";
+  return type as LayoutSize;
+}
+
+/**
+ * 从 LayoutType 获取方向
+ */
+export function getLayoutDirectionFromType(type: LayoutType): LayoutDirection | null {
+  if (type === "2h" || type === "3h") return "h";
+  if (type === "2v" || type === "3v") return "v";
+  return null;
 }
 
 /**
@@ -187,8 +233,14 @@ export function getLayoutTypeName(type: LayoutType): string {
   switch (type) {
     case "single":
       return "1镜";
-    case "2":
-      return "2镜";
+    case "2h":
+      return "2镜横";
+    case "2v":
+      return "2镜竖";
+    case "3h":
+      return "3镜横";
+    case "3v":
+      return "3镜竖";
     case "4":
       return "4镜";
     case "6":
@@ -203,13 +255,41 @@ export function getLayoutTypeName(type: LayoutType): string {
  */
 export function getLayoutGridClass(type: LayoutType): string {
   switch (type) {
-    case "2":
-      return "grid-cols-2"; // 2列
+    case "2h":
+      return "grid-cols-2"; // 2列横排
+    case "2v":
+      return "grid-cols-1"; // 1列竖排
+    case "3h":
+      return "grid-cols-3"; // 3列横排
+    case "3v":
+      return "grid-cols-1"; // 1列竖排
     case "4":
-      return "grid-cols-2 grid-rows-2"; // 2x2网格
+      return "grid-cols-2"; // 2x2网格
     case "6":
-      return "grid-cols-3 grid-rows-2"; // 3x2网格
+      return "grid-cols-3"; // 3x2网格
     default:
       return "grid-cols-1"; // 单列
+  }
+}
+
+/**
+ * 获取布局需要的Panel数量
+ */
+export function getLayoutPanelCount(type: LayoutType): number {
+  switch (type) {
+    case "single":
+      return 1;
+    case "2h":
+    case "2v":
+      return 2;
+    case "3h":
+    case "3v":
+      return 3;
+    case "4":
+      return 4;
+    case "6":
+      return 6;
+    default:
+      return 1;
   }
 }

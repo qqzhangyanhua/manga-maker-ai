@@ -1,15 +1,18 @@
 "use client";
 
-import { useState, useRef, use } from "react";
+import { useState, useRef, use, useCallback, useMemo } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
-import { ArrowLeft, Save, Loader2, Grid } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Grid, CheckSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ScriptEditorPane from "@/components/Storyboard/ScriptEditorPane";
 import PanelPane from "@/components/Storyboard/PanelPane";
 import InsertPanelDialog from "@/components/Storyboard/InsertPanelDialog";
+import BatchOperationToolbar from "@/components/Storyboard/BatchOperationToolbar";
 import { useStoryboardData } from "@/hooks/use-storyboard-data";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
+import { useBatchSelection } from "@/hooks/use-batch-selection";
+import { useToast } from "@/hooks/use-toast";
 
 export default function StoryboardEditorPage({
   params,
@@ -18,6 +21,7 @@ export default function StoryboardEditorPage({
 }) {
   const resolvedParams = use(params);
   const projectId = resolvedParams.projectId;
+  const { toast } = useToast();
 
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
   const [selectedPanelId, setSelectedPanelId] = useState<string | null>(null);
@@ -28,6 +32,9 @@ export default function StoryboardEditorPage({
   // Refs for scrolling
   const segmentRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const panelRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // 批量选择 Hook
+  const batchSelection = useBatchSelection();
 
   // 使用自定义 Hook 管理数据和操作
   const {
@@ -44,6 +51,25 @@ export default function StoryboardEditorPage({
     handleGeneratePrompt,
   } = useStoryboardData(projectId);
 
+  // 获取所有分镜ID数组（用于范围选择）
+  const allPanelIds = project?.panels.map((p) => p.id) || [];
+
+  // Shift+点击范围选择
+  const handleShiftBatchSelect = useCallback(
+    (targetId: string) => {
+      if (batchSelection.lastSelectedId) {
+        batchSelection.selectRange(
+          batchSelection.lastSelectedId,
+          targetId,
+          allPanelIds
+        );
+      } else {
+        batchSelection.toggleSelection(targetId);
+      }
+    },
+    [batchSelection, allPanelIds]
+  );
+
   // 插入分镜（打开对话框）
   const handleInsertAfter = async (panelOrder: number) => {
     setInsertAfterOrder(panelOrder);
@@ -58,6 +84,43 @@ export default function StoryboardEditorPage({
   const handleSelectionChange = (panelId: string, selection: { characterId?: string; styleKey?: string }) => {
     setPanelSelections((prev) => ({ ...prev, [panelId]: selection }));
   };
+
+  // 批量操作回调（占位，后续实现）
+  const handleBatchCharacter = useCallback(() => {
+    toast({
+      title: "批量角色替换",
+      description: `已选中 ${batchSelection.getSelectedCount()} 个分镜，功能开发中...`,
+    });
+  }, [batchSelection, toast]);
+
+  const handleBatchStyle = useCallback(() => {
+    toast({
+      title: "批量风格调整",
+      description: `已选中 ${batchSelection.getSelectedCount()} 个分镜，功能开发中...`,
+    });
+  }, [batchSelection, toast]);
+
+  const handleBatchCamera = useCallback(() => {
+    toast({
+      title: "批量镜头调整",
+      description: `已选中 ${batchSelection.getSelectedCount()} 个分镜，功能开发中...`,
+    });
+  }, [batchSelection, toast]);
+
+  const handleBatchGenerate = useCallback(() => {
+    toast({
+      title: "批量生成",
+      description: `已选中 ${batchSelection.getSelectedCount()} 个分镜，功能开发中...`,
+    });
+  }, [batchSelection, toast]);
+
+  const handleBatchDelete = useCallback(() => {
+    toast({
+      title: "批量删除",
+      description: `已选中 ${batchSelection.getSelectedCount()} 个分镜，功能开发中...`,
+      variant: "destructive",
+    });
+  }, [batchSelection, toast]);
 
   // 全局快捷键
   useKeyboardShortcuts({
@@ -83,6 +146,9 @@ export default function StoryboardEditorPage({
 
   // 点击分镜 → 高亮对应文本
   const handlePanelClick = (panelId: string) => {
+    // 多选模式下不处理单选逻辑
+    if (batchSelection.isSelectionMode) return;
+
     setSelectedPanelId(panelId);
     const panel = project?.panels.find((p) => p.id === panelId);
     if (panel?.script_segment_id) {
@@ -134,6 +200,17 @@ export default function StoryboardEditorPage({
             <div className="text-xs text-muted-foreground hidden lg:block">
               快捷键: ⌘M 合并 · ⌘D 拆分 · ⌘I 插入
             </div>
+            {/* 多选模式切换按钮 */}
+            {!batchSelection.isSelectionMode && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={batchSelection.enterSelectionMode}
+              >
+                <CheckSquare className="w-4 h-4 mr-2" />
+                多选
+              </Button>
+            )}
             <Link href={`/storyboard/layout/${projectId}`}>
               <Button variant="outline" size="sm">
                 <Grid className="w-4 h-4 mr-2" />
@@ -146,6 +223,22 @@ export default function StoryboardEditorPage({
             </Button>
           </div>
         </div>
+
+        {/* 批量操作工具栏 */}
+        {batchSelection.isSelectionMode && (
+          <BatchOperationToolbar
+            selectedCount={batchSelection.getSelectedCount()}
+            totalCount={project.panels.length}
+            onSelectAll={() => batchSelection.selectAll(allPanelIds)}
+            onClearSelection={batchSelection.clearSelection}
+            onExitSelectionMode={batchSelection.exitSelectionMode}
+            onBatchCharacter={handleBatchCharacter}
+            onBatchStyle={handleBatchStyle}
+            onBatchCamera={handleBatchCamera}
+            onBatchGenerate={handleBatchGenerate}
+            onBatchDelete={handleBatchDelete}
+          />
+        )}
       </div>
 
       {/* Main Content: Two-Column Layout */}
@@ -177,6 +270,11 @@ export default function StoryboardEditorPage({
           characters={characters}
           styles={styles}
           operationLoading={operationLoading}
+          // 批量选择 props
+          isSelectionMode={batchSelection.isSelectionMode}
+          batchSelectedIds={batchSelection.selectedIds}
+          onToggleBatchSelection={batchSelection.toggleSelection}
+          onShiftBatchSelect={handleShiftBatchSelect}
         />
       </div>
 

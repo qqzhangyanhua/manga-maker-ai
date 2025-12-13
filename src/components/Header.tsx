@@ -15,6 +15,7 @@ import { Sparkles, FolderOpen, FileText, LogOut, ShieldCheck, BookOpen, LayoutTe
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useToast } from "@/hooks/use-toast";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const Header = () => {
   const pathname = usePathname();
@@ -168,6 +169,7 @@ const Header = () => {
 
         {/* CTA */}
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           {currentUser ? (
             <>
               <span className="hidden sm:inline text-sm text-muted-foreground">

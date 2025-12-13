@@ -28,6 +28,7 @@ interface PanelCardProps {
   generationTask?: GenerationTask;
   onRetryGeneration?: () => void;
   onCancelGeneration?: () => void;
+  compact?: boolean; // 紧凑模式，用于布局组内显示
 }
 
 export function PanelCard({
@@ -37,6 +38,7 @@ export function PanelCard({
   generationTask,
   onRetryGeneration,
   onCancelGeneration,
+  compact = false,
 }: PanelCardProps) {
   const router = useRouter();
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -44,46 +46,71 @@ export function PanelCard({
 
   return (
     <>
-      <Card className="group hover:border-primary/50 transition-colors">
-        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant="secondary">Shot #{index + 1}</Badge>
+      <Card className={`group hover:border-primary/50 transition-colors ${compact ? "text-sm" : ""}`}>
+        <CardHeader className={`flex flex-row items-start justify-between space-y-0 ${compact ? "pb-1 pt-3 px-3" : "pb-2"}`}>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Badge variant="secondary" className={compact ? "text-xs px-1.5 py-0" : ""}>
+              #{index + 1}
+            </Badge>
             {panel.shot_size && (
-              <Badge variant="outline">{panel.shot_size}</Badge>
+              <Badge variant="outline" className={compact ? "text-xs px-1.5 py-0" : ""}>
+                {panel.shot_size}
+              </Badge>
             )}
-            {panel.camera_angle && (
+            {!compact && panel.camera_angle && (
               <Badge variant="outline">{panel.camera_angle}</Badge>
             )}
 
-            {/* 角色绑定状态 */}
-            {panel.character_id ? (
-              <Badge variant="default" className="bg-green-500/10 text-green-700 border-green-500/20">
-                <User className="w-3 h-3 mr-1" />
-                角色已绑定
-              </Badge>
+            {/* 角色绑定状态 - 紧凑模式下简化显示 */}
+            {compact ? (
+              panel.character_id ? (
+                <User className="w-3 h-3 text-green-600" />
+              ) : (
+                <AlertCircle className="w-3 h-3 text-amber-500" />
+              )
             ) : (
-              <Badge variant="default" className="bg-amber-500/10 text-amber-700 border-amber-500/20">
-                <AlertCircle className="w-3 h-3 mr-1" />
-                未绑定角色
-              </Badge>
+              panel.character_id ? (
+                <Badge variant="default" className="bg-green-500/10 text-green-700 border-green-500/20">
+                  <User className="w-3 h-3 mr-1" />
+                  角色已绑定
+                </Badge>
+              ) : (
+                <Badge variant="default" className="bg-amber-500/10 text-amber-700 border-amber-500/20">
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  未绑定角色
+                </Badge>
+              )
             )}
           </div>
           {actions}
         </CardHeader>
-        <CardContent className="pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">画面描述</Label>
-              <p className="text-sm">{panel.description || "无描述"}</p>
+        <CardContent className={compact ? "pt-2 px-3 pb-2" : "pt-4"}>
+          {compact ? (
+            // 紧凑模式：只显示描述，单列
+            <div className="space-y-1">
+              <p className="text-xs line-clamp-2">{panel.description || "无描述"}</p>
+              {panel.dialogue && (
+                <p className="text-xs italic text-muted-foreground line-clamp-1">
+                  {panel.dialogue}
+                </p>
+              )}
             </div>
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">对白</Label>
-              <p className="text-sm italic text-muted-foreground">
-                {panel.character_name ? `${panel.character_name}: ` : ""}
-                {panel.dialogue || "无对白"}
-              </p>
+          ) : (
+            // 正常模式：显示完整内容
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">画面描述</Label>
+                <p className="text-sm">{panel.description || "无描述"}</p>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">对白</Label>
+                <p className="text-sm italic text-muted-foreground">
+                  {panel.character_name ? `${panel.character_name}: ` : ""}
+                  {panel.dialogue || "无对白"}
+                </p>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* 生成进度显示 */}
           {generationTask && (
@@ -95,8 +122,8 @@ export function PanelCard({
           )}
         </CardContent>
         {imageUrl && (
-          <CardFooter className="bg-muted/10 p-0 overflow-hidden rounded-b-lg">
-            <div className="w-full h-32 relative group/image">
+          <CardFooter className={`bg-muted/10 p-0 overflow-hidden rounded-b-lg`}>
+            <div className={`w-full relative group/image ${compact ? "h-24" : "h-32"}`}>
               <img
                 src={imageUrl}
                 alt="Shot preview"
@@ -116,17 +143,19 @@ export function PanelCard({
                   <Maximize2 className="w-4 h-4 mr-1" />
                   预览
                 </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    router.push(`/panel/editor/${panel.id}`);
-                  }}
-                >
-                  <Edit2 className="w-4 h-4 mr-1" />
-                  编辑
-                </Button>
+                {!compact && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/panel/editor/${panel.id}`);
+                    }}
+                  >
+                    <Edit2 className="w-4 h-4 mr-1" />
+                    编辑
+                  </Button>
+                )}
               </div>
             </div>
           </CardFooter>

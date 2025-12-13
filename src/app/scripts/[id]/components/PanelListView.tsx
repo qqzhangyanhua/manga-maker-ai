@@ -1,11 +1,11 @@
 /**
  * 分镜列表视图组件
- * 包含拖拽排序功能和高级操作
+ * 包含拖拽排序功能、高级操作和布局编辑
  */
 
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   DndContext,
   closestCenter,
@@ -29,18 +29,23 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { SortablePanelCard } from "./PanelEditor/SortablePanelCard";
 import { PanelCardActions } from "./PanelEditor/PanelCardActions";
 import { InsertPanelDialog } from "./PanelEditor/InsertPanelDialog";
 import { SplitPanelDialog } from "./PanelEditor/SplitPanelDialog";
 import { BatchGenerationDialog } from "./BatchGenerationDialog";
 import { BatchOperationsToolbar } from "./BatchOperationsToolbar";
+import { LayoutModeToolbar } from "./LayoutModeToolbar";
+import { PanelLayoutGroup } from "./PanelLayoutGroup";
 import { usePanelDragDrop } from "../hooks/usePanelDragDrop";
 import { usePanelGeneration } from "../hooks/usePanelGeneration";
 import { useBatchGeneration } from "../hooks/useBatchGeneration";
+import { useLayoutOperations } from "../hooks/useLayoutOperations";
 import { ReferenceGuidedGenerationDialog } from "./PanelEditor/ReferenceGuidedGenerationDialog";
 import type { Panel } from "../types/script-editor.types";
 import type { CharacterReference } from "../types/character.types";
+import { groupPanelsByLayout } from "../types/layout.types";
 
 interface PanelListViewProps {
   panels: Panel[];
@@ -127,6 +132,19 @@ export function PanelListView({
     panels[0]?.project_id || '',
     projectId || ''
   );
+
+  // 布局操作逻辑
+  const layoutOps = useLayoutOperations({
+    onSuccess: () => {
+      onRefresh?.();
+    },
+    onError: (message) => {
+      onError(message);
+    },
+  });
+
+  // 按布局分组的Panel列表
+  const panelGroups = useMemo(() => groupPanelsByLayout(panels), [panels]);
 
   // 生成单个分镜图片
   const handleGenerateSingle = async (panel: Panel) => {
@@ -335,7 +353,7 @@ export function PanelListView({
       </div>
 
       {/* 批量操作工具栏 */}
-      {panels.length > 0 && (
+      {panels.length > 0 && !layoutOps.isLayoutMode && (
         <BatchOperationsToolbar
           panels={panels}
           selectedPanelIds={selectedPanelIds}
@@ -343,6 +361,24 @@ export function PanelListView({
           onBatchDelete={handleBatchDelete}
           onRefresh={onRefresh}
         />
+      )}
+
+      {/* 布局模式工具栏 */}
+      {panels.length > 0 && (
+        <TooltipProvider>
+          <LayoutModeToolbar
+            isLayoutMode={layoutOps.isLayoutMode}
+            selectedPanelIds={layoutOps.selectedPanelIds}
+            panels={panels}
+            isApplying={layoutOps.isApplying}
+            onEnterLayoutMode={layoutOps.enterLayoutMode}
+            onExitLayoutMode={layoutOps.exitLayoutMode}
+            onApplyLayout={(layoutType) =>
+              layoutOps.applyLayout(layoutOps.selectedPanelIds, layoutType)
+            }
+            onClearSelection={layoutOps.clearSelection}
+          />
+        </TooltipProvider>
       )}
 
       {/* 分镜列表 */}
@@ -359,67 +395,94 @@ export function PanelListView({
             立即添加
           </Button>
         </div>
-      ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-          onDragCancel={handleDragCancel}
-        >
-          <SortableContext
-            items={panels.map((p) => p.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            <div className="space-y-4">
-              {panels.map((panel, index) => {
-                const generationTask = generatingPanels.get(panel.id);
-                const isGenerating = generationTask?.status === "processing" || generationTask?.status === "pending";
-                const canMergeWithNext = index < panels.length - 1;
+      ) : layoutOps.isLayoutMode ? (
+        // 布局模式：使用PanelLayoutGroup渲染布局组
+        <TooltipProvider>
+          <div className="space-y-4">
+            {panelGroups.map((group) => {
+              const groupPanelIds = group.panels.map((p) => p.id);
+              const isGroupSelected = groupPanelIds.every((id) =>
+                layoutOps.selectedPanelIds.includes(id)
+              );
 
-                return (
-                  <SortablePanelCard
-                    key={panel.id}
-                    panel={panel}
-                    index={index}
-                    generationTask={generationTask}
-                    onRetryGeneration={() => {
-                      const prompt = panel.prompt_used || panel.visual_prompt || panel.description;
-                      retry(panel.id, prompt);
-                    }}
-                    onCancelGeneration={() => clearTask(panel.id)}
-                    isSelected={selectedPanelIds.includes(panel.id)}
-                    onSelectionChange={(selected) => {
-                      if (selected) {
-                        setSelectedPanelIds([...selectedPanelIds, panel.id]);
-                      } else {
-                        setSelectedPanelIds(selectedPanelIds.filter((id) => id !== panel.id));
-                      }
-                    }}
-                    actions={
-                      <PanelCardActions
-                        panel={panel}
-                        onEdit={onEditPanel}
-                        onDelete={onDeletePanel}
-                        onGenerate={handleGenerateSingle}
-                        isGenerating={isGenerating}
-                        onInsertAfter={handleInsertAfter}
-                        onSplit={handleSplit}
-                        onMergeWithNext={handleMergeWithNext}
-                        canMergeWithNext={canMergeWithNext}
-                      />
+              return (
+                <PanelLayoutGroup
+                  key={group.groupStartId}
+                  group={group}
+                  isLayoutMode={true}
+                  isSelected={isGroupSelected}
+                  onSelect={(selected) => {
+                    if (selected) {
+                      layoutOps.selectPanelGroup(groupPanelIds);
+                    } else {
+                      // 取消选择组内所有Panel
+                      groupPanelIds.forEach((id) => {
+                        if (layoutOps.selectedPanelIds.includes(id)) {
+                          layoutOps.togglePanelSelection(id);
+                        }
+                      });
                     }
+                  }}
+                  onBreakLayout={() => layoutOps.breakLayout(group.groupStartId)}
+                  generatingPanels={generatingPanels}
+                  onEditPanel={onEditPanel}
+                  onDeletePanel={onDeletePanel}
+                  onGenerateSingle={handleGenerateSingle}
+                  onInsertAfter={handleInsertAfter}
+                  onSplit={handleSplit}
+                  onMergeWithNext={handleMergeWithNext}
+                  onRetryGeneration={retry}
+                  onCancelGeneration={clearTask}
+                  allPanels={panels}
+                />
+              );
+            })}
+          </div>
+        </TooltipProvider>
+      ) : (
+        // 正常模式：使用PanelLayoutGroup渲染布局组（支持拆分）
+        <TooltipProvider>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onDragCancel={handleDragCancel}
+          >
+            <SortableContext
+              items={panels.map((p) => p.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-4">
+                {panelGroups.map((group) => (
+                  <PanelLayoutGroup
+                    key={group.groupStartId}
+                    group={group}
+                    isLayoutMode={false}
+                    isSelected={false}
+                    onSelect={() => {}}
+                    onBreakLayout={() => layoutOps.breakLayout(group.groupStartId)}
+                    generatingPanels={generatingPanels}
+                    onEditPanel={onEditPanel}
+                    onDeletePanel={onDeletePanel}
+                    onGenerateSingle={handleGenerateSingle}
+                    onInsertAfter={handleInsertAfter}
+                    onSplit={handleSplit}
+                    onMergeWithNext={handleMergeWithNext}
+                    onRetryGeneration={retry}
+                    onCancelGeneration={clearTask}
+                    allPanels={panels}
                   />
-                );
-              })}
-            </div>
-          </SortableContext>
+                ))}
+              </div>
+            </SortableContext>
 
-          {/* 拖拽时的视觉反馈 */}
-          {isDragging && (
-            <div className="fixed inset-0 bg-background/50 pointer-events-none z-40" />
-          )}
-        </DndContext>
+            {/* 拖拽时的视觉反馈 */}
+            {isDragging && (
+              <div className="fixed inset-0 bg-background/50 pointer-events-none z-40" />
+            )}
+          </DndContext>
+        </TooltipProvider>
       )}
 
       {/* 高级操作对话框 */}
