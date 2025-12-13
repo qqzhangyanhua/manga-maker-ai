@@ -44,6 +44,9 @@ import { usePanelGeneration } from "../hooks/usePanelGeneration";
 import { useBatchGeneration } from "../hooks/useBatchGeneration";
 import { useLayoutOperations } from "../hooks/useLayoutOperations";
 import { ReferenceGuidedGenerationDialog } from "./PanelEditor/ReferenceGuidedGenerationDialog";
+import { MultiPanelGenerateDialog } from "./MultiPanelGenerateDialog";
+import { ReferenceImageSelector } from "./ReferenceImageSelector";
+import { useToast } from "@/hooks/use-toast";
 import type { Panel } from "../types/script-editor.types";
 import type { CharacterReference } from "../types/character.types";
 import { groupPanelsByLayout, isInLayoutGroup } from "../types/layout.types";
@@ -52,6 +55,7 @@ import type { LayoutSize, LayoutDirection, LayoutRatio } from "../types/layout.t
 interface PanelListViewProps {
   panels: Panel[];
   projectId: string | null;
+  storyId?: string; // 故事 ID
   characters: CharacterReference[];
   charactersLoading?: boolean;
   onCharactersRefresh?: () => void | Promise<void>;
@@ -63,11 +67,15 @@ interface PanelListViewProps {
   onImageGenerated?: (panelId: string, imageUrl: string) => void;
   onRefresh?: () => void; // New callback to trigger data refresh
   selectedCharacterId?: string | null; // Selected character from story character list
+  selectedPanelIds?: string[]; // 批量选择的分镜IDs
+  onSelectionChange?: (ids: string[]) => void; // 批量选择状态变更
+  onCompose?: (panelIds: string[]) => void; // 多格合成回调
 }
 
 export function PanelListView({
   panels,
   projectId,
+  storyId,
   characters,
   charactersLoading = false,
   onCharactersRefresh,
@@ -79,9 +87,18 @@ export function PanelListView({
   onImageGenerated,
   onRefresh,
   selectedCharacterId,
+  selectedPanelIds: externalSelectedPanelIds = [],
+  onSelectionChange: externalOnSelectionChange,
+  onCompose,
 }: PanelListViewProps) {
-  // 批量选择状态
-  const [selectedPanelIds, setSelectedPanelIds] = useState<string[]>([]);
+  const { toast } = useToast();
+
+  // 批量选择状态（内部状态）
+  const [internalSelectedPanelIds, setInternalSelectedPanelIds] = useState<string[]>([]);
+
+  // 使用外部状态或内部状态
+  const selectedPanelIds = externalOnSelectionChange ? externalSelectedPanelIds : internalSelectedPanelIds;
+  const setSelectedPanelIds = externalOnSelectionChange || setInternalSelectedPanelIds;
 
   // 高级操作对话框状态
   const [insertDialogOpen, setInsertDialogOpen] = useState(false);
@@ -92,6 +109,11 @@ export function PanelListView({
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [guidedDialogOpen, setGuidedDialogOpen] = useState(false);
   const [targetPanel, setTargetPanel] = useState<Panel | null>(null);
+  const [multiPanelDialogOpen, setMultiPanelDialogOpen] = useState(false);
+
+  // 单个分镜生成时的参考图选择对话框
+  const [singlePanelReferenceDialogOpen, setSinglePanelReferenceDialogOpen] = useState(false);
+  const [generatingPanel, setGeneratingPanel] = useState<Panel | null>(null);
 
   // 配置拖拽传感器（需要移动至少 5px 才触发拖拽，避免误触）
   const sensors = useSensors(
@@ -251,65 +273,58 @@ export function PanelListView({
     }
   };
 
-  // 生成单个分镜图片
+  // 生成单个分镜图片 - 打开参考图选择对话框
   const handleGenerateSingle = async (panel: Panel) => {
     if (!panel.prompt_used && !panel.visual_prompt) {
       onError("分镜缺少提示词，请先编辑分镜添加描述");
       return;
     }
 
-    // 检查是否绑定了角色
-    if (!panel.character_id) {
-      // 如果左侧选择了故事角色，自动绑定
-      if (selectedCharacterId) {
-        try {
-          console.log(`[PanelListView] 自动绑定左侧选中的角色 ${selectedCharacterId} 到分镜 ${panel.id}`);
+    // 打开参考图选择对话框
+    setGeneratingPanel(panel);
+    setSinglePanelReferenceDialogOpen(true);
+  };
 
-          // 更新分镜绑定角色
-          const response = await fetch(`/api/panel/${panel.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              character_id: selectedCharacterId,
-            }),
-          });
+  // 参考图选择完成后，执行实际的生成
+  const handleSinglePanelReferenceConfirm = async (referenceImages: Array<{ url: string }>) => {
+    if (!generatingPanel) return;
 
-          if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.error || "绑定角色失败");
-          }
+    const prompt = generatingPanel.prompt_used || generatingPanel.visual_prompt || generatingPanel.description;
+    const referenceImageUrls = referenceImages.map(img => img.url);
 
-          // 刷新数据以获取更新后的分镜
-          await onRefresh?.();
-
-          // 使用更新后的 character_id 继续生成
-          panel = { ...panel, character_id: selectedCharacterId };
-        } catch (error) {
-          console.error("[PanelListView] 自动绑定角色失败:", error);
-          onError(error instanceof Error ? error.message : "绑定角色失败");
-          return;
-        }
-      } else {
-        // 没有选中角色，弹出警告
-        const confirmGenerate = window.confirm(
-          "⚠️ 未绑定角色参考\n\n" +
-          "当前分镜没有绑定角色，将不会使用角色参考图生成。\n" +
-          "建议：\n" +
-          "1. 在左侧「故事角色」区域选择一个角色\n" +
-          "2. 或者编辑分镜，在「资产绑定」区域选择角色\n\n" +
-          "是否继续生成？"
-        );
-        if (!confirmGenerate) {
-          return;
-        }
-      }
-    }
-
-    const prompt = panel.prompt_used || panel.visual_prompt || panel.description;
     try {
-      await generateSingle(panel.id, prompt);
+      console.log(`[PanelListView] 生成分镜 ${generatingPanel.id}，参考图数量: ${referenceImageUrls.length}`);
+
+      // 调用生成 API，传递参考图
+      const response = await fetch("/api/panel/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          panel_id: generatingPanel.id,
+          prompt,
+          reference_image_urls: referenceImageUrls,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "生成失败");
+      }
+
+      const data = await response.json();
+      onImageGenerated?.(generatingPanel.id, data.image_url);
+      onRefresh?.();
+
+      toast({
+        title: "生成成功",
+        description: `分镜 #${generatingPanel.panel_order} 图片已生成`,
+      });
     } catch (error) {
-      // 错误已在 Hook 中处理
+      console.error("[PanelListView] 生成失败:", error);
+      onError(error instanceof Error ? error.message : "生成失败");
+    } finally {
+      setSinglePanelReferenceDialogOpen(false);
+      setGeneratingPanel(null);
     }
   };
 
@@ -425,6 +440,14 @@ export function PanelListView({
           <Button
             variant="secondary"
             type="button"
+            onClick={() => setMultiPanelDialogOpen(true)}
+            disabled={panels.length === 0}
+          >
+            <Sparkles className="w-4 h-4 mr-2" />多镜生成
+          </Button>
+          <Button
+            variant="secondary"
+            type="button"
             disabled={charactersLoading || characters.length === 0}
             onClick={() => {
               const candidate = panels.find((p) => !p.generated_image && !p.image_url) || panels[0];
@@ -465,6 +488,7 @@ export function PanelListView({
           onSelectionChange={setSelectedPanelIds}
           onBatchDelete={handleBatchDelete}
           onRefresh={onRefresh}
+          onCompose={onCompose}
         />
       )}
 
@@ -690,6 +714,27 @@ export function PanelListView({
         onPromptUpdated={() => {
           onRefresh?.();
         }}
+      />
+
+      {/* 多镜生成对话框 */}
+      <MultiPanelGenerateDialog
+        open={multiPanelDialogOpen}
+        panels={panels}
+        storyId={storyId}
+        onOpenChange={setMultiPanelDialogOpen}
+        onSuccess={(imageUrl, panelIds) => {
+          console.log("[PanelListView] 多镜生成成功:", { imageUrl, panelIds });
+          onRefresh?.();
+        }}
+      />
+
+      {/* 单个分镜生成的参考图选择对话框 */}
+      <ReferenceImageSelector
+        open={singlePanelReferenceDialogOpen}
+        storyId={storyId}
+        panels={panels}
+        onOpenChange={setSinglePanelReferenceDialogOpen}
+        onConfirm={handleSinglePanelReferenceConfirm}
       />
     </div>
   );

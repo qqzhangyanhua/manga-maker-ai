@@ -19,7 +19,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import {
   OnboardingChoice,
@@ -43,7 +42,6 @@ export function OnboardingDialog({ onOpenTrialDialog }: OnboardingDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [selectedChoice, setSelectedChoice] = useState<OnboardingChoice>("trial");
-  const [dontShowAgain, setDontShowAgain] = useState(false);
 
   // 检查是否应该显示引导
   useEffect(() => {
@@ -70,10 +68,8 @@ export function OnboardingDialog({ onOpenTrialDialog }: OnboardingDialogProps) {
   }, []);
 
   const handleConfirm = useCallback(() => {
-    // 保存选择
-    if (dontShowAgain) {
-      localStorage.setItem(STORAGE_KEY, "true");
-    }
+    // 标记引导已完成，下次不再显示
+    localStorage.setItem(STORAGE_KEY, "true");
 
     setOpen(false);
 
@@ -92,14 +88,13 @@ export function OnboardingDialog({ onOpenTrialDialog }: OnboardingDialogProps) {
         router.push("/samples");
         break;
     }
-  }, [selectedChoice, dontShowAgain, router, onOpenTrialDialog]);
+  }, [selectedChoice, router, onOpenTrialDialog]);
 
   const handleSkip = useCallback(() => {
-    if (dontShowAgain) {
-      localStorage.setItem(STORAGE_KEY, "true");
-    }
+    // 标记引导已完成，下次不再显示
+    localStorage.setItem(STORAGE_KEY, "true");
     setOpen(false);
-  }, [dontShowAgain]);
+  }, []);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -200,31 +195,14 @@ export function OnboardingDialog({ onOpenTrialDialog }: OnboardingDialogProps) {
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="dont-show"
-                checked={dontShowAgain}
-                onCheckedChange={(checked) =>
-                  setDontShowAgain(checked === true)
-                }
-              />
-              <label
-                htmlFor="dont-show"
-                className="text-xs text-muted-foreground cursor-pointer"
-              >
-                不再显示此引导
-              </label>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSkip}
-              className="text-muted-foreground"
-            >
-              跳过
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSkip}
+            className="text-muted-foreground"
+          >
+            跳过
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

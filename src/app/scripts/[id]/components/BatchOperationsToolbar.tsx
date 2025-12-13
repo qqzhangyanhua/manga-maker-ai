@@ -14,6 +14,7 @@ import {
   Edit,
   X,
   Loader2,
+  Grid3x3,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { BatchAssetBindingDialog } from "./PanelEditor/BatchAssetBindingDialog";
@@ -25,6 +26,7 @@ interface BatchOperationsToolbarProps {
   onSelectionChange: (ids: string[]) => void;
   onBatchDelete: (ids: string[]) => Promise<void>;
   onRefresh?: () => void;
+  onCompose?: (panelIds: string[]) => void;
 }
 
 export function BatchOperationsToolbar({
@@ -33,6 +35,7 @@ export function BatchOperationsToolbar({
   onSelectionChange,
   onBatchDelete,
   onRefresh,
+  onCompose,
 }: BatchOperationsToolbarProps) {
   const { toast } = useToast();
   const [isDeleting, setIsDeleting] = useState(false);
@@ -41,6 +44,9 @@ export function BatchOperationsToolbar({
   const selectedCount = selectedPanelIds.length;
   const totalCount = panels.length;
   const allSelected = selectedCount === totalCount && totalCount > 0;
+
+  // 合成限制：2-6 个分镜
+  const canCompose = selectedCount >= 2 && selectedCount <= 6;
 
   // Toggle all selection
   function handleToggleAll(): void {
@@ -136,6 +142,23 @@ export function BatchOperationsToolbar({
           >
             <Edit className="w-4 h-4 mr-1" />
             批量绑定资产
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onCompose?.(selectedPanelIds)}
+            disabled={!canCompose || !onCompose}
+            title={
+              !canCompose
+                ? selectedCount < 2
+                  ? "至少选择2个分镜"
+                  : "最多选择6个分镜"
+                : "合成多格图片"
+            }
+          >
+            <Grid3x3 className="w-4 h-4 mr-1" />
+            合成多格 {canCompose ? `(${selectedCount})` : ""}
           </Button>
 
           <Button

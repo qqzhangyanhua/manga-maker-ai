@@ -42,7 +42,9 @@
       "Bash(mkdir:*)",
       "Bash(pnpm exec tsc:*)",
       "Bash(curl:*)",
-      "Bash(npx prisma db seed:*)"
+      "Bash(npx prisma db seed:*)",
+      "Bash(grep:*)",
+      "Bash(pnpm run build:*)"
     ],
     "deny": [],
     "ask": []

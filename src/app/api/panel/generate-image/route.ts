@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     userId = payload.userId;
 
     const body = await req.json();
-    const { panel_id, prompt, style, wait } = body; // 不设置默认值，后面统一处理
+    const { panel_id, prompt, style, wait, reference_image_urls = [] } = body; // 不设置默认值，后面统一处理
 
     if (!panel_id || !prompt) {
       return NextResponse.json(
@@ -118,37 +118,44 @@ export async function POST(req: Request) {
       enhancedPrompt += `, background: ${panel.scene.name} (${panel.scene.scene_type})`;
     }
 
-    // 智能查找角色参考图（优先级：reference_image → base_image_url → neutral表情 → 任意表情 → 正面三视图）
+    // 参考图处理：优先使用用户选择的参考图，否则智能查找
     const referenceImages: string[] = [];
 
-    if (panel.character) {
-      const characterRef = findBestReferenceImage({
-        id: panel.character.id,
-        name: panel.character.name,
-        reference_image: panel.character.reference_image,
-        base_image_url: panel.character.base_image_url,
-        expressions: panel.character.expressions,
-        views: panel.character.views,
-      });
+    if (reference_image_urls && reference_image_urls.length > 0) {
+      // 用户手动选择了参考图，直接使用
+      referenceImages.push(...reference_image_urls);
+      console.log(`✓ 分镜 ${panel_id} 使用用户选择的 ${reference_image_urls.length} 张参考图`);
+    } else {
+      // 没有用户选择的参考图，使用智能查找（优先级：reference_image → base_image_url → neutral表情 → 任意表情 → 正面三视图）
+      if (panel.character) {
+        const characterRef = findBestReferenceImage({
+          id: panel.character.id,
+          name: panel.character.name,
+          reference_image: panel.character.reference_image,
+          base_image_url: panel.character.base_image_url,
+          expressions: panel.character.expressions,
+          views: panel.character.views,
+        });
 
-      if (characterRef) {
-        referenceImages.push(characterRef);
-        console.log(`✓ 分镜 ${panel_id} 将使用角色参考图: ${characterRef}`);
-      } else {
-        console.log(`ℹ 分镜 ${panel_id} 的角色 ${panel.character.name} 没有可用的参考图`);
+        if (characterRef) {
+          referenceImages.push(characterRef);
+          console.log(`✓ 分镜 ${panel_id} 将使用角色参考图: ${characterRef}`);
+        } else {
+          console.log(`ℹ 分镜 ${panel_id} 的角色 ${panel.character.name} 没有可用的参考图`);
+        }
       }
-    }
 
-    // Add outfit reference image if available
-    if (panel.outfit?.image_url) {
-      referenceImages.push(panel.outfit.image_url);
-      console.log(`✓ 分镜 ${panel_id} 将使用服装参考图: ${panel.outfit.image_url}`);
-    }
+      // Add outfit reference image if available
+      if (panel.outfit?.image_url) {
+        referenceImages.push(panel.outfit.image_url);
+        console.log(`✓ 分镜 ${panel_id} 将使用服装参考图: ${panel.outfit.image_url}`);
+      }
 
-    // Add scene reference image if available
-    if (panel.scene?.image_url) {
-      referenceImages.push(panel.scene.image_url);
-      console.log(`✓ 分镜 ${panel_id} 将使用场景参考图: ${panel.scene.image_url}`);
+      // Add scene reference image if available
+      if (panel.scene?.image_url) {
+        referenceImages.push(panel.scene.image_url);
+        console.log(`✓ 分镜 ${panel_id} 将使用场景参考图: ${panel.scene.image_url}`);
+      }
     }
 
     console.log(`分镜 ${panel_id} 总共使用 ${referenceImages.length} 张参考图`);

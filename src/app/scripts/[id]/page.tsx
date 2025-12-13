@@ -41,6 +41,7 @@ import { useUIState } from "./hooks/useUIState";
 import { formatErrorForToast, isRetryableError } from "./utils/errorHandling";
 import { StoryCharacterList } from "@/components/StoryCharacter/StoryCharacterList";
 import type { CharacterRole } from "@/components/StoryCharacter/types";
+import { ComposeMultiDialog } from "./components/ComposeMultiDialog";
 
 export default function ScriptDetailsPage() {
   const params = useParams();
@@ -50,6 +51,13 @@ export default function ScriptDetailsPage() {
 
   // Selected character for quick panel binding
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
+
+  // 批量选择状态（用于多格合成）
+  const [selectedPanelIds, setSelectedPanelIds] = useState<string[]>([]);
+
+  // 多格合成对话框状态
+  const [composeDialogOpen, setComposeDialogOpen] = useState(false);
+  const [composePanelIds, setComposePanelIds] = useState<string[]>([]);
 
   // React Query hooks for data management - 使用优化版渐进式加载
   const {
@@ -253,6 +261,12 @@ export default function ScriptDetailsPage() {
     }
   }
 
+  // 打开多格合成对话框
+  function handleCompose(panelIds: string[]): void {
+    setComposePanelIds(panelIds);
+    setComposeDialogOpen(true);
+  }
+
   if (isLoading) {
     return <StoryDetailsSkeleton />;
   }
@@ -333,6 +347,7 @@ export default function ScriptDetailsPage() {
               <PanelListView
                 panels={data?.panels || []}
                 projectId={data?.projectId || null}
+                storyId={storyId}
                 characters={characterAssets}
                 charactersLoading={isCharactersLoading}
                 onCharactersRefresh={() => { refetchCharacters(); }}
@@ -346,6 +361,9 @@ export default function ScriptDetailsPage() {
                   toast({ title: "错误", description: msg, variant: "destructive" })
                 }
                 selectedCharacterId={selectedCharacterId}
+                selectedPanelIds={selectedPanelIds}
+                onSelectionChange={setSelectedPanelIds}
+                onCompose={handleCompose}
               />
             )}
           </div>
@@ -380,6 +398,22 @@ export default function ScriptDetailsPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* 多格合成对话框 */}
+        <ComposeMultiDialog
+          open={composeDialogOpen}
+          panels={data?.panels || []}
+          selectedPanelIds={composePanelIds}
+          onOpenChange={setComposeDialogOpen}
+          onSuccess={() => {
+            refetchPanels?.();
+            setSelectedPanelIds([]);
+            toast({
+              title: "合成成功",
+              description: "多格图片已生成",
+            });
+          }}
+        />
       </div>
     </ErrorBoundary>
   );
