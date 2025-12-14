@@ -291,7 +291,7 @@ const ComicStylesAdminPage = () => {
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  支持 JPG、PNG、WebP 格式，最大 10MB
+                  支持 JPG、PNG、WebP 格式，最大 4MB
                 </p>
               </div>
             </div>

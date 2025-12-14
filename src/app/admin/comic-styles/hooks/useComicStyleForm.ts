@@ -89,9 +89,9 @@ export const useComicStyleForm = (stylesLength: number, onSuccess: () => void) =
       return;
     }
 
-    // 验证文件大小 (10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      toast({ title: "文件大小不能超过 10MB", variant: "destructive" });
+    // 验证文件大小 (4MB)
+    if (file.size > 4 * 1024 * 1024) {
+      toast({ title: "文件大小不能超过 4MB", variant: "destructive" });
       return;
     }
 

@@ -171,7 +171,7 @@ const ActionSidebar = ({
             <div className="flex items-center gap-2">
               <Input type="file" accept="image/*" onChange={handleFileChange} className="cursor-pointer" />
             </div>
-            <p className="text-xs text-muted-foreground">支持 PNG、JPG，文件最大 10MB。</p>
+            <p className="text-xs text-muted-foreground">支持 PNG、JPG，文件最大 4MB。</p>
           </div>
           <div className="space-y-2">
             <Label className="text-sm font-medium">通过 URL 加载</Label>
