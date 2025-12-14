@@ -294,56 +294,8 @@ export function PanelListView({
             </Button>
           )}
         </div>
-      ) : layoutOps.isLayoutMode ? (
-        // 布局模式：使用PanelLayoutGroup渲染布局组
-        <TooltipProvider>
-          <div className="space-y-4">
-            {panelGroups.map((group) => {
-              const groupPanelIds = group.panels.map((p) => p.id);
-              const isGroupSelected = groupPanelIds.every((id) =>
-                layoutOps.selectedPanelIds.includes(id)
-              );
-
-              return (
-                <PanelLayoutGroup
-                  key={group.groupStartId}
-                  group={group}
-                  isLayoutMode={true}
-                  isSelected={isGroupSelected}
-                  selectedPanelIds={layoutOps.selectedPanelIds}
-                  onSelect={(selected) => {
-                    if (selected) {
-                      layoutOps.selectPanelGroup(groupPanelIds);
-                    } else {
-                      // 取消选择组内所有Panel
-                      groupPanelIds.forEach((id) => {
-                        if (layoutOps.selectedPanelIds.includes(id)) {
-                          layoutOps.togglePanelSelection(id);
-                        }
-                      });
-                    }
-                  }}
-                  onSelectWithModifiers={(panelId, modifiers) =>
-                    layoutOps.selectPanelWithModifiers(panelId, filteredPanels, modifiers)
-                  }
-                  onBreakLayout={() => layoutOps.breakLayout(group.groupStartId)}
-                  generatingPanels={generatingPanels}
-                  onEditPanel={onEditPanel}
-                  onDeletePanel={onDeletePanel}
-                  onGenerateSingle={handleGenerateSingle}
-                  onInsertAfter={handleInsertAfter}
-                  onSplit={handleSplit}
-                  onMergeWithNext={handleMergeWithNext}
-                  onRetryGeneration={retry}
-                  onCancelGeneration={clearTask}
-                  allPanels={filteredPanels}
-                />
-              );
-            })}
-          </div>
-        </TooltipProvider>
       ) : (
-        // 正常模式：使用PanelLayoutGroup渲染布局组（支持拆分）
+        // 正常模式：使用SortablePanelCard渲染分镜
         <TooltipProvider>
           <DndContext
             sensors={sensors}
@@ -357,36 +309,30 @@ export function PanelListView({
               strategy={verticalListSortingStrategy}
             >
               <div className="space-y-4">
-                {panelGroups.map((group) => {
-                  // 检查这个组是否正在被拖拽
-                  const isGroupDragging = draggingGroupIds.length > 1 &&
-                    group.panels.some((p) => draggingGroupIds.includes(p.id));
-
-                  return (
-                    <div
-                      key={group.groupStartId}
-                      className={isGroupDragging ? "ring-2 ring-primary ring-offset-2 rounded-lg transition-all" : ""}
-                    >
-                      <PanelLayoutGroup
-                        group={group}
-                        isLayoutMode={false}
-                        isSelected={false}
-                        onSelect={() => {}}
-                        onBreakLayout={() => layoutOps.breakLayout(group.groupStartId)}
-                        generatingPanels={generatingPanels}
-                        onEditPanel={onEditPanel}
-                        onDeletePanel={onDeletePanel}
-                        onGenerateSingle={handleGenerateSingle}
-                        onInsertAfter={handleInsertAfter}
-                        onSplit={handleSplit}
-                        onMergeWithNext={handleMergeWithNext}
-                        onRetryGeneration={retry}
-                        onCancelGeneration={clearTask}
-                        allPanels={displayPanels}
+                {displayPanels.map((panel, index) => (
+                  <SortablePanelCard
+                    key={panel.id}
+                    panel={panel}
+                    index={index}
+                    generationTask={generatingPanels.get(panel.id)}
+                    onRetryGeneration={() => {
+                      const prompt = panel.prompt_used || panel.visual_prompt || panel.description || '';
+                      retry(panel.id, prompt);
+                    }}
+                    onCancelGeneration={() => clearTask(panel.id)}
+                    actions={
+                      <PanelCardActions
+                        panel={panel}
+                        onEdit={() => onEditPanel?.(panel)}
+                        onDelete={() => onDeletePanel?.(panel.id)}
+                        onGenerate={() => handleGenerateSingle(panel)}
+                        onInsertAfter={() => handleInsertAfter(panel)}
+                        onSplit={() => handleSplit(panel)}
+                        onMergeWithNext={() => handleMergeWithNext(panel)}
                       />
-                    </div>
-                  );
-                })}
+                    }
+                  />
+                ))}
               </div>
             </SortableContext>
 

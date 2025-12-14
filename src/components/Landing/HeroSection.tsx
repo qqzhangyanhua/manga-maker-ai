@@ -126,7 +126,7 @@ export function HeroSection({ onOpenTrial }: HeroSectionProps) {
             <PipelineCard
               icon={FileText}
               title="剧本生成"
-              subtitle="Script"
+              subtitle="脚本"
               step={1}
             >
               {/* 代码编辑器样式 */}
@@ -166,7 +166,7 @@ export function HeroSection({ onOpenTrial }: HeroSectionProps) {
             <PipelineCard
               icon={Layout}
               title="分镜设计"
-              subtitle="Storyboard"
+              subtitle="分镜"
               step={2}
               active={showStoryboard}
             >
@@ -220,7 +220,7 @@ export function HeroSection({ onOpenTrial }: HeroSectionProps) {
             <PipelineCard
               icon={Image}
               title="成品漫画"
-              subtitle="Final Comic"
+              subtitle="成品"
               step={3}
               active={showFinal}
               glow={showFinal}

@@ -18,6 +18,14 @@ import {
   Users,
   Building2,
   Sparkles,
+  Briefcase,
+  PenTool,
+  FolderOpen,
+  Image,
+  UserCircle,
+  MapPin,
+  Shield,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,65 +33,138 @@ interface NavbarProps {
   className?: string;
 }
 
-// Product Mega Menu Items
+// 产品功能菜单项
 const productMenuItems = [
   {
     icon: Fingerprint,
-    title: "Entity Persistence",
-    description: "ID-locking for character consistency",
+    title: "角色一致性",
+    description: "ID 锁定确保角色稳定",
     href: "#features",
   },
   {
     icon: FileCode,
-    title: "Script Parsing",
-    description: "NLP-powered screenplay extraction",
+    title: "剧本解析",
+    description: "NLP 驱动的剧本提取",
     href: "#features",
   },
   {
     icon: LayoutGrid,
-    title: "Auto-Layout",
-    description: "Dynamic panel composition",
+    title: "自动布局",
+    description: "动态分镜构图",
     href: "#features",
   },
   {
     icon: Layers,
-    title: "PSD Export",
-    description: "Full layer separation output",
+    title: "PSD 导出",
+    description: "完整图层分离输出",
     href: "#features",
   },
   {
     icon: Cpu,
-    title: "Render Pipeline",
-    description: "Parallel GPU acceleration",
+    title: "渲染管线",
+    description: "并行 GPU 加速",
     href: "#features",
   },
   {
     icon: Zap,
-    title: "Real-time Preview",
-    description: "Instant generation feedback",
+    title: "实时预览",
+    description: "即时生成反馈",
     href: "#features",
   },
 ];
 
-// Solutions Menu Items
+// 解决方案菜单项
 const solutionsMenuItems = [
   {
     icon: Users,
-    title: "For Creators",
-    description: "Individual manga artists",
+    title: "面向创作者",
+    description: "独立漫画艺术家",
     href: "/creators",
   },
   {
     icon: Building2,
-    title: "For Studios",
-    description: "Production teams",
+    title: "面向工作室",
+    description: "制作团队",
     href: "/studios",
   },
   {
     icon: BookOpen,
-    title: "For Publishers",
-    description: "Manga publishers",
+    title: "面向出版社",
+    description: "漫画出版商",
     href: "/publishers",
+  },
+];
+
+// 工作台菜单项
+const workspaceMenuItems = [
+  {
+    category: "创作中心",
+    items: [
+      {
+        icon: Sparkles,
+        title: "创作新故事",
+        description: "从零开始创作漫画",
+        href: "/story",
+      },
+      {
+        icon: FileCode,
+        title: "剧本管理",
+        description: "查看和编辑剧本",
+        href: "/scripts",
+      },
+    ],
+  },
+  {
+    category: "项目管理",
+    items: [
+      {
+        icon: FolderOpen,
+        title: "分镜项目",
+        description: "管理所有分镜项目",
+        href: "/projects",
+      },
+      {
+        icon: Image,
+        title: "生成图库",
+        description: "浏览生成的图片",
+        href: "/generated",
+      },
+    ],
+  },
+  {
+    category: "资产库",
+    items: [
+      {
+        icon: UserCircle,
+        title: "角色库",
+        description: "管理角色素材",
+        href: "/assets?tab=characters",
+      },
+      {
+        icon: MapPin,
+        title: "场景库",
+        description: "管理场景素材",
+        href: "/assets?tab=scenes",
+      },
+    ],
+  },
+  {
+    category: "管理面板",
+    adminOnly: true,
+    items: [
+      {
+        icon: Shield,
+        title: "用户管理",
+        description: "管理系统用户",
+        href: "/admin/users",
+      },
+      {
+        icon: BarChart3,
+        title: "用量统计",
+        description: "查看用量数据",
+        href: "/admin/usage",
+      },
+    ],
   },
 ];
 
@@ -169,7 +250,7 @@ export function Navbar({ className }: NavbarProps) {
 
               {/* Desktop Navigation Links */}
               <nav className="hidden lg:flex items-center gap-1">
-                {/* Product Dropdown */}
+                {/* 产品功能下拉菜单 */}
                 <div
                   className="relative"
                   onMouseEnter={() => handleDropdownEnter("product")}
@@ -183,7 +264,7 @@ export function Navbar({ className }: NavbarProps) {
                         : "text-zinc-400 hover:text-white"
                     )}
                   >
-                    Product
+                    产品功能
                     <ChevronDown
                       className={cn(
                         "w-4 h-4 transition-transform",
@@ -203,7 +284,7 @@ export function Navbar({ className }: NavbarProps) {
                   >
                     <div className="w-[500px] bg-[#0a0a0a] border border-zinc-800 p-4">
                       <div className="text-[10px] font-mono text-zinc-600 mb-3 px-2">
-                        SYSTEM_MODULES
+                        系统模块
                       </div>
                       <div className="grid grid-cols-2 gap-1">
                         {productMenuItems.map((item) => (
@@ -231,14 +312,14 @@ export function Navbar({ className }: NavbarProps) {
                           href="/docs"
                           className="text-xs font-mono text-zinc-500 hover:text-orange-500 transition-colors"
                         >
-                          VIEW_FULL_DOCS →
+                          查看完整文档 →
                         </Link>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Solutions Dropdown */}
+                {/* 解决方案下拉菜单 */}
                 <div
                   className="relative"
                   onMouseEnter={() => handleDropdownEnter("solutions")}
@@ -252,7 +333,7 @@ export function Navbar({ className }: NavbarProps) {
                         : "text-zinc-400 hover:text-white"
                     )}
                   >
-                    Solutions
+                    解决方案
                     <ChevronDown
                       className={cn(
                         "w-4 h-4 transition-transform",
@@ -261,7 +342,7 @@ export function Navbar({ className }: NavbarProps) {
                     />
                   </button>
 
-                  {/* Solutions Menu */}
+                  {/* 解决方案菜单 */}
                   <div
                     className={cn(
                       "absolute top-full left-0 pt-2 transition-all duration-200",
@@ -294,12 +375,94 @@ export function Navbar({ className }: NavbarProps) {
                   </div>
                 </div>
 
-                {/* Pricing Link */}
+                {/* 工作台下拉菜单 */}
+                <div
+                  className="relative"
+                  onMouseEnter={() => handleDropdownEnter("workspace")}
+                  onMouseLeave={handleDropdownLeave}
+                >
+                  <button
+                    className={cn(
+                      "flex items-center gap-1 px-3 py-2 text-sm font-medium transition-colors",
+                      activeDropdown === "workspace"
+                        ? "text-orange-500"
+                        : "text-zinc-400 hover:text-white"
+                    )}
+                  >
+                    工作台
+                    <ChevronDown
+                      className={cn(
+                        "w-4 h-4 transition-transform",
+                        activeDropdown === "workspace" && "rotate-180"
+                      )}
+                    />
+                  </button>
+
+                  {/* 工作台 Mega Menu */}
+                  <div
+                    className={cn(
+                      "absolute top-full left-0 pt-2 transition-all duration-200",
+                      activeDropdown === "workspace"
+                        ? "opacity-100 visible translate-y-0"
+                        : "opacity-0 invisible -translate-y-2"
+                    )}
+                  >
+                    <div className="w-[480px] bg-[#0a0a0a] border border-zinc-800 p-4">
+                      <div className="text-[10px] font-mono text-zinc-600 mb-3 px-2">
+                        工作区快速入口
+                      </div>
+
+                      <div className="space-y-3">
+                        {workspaceMenuItems.map((category) => (
+                          <div key={category.category}>
+                            {/* Category Header */}
+                            <div className="px-2 py-1 text-xs font-mono text-orange-500 uppercase tracking-wider">
+                              {category.category}
+                            </div>
+
+                            {/* Category Items */}
+                            <div className="grid grid-cols-2 gap-1">
+                              {category.items.map((item) => (
+                                <Link
+                                  key={item.title}
+                                  href={item.href}
+                                  className="flex items-start gap-3 p-3 hover:bg-zinc-900 transition-colors group"
+                                >
+                                  <div className="p-2 bg-zinc-900 group-hover:bg-orange-500/10 text-zinc-500 group-hover:text-orange-500 transition-colors">
+                                    <item.icon className="w-4 h-4" />
+                                  </div>
+                                  <div>
+                                    <div className="text-sm font-medium text-white group-hover:text-orange-500 transition-colors">
+                                      {item.title}
+                                    </div>
+                                    <div className="text-xs text-zinc-500 mt-0.5">
+                                      {item.description}
+                                    </div>
+                                  </div>
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 画廊链接 */}
+                <Link
+                  href="/gallery"
+                  className="px-3 py-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors"
+                >
+                  画廊
+                </Link>
+
+                {/* 价格链接 */}
                 <Link
                   href="#pricing"
                   className="px-3 py-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors"
                 >
-                  Pricing
+                  价格
                 </Link>
               </nav>
             </div>
@@ -359,7 +522,7 @@ function CommandPaletteTrigger() {
     >
       <Search className="w-4 h-4 text-zinc-500 group-hover:text-zinc-400" />
       <span className="flex-1 text-left text-sm text-zinc-500 group-hover:text-zinc-400">
-        Search or type command...
+        搜索或输入命令...
       </span>
       <kbd className="hidden sm:flex items-center gap-1 px-2 py-0.5 bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-zinc-400">
         <span className="text-xs">⌘</span>K
@@ -402,18 +565,18 @@ function UserStatusPill({ credits, avatarUrl }: UserStatusPillProps) {
         <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-[#09090b]" />
       </div>
 
-      {/* Credits Display */}
+      {/* 算力显示 */}
       <div className="flex items-center gap-1 px-2 border-l border-zinc-800">
         <span className="text-sm font-mono font-bold text-emerald-500">
           {formattedCredits}
         </span>
-        <span className="text-[10px] font-mono text-zinc-500">CREDITS</span>
+        <span className="text-[10px] font-mono text-zinc-500">算力</span>
       </div>
 
-      {/* Settings Button */}
+      {/* 设置按钮 */}
       <button
         className="p-1.5 text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors"
-        aria-label="Settings"
+        aria-label="设置"
       >
         <Settings className="w-4 h-4" />
       </button>
@@ -460,17 +623,17 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
             <CommandPaletteTrigger />
           </div>
 
-          {/* User Status Pill - Mobile */}
+          {/* 算力显示 - 移动端 */}
           <div className="mb-6 pb-6 border-b border-zinc-800">
             <div className="text-[10px] font-mono text-zinc-600 mb-2">
-              ACCOUNT_STATUS
+              账户状态
             </div>
             <UserStatusPill credits={2400} />
           </div>
 
-          {/* Navigation */}
+          {/* 导航 */}
           <nav className="space-y-2">
-            {/* Product Section */}
+            {/* 产品功能分类 */}
             <div className="border border-zinc-800">
               <button
                 className="w-full flex items-center justify-between p-4 text-left"
@@ -480,7 +643,7 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                   )
                 }
               >
-                <span className="text-white font-medium">Product</span>
+                <span className="text-white font-medium">产品功能</span>
                 <ChevronDown
                   className={cn(
                     "w-5 h-5 text-zinc-500 transition-transform",
@@ -515,7 +678,7 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
               </div>
             </div>
 
-            {/* Solutions Section */}
+            {/* 解决方案分类 */}
             <div className="border border-zinc-800">
               <button
                 className="w-full flex items-center justify-between p-4 text-left"
@@ -525,7 +688,7 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                   )
                 }
               >
-                <span className="text-white font-medium">Solutions</span>
+                <span className="text-white font-medium">解决方案</span>
                 <ChevronDown
                   className={cn(
                     "w-5 h-5 text-zinc-500 transition-transform",
@@ -560,24 +723,92 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
               </div>
             </div>
 
-            {/* Pricing Link */}
+            {/* 工作台分类 */}
+            <div className="border border-zinc-800">
+              <button
+                className="w-full flex items-center justify-between p-4 text-left"
+                onClick={() =>
+                  setExpandedSection(
+                    expandedSection === "workspace" ? null : "workspace"
+                  )
+                }
+              >
+                <span className="text-white font-medium">工作台</span>
+                <ChevronDown
+                  className={cn(
+                    "w-5 h-5 text-zinc-500 transition-transform",
+                    expandedSection === "workspace" && "rotate-180"
+                  )}
+                />
+              </button>
+              <div
+                className={cn(
+                  "overflow-hidden transition-all duration-300",
+                  expandedSection === "workspace" ? "max-h-[600px]" : "max-h-0"
+                )}
+              >
+                <div className="p-4 pt-0 space-y-3">
+                  {workspaceMenuItems.map((category) => (
+                    <div key={category.category}>
+                      {/* Category Header */}
+                      <div className="px-2 py-1 text-xs font-mono text-orange-500 uppercase tracking-wider">
+                        {category.category}
+                      </div>
+                      {/* Category Items */}
+                      <div className="space-y-1">
+                        {category.items.map((item) => (
+                          <Link
+                            key={item.title}
+                            href={item.href}
+                            className="flex items-center gap-3 p-3 bg-zinc-900/50 hover:bg-zinc-900 transition-colors"
+                            onClick={onClose}
+                          >
+                            <item.icon className="w-4 h-4 text-orange-500" />
+                            <div>
+                              <div className="text-sm text-white">{item.title}</div>
+                              <div className="text-xs text-zinc-500">
+                                {item.description}
+                              </div>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* 画廊链接 */}
+            <Link
+              href="/gallery"
+              className="flex items-center justify-between p-4 border border-zinc-800 text-white font-medium hover:bg-zinc-900 transition-colors"
+              onClick={onClose}
+            >
+              画廊
+              <span className="text-xs font-mono text-zinc-500">
+                探索作品
+              </span>
+            </Link>
+
+            {/* 价格链接 */}
             <Link
               href="#pricing"
               className="flex items-center justify-between p-4 border border-zinc-800 text-white font-medium hover:bg-zinc-900 transition-colors"
               onClick={onClose}
             >
-              Pricing
+              价格
               <span className="text-xs font-mono text-zinc-500">
-                VIEW_PLANS
+                查看方案
               </span>
             </Link>
           </nav>
 
-          {/* Footer */}
+          {/* 页脚 */}
           <div className="mt-8 pt-6 border-t border-zinc-800">
             <div className="flex items-center justify-between text-xs font-mono text-zinc-600">
-              <span>SESSION: ACTIVE</span>
-              <span>NODE: US-WEST-2</span>
+              <span>会话: 活跃</span>
+              <span>节点: 华北-1</span>
             </div>
           </div>
         </div>

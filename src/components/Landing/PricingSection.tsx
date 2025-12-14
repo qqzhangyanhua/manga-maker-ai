@@ -24,71 +24,71 @@ interface PricingPlan {
 const pricingPlans: PricingPlan[] = [
   {
     id: "hobbyist",
-    name: "HOBBYIST",
+    name: "入门版",
     subtitle: "TIER_01",
     price: "$0",
-    priceUnit: "/mo",
-    description: "Evaluation access. Rate-limited.",
+    priceUnit: "/月",
+    description: "体验访问。限速模式。",
     features: [
-      "100 compute credits/month",
-      "720p max resolution",
-      "Standard queue priority",
-      "Community support channel",
-      "7-day project retention",
+      "100 算力积分/月",
+      "720p 最大分辨率",
+      "标准队列优先级",
+      "社区支持频道",
+      "7天项目保留期",
     ],
-    ctaText: "DEPLOY",
+    ctaText: "部署",
     specs: {
-      credits: "100/mo",
+      credits: "100/月",
       storage: "1GB",
-      priority: "STD",
+      priority: "标准",
     },
   },
   {
     id: "professional",
-    name: "PROFESSIONAL",
+    name: "专业版",
     subtitle: "TIER_02",
     price: "$29",
-    priceUnit: "/mo",
-    description: "Production-ready. Full pipeline access.",
+    priceUnit: "/月",
+    description: "生产就绪。完整管线。",
     features: [
-      "2,000 compute credits/month",
-      "4K max resolution",
-      "Priority queue access",
-      "Entity Persistence enabled",
-      "Layered PSD export",
-      "API access (1000 req/day)",
-      "30-day project retention",
+      "2,000 算力积分/月",
+      "4K 最大分辨率",
+      "优先队列访问",
+      "实体持久化已启用",
+      "分层 PSD 导出",
+      "API 访问 (1000 请求/天)",
+      "30天项目保留期",
     ],
     recommended: true,
-    ctaText: "UPGRADE",
+    ctaText: "升级",
     specs: {
-      credits: "2K/mo",
+      credits: "2K/月",
       storage: "50GB",
-      priority: "HIGH",
+      priority: "高优先级",
     },
   },
   {
     id: "studio",
-    name: "STUDIO",
+    name: "工作室版",
     subtitle: "TIER_03",
     price: "$199",
-    priceUnit: "/mo",
-    description: "Team deployment. Dedicated resources.",
+    priceUnit: "/月",
+    description: "团队部署。专属资源。",
     features: [
-      "Unlimited compute credits",
-      "8K max resolution",
-      "Dedicated render nodes",
-      "Custom model fine-tuning",
-      "Team seats (up to 10)",
-      "API access (unlimited)",
-      "Webhook integrations",
-      "SLA 99.9% uptime",
+      "无限算力积分",
+      "8K 最大分辨率",
+      "专属渲染节点",
+      "自定义模型微调",
+      "团队席位 (最多 10 人)",
+      "API 访问 (无限制)",
+      "Webhook 集成",
+      "SLA 99.9% 正常运行时间",
     ],
-    ctaText: "CONTACT",
+    ctaText: "联系",
     specs: {
-      credits: "UNLIM",
+      credits: "无限",
       storage: "500GB",
-      priority: "DEDICATED",
+      priority: "专属",
     },
   },
 ];
@@ -105,14 +105,14 @@ export function PricingSection() {
           <div className="flex items-center gap-2 mb-4">
             <Server className="w-5 h-5 text-orange-500" />
             <span className="text-sm font-mono uppercase tracking-widest text-zinc-500">
-              Compute Plans
+              算力方案
             </span>
           </div>
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">
-            Resource Allocation
+            资源分配
           </h2>
           <p className="text-zinc-400 max-w-xl font-mono text-sm">
-            Select compute tier. Scale on demand. No hidden fees.
+            选择算力层级。按需扩展。透明收费。
           </p>
         </div>
 
@@ -131,7 +131,7 @@ export function PricingSection() {
         {/* Footer note */}
         <div className="mt-8 text-center">
           <p className="text-xs font-mono text-zinc-600">
-            INCLUDED: SSL_ENCRYPTION | CDN_DELIVERY | AUTO_BACKUP | GDPR_COMPLIANT
+            包含: SSL加密 | CDN分发 | 自动备份 | GDPR合规
           </p>
         </div>
       </div>
@@ -161,7 +161,7 @@ function PricingCard({ plan, isFirst, isLast }: PricingCardProps) {
       {plan.recommended && (
         <div className="absolute -top-px left-0 right-0 flex justify-center">
           <div className="px-4 py-1.5 bg-orange-500 text-xs font-mono font-bold text-black tracking-wider">
-            RECOMMENDED CONFIG
+            推荐配置
           </div>
         </div>
       )}
@@ -205,7 +205,7 @@ function PricingCard({ plan, isFirst, isLast }: PricingCardProps) {
         {/* Specs Table */}
         <div className="grid grid-cols-3 gap-2 p-3 bg-black/40 border border-zinc-800 mb-6">
           <div className="text-center">
-            <div className="text-[10px] font-mono text-zinc-600">CREDITS</div>
+            <div className="text-[10px] font-mono text-zinc-600">积分</div>
             <div
               className={cn(
                 "text-sm font-mono font-bold",
@@ -216,7 +216,7 @@ function PricingCard({ plan, isFirst, isLast }: PricingCardProps) {
             </div>
           </div>
           <div className="text-center border-x border-zinc-800">
-            <div className="text-[10px] font-mono text-zinc-600">STORAGE</div>
+            <div className="text-[10px] font-mono text-zinc-600">存储</div>
             <div
               className={cn(
                 "text-sm font-mono font-bold",
@@ -227,13 +227,13 @@ function PricingCard({ plan, isFirst, isLast }: PricingCardProps) {
             </div>
           </div>
           <div className="text-center">
-            <div className="text-[10px] font-mono text-zinc-600">QUEUE</div>
+            <div className="text-[10px] font-mono text-zinc-600">队列</div>
             <div
               className={cn(
                 "text-sm font-mono font-bold",
-                plan.specs.priority === "HIGH" && "text-emerald-500",
-                plan.specs.priority === "DEDICATED" && "text-amber-500",
-                plan.specs.priority === "STD" && "text-zinc-400"
+                plan.specs.priority === "高优先级" && "text-emerald-500",
+                plan.specs.priority === "专属" && "text-amber-500",
+                plan.specs.priority === "标准" && "text-zinc-400"
               )}
             >
               {plan.specs.priority}
@@ -293,7 +293,7 @@ function PricingCard({ plan, isFirst, isLast }: PricingCardProps) {
         {/* Plan ID footer */}
         <div className="mt-4 text-center">
           <span className="text-[10px] font-mono text-zinc-700">
-            PLAN_ID: {plan.id.toUpperCase()}_v2.1
+            方案ID: {plan.id.toUpperCase()}_v2.1
           </span>
         </div>
       </div>

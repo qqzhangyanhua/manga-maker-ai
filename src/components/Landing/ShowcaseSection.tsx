@@ -76,7 +76,7 @@ export function ShowcaseSection() {
           <div className="flex items-center gap-2 mb-4">
             <Terminal className="w-5 h-5 text-orange-500" />
             <span className="text-sm font-mono uppercase tracking-widest text-zinc-500">
-              Production Logs
+              生产日志
             </span>
           </div>
           <div className="flex items-end justify-between">
@@ -125,11 +125,11 @@ export function ShowcaseSection() {
           ))}
         </div>
 
-        {/* Mobile scroll hint */}
+        {/* 移动端滑动提示 */}
         <div className="md:hidden flex justify-center mt-4 px-4">
           <div className="flex items-center gap-2 text-xs text-zinc-500">
             <ChevronLeft className="w-4 h-4" />
-            <span className="font-mono">SWIPE TO EXPLORE</span>
+            <span className="font-mono">滑动浏览</span>
             <ChevronRight className="w-4 h-4" />
           </div>
         </div>
