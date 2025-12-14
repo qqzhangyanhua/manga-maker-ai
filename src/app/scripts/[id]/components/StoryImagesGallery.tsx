@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
-import { Image as ImageIcon, Loader2, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Image as ImageIcon, Loader2, ChevronLeft, ChevronRight, X, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ImageEditDialog } from "./ImageEditDialog";
+import { useToast } from "@/hooks/use-toast";
 
 type GeneratedImage = {
   id: string;
@@ -27,12 +29,14 @@ type StoryImagesGalleryProps = {
 };
 
 export function StoryImagesGallery({ storyId, projectId }: StoryImagesGalleryProps) {
+  const { toast } = useToast();
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<GeneratedImage | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   useEffect(() => {
     if (projectId) {
@@ -67,6 +71,63 @@ export function StoryImagesGallery({ storyId, projectId }: StoryImagesGalleryPro
   function handleImageClick(image: GeneratedImage) {
     setSelectedImage(image);
     setDialogOpen(true);
+  }
+
+  function handleEditClick(image: GeneratedImage) {
+    setSelectedImage(image);
+    setEditDialogOpen(true);
+  }
+
+  async function handleEditSubmit(
+    imageId: string,
+    editData: {
+      editType: "regenerate" | "variant" | "inpaint" | "style_transfer";
+      prompt?: string;
+      style?: string;
+      variantCount?: number;
+      variantType?: "style" | "angle" | "composition";
+      targetStyle?: string;
+      strength?: number;
+      providerType?: string;
+    }
+  ) {
+    try {
+      const res = await fetch(`/api/generated-image/${imageId}/edit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editData),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "编辑失败");
+      }
+
+      // Show success message with details
+      let description = data.message || "新图片已生成";
+      if (data.imageUrls && data.imageUrls.length > 0) {
+        description = `成功生成 ${data.imageUrls.length} 张图片`;
+      } else if (data.imageUrl) {
+        description = "新图片已生成，正在刷新图库...";
+      }
+
+      toast({
+        title: "生成完成",
+        description,
+      });
+
+      // Refresh images immediately and wait for completion
+      await fetchImages();
+    } catch (error) {
+      console.error("Edit submission error:", error);
+      toast({
+        title: "编辑失败",
+        description: error instanceof Error ? error.message : "未知错误",
+        variant: "destructive",
+      });
+      throw error;
+    }
   }
 
   if (loading && images.length === 0) {
@@ -112,6 +173,18 @@ export function StoryImagesGallery({ storyId, projectId }: StoryImagesGalleryPro
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors">
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEditClick(img);
+                    }}
+                  >
+                    <Edit className="w-4 h-4" />
+                  </Button>
+                </div>
                 <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent translate-y-full group-hover:translate-y-0 transition-transform">
                   <p className="text-white text-xs line-clamp-2">{img.prompt}</p>
                 </div>
@@ -175,11 +248,31 @@ export function StoryImagesGallery({ storyId, projectId }: StoryImagesGalleryPro
                   <div className="text-sm font-medium mb-1">提示词</div>
                   <p className="text-sm text-muted-foreground">{selectedImage.prompt}</p>
                 </div>
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setDialogOpen(false);
+                      handleEditClick(selectedImage);
+                    }}
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    AI 编辑
+                  </Button>
+                </div>
               </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Image Edit Dialog */}
+      <ImageEditDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        image={selectedImage}
+        onEditSubmit={handleEditSubmit}
+      />
     </>
   );
 }

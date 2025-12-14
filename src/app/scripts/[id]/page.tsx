@@ -31,6 +31,7 @@ import { StoryCharacterList } from "@/components/StoryCharacter/StoryCharacterLi
 import type { CharacterRole } from "@/components/StoryCharacter/types";
 import { useStreamingGeneration } from "./hooks/useStreamingGeneration";
 import { GenerationProgress } from "./components/GenerationProgress";
+import { GeneratePanelsDialog } from "./components/GeneratePanelsDialog";
 
 export default function ScriptDetailsPage() {
   const params = useParams();
@@ -40,6 +41,10 @@ export default function ScriptDetailsPage() {
 
   // 当前章节状态
   const [currentChapterId, setCurrentChapterId] = useState<string | null>(null);
+
+  // AI生成分镜对话框状态
+  const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
+  const [pendingChapterId, setPendingChapterId] = useState<string | null>(null);
 
   // React Query hooks for data management - 使用优化版渐进式加载
   const {
@@ -135,9 +140,32 @@ export default function ScriptDetailsPage() {
     }
   }
 
-  async function handleImageGenerated(panelId: string, imageUrl: string) {
+  async function handleImageGenerated(_panelId: string, _imageUrl: string) {
     await refetchPanels?.();
     toast({ title: "图片生成成功" });
+  }
+
+  async function handleDeletePanel(panelId: string): Promise<void> {
+    try {
+      const response = await fetch(`/api/panel/${panelId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "删除分镜失败");
+      }
+
+      toast({ title: "分镜已删除" });
+      await refetchPanels?.();
+    } catch (error) {
+      const errorInfo = formatErrorForToast(error);
+      toast({
+        title: errorInfo.title,
+        description: errorInfo.description,
+        variant: "destructive",
+      });
+    }
   }
 
   // Story character handlers
@@ -196,6 +224,29 @@ export default function ScriptDetailsPage() {
       return;
     }
 
+    // 检查当前章节是否已有分镜
+    const existingPanels = (data?.panels || []).filter(p => p.chapter_id === chapterId);
+
+    if (existingPanels.length > 0) {
+      // 有分镜，显示对话框让用户选择
+      setPendingChapterId(chapterId);
+      setGenerateDialogOpen(true);
+    } else {
+      // 没有分镜，直接生成
+      await executeGeneration(chapterId, "append");
+    }
+  }
+
+  async function executeGeneration(
+    chapterId: string,
+    mode: "overwrite" | "append",
+    panelCount?: number
+  ): Promise<void> {
+    if (!data?.story) {
+      toast({ title: "故事不存在", variant: "destructive" });
+      return;
+    }
+
     try {
       let projectId = data.projectId;
 
@@ -228,13 +279,16 @@ export default function ScriptDetailsPage() {
       await generate({
         chapterId,
         projectId: projectId,
-        overwrite: false,
+        overwrite: mode === "overwrite",
+        panelCount,
       });
 
       // 生成完成后提示并刷新
       toast({
         title: "分镜生成完成",
-        description: "AI 已成功为当前章节生成分镜脚本",
+        description: mode === "overwrite"
+          ? "AI 已成功重新生成分镜脚本"
+          : "AI 已成功追加新的分镜脚本",
       });
       await refetchPanels?.();
       reset(); // 重置进度状态
@@ -353,6 +407,7 @@ export default function ScriptDetailsPage() {
                     charactersLoading={isCharactersLoading}
                     onCharactersRefresh={() => { refetchCharacters(); }}
                     onPanelsChange={() => { }}
+                    onDeletePanel={handleDeletePanel}
                     onImageGenerated={handleImageGenerated}
                     onRefresh={() => refetchPanels?.()}
                     onError={(msg) =>
@@ -371,6 +426,22 @@ export default function ScriptDetailsPage() {
 
         {/* Streaming Generation Progress */}
         <GenerationProgress progress={progress} onCancel={cancel} />
+
+        {/* AI生成分镜对话框 */}
+        <GeneratePanelsDialog
+          open={generateDialogOpen}
+          existingPanelCount={
+            pendingChapterId
+              ? (data?.panels || []).filter(p => p.chapter_id === pendingChapterId).length
+              : 0
+          }
+          onOpenChange={setGenerateDialogOpen}
+          onConfirm={(mode, panelCount) => {
+            if (pendingChapterId) {
+              executeGeneration(pendingChapterId, mode, panelCount);
+            }
+          }}
+        />
       </div>
     </ErrorBoundary>
   );

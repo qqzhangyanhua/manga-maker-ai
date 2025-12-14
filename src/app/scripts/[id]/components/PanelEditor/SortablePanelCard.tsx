@@ -49,9 +49,15 @@ export function SortablePanelCard({
     opacity: isDragging ? 0.5 : panel._isGenerating ? 0.7 : 1,
   };
 
+  // 检查是否是新追加的分镜（创建时间在最近30秒内）
+  const isNewlyAdded = !panel._isGenerating && panel.created_at &&
+    (Date.now() - new Date(panel.created_at).getTime()) < 30000;
+
   // 临时生成中的分镜样式
   const isGeneratingClass = panel._isGenerating
     ? "border-2 border-dashed border-primary/50 animate-in fade-in slide-in-from-bottom-4 duration-500"
+    : isNewlyAdded
+    ? "border-2 border-primary/30 animate-in fade-in slide-in-from-bottom-4 duration-500"
     : "";
 
   return (
@@ -79,6 +85,15 @@ export function SortablePanelCard({
           <Badge variant="secondary" className="flex items-center gap-1">
             <Loader2 className="w-3 h-3 animate-spin" />
             生成中
+          </Badge>
+        </div>
+      )}
+
+      {/* 新追加标记 */}
+      {isNewlyAdded && (
+        <div className="absolute left-12 top-4 z-10">
+          <Badge variant="default" className="flex items-center gap-1 bg-green-500">
+            新追加
           </Badge>
         </div>
       )}

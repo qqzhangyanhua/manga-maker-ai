@@ -4,70 +4,80 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a **Manga/Comic AI Generator** built with Next.js 14, featuring a "Digital Actor" character management system. The app allows users to create manga characters with consistent appearance across different poses, expressions, and outfits using AI image generation.
+**Manga Maker AI** - End-to-end AI comic creation platform covering "Story → Script → Storyboard → Image → Layout" workflow with Digital Actor management, style library, workflow orchestration, and image refinement tools.
 
 ## Tech Stack
 
-- **Framework**: Next.js 14 (App Router)
-- **Language**: TypeScript
-- **Database**: PostgreSQL with Prisma ORM
-- **UI**: React, TailwindCSS, shadcn/ui (Radix UI)
-- **Auth**: JWT-based authentication with bcrypt
-- **AI Integration**: LLM providers (OpenAI-compatible APIs) for prompt generation
-- **3D**: Three.js via @react-three/fiber (for pose lab)
+- **Framework**: Next.js 14 (App Router) + React 18 + TypeScript
+- **Database**: PostgreSQL + Prisma ORM
+- **UI**: TailwindCSS + shadcn/ui (Radix UI) + lucide-react icons
+- **3D**: Three.js via @react-three/fiber (pose lab)
+- **Storage**: MinIO/S3-compatible object storage
+- **Auth**: JWT + bcrypt + Nodemailer SMTP
+- **AI/LLM**: OpenAI-compatible APIs configured via `llm_providers` table
+- **Testing**: Vitest + React Testing Library
 
 ## Package Management
 
-**CRITICAL**: Always use `pnpm` for package installation, never `npm`.
+**IMPORTANT**: This project supports both `npm` and `pnpm`. Both lock files exist in the repository.
+- Use `pnpm` for faster installs and better disk space efficiency (recommended)
+- Use `npm` if pnpm is not available
 
 ```bash
-pnpm install <package>  # Install new packages
-pnpm dev                # Start development server
-pnpm build              # Build for production
-pnpm start              # Start production server
-pnpm lint               # Run ESLint
-pnpm test               # Run Vitest tests
-pnpm test:watch         # Run Vitest in watch mode
+# Using pnpm (recommended)
+pnpm install <package>
+pnpm dev
+pnpm build
+pnpm test
+
+# Using npm (alternative)
+npm install <package>
+npm run dev
+npm run build
+npm test
 ```
 
 ## Development Commands
 
 ### Development Server
 ```bash
-pnpm dev
+pnpm dev  # or npm run dev
 # Runs on http://localhost:3000
 ```
 
 ### Database Operations
 ```bash
-# Generate Prisma Client (after schema changes)
+# Generate Prisma Client (required after schema changes)
 npx prisma generate
 
-# Create and apply migrations
+# Create and apply migrations (development)
 npx prisma migrate dev --name <migration_name>
 
-# Apply migrations in production
+# Apply migrations (production)
 npx prisma migrate deploy
 
 # Open Prisma Studio (database GUI)
 npx prisma studio
+
+# Seed database
+npx prisma db seed
 ```
 
 ### Build & Lint
 ```bash
-pnpm build              # Build Next.js app
-pnpm lint               # Run ESLint
+pnpm build  # Build Next.js app
+pnpm lint   # Run ESLint
 ```
 
 ### Testing
 ```bash
-pnpm test               # Run all tests
-pnpm test:watch         # Run tests in watch mode
+pnpm test         # Run all tests
+pnpm test:watch   # Run tests in watch mode
 ```
 
 Test files use Vitest with React Testing Library. Place tests next to source files with `.test.ts` or `.test.tsx` extension.
 
-## Architecture
+## Architecture Overview
 
 ### Directory Structure
 
@@ -75,100 +85,97 @@ Test files use Vitest with React Testing Library. Place tests next to source fil
 src/
 ├── app/                    # Next.js App Router
 │   ├── api/               # API Routes (REST endpoints)
-│   │   ├── auth/          # Authentication endpoints
+│   │   ├── auth/          # Authentication
 │   │   ├── character/     # Character CRUD & generation
-│   │   ├── scene/         # Scene library management
-│   │   ├── story/         # Story generation & management
-│   │   ├── panel/         # Panel operations (insert/split/merge)
+│   │   ├── scene/         # Scene library
+│   │   ├── story/         # Story generation
+│   │   ├── chapter/       # Chapter management & panel generation
+│   │   ├── panel/         # Panel operations
 │   │   ├── project/       # Project management
-│   │   ├── admin/         # Admin management
-│   │   └── storyboard/    # Storyboard/panel management
-│   ├── admin/             # Admin dashboard pages
-│   ├── assets/            # Asset library page (characters/scenes)
-│   ├── auth/              # Login/register pages
-│   ├── scripts/           # Story/script management pages
-│   │   ├── page.tsx       # Story list page
-│   │   └── [id]/          # Individual story editor
-│   ├── storyboard/        # Storyboard editor page
-│   ├── layout.tsx         # Root layout
-│   ├── page.tsx           # Home page
-│   └── providers.tsx      # React Query provider
-├── components/
-│   ├── AssetLibrary/      # Character & scene management components
+│   │   ├── admin/         # Admin endpoints
+│   │   └── ...
+│   ├── scripts/[id]/      # Story/script editor pages
+│   ├── storyboard/        # Storyboard editor
+│   ├── editor/            # Image refinement center
+│   ├── workflow/          # Workflow orchestration
+│   ├── assets/            # Asset library
+│   └── admin/             # Admin dashboard
+├── components/            # React components
 │   ├── Storyboard/        # Storyboard editor components
-│   ├── PoseLab/           # 3D pose editor components
-│   └── ui/                # shadcn/ui components
-├── hooks/                 # Custom React hooks
-│   ├── use-current-user.ts
-│   └── use-toast.ts
-├── lib/                   # Shared utilities
+│   ├── ImageEditor/       # Canvas & timeline
+│   ├── ui/                # shadcn/ui base components
+│   └── ...
+├── lib/                   # Shared utilities & services
 │   ├── auth.ts            # JWT signing/verification
-│   ├── auth-helpers.ts    # Server-side auth helpers
 │   ├── db.ts              # Prisma client singleton
 │   ├── llm-provider.ts    # LLM API integration
-│   ├── story-generator.ts # Story generation helpers
-│   ├── generation-log.ts  # Generation logging utilities
-│   ├── usage.ts           # Usage tracking & quota management
-│   ├── mailer.ts          # Email verification
-│   └── utils.ts           # General utilities (cn, etc.)
-└── app/globals.css        # Global styles
+│   ├── credits.ts         # Credits system
+│   ├── unified-image-generation.ts  # Image generation queue
+│   ├── panel-generator.ts # Panel generation logic
+│   └── ...
+└── hooks/                 # Custom React hooks
 
 prisma/
-└── schema.prisma          # Database schema
+├── schema.prisma          # Database schema
+└── seed.ts                # Seed script
 ```
 
-### Database Schema (Prisma)
+### Core Database Models
 
-**Core Models:**
-- `User` - User accounts with email verification, role (user/admin), status (active/suspended)
-- `EmailVerification` - Email verification codes (bcrypt hashed, single-use with expiry)
-- `LlmProvider` - Configurable LLM providers (OpenAI-compatible APIs)
-- `ComicStyle` - Comic style library (manga, american, webtoon, etc.) with preview images
+**User & Auth:**
+- `User` - User accounts with `credits` (算力余额), `total_credits_used`, role (user/admin), status (active/suspended)
+- `EmailVerification` - Email verification codes (bcrypt hashed, single-use)
+- `CreditTransaction` - Credits transaction history (recharge/consume/refund)
+
+**LLM Configuration:**
+- `LlmProvider` - Configurable LLM providers with `provider_type`, `credits_cost`, `priority`, `enabled`
 
 **Character System (Digital Actor):**
-- `Character` - Main character entity with LoRA training status
-  - **Phase 2 fields**: `reference_image` (for IP-Adapter), `style_prompt` (detailed style description)
+- `Character` - Main character entity with `reference_image`, `style_prompt`, LoRA training status
 - `CharacterView` - Three-view reference images (front/side/back)
 - `CharacterExpression` - Expression matrix (9 emotions)
-- `CharacterOutfit` - Wardrobe system (multiple outfits per character)
-- `CharacterRelationship` - Character positioning on relationship chart (x, y, scale)
+- `CharacterOutfit` - Wardrobe system with `is_default` flag
+- `CharacterRelationship` - Character positioning on relationship chart
 
 **Scene Library:**
-- `Scene` - Background/environment assets for manga panels with scene types (indoor, outdoor, urban, nature, fantasy, scifi, historical, abstract)
-  - **Phase 2**: Can now be referenced by Panel via `scene_id` FK
+- `Scene` - Background/environment assets with `scene_type`, tags, prompt
 
-**Story System:**
-- `Story` - Story outline and character setup with genre classification (suspense/romance/adventure/scifi/daily/fantasy)
-  - **Phase 2**: `characters` JSON field deprecated, use `story_characters` relation instead
-- `StoryCharacter` - **NEW Phase 2**: Many-to-many relationship between Story and Character
-  - Fields: `story_id`, `character_id`, `role` (protagonist/antagonist/supporting/minor), `character_arc`, `display_order`
-- `StoryTemplate` - Predefined story structures and templates (public or user-owned)
-- `Workflow` - Automation workflow tracking for story-to-comic generation pipelines
+**Story & Project:**
+- `Story` - Story outline with genre, premise, outline JSON
+- `StoryCharacter` - Many-to-many Story ↔ Character with `role`, `character_arc`
+- `Chapter` - Story chapters with `chapter_order`, summary
+- `Project` - Comic projects linked to Story (optional)
+- `Panel` - Individual storyboard panels with:
+  - `character_id`, `expression_type`, `outfit_id`, `scene_id` (asset bindings)
+  - `script_segment_id`, `script_start`, `script_end` (script linking)
+  - `camera_angle`, `shot_size`, `panel_type`, `importance`
+  - `layout_hint` (for multi-panel layouts: 2镜/4镜/6镜)
+  - `is_shared`, `show_prompt` (gallery sharing)
+- `StoryScript` - Original script text with segmentation info
 
-**Project Management:**
-- `Project` - Comic/manga projects with style and status (can be linked to Story)
-- `Panel` - Individual storyboard panels with importance levels, panel types, camera angles, shot sizes
-  - **Phase 2 fields**: `character_id` (FK to Character), `expression_type`, `outfit_id` (FK to CharacterOutfit), `scene_id` (FK to Scene)
-  - **Deprecated**: `character_name` (use `character_id` instead)
-- `StoryScript` - Store original script text and segmentation info for script editor
-- `GeneratedImage` - Gallery of generated images with generation params
+**Templates & Workflows:**
+- `StoryTemplate` - Predefined story structures
+- `PanelTemplate` - Reusable storyboard layouts
+- `Workflow` - Automation workflow tracking
 
-**Usage Tracking & Logging:**
-- `GenerationLog` - Detailed logs of all AI generation actions (prompts, responses, errors, duration)
-- `UsageStat` - Aggregated daily usage statistics per user and action type
+**Generation & Analytics:**
+- `GenerationTask` - Batch generation progress tracking
+- `PanelVariant` - Alternative versions of panels
+- `GeneratedImage` - Gallery of generated images
+- `GenerationLog` - Detailed logs of AI generation actions
+- `UsageStat` - Aggregated daily usage statistics
 
-**Key Relationships:**
-- Characters belong to Users
-- Scenes belong to Users
-- Stories belong to Users and can have multiple Projects
-- Projects belong to Users and can be linked to a Story (optional)
-- Views/Expressions/Outfits cascade delete with Character
-- Panels cascade delete with Project
-- StoryScript has one-to-one relationship with Project
+**Version Control:**
+- `ProjectVersion` - Incremental snapshots with `is_pinned`, `is_auto`
+- `ImagePageVersion` - Image refinement versions
 
-### API Routes Pattern
+**Tagging System:**
+- `Tag` - Universal tags with `type` (system/user), `category`
+- `Tagging` - Polymorphic tagging relationship
 
-All API routes follow this authentication pattern using the `AUTH_COOKIE_NAME` constant:
+## Authentication Pattern
+
+All API routes use JWT stored in HTTP-only cookie:
 
 ```typescript
 import { cookies } from "next/headers";
@@ -188,12 +195,11 @@ export async function GET() {
     return NextResponse.json({ error: "无效的token" }, { status: 401 });
   }
 
-  // Use payload.userId for database queries
+  // Use payload.userId, payload.role, payload.email
 }
 ```
 
-**For admin-only routes**, use the helper:
-
+**For admin-only routes:**
 ```typescript
 import { requireAdmin } from "@/lib/auth-helpers";
 
@@ -202,139 +208,26 @@ export async function GET() {
   if (result instanceof NextResponse) return result; // Error response
 
   const payload = result; // AuthTokenPayload
-  // Use payload.userId for database queries
 }
 ```
 
-**Available Endpoints:**
+**Cookie name**: `comicai_session` (defined as `AUTH_COOKIE_NAME` in `@/lib/auth`)
 
-**Auth:**
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/login` - User login
-- `POST /api/auth/send-code` - Send email verification code
-- `GET /api/auth/me` - Get current user
-- `POST /api/auth/logout` - Logout
+## LLM Provider System
 
-**Characters:**
-- `GET /api/character` - List user's characters
-- `POST /api/character` - Create character (auto-creates default outfit)
-- `GET /api/character/[id]` - Get character details
-- `PATCH /api/character/[id]` - Update character
-- `DELETE /api/character/[id]` - Delete character
-- `POST /api/character/generate-views` - Generate three-view images
-- `POST /api/character/generate-expressions` - Generate expression matrix
-- `POST /api/character/generate-similar` - Generate similar character variations
-- `POST /api/character/outfits` - Create new outfit
-- `POST /api/character/upload-image` - Upload character image to MinIO
-- `GET/POST /api/character/relationship` - Character relationship chart CRUD
-
-**Scenes:**
-- `GET /api/scene` - List user's scenes
-- `POST /api/scene` - Create scene
-- `GET /api/scene/[id]` - Get scene details
-- `PATCH /api/scene/[id]` - Update scene
-- `DELETE /api/scene/[id]` - Delete scene
-
-**Stories:**
-- `GET /api/story` - List user's stories with pagination and status filter
-- `POST /api/story/generate` - Generate story outline from premise using LLM
-- `POST /api/story/expand` - Expand story into detailed script
-- `POST /api/story/character-setup` - Set up characters for story
-- `GET /api/story/templates` - List story templates
-- `POST /api/story/templates` - Create custom story template
-- `GET /api/story/templates/[id]` - Get story template details
-- `GET /api/story/[id]` - Get story details
-- `DELETE /api/story/[id]` - Delete story
-- `PATCH /api/story/[id]` - Update story
-- `GET /api/story/[id]/panels` - Get panels for story-linked project
-- `POST /api/story/[id]/panels` - Create panels from story
-- **Phase 2 Story-Character APIs:**
-- `POST /api/story/[id]/characters` - Add character from library to story
-- `GET /api/story/[id]/characters` - Get all characters in story with details
-- `DELETE /api/story/[id]/characters/[characterId]` - Remove character from story
-- `PATCH /api/story/[id]/characters/[characterId]` - Update character role/arc in story
-
-**Projects & Panels:**
-- `GET /api/project` - List user's projects
-- `POST /api/project` - Create project
-- `GET /api/project/[id]` - Get project with panels
-- `PATCH /api/project/[id]` - Update project
-- `DELETE /api/project/[id]` - Delete project
-- `POST /api/panel/generate-image` - Generate panel image using LLM + AI
-- `POST /api/panel/insert` - Insert new panel between existing panels
-- `POST /api/panel/split` - Split panel into multiple panels
-- `POST /api/panel/merge` - Merge multiple panels into one
-- `PATCH /api/panel/[id]` - Update panel (Phase 2: accepts character_id, expression_type, outfit_id, scene_id)
-- `DELETE /api/panel/[id]` - Delete panel
-- **Phase 2 Panel Asset APIs:**
-- `PATCH /api/panel/batch-update` - Batch update multiple panels with asset bindings
-- `POST /api/panel/[id]/variants` - Generate variants for a panel
-- `GET /api/panel/[id]/variants` - Get all variants for a panel
-- `PATCH /api/panel/variants/[id]/select` - Select a variant as main panel image
-- **Phase 2 Export APIs:**
-- `POST /api/project/[id]/export` - Export project to PNG/PDF/ZIP
-- `GET /api/project/[id]/export/status` - Check export job status
-
-**File Upload:**
-- `POST /api/upload` - Upload files to MinIO storage
-
-**Comic Styles (Public):**
-- `GET /api/comic-styles` - Get enabled comic styles (no auth required)
-- `GET /api/comic-styles/[id]` - Get specific comic style (no auth required)
-- Query param: `?enabled=false` to include disabled styles
-
-**Prompt Optimization:**
-- `POST /api/prompt/optimize` - Optimize user prompt using LLM (no auth required)
-
-**LLM Providers (Admin):**
-- `GET /api/llm-providers` - List all LLM providers
-- `POST /api/llm-providers` - Create LLM provider
-- `PATCH /api/llm-providers/[id]` - Update LLM provider
-- `DELETE /api/llm-providers/[id]` - Delete LLM provider
-
-**Usage & Analytics:**
-- `GET /api/usage` - Get current user's usage statistics
-- `GET /api/admin/usage` - Get all users' usage statistics (admin only)
-
-**Admin (requires admin role):**
-- `GET /api/admin/users` - List all users
-- `GET /api/admin/users/[id]` - Get user details
-- `PATCH /api/admin/users/[id]` - Update user (role/status)
-- `GET /api/admin/comic-styles` - List all comic styles
-- `POST /api/admin/comic-styles` - Create comic style
-- `PATCH /api/admin/comic-styles/[id]` - Update comic style
-- `DELETE /api/admin/comic-styles/[id]` - Delete comic style
-
-### LLM Provider System
-
-LLM providers are configured in the `llm_providers` database table and selected by `provider_type`:
+LLM providers are configured in `llm_providers` table and selected by `provider_type`:
 
 ```typescript
 {
-  provider_type: "script_analyzer" | "prompt_optimizer" | "style_generator" | "character_analyzer" | "image_generation",
+  provider_type: "story_generator" | "prompt_optimizer" | "character_analyzer" | "image_generation" | ...,
   provider_name: "openai",
   model: "gpt-4",
   base_url: "https://api.openai.com",
   api_key: "sk-...",
-  priority: 1,      // Lower number = higher priority
+  credits_cost: 10,    // Credits consumed per call (0 = free)
+  priority: 1,         // Lower = higher priority
   enabled: true
 }
-```
-
-**Critical**: The system uses `provider_type` as the lookup key. Multiple providers can have the same type - the one with lowest `priority` (and `enabled=true`) wins.
-
-**Known provider types in use:**
-- `prompt_optimizer` - Used by `/api/prompt/optimize` for enhancing user prompts
-- `character_analyzer` - Used by `/api/character/generate-similar` for analyzing characters and generating variations
-- `story_generator` - Used by `/api/story/generate` for generating story outlines and scripts
-- `script_analyzer` - For analyzing comic scripts (if implemented)
-- `style_generator` - For generating style-specific prompts (if implemented)
-- `image_generation` - Used for AI image generation (Stable Diffusion, DALL-E, etc.)
-
-**Adding a new provider type:**
-```sql
-INSERT INTO llm_providers (provider_type, provider_name, model, base_url, api_key, priority, enabled)
-VALUES ('your_new_type', 'openai', 'gpt-4', 'https://api.openai.com', 'sk-...', 1, true);
 ```
 
 **Usage in code:**
@@ -348,179 +241,222 @@ const result = await callChatCompletionByType({
     { role: "user", content: userInput }
   ],
   temperature: 0.6,
-  maxTokens: 1500
+  maxTokens: 1500,
+  options: {
+    userId: "user-id",  // Required if credits_cost > 0
+    skipCreditsCheck: false
+  }
 });
 
-const content = result.content; // LLM response text
+const content = result.content;
+const creditsCost = result.creditsCost; // Credits consumed
 ```
 
-The system expects OpenAI-compatible `/v1/chat/completions` endpoints.
+**Streaming API:**
+```typescript
+import { callChatCompletionStreamByType } from "@/lib/llm-provider";
 
-### File Upload System (MinIO)
+for await (const chunk of callChatCompletionStreamByType({
+  providerType: "story_generator",
+  messages: [...],
+  options: { userId }
+})) {
+  // Process text chunk
+}
+```
 
-The app uses MinIO for object storage. Files uploaded through `/api/upload` or `/api/character/upload-image` are stored in MinIO buckets.
+**Known provider types:**
+- `story_generator` - Story outline & script generation
+- `prompt_optimizer` - Prompt enhancement
+- `character_analyzer` - Character analysis & variations
+- `image_generation` - AI image generation
+- `script_analyzer` - Script analysis
+- `style_generator` - Style-specific prompts
 
-**Configuration** (in `.env`):
+## Credits System (算力系统)
+
+Users have `credits` (current balance) and `total_credits_used` (lifetime consumption).
+
+**Check credits:**
+```typescript
+import { checkCredits } from "@/lib/credits";
+
+const hasEnough = await checkCredits(userId, 100); // Check if user has 100 credits
+```
+
+**Consume credits:**
+```typescript
+import { consumeCredits } from "@/lib/credits";
+
+await consumeCredits({
+  userId,
+  amount: 100,
+  description: "Generate character expression",
+  refType: "generation_log",
+  refId: logId
+});
+```
+
+**Recharge credits:**
+```typescript
+import { rechargeCredits } from "@/lib/credits";
+
+await rechargeCredits({
+  userId,
+  amount: 1000,
+  description: "Monthly subscription",
+  refType: "order",
+  refId: orderId
+});
+```
+
+All transactions are logged in `credit_transactions` table.
+
+## Key API Endpoints
+
+### Auth
+- `POST /api/auth/register` - User registration
+- `POST /api/auth/login` - User login
+- `POST /api/auth/send-code` - Send email verification code
+- `GET /api/auth/me` - Get current user
+- `POST /api/auth/logout` - Logout
+
+### Characters
+- `GET /api/character` - List user's characters
+- `POST /api/character` - Create character (auto-creates default outfit)
+- `GET /api/character/[id]` - Get character details
+- `PATCH /api/character/[id]` - Update character
+- `DELETE /api/character/[id]` - Delete character
+- `POST /api/character/generate-views` - Generate three-view images
+- `POST /api/character/generate-expressions` - Generate expression matrix
+- `POST /api/character/generate-similar` - Generate similar character variations
+- `POST /api/character/upload-image` - Upload character image to MinIO
+
+### Scenes
+- `GET /api/scene` - List user's scenes
+- `POST /api/scene` - Create scene
+- `PATCH /api/scene/[id]` - Update scene
+- `DELETE /api/scene/[id]` - Delete scene
+
+### Stories & Chapters
+- `GET /api/story` - List user's stories (pagination, status filter)
+- `POST /api/story/generate` - Generate story outline from premise
+- `POST /api/story/expand` - Expand story into detailed script
+- `GET /api/story/[id]` - Get story details
+- `PATCH /api/story/[id]` - Update story
+- `DELETE /api/story/[id]` - Delete story
+- `POST /api/story/[id]/characters` - Add character to story
+- `GET /api/story/[id]/characters` - Get story characters
+- `DELETE /api/story/[id]/characters/[characterId]` - Remove character from story
+- `PATCH /api/story/[id]/characters/[characterId]` - Update character role/arc
+- `GET /api/chapter/[id]` - Get chapter details
+- `POST /api/chapter/[id]/generate-panels` - Generate panels for chapter
+- `POST /api/chapter/[id]/generate-panels-stream` - Generate panels with streaming
+
+### Projects & Panels
+- `GET /api/project` - List user's projects
+- `POST /api/project` - Create project
+- `GET /api/project/[id]` - Get project with panels
+- `PATCH /api/project/[id]` - Update project
+- `DELETE /api/project/[id]` - Delete project
+- `POST /api/project/[id]/export` - Export project (PNG/PDF/ZIP)
+- `POST /api/panel/insert` - Insert panel at position
+- `POST /api/panel/split` - Split panel into multiple
+- `POST /api/panel/merge` - Merge panels
+- `PATCH /api/panel/[id]` - Update panel
+- `DELETE /api/panel/[id]` - Delete panel
+- `PATCH /api/panel/batch-update` - Batch update panels
+- `POST /api/panel/[id]/variants` - Generate panel variants
+- `PATCH /api/panel/variants/[id]/select` - Select variant as main
+
+### Templates & Workflows
+- `GET /api/templates` - List panel templates
+- `POST /api/templates/[id]/apply` - Apply template to project
+- `GET /api/workflow` - List workflows
+- `POST /api/workflow/auto-generate` - Create auto-generation workflow
+- `GET /api/workflow/[id]/status` - Get workflow status
+
+### Admin
+- `GET /api/admin/users` - List all users
+- `PATCH /api/admin/users/[id]` - Update user (role/status/credits)
+- `GET /api/admin/comic-styles` - Manage comic styles
+- `GET /api/admin/usage` - View all users' usage statistics
+- `GET /api/admin/generation-logs` - View generation logs
+
+## File Upload (MinIO)
+
 ```bash
+# .env configuration
 MINIO_ENDPOINT=localhost
 MINIO_PORT=9000
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
 MINIO_USE_SSL=false
-MINIO_BUCKET=manga-assets
+MINIO_BUCKET_NAME=input-image
 ```
 
-**Upload helpers** are available in `@/lib/upload-helpers.ts`:
-- `uploadBase64Image(base64Data, filename)` - Upload base64 image to MinIO
-- Returns public URL for the uploaded file
-
-**Usage:**
+**Upload helpers:**
 ```typescript
 import { uploadBase64Image } from "@/lib/upload-helpers";
 
 const imageUrl = await uploadBase64Image(base64String, "character-123.png");
-// Returns: http://localhost:9000/manga-assets/character-123.png
+// Returns: http://localhost:9000/input-image/character-123.png
 ```
 
-### Usage Tracking & Generation Logging
+## Code Style Guidelines
 
-All AI generation actions are automatically logged for analytics and debugging.
+1. **TypeScript Strict Mode**: NO `any` types allowed
+   - **WARNING**: `tsconfig.json` has `"strict": false` but you MUST write code as if it were `true`
+   - Explicitly type all parameters, return values, and variables
+   - Use `unknown` instead of `any` when type is genuinely unknown
 
-**Generation Logging** (`@/lib/generation-log.ts`):
-```typescript
-import { logGeneration } from "@/lib/generation-log";
+2. **Type Definitions**: Extract shared types to separate `types.ts` files
 
-await logGeneration({
-  userId: "user-id",
-  action: "generate_character_view",
-  providerType: "image_generation",
-  status: "success",
-  durationMs: 1234,
-  requestPayload: { prompt: "..." },
-  responsePayload: { imageUrl: "..." }
-});
-```
+3. **File Length**: Single files must not exceed 500 lines
+   - Split into sub-components or extract hooks if exceeded
 
-**Usage Statistics** (`@/lib/usage.ts`):
-```typescript
-import { incrementUsage } from "@/lib/usage";
+4. **No Emojis**: Use lucide-react icons instead
+   ```typescript
+   import { IconName } from "lucide-react";
+   ```
 
-await incrementUsage(userId, "generate_expression", "image_generation");
-// Or with quota checking
-await assertAndIncrementUsage({
-  userId,
-  action: "story_generation",
-  providerType: "story_generator"
-});
-```
+5. **Path Aliases**: Use `@/` for imports from `src/`
+   ```typescript
+   import { prisma } from "@/lib/db";
+   import { Button } from "@/components/ui/button";
+   ```
 
-This automatically aggregates daily usage counts in the `usage_stats` table for quota management and billing.
+6. **Error Handling**: Return consistent error format
+   ```typescript
+   return NextResponse.json(
+     { error: "错误描述" },
+     { status: 400 | 401 | 403 | 500 }
+   );
+   ```
 
-**Common actions tracked:**
-- `generate_character_view` - Character view generation
-- `generate_expression` - Expression generation
-- `generate_similar_character` - Similar character generation
-- `story_generation` - Story outline generation
-- `panel_generation` - Panel image generation
+## Common Workflows
 
-### Authentication Flow
+### Character Creation
+1. `POST /api/character` - Create character (auto-creates default outfit)
+2. `POST /api/character/generate-views` - Generate three-view images
+3. `POST /api/character/generate-expressions` - Generate expression matrix
+4. Character status: `pending` → `training` → `ready` | `failed`
 
-1. User registers with email
-2. System sends verification code via email (stored in `email_verifications` table with bcrypt hash)
-3. User verifies code (system marks `used=true`)
-4. User logs in → receives JWT token stored in HTTP-only cookie (`comicai_session`)
-5. API routes extract token from cookie using `AUTH_COOKIE_NAME` constant
-6. API routes verify token using `verifyAuthToken(token)` → returns `AuthTokenPayload` with `userId`, `email`, `role`
+### Story to Comic
+1. `POST /api/story/generate` - Generate story outline
+2. `POST /api/story/[id]/characters` - Add characters from library
+3. `POST /api/story/expand` - Expand into detailed script
+4. `POST /api/project` - Create project linked to story
+5. `POST /api/chapter/[id]/generate-panels` - Generate panels for chapters
+6. `POST /api/panel/[id]/variants` - Generate variants for refinement
 
-**Cookie name**: `comicai_session` (defined as `AUTH_COOKIE_NAME` constant in `@/lib/auth`)
-
-### Character System Workflow
-
-**Creating a character:**
-1. User creates character via `POST /api/character`
-2. System auto-creates "默认装" (default outfit)
-3. Character status: `pending` → `training` → `ready` | `failed`
-
-**Generating three views:**
-1. Call `POST /api/character/generate-views` with `character_id`
-2. System uses LLM to generate front/side/back prompts
-3. (Placeholder) AI image generation → stores URLs in `character_views`
-
-**Generating expressions:**
-1. Call `POST /api/character/generate-expressions`
-2. Single: `{ expression_type: "happy" }`
-3. Batch: `{ generate_all: true }`
-4. System generates optimized prompts for each emotion
-
-**Generating similar characters:**
-1. Call `POST /api/character/generate-similar` with `character_id`, `variation_prompt`, `count` (1-3)
-2. System uses LLM (provider_type: `character_analyzer`) to analyze original character
-3. LLM generates optimized prompts based on variation description
-4. AI generates 1-3 character images in parallel
-5. Returns base64 images for user preview and selection
-6. User saves selected images as new characters in the library
-
-**Story Workflow:**
-1. Create story via `POST /api/story/generate` with `premise`, `genre`, `characterCount`, `length`
-2. System uses LLM (provider_type: `story_generator`) to generate story outline
-3. Story includes: title, genre, characters, acts, and plot points
-4. Optionally expand story into detailed script via `POST /api/story/expand`
-5. Create project from story and generate panels
-6. View and manage stories in `/scripts` page
-7. Edit story panels in `/scripts/[id]` page
-
-**Scene Library Workflow:**
-1. Create scene via `POST /api/scene`
-2. Upload scene image via `/api/upload` or store AI-generated scene URL
-3. Scenes can be tagged and categorized by scene_type
-4. Use scenes as background references in panel generation
-
-**Panel Operations (Storyboard Editor):**
-- **Insert**: `POST /api/panel/insert` - Insert new panel at specific position, auto-reorders subsequent panels
-- **Split**: `POST /api/panel/split` - Split one panel into multiple panels (e.g., 2 or 3 panels)
-- **Merge**: `POST /api/panel/merge` - Merge multiple consecutive panels into one panel
-- All operations automatically update `panel_order` for affected panels
-
-**Expression types:**
-`neutral`, `happy`, `sad`, `angry`, `surprised`, `shy`, `confident`, `worried`, `determined`
-
-**Outfit types:**
-`default`, `school`, `battle`, `casual`, `formal`, `sleepwear`, `sports`, `custom`
-
-**Character roles (Phase 2):**
-`protagonist` (主角), `antagonist` (反派), `supporting` (配角), `minor` (龙套)
-
-**Story genres:**
-- `suspense` (悬疑) - Mystery, thriller
-- `romance` (爱情) - Romantic stories
-- `adventure` (冒险) - Action-adventure
-- `scifi` (科幻) - Science fiction
-- `daily` (日常) - Slice of life
-- `fantasy` (奇幻) - Fantasy, magical
-
-**Story lengths:**
-- `short` - Brief story (3-5 acts)
-- `medium` - Standard length (5-7 acts)
-- `long` - Extended story (7+ acts)
-
-**Workflow statuses:**
-`pending`, `running`, `completed`, `failed`, `cancelled`
-
-**Scene types:**
-`indoor`, `outdoor`, `urban`, `nature`, `fantasy`, `scifi`, `historical`, `abstract`
-
-**Panel types:**
-`wide`, `medium`, `closeup`, `action`, `dialogue`, `transition`
-
-**Camera angles:**
-`俯视` (top-down), `仰视` (bottom-up), `平视` (eye-level), `荷兰角` (Dutch angle)
-
-**Shot sizes:**
-`特写` (close-up), `近景` (close shot), `中景` (medium shot), `全景` (full shot), `远景` (long shot)
+### Panel Operations
+- **Insert**: Insert new panel at position, auto-reorders subsequent panels
+- **Split**: Split one panel into 2-3 panels
+- **Merge**: Merge consecutive panels into one
+- All operations automatically update `panel_order`
 
 ## Environment Variables
-
-Required variables in `.env`:
 
 ```bash
 # Database
@@ -542,92 +478,54 @@ MINIO_PORT=9000
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
 MINIO_USE_SSL=false
-MINIO_BUCKET=manga-assets
+MINIO_BUCKET_NAME=input-image
+
+# (Optional) Usage Quotas
+QUOTA_STORYBOARD_DAILY=20
+QUOTA_STORY_DAILY=30
+QUOTA_IMAGE_DAILY=50
 ```
 
-## Code Style Guidelines
+## Enums & Constants
 
-1. **TypeScript Strict Mode**: NO `any` types allowed - all types must be explicitly defined
-   - **WARNING**: Current `tsconfig.json` has `"strict": false` but you MUST write code as if it were `true`
-   - When writing new code, explicitly type all parameters, return values, and variables
-   - Use `unknown` instead of `any` when the type is genuinely unknown
-   - This is a critical requirement that overrides the tsconfig setting
-2. **Type Definitions**: Extract types to separate `types.ts` files when they're shared across multiple files
-3. **File Length**: Single files must not exceed 500 lines
-   - If a file exceeds 500 lines, split into sub-components or extract hooks
-   - This applies to both component files and utility files
-4. **Package Manager**: ALWAYS use `pnpm`, NEVER `npm`
-   - Run `pnpm install <package>` to add dependencies
-   - Never use `npm` commands
-5. **No Emojis**: Use proper icons (from `lucide-react`) instead of emoji characters in UI
-   - Import icons: `import { IconName } from "lucide-react"`
-   - Replace all emoji usage with semantic icons
+**Expression types:**
+`neutral`, `happy`, `sad`, `angry`, `surprised`, `shy`, `confident`, `worried`, `determined`
 
-## Testing & Validation
+**Outfit types:**
+`default`, `school`, `battle`, `casual`, `formal`, `sleepwear`, `sports`, `custom`
 
-1. Test endpoints with actual HTTP requests (curl/Postman/REST client)
-2. Verify database changes using `npx prisma studio`
-3. Check error handling for edge cases (missing auth, invalid IDs, etc.)
+**Character roles:**
+`protagonist` (主角), `antagonist` (反派), `supporting` (配角), `minor` (龙套)
 
-## Common Patterns
+**Story genres:**
+`suspense` (悬疑), `romance` (爱情), `adventure` (冒险), `scifi` (科幻), `daily` (日常), `fantasy` (奇幻)
 
-### Path Aliases
-Use `@/` for imports from `src/`:
-```typescript
-import { prisma } from "@/lib/db";
-import { Button } from "@/components/ui/button";
-```
+**Story lengths:**
+`short` (3-5 acts), `medium` (5-7 acts), `long` (7+ acts)
 
-### Prisma Client Usage
-```typescript
-import { prisma } from "@/lib/db";
+**Scene types:**
+`indoor`, `outdoor`, `urban`, `nature`, `fantasy`, `scifi`, `historical`, `abstract`
 
-// Always use the singleton instance
-const user = await prisma.user.findUnique({ where: { id } });
-```
+**Panel types:**
+`wide`, `medium`, `closeup`, `action`, `dialogue`, `transition`
 
-### shadcn/ui Components
-All UI components are in `src/components/ui/`. Import like:
-```typescript
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog";
-```
+**Camera angles:**
+`俯视` (top-down), `仰视` (bottom-up), `平视` (eye-level), `荷兰角` (Dutch angle)
 
-### Error Handling
-API routes should return consistent error format:
-```typescript
-return NextResponse.json(
-  { error: "错误描述" },
-  { status: 400 | 401 | 403 | 500 }
-);
-```
+**Shot sizes:**
+`特写` (close-up), `近景` (close shot), `中景` (medium shot), `全景` (full shot), `远景` (long shot)
+
+**Workflow statuses:**
+`pending`, `running`, `completed`, `failed`, `cancelled`
 
 ## Known Limitations
 
-1. **Image Generation**: Currently uses placeholder URLs - production deployment requires integration with:
-   - Stable Diffusion API (ComfyUI, Automatic1111, etc.)
-   - DALL-E API
-   - Other image generation services
-2. **LoRA Training**: Not implemented - character `training_status` always remains `pending`
-3. **MinIO Storage**: Requires MinIO server running locally or cloud instance (S3-compatible storage can also be used)
-
-## Example Application
-
-The `example/` directory contains a standalone photo-to-manga web app that demonstrates the AI generation workflow:
-- Converts photos to manga-style storyboards
-- Uses OpenAI GPT for script generation
-- Uses DALL-E for image generation
-- Pure HTML/CSS/JavaScript (no framework)
-
-This is separate from the main Next.js app and serves as a reference implementation.
-
-## Migration Notes
-
-Migrated from Vite to Next.js 14 App Router. When refactoring legacy code, follow Next.js conventions (Server Components by default, use `"use client"` only when necessary).
+1. **Image Generation**: Requires external AI service integration (Stable Diffusion, DALL-E, etc.)
+2. **LoRA Training**: Not implemented - `training_status` remains `pending`
+3. **MinIO Storage**: Requires MinIO server or S3-compatible storage running
 
 ## Important Exclusions
 
-**DO NOT read or modify files in the `example/` directory unless explicitly requested by the user.**
-- The `example/` directory contains a standalone demo application
-- It is separate from the main Next.js application
-- It serves as reference implementation only
+**DO NOT read or modify files in the `example/` directory unless explicitly requested.**
+- Contains standalone demo application separate from main Next.js app
+- Serves as reference implementation only

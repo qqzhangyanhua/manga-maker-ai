@@ -150,14 +150,28 @@ export async function uploadBase64Image(
   filename: string
 ): Promise<string> {
   try {
-    // 解析 base64 数据
+    // 解析 base64 数据 - 支持带前缀和不带前缀两种格式
+    let mimeType = "image/png"; // 默认类型
+    let base64String = base64Data;
+
     const matches = base64Data.match(/^data:(.+);base64,(.+)$/);
-    if (!matches) {
+    if (matches) {
+      // 带前缀格式: data:image/png;base64,xxx
+      mimeType = matches[1];
+      base64String = matches[2];
+    } else if (!base64Data.includes("data:")) {
+      // 纯 base64 字符串，从文件名推断类型
+      const ext = filename.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/)?.[1];
+      if (ext === "jpg" || ext === "jpeg") {
+        mimeType = "image/jpeg";
+      } else if (ext === "png") {
+        mimeType = "image/png";
+      } else if (ext === "webp") {
+        mimeType = "image/webp";
+      }
+    } else {
       throw new Error("无效的 base64 格式");
     }
-
-    const mimeType = matches[1];
-    const base64String = matches[2];
 
     // 验证 MIME 类型
     if (!ALLOWED_IMAGE_TYPES.includes(mimeType)) {

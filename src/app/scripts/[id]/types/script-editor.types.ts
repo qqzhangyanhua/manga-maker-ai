@@ -95,6 +95,9 @@ export interface Panel {
   shared_at?: string | null; // 分享时间
   view_count?: number; // 浏览次数
   show_prompt?: boolean; // 是否公开 prompt
+  // Timestamps
+  created_at?: string;
+  updated_at?: string;
   // UI-only fields
   _isGenerating?: boolean; // 临时标记：是否为正在生成中的分镜（未保存到数据库）
   _syncing?: boolean; // 乐观更新同步标记

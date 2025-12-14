@@ -169,27 +169,6 @@ export async function POST(
           return;
         }
 
-        // 检查是否已有分镜
-        if (!overwrite) {
-          const existingPanels = await prisma.panel.count({
-            where: {
-              project_id,
-              chapter_id: chapterId,
-            },
-          });
-
-          if (existingPanels > 0) {
-            sendEvent(controller, {
-              stage: "error",
-              current: 0,
-              total: 0,
-              message: `该章节已有 ${existingPanels} 个分镜，请启用覆盖选项`,
-            });
-            controller.close();
-            return;
-          }
-        }
-
         // 检查章节是否有梗概
         if (!chapter.summary) {
           sendEvent(controller, {
@@ -292,7 +271,8 @@ export async function POST(
               message: `AI 正在生成中...`,
               llmChunk: chunk,
             });
-          }
+          },
+          userId
         );
 
         // 阶段 4: 保存到数据库
@@ -313,6 +293,24 @@ export async function POST(
           });
         }
 
+        // 扩写模式：获取当前章节已有分镜的最大 panel_order
+        let panelOrderOffset = 0;
+        if (!overwrite) {
+          const existingPanels = await prisma.panel.findMany({
+            where: {
+              project_id,
+              chapter_id: chapterId,
+            },
+            select: { panel_order: true },
+            orderBy: { panel_order: "desc" },
+            take: 1,
+          });
+
+          if (existingPanels.length > 0) {
+            panelOrderOffset = existingPanels[0].panel_order;
+          }
+        }
+
         // 批量创建分镜
         const panels = await prisma.$transaction(
           generatedPanels.map((panel) =>
@@ -320,7 +318,7 @@ export async function POST(
               data: {
                 project_id,
                 chapter_id: chapterId,
-                panel_order: panel.panel_order,
+                panel_order: panel.panel_order + panelOrderOffset,
                 description: panel.description,
                 visual_prompt: panel.visual_prompt,
                 dialogue: panel.dialogue || null,

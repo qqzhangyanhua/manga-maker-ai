@@ -87,26 +87,6 @@ export async function POST(
       );
     }
 
-    // 检查是否已有分镜
-    if (!overwrite) {
-      const existingPanels = await prisma.panel.count({
-        where: {
-          project_id,
-          chapter_id: chapterId
-        }
-      });
-
-      if (existingPanels > 0) {
-        return NextResponse.json(
-          {
-            error: "该章节已有分镜，请设置 overwrite=true 覆盖",
-            existingCount: existingPanels
-          },
-          { status: 400 }
-        );
-      }
-    }
-
     // 检查章节是否有梗概
     if (!chapter.summary) {
       return NextResponse.json(
@@ -145,7 +125,7 @@ export async function POST(
       storyTitle: chapter.story.title,
       genre: chapter.story.genre,
       panelCount: panel_count
-    });
+    }, userId);
 
     // 如果需要覆盖，先删除旧分镜
     if (overwrite) {
@@ -157,6 +137,24 @@ export async function POST(
       });
     }
 
+    // 扩写模式：获取当前章节已有分镜的最大 panel_order
+    let panelOrderOffset = 0;
+    if (!overwrite) {
+      const existingPanels = await prisma.panel.findMany({
+        where: {
+          project_id,
+          chapter_id: chapterId,
+        },
+        select: { panel_order: true },
+        orderBy: { panel_order: "desc" },
+        take: 1,
+      });
+
+      if (existingPanels.length > 0) {
+        panelOrderOffset = existingPanels[0].panel_order;
+      }
+    }
+
     // 批量创建分镜
     const panels = await prisma.$transaction(
       generatedPanels.map((panel) =>
@@ -164,7 +162,7 @@ export async function POST(
           data: {
             project_id,
             chapter_id: chapterId,
-            panel_order: panel.panel_order,
+            panel_order: panel.panel_order + panelOrderOffset,
             description: panel.description,
             visual_prompt: panel.visual_prompt,
             dialogue: panel.dialogue || null,

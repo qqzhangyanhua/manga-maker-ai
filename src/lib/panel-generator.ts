@@ -101,7 +101,8 @@ function tryFixJSON(text: string): string {
  * Generate panel storyboard from chapter summary using LLM
  */
 export async function generatePanelsFromChapter(
-  params: PanelGenerationParams
+  params: PanelGenerationParams,
+  userId?: string
 ): Promise<GeneratedPanel[]> {
   const { chapterTitle, chapterSummary, storyTitle, genre, panelCount } = params;
 
@@ -125,7 +126,8 @@ ${chapterSummary}
       { role: "user", content: userPrompt }
     ],
     temperature: 0.8,
-    maxTokens: 4000
+    maxTokens: 4000,
+    options: userId ? { userId } : undefined,
   });
 
   try {
@@ -175,7 +177,8 @@ ${chapterSummary}
  */
 export async function generatePanelsFromChapterStream(
   params: PanelGenerationParams,
-  onChunk: (chunk: string) => void
+  onChunk: (chunk: string) => void,
+  userId?: string
 ): Promise<GeneratedPanel[]> {
   const { chapterTitle, chapterSummary, storyTitle, genre, panelCount } = params;
 
@@ -203,6 +206,7 @@ ${chapterSummary}
     ],
     temperature: 0.8,
     maxTokens: 4000,
+    options: userId ? { userId } : undefined,
   });
 
   // 逐块累积内容

@@ -5,6 +5,7 @@
 
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -13,6 +14,16 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Edit, MoreHorizontal, Trash2, ImagePlus, Plus, Split, Combine, Sparkles, Share2 } from "lucide-react";
 import { SharePanelDialog } from "@/components/SharePanelDialog";
 import type { Panel } from "../../types/script-editor.types";
@@ -44,8 +55,16 @@ export function PanelCardActions({
   canMergeWithNext = false,
   onShareSuccess,
 }: PanelCardActionsProps) {
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  const handleDeleteConfirm = () => {
+    onDelete(panel.id);
+    setDeleteDialogOpen(false);
+  };
+
   return (
-    <DropdownMenu>
+    <>
+      <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="h-8 w-8">
           <MoreHorizontal className="w-4 h-4" />
@@ -121,12 +140,39 @@ export function PanelCardActions({
         <DropdownMenuSeparator />
         <DropdownMenuItem
           className="text-destructive focus:text-destructive"
-          onClick={() => onDelete(panel.id)}
+          onClick={() => setDeleteDialogOpen(true)}
         >
           <Trash2 className="w-4 h-4 mr-2" />
           删除
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+
+    {/* 删除确认对话框 */}
+    <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>确认删除分镜</AlertDialogTitle>
+          <AlertDialogDescription>
+            确定要删除分镜 #{panel.panel_order} 吗？此操作无法撤销。
+            {panel.generated_image && (
+              <span className="block mt-2 text-amber-600">
+                该分镜已有生成的图片，删除后图片也将被移除。
+              </span>
+            )}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>取消</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleDeleteConfirm}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            确认删除
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  </>
   );
 }

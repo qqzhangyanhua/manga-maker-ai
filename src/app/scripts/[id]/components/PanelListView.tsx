@@ -400,7 +400,7 @@ export function PanelListView({
       {/* 多镜生成对话框 */}
       <MultiPanelGenerateDialog
         open={multiPanelDialogOpen}
-        panels={panels}
+        panels={filteredPanels}
         storyId={storyId}
         onOpenChange={setMultiPanelDialogOpen}
         onSuccess={(imageUrl, panelIds) => {
@@ -413,7 +413,7 @@ export function PanelListView({
       <ReferenceGuidedGenerationDialog
         open={referenceDialogOpen}
         panel={selectedPanelForGeneration}
-        allPanels={panels}
+        allPanels={filteredPanels}
         storyId={storyId}
         characters={characters}
         onCharactersRefresh={onCharactersRefresh}
