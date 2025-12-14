@@ -1,5 +1,6 @@
 import type { LlmProvider } from "@prisma/client";
 import { prisma, ensureDb } from "./db";
+import { consumeCredits, checkCredits, type CreditError } from "./credits";
 
 type ChatRole = "system" | "user" | "assistant";
 
@@ -7,6 +8,13 @@ export type ChatMessage = {
   role: ChatRole;
   content: string;
 };
+
+export interface LlmCallOptions {
+  /** 用户ID，用于扣除算力（如果provider配置了credits_cost > 0） */
+  userId?: string;
+  /** 跳过算力检查（仅用于免费操作） */
+  skipCreditsCheck?: boolean;
+}
 
 const normalizeBaseUrl = (url: string) => url.replace(/\/$/, "");
 
@@ -36,9 +44,36 @@ export const callChatCompletionByType = async (params: {
   messages: ChatMessage[];
   temperature?: number;
   maxTokens?: number;
+  options?: LlmCallOptions;
 }) => {
-  const { providerType, messages, temperature = 0.6, maxTokens = 1500 } = params;
+  const { providerType, messages, temperature = 0.6, maxTokens = 1500, options } = params;
   const provider = await ensureLlmProvider(providerType);
+
+  // 算力检查与扣除
+  const creditsCost = provider.credits_cost ?? 0;
+  if (creditsCost > 0 && !options?.skipCreditsCheck) {
+    if (!options?.userId) {
+      throw new Error("需要消耗算力的操作必须提供 userId");
+    }
+
+    // 先检查余额是否足够
+    const hasEnough = await checkCredits(options.userId, creditsCost);
+    if (!hasEnough) {
+      const error = new Error(`算力不足，本次操作需要 ${creditsCost} 算力`) as CreditError;
+      error.code = "INSUFFICIENT_CREDITS";
+      error.required = creditsCost;
+      error.available = 0; // 实际值会在 consumeCredits 中获取
+      throw error;
+    }
+
+    // 扣除算力
+    await consumeCredits({
+      userId: options.userId,
+      amount: creditsCost,
+      description: `${providerType} - ${provider.model}`,
+      refType: "generation_log",
+    });
+  }
 
   const endpoint = `${normalizeBaseUrl(provider.base_url)}/v1/chat/completions`;
 
@@ -64,7 +99,7 @@ export const callChatCompletionByType = async (params: {
   const data = await response.json();
   const content: string = data?.choices?.[0]?.message?.content ?? "";
 
-  return { content, raw: data, provider };
+  return { content, raw: data, provider, creditsCost };
 };
 
 /**
@@ -76,9 +111,34 @@ export async function* callChatCompletionStreamByType(params: {
   messages: ChatMessage[];
   temperature?: number;
   maxTokens?: number;
+  options?: LlmCallOptions;
 }): AsyncGenerator<string, void, unknown> {
-  const { providerType, messages, temperature = 0.6, maxTokens = 1500 } = params;
+  const { providerType, messages, temperature = 0.6, maxTokens = 1500, options } = params;
   const provider = await ensureLlmProvider(providerType);
+
+  // 算力检查与扣除（流式调用前先扣除）
+  const creditsCost = provider.credits_cost ?? 0;
+  if (creditsCost > 0 && !options?.skipCreditsCheck) {
+    if (!options?.userId) {
+      throw new Error("需要消耗算力的操作必须提供 userId");
+    }
+
+    const hasEnough = await checkCredits(options.userId, creditsCost);
+    if (!hasEnough) {
+      const error = new Error(`算力不足，本次操作需要 ${creditsCost} 算力`) as CreditError;
+      error.code = "INSUFFICIENT_CREDITS";
+      error.required = creditsCost;
+      error.available = 0;
+      throw error;
+    }
+
+    await consumeCredits({
+      userId: options.userId,
+      amount: creditsCost,
+      description: `${providerType} - ${provider.model} (stream)`,
+      refType: "generation_log",
+    });
+  }
 
   const endpoint = `${normalizeBaseUrl(provider.base_url)}/v1/chat/completions`;
 

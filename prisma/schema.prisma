@@ -22,11 +22,16 @@ model User {
   role              String?   @default("user")
   status            String?   @default("active")
 
+  // Credits system
+  credits            Int @default(2000) // 当前算力余额
+  total_credits_used Int @default(0)    // 累计消耗算力
+
   // Phase 1 relations
-  panelTemplates  PanelTemplate[]
-  templateLikes   TemplateLike[]
-  generationTasks GenerationTask[]
-  tags            Tag[]
+  panelTemplates       PanelTemplate[]
+  templateLikes        TemplateLike[]
+  generationTasks      GenerationTask[]
+  tags                 Tag[]
+  creditTransactions   CreditTransaction[]
 
   @@map("users")
 }
@@ -53,6 +58,7 @@ model LlmProvider {
   priority      Int      @default(1)
   enabled       Boolean  @default(true)
   desc          String?  // 描述这个配置是用来干嘛的
+  credits_cost  Int      @default(0) // 每次调用消耗的算力，0=不消耗
   created_at    DateTime @default(now()) @db.Timestamptz(6)
   updated_at    DateTime @default(now()) @db.Timestamptz(6)
 
@@ -618,4 +624,26 @@ model Tagging {
   @@unique([tag_id, taggable_type, taggable_id], map: "unique_tagging")
   @@index([taggable_type, taggable_id], map: "idx_taggings_taggable")
   @@map("taggings")
+}
+
+// ============================================================
+// Credit Transaction - 算力交易记录
+// ============================================================
+
+model CreditTransaction {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String   @db.Uuid
+  amount      Int      // 正数=充值/赠送，负数=消耗
+  balance     Int      // 变动后余额
+  action      String   // register/consume/recharge/admin_adjust/refund
+  description String?  // 描述
+  ref_type    String?  // 关联类型: generation_log/order/admin
+  ref_id      String?  @db.Uuid // 关联ID
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, created_at], map: "idx_credit_transactions_user_time")
+  @@index([action], map: "idx_credit_transactions_action")
+  @@map("credit_transactions")
 }

@@ -7,7 +7,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Pencil, Copy, Trash2 } from "lucide-react";
+import { Pencil, Copy, Trash2, Zap } from "lucide-react";
 import type { Provider } from "../types";
 
 interface ProviderTableProps {
@@ -41,6 +41,12 @@ export const ProviderTable = ({
               <TableHead className="min-w-[150px]">Model</TableHead>
               <TableHead className="min-w-[200px]">Base URL</TableHead>
               <TableHead className="min-w-[80px]">Priority</TableHead>
+              <TableHead className="min-w-[90px]">
+                <div className="flex items-center gap-1">
+                  <Zap className="h-3.5 w-3.5 text-amber-500" />
+                  算力
+                </div>
+              </TableHead>
               <TableHead className="min-w-[200px]">描述</TableHead>
               <TableHead className="min-w-[140px] sticky right-0 bg-muted z-20 text-right shadow-[inset_1px_0_0_0_hsl(var(--border))]">
                 操作
@@ -50,13 +56,13 @@ export const ProviderTable = ({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground">
+                <TableCell colSpan={9} className="text-center text-muted-foreground">
                   正在加载...
                 </TableCell>
               </TableRow>
             ) : providers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground">
+                <TableCell colSpan={9} className="text-center text-muted-foreground">
                   暂无配置，先在上方添加一条记录。
                 </TableCell>
               </TableRow>
@@ -78,6 +84,11 @@ export const ProviderTable = ({
                     {p.base_url}
                   </TableCell>
                   <TableCell>{p.priority}</TableCell>
+                  <TableCell>
+                    <span className={`inline-flex items-center gap-1 ${p.credits_cost > 0 ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
+                      {p.credits_cost > 0 ? p.credits_cost : "免费"}
+                    </span>
+                  </TableCell>
                   <TableCell className="max-w-[200px] truncate" title={p.desc || ""}>
                     {p.desc || "-"}
                   </TableCell>

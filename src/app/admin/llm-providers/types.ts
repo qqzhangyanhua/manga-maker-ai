@@ -7,6 +7,7 @@ export type ProviderForm = {
   priority: number;
   enabled: boolean;
   desc?: string;
+  credits_cost: number;
 };
 
 export type Provider = ProviderForm & {
@@ -22,6 +23,7 @@ export const emptyForm: ProviderForm = {
   priority: 1,
   enabled: true,
   desc: "",
+  credits_cost: 0,
 };
 
 

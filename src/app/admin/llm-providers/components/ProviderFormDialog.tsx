@@ -42,6 +42,7 @@ export const ProviderFormDialog = ({
         priority: editingProvider.priority,
         enabled: editingProvider.enabled,
         desc: editingProvider.desc || "",
+        credits_cost: editingProvider.credits_cost ?? 0,
       });
     } else {
       setForm(emptyForm);
@@ -128,6 +129,19 @@ export const ProviderFormDialog = ({
                   setForm((prev) => ({ ...prev, priority: Number(e.target.value) || 1 }))
                 }
               />
+            </div>
+            <div className="space-y-2">
+              <Label>算力消耗 (credits_cost)</Label>
+              <Input
+                type="number"
+                min={0}
+                value={form.credits_cost}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, credits_cost: Number(e.target.value) || 0 }))
+                }
+                placeholder="0 = 免费"
+              />
+              <p className="text-xs text-muted-foreground">每次调用消耗的算力，0表示不消耗</p>
             </div>
             <div className="space-y-2 flex items-center gap-3">
               <Label className="min-w-[80px]">enabled</Label>

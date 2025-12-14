@@ -71,8 +71,8 @@ export default function PublishersPage() {
                 className="border-zinc-600 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-zinc-500 px-8"
                 asChild
               >
-                <Link href="#features">
-                  查看企业功能
+                <Link href="/#pricing">
+                  查看价格
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Link>
               </Button>

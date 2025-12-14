@@ -518,51 +518,6 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
           {/* 导航 */}
           <nav className="space-y-2">
-            {/* 产品功能分类 */}
-            <div className="border border-zinc-800">
-              <button
-                className="w-full flex items-center justify-between p-4 text-left"
-                onClick={() =>
-                  setExpandedSection(
-                    expandedSection === "product" ? null : "product"
-                  )
-                }
-              >
-                <span className="text-white font-medium">产品功能</span>
-                <ChevronDown
-                  className={cn(
-                    "w-5 h-5 text-zinc-500 transition-transform",
-                    expandedSection === "product" && "rotate-180"
-                  )}
-                />
-              </button>
-              <div
-                className={cn(
-                  "overflow-hidden transition-all duration-300",
-                  expandedSection === "product" ? "max-h-[500px]" : "max-h-0"
-                )}
-              >
-                <div className="p-4 pt-0 space-y-1">
-                  {productMenuItems.map((item) => (
-                    <Link
-                      key={item.title}
-                      href={item.href}
-                      className="flex items-center gap-3 p-3 bg-zinc-900/50 hover:bg-zinc-900 transition-colors"
-                      onClick={onClose}
-                    >
-                      <item.icon className="w-4 h-4 text-orange-500" />
-                      <div>
-                        <div className="text-sm text-white">{item.title}</div>
-                        <div className="text-xs text-zinc-500">
-                          {item.description}
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </div>
-
             {/* 解决方案分类 */}
             <div className="border border-zinc-800">
               <button

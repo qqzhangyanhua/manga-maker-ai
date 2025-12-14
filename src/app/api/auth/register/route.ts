@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { ensureDb, prisma } from "@/lib/db";
 import { attachAuthCookie, hashText, signAuthToken, verifyHash } from "@/lib/auth";
+import { DEFAULT_REGISTER_CREDITS } from "@/lib/credits";
 
 export const runtime = "nodejs";
 
@@ -123,6 +124,8 @@ export async function POST(request: NextRequest) {
             status: "active",
             created_at: now,
             updated_at: now,
+            credits: DEFAULT_REGISTER_CREDITS,
+            total_credits_used: 0,
           },
           select: {
             id: true,
@@ -131,6 +134,18 @@ export async function POST(request: NextRequest) {
             verified: true,
             role: true,
             status: true,
+            credits: true,
+          },
+        });
+
+        // 记录注册赠送算力交易
+        await tx.creditTransaction.create({
+          data: {
+            user_id: savedUser.id,
+            amount: DEFAULT_REGISTER_CREDITS,
+            balance: DEFAULT_REGISTER_CREDITS,
+            action: "register",
+            description: `注册赠送 ${DEFAULT_REGISTER_CREDITS} 算力`,
           },
         });
       }

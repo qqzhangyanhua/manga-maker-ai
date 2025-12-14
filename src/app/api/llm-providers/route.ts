@@ -14,6 +14,7 @@ const providerSchema = z.object({
   priority: z.number().int().positive().default(1),
   enabled: z.boolean().default(true),
   desc: z.string().nullable().optional(),
+  credits_cost: z.number().int().min(0, "算力消耗不能为负数").default(0),
 });
 
 const handleError = (error: unknown) => {
@@ -69,6 +70,7 @@ export async function POST(request: NextRequest) {
         priority: payload.priority,
         enabled: payload.enabled,
         desc: payload.desc,
+        credits_cost: payload.credits_cost,
         created_at: now,
         updated_at: now,
       },
