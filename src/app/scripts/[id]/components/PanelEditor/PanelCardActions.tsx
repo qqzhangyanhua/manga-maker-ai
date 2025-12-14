@@ -13,7 +13,8 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Edit, MoreHorizontal, Trash2, ImagePlus, Plus, Split, Combine, Sparkles } from "lucide-react";
+import { Edit, MoreHorizontal, Trash2, ImagePlus, Plus, Split, Combine, Sparkles, Share2 } from "lucide-react";
+import { SharePanelDialog } from "@/components/SharePanelDialog";
 import type { Panel } from "../../types/script-editor.types";
 
 interface PanelCardActionsProps {
@@ -27,6 +28,7 @@ interface PanelCardActionsProps {
   onSplit?: (panel: Panel) => void;
   onMergeWithNext?: (panel: Panel) => void;
   canMergeWithNext?: boolean;
+  onShareSuccess?: () => void; // NEW: Share callback
 }
 
 export function PanelCardActions({
@@ -40,6 +42,7 @@ export function PanelCardActions({
   onSplit,
   onMergeWithNext,
   canMergeWithNext = false,
+  onShareSuccess,
 }: PanelCardActionsProps) {
   return (
     <DropdownMenu>
@@ -73,6 +76,22 @@ export function PanelCardActions({
           <Edit className="w-4 h-4 mr-2" />
           编辑
         </DropdownMenuItem>
+
+        {/* 分享到画廊 */}
+        {panel.generated_image && (
+          <SharePanelDialog
+            panelId={panel.id}
+            isShared={panel.is_shared || false}
+            showPrompt={panel.show_prompt !== undefined ? panel.show_prompt : true}
+            onShareSuccess={onShareSuccess}
+            trigger={
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                <Share2 className="w-4 h-4 mr-2" />
+                {panel.is_shared ? "管理分享" : "分享到画廊"}
+              </DropdownMenuItem>
+            }
+          />
+        )}
 
         {/* 高级操作 */}
         {(onInsertAfter || onSplit || onMergeWithNext) && (

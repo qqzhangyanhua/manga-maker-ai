@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Terminal } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface ShowcaseItem {
   id: string;
@@ -57,6 +58,9 @@ const showcaseItems: ShowcaseItem[] = [
 
 export function ShowcaseSection() {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
+  const [isHovering, setIsHovering] = useState(false);
 
   const scroll = (direction: "left" | "right") => {
     if (scrollRef.current) {
@@ -67,6 +71,25 @@ export function ShowcaseSection() {
       });
     }
   };
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    setMousePosition({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+  }, []);
+
+  const handleMouseEnter = useCallback(() => {
+    setIsHovering(true);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setIsHovering(false);
+    setMousePosition(null);
+  }, []);
 
   return (
     <section className="relative py-24 bg-[#09090b]">
@@ -111,18 +134,45 @@ export function ShowcaseSection() {
           </div>
         </div>
 
-        {/* Horizontal Scrolling Gallery */}
+        {/* Horizontal Scrolling Gallery with Spotlight */}
         <div
-          ref={scrollRef}
-          className="flex gap-4 overflow-x-auto pb-4 px-4 scrollbar-hide"
-          style={{
-            scrollbarWidth: "none",
-            msOverflowStyle: "none",
-          }}
+          ref={containerRef}
+          className="relative"
+          onMouseMove={handleMouseMove}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
         >
-          {showcaseItems.map((item, index) => (
-            <ShowcaseCard key={item.id} item={item} index={index} />
-          ))}
+          {/* Global Spotlight Overlay */}
+          <div
+            className={cn(
+              "pointer-events-none absolute inset-0 z-30 transition-opacity duration-500",
+              isHovering ? "opacity-100" : "opacity-0"
+            )}
+            style={{
+              background: mousePosition
+                ? `radial-gradient(800px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(249, 115, 22, 0.07), transparent 40%)`
+                : "none",
+            }}
+          />
+
+          <div
+            ref={scrollRef}
+            className="flex gap-4 overflow-x-auto pb-4 px-4 scrollbar-hide"
+            style={{
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
+            }}
+          >
+            {showcaseItems.map((item, index) => (
+              <ShowcaseCard
+                key={item.id}
+                item={item}
+                index={index}
+                mousePosition={mousePosition}
+                isContainerHovering={isHovering}
+              />
+            ))}
+          </div>
         </div>
 
         {/* 移动端滑动提示 */}
@@ -148,13 +198,109 @@ export function ShowcaseSection() {
 interface ShowcaseCardProps {
   item: ShowcaseItem;
   index: number;
+  mousePosition: { x: number; y: number } | null;
+  isContainerHovering: boolean;
 }
 
-function ShowcaseCard({ item, index }: ShowcaseCardProps) {
+function ShowcaseCard({ item, index, mousePosition, isContainerHovering }: ShowcaseCardProps) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [localMousePos, setLocalMousePos] = useState<{ x: number; y: number } | null>(null);
+  const [isCardHovered, setIsCardHovered] = useState(false);
+
+  // Update local mouse position relative to this card
+  const updateLocalMousePos = useCallback(() => {
+    if (!mousePosition || !cardRef.current) {
+      setLocalMousePos(null);
+      return;
+    }
+
+    const rect = cardRef.current.getBoundingClientRect();
+    const containerRect = cardRef.current.parentElement?.parentElement?.getBoundingClientRect();
+
+    if (!containerRect) return;
+
+    // Calculate mouse position relative to this card
+    const cardLeft = rect.left - containerRect.left;
+    const cardTop = rect.top - containerRect.top;
+
+    setLocalMousePos({
+      x: mousePosition.x - cardLeft,
+      y: mousePosition.y - cardTop,
+    });
+  }, [mousePosition]);
+
+  // Check if mouse is within proximity of this card
+  const isNearCard = useCallback(() => {
+    if (!mousePosition || !cardRef.current) return false;
+
+    const rect = cardRef.current.getBoundingClientRect();
+    const containerRect = cardRef.current.parentElement?.parentElement?.getBoundingClientRect();
+
+    if (!containerRect) return false;
+
+    const cardLeft = rect.left - containerRect.left;
+    const cardTop = rect.top - containerRect.top;
+    const cardCenterX = cardLeft + rect.width / 2;
+    const cardCenterY = cardTop + rect.height / 2;
+
+    const distance = Math.sqrt(
+      Math.pow(mousePosition.x - cardCenterX, 2) +
+      Math.pow(mousePosition.y - cardCenterY, 2)
+    );
+
+    return distance < 400;
+  }, [mousePosition]);
+
+  // Update local position when mouse moves
+  useEffect(() => {
+    updateLocalMousePos();
+  }, [mousePosition, updateLocalMousePos]);
+
+  const showGlow = isContainerHovering && (isCardHovered || isNearCard());
+
   return (
-    <div className="flex-shrink-0 w-72 md:w-80 group cursor-pointer">
-      {/* Image Container */}
-      <div className="relative aspect-[3/4] border border-zinc-800 overflow-hidden group-hover:border-orange-500/50 transition-colors">
+    <div
+      ref={cardRef}
+      className="relative flex-shrink-0 w-72 md:w-80 group cursor-pointer"
+      onMouseEnter={() => setIsCardHovered(true)}
+      onMouseLeave={() => setIsCardHovered(false)}
+    >
+      {/* Image Container with Spotlight Border */}
+      <div className="relative aspect-[3/4] border overflow-hidden transition-all duration-300"
+        style={{
+          borderColor: showGlow ? "rgba(249, 115, 22, 0.5)" : "rgb(39, 39, 42)",
+        }}
+      >
+        {/* Glowing border overlay */}
+        <div
+          className={cn(
+            "absolute inset-0 pointer-events-none z-20 transition-opacity duration-300",
+            showGlow ? "opacity-100" : "opacity-0"
+          )}
+          style={{
+            background: localMousePos
+              ? `radial-gradient(350px circle at ${localMousePos.x}px ${localMousePos.y}px, rgba(249, 115, 22, 0.5), transparent 40%)`
+              : "none",
+            mask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
+            WebkitMask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
+            maskComposite: "xor",
+            WebkitMaskComposite: "xor",
+            padding: "1px",
+          }}
+        />
+
+        {/* Inner glow effect */}
+        <div
+          className={cn(
+            "absolute inset-0 pointer-events-none transition-opacity duration-300",
+            showGlow ? "opacity-100" : "opacity-0"
+          )}
+          style={{
+            background: localMousePos
+              ? `radial-gradient(400px circle at ${localMousePos.x}px ${localMousePos.y}px, rgba(249, 115, 22, 0.08), transparent 40%)`
+              : "none",
+          }}
+        />
         {/* Placeholder gradient background simulating manga image */}
         <div
           className="absolute inset-0"

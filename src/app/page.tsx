@@ -4,10 +4,9 @@ import { useState, useCallback } from "react";
 import Link from "next/link";
 import { BarChart3, BookOpen, FileText, Images, Play, ArrowRight, Layers, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { WorkflowGuide } from "@/components/WorkflowGuide";
 import { TrialDialog } from "@/components/TrialDialog";
 import { OnboardingDialog } from "@/components/OnboardingDialog";
-import { HeroSection, FeaturesSection, ShowcaseSection, PricingSection, Navbar } from "@/components/Landing";
+import { HeroSection, ShowcaseSection, PricingSection, Navbar } from "@/components/Landing";
 
 const recordShortcuts = [
   {
@@ -58,14 +57,6 @@ const HomePage = () => {
       <main className="pt-16">
         {/* Hero Section with futuristic manga studio style */}
         <HeroSection onOpenTrial={() => setShowTrialDialog(true)} />
-
-        {/* Features Section - System Modules */}
-        <div id="features">
-          <FeaturesSection />
-        </div>
-
-        {/* Workflow Guide */}
-        <WorkflowGuide className="px-4 py-12 -mt-8" />
 
         {/* Showcase Section - Production Logs */}
         <ShowcaseSection />

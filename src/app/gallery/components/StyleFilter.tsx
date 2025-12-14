@@ -25,13 +25,19 @@ export function StyleFilter({
 
   useEffect(() => {
     fetch("/api/comic-styles")
-      .then((res) => res.json())
-      .then((data: ComicStyle[]) => {
-        setStyles(data);
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("Failed to fetch styles");
+        }
+        return res.json();
+      })
+      .then((response: { data?: ComicStyle[]; total?: number }) => {
+        setStyles(response.data || []);
         setLoading(false);
       })
       .catch((error) => {
         console.error("Failed to fetch comic styles:", error);
+        setStyles([]); // 确保失败时也设置为空数组
         setLoading(false);
       });
   }, []);

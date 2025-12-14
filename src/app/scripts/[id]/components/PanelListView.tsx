@@ -329,6 +329,7 @@ export function PanelListView({
                         onInsertAfter={() => handleInsertAfter(panel)}
                         onSplit={() => handleSplit(panel)}
                         onMergeWithNext={() => handleMergeWithNext(panel)}
+                        onShareSuccess={handleOperationComplete}
                       />
                     }
                   />

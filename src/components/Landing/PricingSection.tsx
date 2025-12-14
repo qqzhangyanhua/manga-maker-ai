@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Server, Cpu, Building2, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -94,6 +94,29 @@ const pricingPlans: PricingPlan[] = [
 ];
 
 export function PricingSection() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
+  const [isHovering, setIsHovering] = useState(false);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    setMousePosition({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+  }, []);
+
+  const handleMouseEnter = useCallback(() => {
+    setIsHovering(true);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setIsHovering(false);
+    setMousePosition(null);
+  }, []);
+
   return (
     <section className="relative px-4 py-24 bg-[#0c0c0e]">
       {/* Top separator line */}
@@ -116,16 +139,39 @@ export function PricingSection() {
           </p>
         </div>
 
-        {/* Pricing Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-zinc-800">
-          {pricingPlans.map((plan, index) => (
-            <PricingCard
-              key={plan.id}
-              plan={plan}
-              isFirst={index === 0}
-              isLast={index === pricingPlans.length - 1}
-            />
-          ))}
+        {/* Pricing Grid with Spotlight */}
+        <div
+          ref={containerRef}
+          className="relative"
+          onMouseMove={handleMouseMove}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
+          {/* Global Spotlight Overlay */}
+          <div
+            className={cn(
+              "pointer-events-none absolute inset-0 z-30 transition-opacity duration-500",
+              isHovering ? "opacity-100" : "opacity-0"
+            )}
+            style={{
+              background: mousePosition
+                ? `radial-gradient(800px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(249, 115, 22, 0.07), transparent 40%)`
+                : "none",
+            }}
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-zinc-800">
+            {pricingPlans.map((plan, index) => (
+              <PricingCard
+                key={plan.id}
+                plan={plan}
+                isFirst={index === 0}
+                isLast={index === pricingPlans.length - 1}
+                mousePosition={mousePosition}
+                isContainerHovering={isHovering}
+              />
+            ))}
+          </div>
         </div>
 
         {/* Footer note */}
@@ -143,20 +189,109 @@ interface PricingCardProps {
   plan: PricingPlan;
   isFirst: boolean;
   isLast: boolean;
+  mousePosition: { x: number; y: number } | null;
+  isContainerHovering: boolean;
 }
 
-function PricingCard({ plan, isFirst, isLast }: PricingCardProps) {
+function PricingCard({ plan, isFirst, isLast, mousePosition, isContainerHovering }: PricingCardProps) {
   const [isPressed, setIsPressed] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [localMousePos, setLocalMousePos] = useState<{ x: number; y: number } | null>(null);
+  const [isCardHovered, setIsCardHovered] = useState(false);
+
+  // Update local mouse position relative to this card
+  const updateLocalMousePos = useCallback(() => {
+    if (!mousePosition || !cardRef.current) {
+      setLocalMousePos(null);
+      return;
+    }
+
+    const rect = cardRef.current.getBoundingClientRect();
+    const containerRect = cardRef.current.parentElement?.parentElement?.getBoundingClientRect();
+
+    if (!containerRect) return;
+
+    // Calculate mouse position relative to this card
+    const cardLeft = rect.left - containerRect.left;
+    const cardTop = rect.top - containerRect.top;
+
+    setLocalMousePos({
+      x: mousePosition.x - cardLeft,
+      y: mousePosition.y - cardTop,
+    });
+  }, [mousePosition]);
+
+  // Check if mouse is within proximity of this card
+  const isNearCard = useCallback(() => {
+    if (!mousePosition || !cardRef.current) return false;
+
+    const rect = cardRef.current.getBoundingClientRect();
+    const containerRect = cardRef.current.parentElement?.parentElement?.getBoundingClientRect();
+
+    if (!containerRect) return false;
+
+    const cardLeft = rect.left - containerRect.left;
+    const cardTop = rect.top - containerRect.top;
+    const cardCenterX = cardLeft + rect.width / 2;
+    const cardCenterY = cardTop + rect.height / 2;
+
+    const distance = Math.sqrt(
+      Math.pow(mousePosition.x - cardCenterX, 2) +
+      Math.pow(mousePosition.y - cardCenterY, 2)
+    );
+
+    return distance < 400;
+  }, [mousePosition]);
+
+  // Update local position when mouse moves
+  useEffect(() => {
+    updateLocalMousePos();
+  }, [mousePosition, updateLocalMousePos]);
+
+  const showGlow = isContainerHovering && (isCardHovered || isNearCard());
 
   return (
     <div
+      ref={cardRef}
       className={cn(
         "relative flex flex-col bg-zinc-900",
         !isLast && "md:border-r border-zinc-800",
         !isFirst && "border-t md:border-t-0 border-zinc-800",
         plan.recommended && "border-2 border-orange-500 md:border-2 md:-my-4 md:z-10"
       )}
+      onMouseEnter={() => setIsCardHovered(true)}
+      onMouseLeave={() => setIsCardHovered(false)}
     >
+      {/* Glowing border overlay - visible when mouse is near */}
+      <div
+        className={cn(
+          "absolute inset-0 pointer-events-none z-20 transition-opacity duration-300",
+          showGlow && !plan.recommended ? "opacity-100" : "opacity-0"
+        )}
+        style={{
+          background: localMousePos
+            ? `radial-gradient(350px circle at ${localMousePos.x}px ${localMousePos.y}px, rgba(249, 115, 22, 0.5), transparent 40%)`
+            : "none",
+          mask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
+          WebkitMask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
+          maskComposite: "xor",
+          WebkitMaskComposite: "xor",
+          padding: "1px",
+        }}
+      />
+
+      {/* Inner glow effect - soft fill */}
+      <div
+        className={cn(
+          "absolute inset-0 pointer-events-none transition-opacity duration-300",
+          showGlow ? "opacity-100" : "opacity-0"
+        )}
+        style={{
+          background: localMousePos
+            ? `radial-gradient(400px circle at ${localMousePos.x}px ${localMousePos.y}px, rgba(249, 115, 22, 0.08), transparent 40%)`
+            : "none",
+        }}
+      />
       {/* Recommended Tag */}
       {plan.recommended && (
         <div className="absolute -top-px left-0 right-0 flex justify-center">
@@ -167,7 +302,7 @@ function PricingCard({ plan, isFirst, isLast }: PricingCardProps) {
       )}
 
       {/* Card Content */}
-      <div className={cn("flex flex-col h-full p-6", plan.recommended && "pt-10")}>
+      <div className={cn("relative z-10 flex flex-col h-full p-6", plan.recommended && "pt-10")}>
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-2">

@@ -8,70 +8,24 @@ import {
   Search,
   Settings,
   ChevronDown,
-  Fingerprint,
-  FileCode,
-  LayoutGrid,
-  Layers,
-  Cpu,
   Zap,
   BookOpen,
   Users,
   Building2,
   Sparkles,
-  Briefcase,
-  PenTool,
   FolderOpen,
   Image,
   UserCircle,
   MapPin,
   Shield,
   BarChart3,
+  FileCode,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface NavbarProps {
   className?: string;
 }
-
-// 产品功能菜单项
-const productMenuItems = [
-  {
-    icon: Fingerprint,
-    title: "角色一致性",
-    description: "ID 锁定确保角色稳定",
-    href: "#features",
-  },
-  {
-    icon: FileCode,
-    title: "剧本解析",
-    description: "NLP 驱动的剧本提取",
-    href: "#features",
-  },
-  {
-    icon: LayoutGrid,
-    title: "自动布局",
-    description: "动态分镜构图",
-    href: "#features",
-  },
-  {
-    icon: Layers,
-    title: "PSD 导出",
-    description: "完整图层分离输出",
-    href: "#features",
-  },
-  {
-    icon: Cpu,
-    title: "渲染管线",
-    description: "并行 GPU 加速",
-    href: "#features",
-  },
-  {
-    icon: Zap,
-    title: "实时预览",
-    description: "即时生成反馈",
-    href: "#features",
-  },
-];
 
 // 解决方案菜单项
 const solutionsMenuItems = [
@@ -250,75 +204,6 @@ export function Navbar({ className }: NavbarProps) {
 
               {/* Desktop Navigation Links */}
               <nav className="hidden lg:flex items-center gap-1">
-                {/* 产品功能下拉菜单 */}
-                <div
-                  className="relative"
-                  onMouseEnter={() => handleDropdownEnter("product")}
-                  onMouseLeave={handleDropdownLeave}
-                >
-                  <button
-                    className={cn(
-                      "flex items-center gap-1 px-3 py-2 text-sm font-medium transition-colors",
-                      activeDropdown === "product"
-                        ? "text-orange-500"
-                        : "text-zinc-400 hover:text-white"
-                    )}
-                  >
-                    产品功能
-                    <ChevronDown
-                      className={cn(
-                        "w-4 h-4 transition-transform",
-                        activeDropdown === "product" && "rotate-180"
-                      )}
-                    />
-                  </button>
-
-                  {/* Mega Menu */}
-                  <div
-                    className={cn(
-                      "absolute top-full left-0 pt-2 transition-all duration-200",
-                      activeDropdown === "product"
-                        ? "opacity-100 visible translate-y-0"
-                        : "opacity-0 invisible -translate-y-2"
-                    )}
-                  >
-                    <div className="w-[500px] bg-[#0a0a0a] border border-zinc-800 p-4">
-                      <div className="text-[10px] font-mono text-zinc-600 mb-3 px-2">
-                        系统模块
-                      </div>
-                      <div className="grid grid-cols-2 gap-1">
-                        {productMenuItems.map((item) => (
-                          <Link
-                            key={item.title}
-                            href={item.href}
-                            className="flex items-start gap-3 p-3 hover:bg-zinc-900 transition-colors group"
-                          >
-                            <div className="p-2 bg-zinc-900 group-hover:bg-orange-500/10 text-zinc-500 group-hover:text-orange-500 transition-colors">
-                              <item.icon className="w-4 h-4" />
-                            </div>
-                            <div>
-                              <div className="text-sm font-medium text-white group-hover:text-orange-500 transition-colors">
-                                {item.title}
-                              </div>
-                              <div className="text-xs text-zinc-500 mt-0.5">
-                                {item.description}
-                              </div>
-                            </div>
-                          </Link>
-                        ))}
-                      </div>
-                      <div className="mt-3 pt-3 border-t border-zinc-800 px-2">
-                        <Link
-                          href="/docs"
-                          className="text-xs font-mono text-zinc-500 hover:text-orange-500 transition-colors"
-                        >
-                          查看完整文档 →
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
                 {/* 解决方案下拉菜单 */}
                 <div
                   className="relative"
