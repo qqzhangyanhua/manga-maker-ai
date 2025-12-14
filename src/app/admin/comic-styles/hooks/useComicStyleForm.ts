@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, ChangeEvent } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { ComicStyle, ComicStyleFormData } from "../types";
 
@@ -18,7 +18,9 @@ export const useComicStyleForm = (stylesLength: number, onSuccess: () => void) =
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingStyle, setEditingStyle] = useState<ComicStyle | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState<ComicStyleFormData>(getEmptyForm(stylesLength));
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const handleOpenDialog = (style?: ComicStyle) => {
@@ -76,6 +78,58 @@ export const useComicStyleForm = (stylesLength: number, onSuccess: () => void) =
     }
   };
 
+  const handleFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // 验证文件类型
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      toast({ title: "仅支持 JPG、PNG、WebP 格式", variant: "destructive" });
+      return;
+    }
+
+    // 验证文件大小 (10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "文件大小不能超过 10MB", variant: "destructive" });
+      return;
+    }
+
+    try {
+      setUploading(true);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", "comic-styles");
+
+      const res = await fetch("/api/admin/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "上传失败");
+      }
+
+      const data = await res.json();
+      setForm((prev) => ({ ...prev, image_url: data.url }));
+      toast({ title: "图片上传成功" });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "上传失败";
+      toast({ title: message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+      // 重置 input 以允许重复上传同一文件
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
+
   return {
     dialogOpen,
     setDialogOpen,
@@ -83,7 +137,11 @@ export const useComicStyleForm = (stylesLength: number, onSuccess: () => void) =
     form,
     setForm,
     submitting,
+    uploading,
+    fileInputRef,
     handleOpenDialog,
     handleSubmit,
+    handleFileSelect,
+    triggerFileInput,
   };
 };

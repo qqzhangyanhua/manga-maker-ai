@@ -122,6 +122,17 @@ export const ProviderTypeInfo = () => {
               使用位置：/api/character/generate-similar
             </p>
           </div>
+          <div>
+            <strong className="text-blue-900 dark:text-blue-100">story_character_generator</strong>
+            <p className="text-xs mt-1">
+              故事角色生成器：分析故事内容自动生成角色描述，包括外貌特征、性格、服装等视觉描述
+            </p>
+            <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+              <strong>使用位置：</strong>
+              <br />
+              • /api/story/[id]/generate-characters - 根据故事内容AI生成角色视觉描述
+            </p>
+          </div>
         </div>
       </div>
     </div>

@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Users, Plus, Loader2 } from "lucide-react";
+import { Users, Plus, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StoryCharacterCard } from "./StoryCharacterCard";
 import { CharacterSelector } from "./CharacterSelector";
+import { AICharacterGeneratorDialog } from "@/components/AICharacterGenerator";
 import type { StoryCharacterWithDetails, CharacterRole } from "./types";
 
 interface StoryCharacterListProps {
@@ -14,6 +15,7 @@ interface StoryCharacterListProps {
   onRemove: (characterId: string) => Promise<void>;
   onRoleChange: (characterId: string, role: CharacterRole) => Promise<void>;
   isLoading?: boolean;
+  onRefresh?: () => void;
 }
 
 export function StoryCharacterList({
@@ -23,8 +25,10 @@ export function StoryCharacterList({
   onRemove,
   onRoleChange,
   isLoading,
+  onRefresh,
 }: StoryCharacterListProps) {
   const [showSelector, setShowSelector] = useState(false);
+  const [showAIGenerator, setShowAIGenerator] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
 
   // Get IDs of characters already in story
@@ -59,15 +63,26 @@ export function StoryCharacterList({
             ({characters.length})
           </span>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowSelector(true)}
-          className="h-8"
-        >
-          <Plus className="w-4 h-4 mr-1" />
-          添加角色
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAIGenerator(true)}
+            className="h-8"
+          >
+            <Sparkles className="w-4 h-4 mr-1" />
+            AI生成
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowSelector(true)}
+            className="h-8"
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            添加
+          </Button>
+        </div>
       </div>
 
       {/* Character list */}
@@ -107,6 +122,16 @@ export function StoryCharacterList({
         excludeIds={existingCharacterIds}
         onSelect={handleAdd}
         isLoading={isAdding}
+      />
+
+      {/* AI Character Generator modal */}
+      <AICharacterGeneratorDialog
+        open={showAIGenerator}
+        onOpenChange={setShowAIGenerator}
+        storyId={storyId}
+        onComplete={() => {
+          onRefresh?.();
+        }}
       />
     </div>
   );

@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Palette, Plus, Edit2, Trash2, ChevronUp, ChevronDown, Eye, EyeOff } from "lucide-react";
+import { Palette, Plus, Edit2, Trash2, ChevronUp, ChevronDown, Eye, EyeOff, Upload, Loader2 } from "lucide-react";
 import { ComicStyle, PRESET_COLORS } from "./types";
 import { useComicStyleList } from "./hooks/useComicStyleList";
 import { useComicStyleForm } from "./hooks/useComicStyleForm";
@@ -40,8 +40,12 @@ const ComicStylesAdminPage = () => {
     form,
     setForm,
     submitting,
+    uploading,
+    fileInputRef,
     handleOpenDialog,
     handleSubmit,
+    handleFileSelect,
+    triggerFileInput,
   } = useComicStyleForm(styles.length, fetchStyles);
 
   useEffect(() => {
@@ -123,10 +127,23 @@ const ComicStylesAdminPage = () => {
               {styles.map((style, index) => (
                 <tr key={style.id} className="border-t border-border">
                   <td className="px-4 py-3">
-                    <div
-                      className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${style.tag_color}`}
-                    >
-                      {style.name_en}
+                    <div className="flex items-center gap-3">
+                      {style.image_url ? (
+                        <img
+                          src={style.image_url}
+                          alt={style.name_zh}
+                          className="w-16 h-16 object-cover rounded-md border border-border"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 bg-muted rounded-md flex items-center justify-center">
+                          <Palette className="w-6 h-6 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div
+                        className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${style.tag_color}`}
+                      >
+                        {style.name_en}
+                      </div>
                     </div>
                   </td>
                   <td className="px-4 py-3">
@@ -228,12 +245,55 @@ const ComicStylesAdminPage = () => {
             </div>
 
             <div>
-              <Label>图片 URL*</Label>
-              <Input
-                value={form.image_url}
-                onChange={(e) => setForm({ ...form, image_url: e.target.value })}
-                placeholder="/assets/style-manga.jpg"
+              <Label>风格图片*</Label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/webp"
+                onChange={handleFileSelect}
+                className="hidden"
               />
+              <div className="mt-2 space-y-3">
+                {form.image_url && (
+                  <div className="relative w-32 h-32">
+                    <img
+                      src={form.image_url}
+                      alt="预览"
+                      className="w-full h-full object-cover rounded-lg border border-border"
+                    />
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={triggerFileInput}
+                    disabled={uploading}
+                  >
+                    {uploading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        上传中...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 mr-2" />
+                        上传图片
+                      </>
+                    )}
+                  </Button>
+                  <span className="text-xs text-muted-foreground">或</span>
+                  <Input
+                    value={form.image_url}
+                    onChange={(e) => setForm({ ...form, image_url: e.target.value })}
+                    placeholder="输入图片 URL"
+                    className="flex-1"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  支持 JPG、PNG、WebP 格式，最大 10MB
+                </p>
+              </div>
             </div>
 
             <div>

@@ -60,6 +60,7 @@ export default function ScriptDetailsPage() {
   const {
     data: storyCharacters = [],
     isLoading: isStoryCharactersLoading,
+    refetch: refetchStoryCharacters,
   } = useStoryCharacters(storyId);
   const addStoryCharacter = useAddStoryCharacter(storyId);
   const removeStoryCharacter = useRemoveStoryCharacter(storyId);
@@ -317,6 +318,7 @@ export default function ScriptDetailsPage() {
               onRemove={handleRemoveCharacter}
               onRoleChange={handleCharacterRoleChange}
               isLoading={isStoryCharactersLoading}
+              onRefresh={() => refetchStoryCharacters()}
             />
           </div>
 
