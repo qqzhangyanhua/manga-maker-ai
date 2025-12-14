@@ -90,6 +90,9 @@ export interface Panel {
   chapter_id?: string; // FK to Chapter
   // Phase 3: Layout grouping (2镜/4镜/6镜)
   layout_hint?: string | null; // "group_start_2" | "group_start_4" | "group_start_6" | "group_member" | null
+  // UI-only fields
+  _isGenerating?: boolean; // 临时标记：是否为正在生成中的分镜（未保存到数据库）
+  _syncing?: boolean; // 乐观更新同步标记
 }
 
 /**

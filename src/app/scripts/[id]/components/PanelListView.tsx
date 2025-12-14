@@ -56,6 +56,7 @@ interface PanelListViewProps {
   currentChapterId?: string | null; // 当前章节 ID（用于过滤分镜）
   onGeneratePanelsForChapter?: (chapterId: string) => void; // AI生成分镜回调
   isGeneratingPanels?: boolean; // AI生成分镜的 loading 状态
+  streamingPanels?: Panel[]; // 流式生成中的临时分镜（还未保存到数据库）
   characters: CharacterReference[];
   charactersLoading?: boolean;
   onCharactersRefresh?: () => void | Promise<void>;
@@ -75,6 +76,7 @@ export function PanelListView({
   currentChapterId,
   onGeneratePanelsForChapter,
   isGeneratingPanels = false,
+  streamingPanels = [],
   characters,
   charactersLoading = false,
   onCharactersRefresh,
@@ -93,6 +95,25 @@ export function PanelListView({
     if (!currentChapterId) return panels;
     return panels.filter((p) => p.chapter_id === currentChapterId);
   }, [panels, currentChapterId]);
+
+  // 合并已保存的分镜和临时生成中的分镜
+  const displayPanels = useMemo(() => {
+    // 将临时生成的分镜转换为 Panel 对象（添加临时 ID 和标记）
+    const tempPanels: Panel[] = streamingPanels.map((panel) => ({
+      ...panel,
+      id: `temp-${panel.panel_order}`, // 临时 ID
+      project_id: projectId || "",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      // 添加一个自定义字段标记为临时状态
+      _isGenerating: true,
+    } as Panel & { _isGenerating: boolean }));
+
+    // 合并并按 panel_order 排序
+    return [...filteredPanels, ...tempPanels].sort(
+      (a, b) => a.panel_order - b.panel_order
+    );
+  }, [filteredPanels, streamingPanels, projectId]);
 
   // 高级操作对话框状态
   const [insertDialogOpen, setInsertDialogOpen] = useState(false);
@@ -173,7 +194,7 @@ export function PanelListView({
   });
 
   // 按布局分组的Panel列表
-  const panelGroups = useMemo(() => groupPanelsByLayout(filteredPanels), [filteredPanels]);
+  const panelGroups = useMemo(() => groupPanelsByLayout(displayPanels), [displayPanels]);
 
   // 计算布局预览数据
   const layoutPreviewData = useMemo(() => {
@@ -586,7 +607,7 @@ export function PanelListView({
             onDragCancel={handleDragCancel}
           >
             <SortableContext
-              items={filteredPanels.map((p) => p.id)}
+              items={displayPanels.map((p) => p.id)}
               strategy={verticalListSortingStrategy}
             >
               <div className="space-y-4">
@@ -615,7 +636,7 @@ export function PanelListView({
                         onMergeWithNext={handleMergeWithNext}
                         onRetryGeneration={retry}
                         onCancelGeneration={clearTask}
-                        allPanels={filteredPanels}
+                        allPanels={displayPanels}
                       />
                     </div>
                   );

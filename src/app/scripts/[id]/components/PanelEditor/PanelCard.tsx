@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { User, AlertCircle, Edit2, Maximize2 } from "lucide-react";
 import { PanelGenerationProgress } from "./PanelGenerationProgress";
 import { ImagePreviewDialog } from "@/components/ImagePreview/ImagePreviewDialog";
+import { useTypewriterEffect } from "../../hooks/useTypewriterEffect";
 import type { Panel, GenerationTask } from "../../types/script-editor.types";
 
 interface PanelCardProps {
@@ -43,6 +44,38 @@ export function PanelCard({
   const router = useRouter();
   const [previewOpen, setPreviewOpen] = useState(false);
   const imageUrl = panel.generated_image || panel.image_url;
+
+  // 检查是否为流式生成中的临时分镜
+  const isGenerating = (panel as Panel & { _isGenerating?: boolean })._isGenerating || false;
+
+  // 为临时分镜应用打字机效果
+  const { displayText: displayDescription, isTyping: isDescTyping } = useTypewriterEffect(
+    panel.description || "",
+    isGenerating,
+    { speed: 15 }
+  );
+
+  const { displayText: displayDialogue, isTyping: isDialogueTyping } = useTypewriterEffect(
+    panel.dialogue || "",
+    isGenerating,
+    { speed: 15, startDelay: (panel.description?.length || 0) * 10 } // 等描述打完再打对白
+  );
+
+  const { displayText: displayVisualPrompt } = useTypewriterEffect(
+    panel.visual_prompt || "",
+    isGenerating,
+    { speed: 12 }
+  );
+
+  // 最终显示的文本（生成中用打字机效果，否则用原文）
+  const finalDescription = isGenerating ? displayDescription : (panel.description || "无描述");
+  const finalDialogue = isGenerating ? displayDialogue : (panel.dialogue || "无对白");
+  const finalVisualPrompt = isGenerating ? displayVisualPrompt : (panel.visual_prompt || "");
+
+  // 打字机光标
+  const Cursor = () => (
+    <span className="inline-block w-1.5 h-4 bg-primary animate-pulse ml-0.5" />
+  );
 
   return (
     <>
@@ -88,10 +121,14 @@ export function PanelCard({
           {compact ? (
             // 紧凑模式：只显示描述，单列
             <div className="space-y-1">
-              <p className="text-xs line-clamp-2">{panel.description || "无描述"}</p>
+              <p className="text-xs line-clamp-2">
+                {finalDescription}
+                {isDescTyping && <Cursor />}
+              </p>
               {panel.dialogue && (
                 <p className="text-xs italic text-muted-foreground line-clamp-1">
-                  {panel.dialogue}
+                  {finalDialogue}
+                  {isDialogueTyping && <Cursor />}
                 </p>
               )}
             </div>
@@ -100,13 +137,17 @@ export function PanelCard({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">画面描述</Label>
-                <p className="text-sm">{panel.description || "无描述"}</p>
+                <p className="text-sm">
+                  {finalDescription}
+                  {isDescTyping && <Cursor />}
+                </p>
               </div>
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">对白</Label>
                 <p className="text-sm italic text-muted-foreground">
                   {panel.character_name ? `${panel.character_name}: ` : ""}
-                  {panel.dialogue || "无对白"}
+                  {finalDialogue}
+                  {isDialogueTyping && <Cursor />}
                 </p>
               </div>
             </div>

@@ -4,13 +4,15 @@ import { prisma } from "@/lib/db";
 import { generatePanelsFromChapterStream } from "@/lib/panel-generator";
 import { assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
+import { parseIncrementalPanels, type ParsedPanel } from "@/lib/incremental-json-parser";
 
 interface ProgressEvent {
   stage: "validating" | "generating" | "saving" | "done" | "error";
   current: number;
   total: number;
   message: string;
-  llmChunk?: string; // 新增：LLM 实时生成的文本片段
+  llmChunk?: string; // LLM 实时生成的文本片段
+  newPanel?: ParsedPanel; // 新解析出的完整 panel 对象
 }
 
 /**
@@ -234,13 +236,17 @@ export async function POST(
           throw quotaError;
         }
 
-        // 阶段 3: 生成分镜脚本（使用流式调用）
+        // 阶段 3: 生成分镜脚本（使用流式调用+增量解析）
         sendEvent(controller, {
           stage: "generating",
           current: 3,
           total: 4,
           message: `AI 正在为《${chapter.title}》生成分镜脚本...`,
         });
+
+        let accumulatedContent = "";
+        let lastParsedIndex = 0;
+        let parsedPanelCount = 0;
 
         const generatedPanels = await generatePanelsFromChapterStream(
           {
@@ -251,7 +257,34 @@ export async function POST(
             panelCount: panel_count,
           },
           (chunk) => {
-            // 实时推送 LLM 生成的文本片段
+            // 累积内容
+            accumulatedContent += chunk;
+
+            // 尝试增量解析
+            const parseResult = parseIncrementalPanels(
+              accumulatedContent,
+              lastParsedIndex
+            );
+
+            // 如果有新解析出的 panel，推送给前端
+            if (parseResult.panels.length > 0) {
+              for (const panel of parseResult.panels) {
+                parsedPanelCount++;
+
+                sendEvent(controller, {
+                  stage: "generating",
+                  current: 3,
+                  total: 4,
+                  message: `已生成 ${parsedPanelCount} 个分镜...`,
+                  newPanel: panel,
+                });
+              }
+
+              // 更新解析位置
+              lastParsedIndex = parseResult.lastIndex;
+            }
+
+            // 推送文本片段（用于 LLM 预览）
             sendEvent(controller, {
               stage: "generating",
               current: 3,

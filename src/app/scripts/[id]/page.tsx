@@ -421,6 +421,7 @@ export default function ScriptDetailsPage() {
                     currentChapterId={currentChapterId}
                     onGeneratePanelsForChapter={handleGeneratePanelsForChapter}
                     isGeneratingPanels={isGenerating}
+                    streamingPanels={progress.generatedPanels || []}
                     characters={characterAssets}
                     charactersLoading={isCharactersLoading}
                     onCharactersRefresh={() => { refetchCharacters(); }}

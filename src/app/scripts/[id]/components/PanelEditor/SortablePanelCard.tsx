@@ -7,8 +7,9 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical } from "lucide-react";
+import { GripVertical, Loader2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { PanelCard } from "./PanelCard";
 import type { Panel, GenerationTask } from "../../types/script-editor.types";
 
@@ -45,17 +46,22 @@ export function SortablePanelCard({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.5 : panel._isGenerating ? 0.7 : 1,
   };
+
+  // 临时生成中的分镜样式
+  const isGeneratingClass = panel._isGenerating
+    ? "border-2 border-dashed border-primary/50 animate-in fade-in slide-in-from-bottom-4 duration-500"
+    : "";
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative ${isSelected ? "ring-2 ring-primary rounded-lg" : ""}`}
+      className={`relative ${isSelected ? "ring-2 ring-primary rounded-lg" : ""} ${isGeneratingClass}`}
     >
       {/* 批量选择复选框 */}
-      {onSelectionChange && (
+      {onSelectionChange && !panel._isGenerating && (
         <div className="absolute left-12 top-4 z-10">
           <Checkbox
             checked={isSelected}
@@ -67,14 +73,26 @@ export function SortablePanelCard({
         </div>
       )}
 
-      {/* 拖拽手柄 */}
-      <div
-        {...attributes}
-        {...listeners}
-        className="absolute left-2 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing z-10 p-2 hover:bg-muted/50 rounded"
-      >
-        <GripVertical className="w-5 h-5 text-muted-foreground" />
-      </div>
+      {/* 生成中标记 */}
+      {panel._isGenerating && (
+        <div className="absolute left-12 top-4 z-10">
+          <Badge variant="secondary" className="flex items-center gap-1">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            生成中
+          </Badge>
+        </div>
+      )}
+
+      {/* 拖拽手柄（生成中的分镜禁用拖拽） */}
+      {!panel._isGenerating && (
+        <div
+          {...attributes}
+          {...listeners}
+          className="absolute left-2 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing z-10 p-2 hover:bg-muted/50 rounded"
+        >
+          <GripVertical className="w-5 h-5 text-muted-foreground" />
+        </div>
+      )}
 
       {/* 原有的 PanelCard，添加左边距为拖拽手柄和复选框留空间 */}
       <div className={onSelectionChange ? "ml-20" : "ml-10"}>

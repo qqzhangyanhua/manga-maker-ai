@@ -3,6 +3,7 @@
  */
 
 import { useState, useCallback, useRef } from "react";
+import type { Panel } from "../types/script-editor.types";
 
 export interface ProgressState {
   stage: "idle" | "validating" | "generating" | "saving" | "done" | "error";
@@ -10,6 +11,7 @@ export interface ProgressState {
   total: number;
   message: string;
   llmContent?: string; // 累积的 LLM 生成内容（用于显示预览）
+  generatedPanels?: Panel[]; // 实时解析出的分镜列表（临时状态）
 }
 
 interface GenerateParams {
@@ -40,6 +42,7 @@ export function useStreamingGeneration() {
       total: 0,
       message: "",
       llmContent: "",
+      generatedPanels: [],
     });
     setIsGenerating(true);
 
@@ -47,8 +50,9 @@ export function useStreamingGeneration() {
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
-    // 用于累积 LLM 内容
+    // 用于累积 LLM 内容和已生成的分镜
     let accumulatedLlmContent = "";
+    let accumulatedPanels: Panel[] = [];
 
     try {
       const response = await fetch(`/api/chapter/${chapterId}/generate-panels-stream`, {
@@ -88,16 +92,25 @@ export function useStreamingGeneration() {
           try {
             // Extract JSON after "data: " prefix
             const jsonStr = line.substring(line.indexOf("{"));
-            const data = JSON.parse(jsonStr) as ProgressState & { llmChunk?: string };
+            const data = JSON.parse(jsonStr) as ProgressState & {
+              llmChunk?: string;
+              newPanel?: Panel;
+            };
 
             // 累积 LLM 内容
             if (data.llmChunk) {
               accumulatedLlmContent += data.llmChunk;
             }
 
+            // 累积新生成的分镜
+            if (data.newPanel) {
+              accumulatedPanels.push(data.newPanel);
+            }
+
             setProgress({
               ...data,
               llmContent: accumulatedLlmContent,
+              generatedPanels: [...accumulatedPanels], // 创建新数组触发 React 更新
             });
 
             // Handle error stage
@@ -120,6 +133,7 @@ export function useStreamingGeneration() {
           total: 0,
           message: "已取消",
           llmContent: "",
+          generatedPanels: [],
         });
       } else {
         const message = error instanceof Error ? error.message : "未知错误";
@@ -129,6 +143,7 @@ export function useStreamingGeneration() {
           total: 0,
           message,
           llmContent: accumulatedLlmContent,
+          generatedPanels: accumulatedPanels,
         });
       }
       setIsGenerating(false);
@@ -148,6 +163,7 @@ export function useStreamingGeneration() {
       total: 0,
       message: "已取消",
       llmContent: "",
+      generatedPanels: [],
     });
   }, []);
 
@@ -158,6 +174,7 @@ export function useStreamingGeneration() {
       total: 0,
       message: "",
       llmContent: "",
+      generatedPanels: [],
     });
     setIsGenerating(false);
   }, []);
