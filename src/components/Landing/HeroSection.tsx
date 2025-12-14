@@ -283,10 +283,22 @@ export function HeroSection({ onOpenTrial }: HeroSectionProps) {
           </Button>
         </div>
 
-        {/* 统计数据 */}
-        <div className="text-center text-sm text-zinc-500">
-          已有 <span className="text-orange-500 font-semibold">12,000+</span>{" "}
-          创作者完成了他们的第一部漫画
+        {/* Stats Bar - Industrial Style */}
+        <div className="flex items-center justify-center gap-8 md:gap-12">
+          <div className="text-center">
+            <div className="text-2xl md:text-3xl font-bold font-mono text-orange-500">2.4M</div>
+            <div className="text-xs font-mono text-zinc-500 uppercase tracking-wider">Render Ops</div>
+          </div>
+          <div className="w-px h-8 bg-zinc-700" />
+          <div className="text-center">
+            <div className="text-2xl md:text-3xl font-bold font-mono text-emerald-500">99.97%</div>
+            <div className="text-xs font-mono text-zinc-500 uppercase tracking-wider">Uptime</div>
+          </div>
+          <div className="w-px h-8 bg-zinc-700" />
+          <div className="text-center">
+            <div className="text-2xl md:text-3xl font-bold font-mono text-white">128</div>
+            <div className="text-xs font-mono text-zinc-500 uppercase tracking-wider">Active Nodes</div>
+          </div>
         </div>
       </div>
 

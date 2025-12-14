@@ -34,20 +34,12 @@ import { SortablePanelCard } from "./PanelEditor/SortablePanelCard";
 import { PanelCardActions } from "./PanelEditor/PanelCardActions";
 import { InsertPanelDialog } from "./PanelEditor/InsertPanelDialog";
 import { SplitPanelDialog } from "./PanelEditor/SplitPanelDialog";
-import { LayoutModeToolbar } from "./LayoutModeToolbar";
-import { LayoutPreview } from "./LayoutPreview";
-import { PanelLayoutGroup } from "./PanelLayoutGroup";
 import { usePanelDragDrop } from "../hooks/usePanelDragDrop";
 import { usePanelGeneration } from "../hooks/usePanelGeneration";
-import { useLayoutOperations } from "../hooks/useLayoutOperations";
-import { ReferenceGuidedGenerationDialog } from "./PanelEditor/ReferenceGuidedGenerationDialog";
 import { MultiPanelGenerateDialog } from "./MultiPanelGenerateDialog";
-import { ReferenceImageSelector } from "./ReferenceImageSelector";
 import { useToast } from "@/hooks/use-toast";
 import type { Panel } from "../types/script-editor.types";
 import type { CharacterReference } from "../types/character.types";
-import { groupPanelsByLayout, isInLayoutGroup } from "../types/layout.types";
-import type { LayoutSize, LayoutDirection, LayoutRatio } from "../types/layout.types";
 
 interface PanelListViewProps {
   panels: Panel[];
@@ -121,14 +113,7 @@ export function PanelListView({
   const [splitDialogOpen, setSplitDialogOpen] = useState(false);
   const [splitPanel, setSplitPanel] = useState<Panel | null>(null);
   const [mergingPanels, setMergingPanels] = useState<{ current: Panel; next: Panel } | null>(null);
-  const [guidedDialogOpen, setGuidedDialogOpen] = useState(false);
-  const [targetPanel, setTargetPanel] = useState<Panel | null>(null);
   const [multiPanelDialogOpen, setMultiPanelDialogOpen] = useState(false);
-
-  // 单个分镜生成时的参考图选择对话框
-  const [singlePanelReferenceDialogOpen, setSinglePanelReferenceDialogOpen] = useState(false);
-  const [generatingPanel, setGeneratingPanel] = useState<Panel | null>(null);
-  const [isGeneratingSingle, setIsGeneratingSingle] = useState(false);
 
   // 配置拖拽传感器（需要移动至少 5px 才触发拖拽，避免误触）
   const sensors = useSensors(
@@ -165,214 +150,15 @@ export function PanelListView({
     },
   });
 
-  // 合并单个生成状态到 generatingPanels Map
-  const mergedGeneratingPanels = useMemo(() => {
-    const merged = new Map(generatingPanels);
-
-    // 如果有单个分镜正在生成，添加到 Map 中
-    if (isGeneratingSingle && generatingPanel) {
-      merged.set(generatingPanel.id, {
-        panelId: generatingPanel.id,
-        taskId: 'single-generation',
-        status: 'processing',
-        progress: 50,
-        startedAt: new Date(),
-      });
-    }
-
-    return merged;
-  }, [generatingPanels, isGeneratingSingle, generatingPanel]);
-
-  // 布局操作逻辑
-  const layoutOps = useLayoutOperations({
-    onSuccess: () => {
-      onRefresh?.();
-    },
-    onError: (message) => {
-      onError(message);
-    },
-  });
-
-  // 按布局分组的Panel列表
-  const panelGroups = useMemo(() => groupPanelsByLayout(displayPanels), [displayPanels]);
-
-  // 计算布局预览数据
-  const layoutPreviewData = useMemo(() => {
-    if (!layoutOps.isLayoutMode || layoutOps.selectedPanelIds.length === 0) {
-      return { selectedPanels: [], availableLayouts: [] };
-    }
-
-    // 获取选中的Panel（按panel_order排序）
-    const selectedPanels = layoutOps.selectedPanelIds
-      .map((id) => filteredPanels.find((p) => p.id === id))
-      .filter((p): p is Panel => p !== undefined)
-      .sort((a, b) => a.panel_order - b.panel_order);
-
-    const count = selectedPanels.length;
-
-    // 根据选中数量确定可用布局
-    type LayoutOption = { size: "2" | "3" | "4" | "6"; direction?: "h" | "v"; label: string };
-    const availableLayouts: LayoutOption[] = [];
-
-    if (count === 2) {
-      availableLayouts.push(
-        { size: "2", direction: "h", label: "2镜横排" },
-        { size: "2", direction: "v", label: "2镜竖排" }
-      );
-    } else if (count === 3) {
-      availableLayouts.push(
-        { size: "3", direction: "h", label: "3镜横排" },
-        { size: "3", direction: "v", label: "3镜竖排" }
-      );
-    } else if (count === 4) {
-      availableLayouts.push({ size: "4", label: "4镜网格" });
-    } else if (count === 6) {
-      availableLayouts.push({ size: "6", label: "6镜网格" });
-    }
-
-    return { selectedPanels, availableLayouts };
-  }, [layoutOps.isLayoutMode, layoutOps.selectedPanelIds, filteredPanels]);
-
-  // 批量应用布局到所有未组合的分镜
-  const handleBatchApplyLayout = async (
-    layoutType: LayoutSize,
-    direction?: LayoutDirection,
-    ratio?: LayoutRatio
-  ) => {
-    const requiredCount = parseInt(layoutType, 10);
-
-    // 找出所有未组合的分镜（按 panel_order 排序）
-    const ungroupedPanels = panels
-      .filter((p) => !isInLayoutGroup(p))
-      .sort((a, b) => a.panel_order - b.panel_order);
-
-    // 分组：找出连续的分镜组
-    const groups: Panel[][] = [];
-    let currentGroup: Panel[] = [];
-
-    for (let i = 0; i < ungroupedPanels.length; i++) {
-      const panel = ungroupedPanels[i];
-
-      if (currentGroup.length === 0) {
-        currentGroup.push(panel);
-      } else {
-        const lastPanel = currentGroup[currentGroup.length - 1];
-        // 检查是否连续
-        if (panel.panel_order === lastPanel.panel_order + 1) {
-          currentGroup.push(panel);
-        } else {
-          // 不连续，保存当前组并开始新组
-          if (currentGroup.length >= requiredCount) {
-            groups.push(currentGroup);
-          }
-          currentGroup = [panel];
-        }
-      }
-
-      // 当组满足数量时，保存并开始新组
-      if (currentGroup.length === requiredCount) {
-        groups.push(currentGroup);
-        currentGroup = [];
-      }
-    }
-
-    // 处理最后一组
-    if (currentGroup.length >= requiredCount) {
-      // 只取前 requiredCount 个
-      groups.push(currentGroup.slice(0, requiredCount));
-    }
-
-    if (groups.length === 0) {
-      onError("没有足够的连续分镜可以应用布局");
-      return;
-    }
-
-    // 依次应用布局
-    try {
-      for (const group of groups) {
-        const panelIds = group.map((p) => p.id);
-        await layoutOps.applyLayout(panelIds, layoutType, direction, ratio);
-      }
-      onRefresh?.();
-    } catch (error) {
-      onError(error instanceof Error ? error.message : "批量应用布局失败");
-    }
-  };
-
-  // 生成单个分镜图片 - 打开参考图选择对话框
+  // 生成单个分镜图片
   const handleGenerateSingle = async (panel: Panel) => {
     if (!panel.prompt_used && !panel.visual_prompt) {
       onError("分镜缺少提示词，请先编辑分镜添加描述");
       return;
     }
 
-    // 打开参考图选择对话框
-    setGeneratingPanel(panel);
-    setSinglePanelReferenceDialogOpen(true);
-  };
-
-  // 参考图选择完成后，执行实际的生成
-  const handleSinglePanelReferenceConfirm = async (referenceImages: Array<{ url: string }>) => {
-    if (!generatingPanel) return;
-
-    const prompt = generatingPanel.prompt_used || generatingPanel.visual_prompt || generatingPanel.description;
-    const referenceImageUrls = referenceImages.map(img => img.url);
-
-    // 关闭参考图对话框
-    setSinglePanelReferenceDialogOpen(false);
-
-    // 设置 loading 状态
-    setIsGeneratingSingle(true);
-
-    // 显示生成中的 toast
-    toast({
-      title: "正在生成...",
-      description: `分镜 #${generatingPanel.panel_order} 正在生成图片，请稍候`,
-    });
-
-    try {
-      console.log(`[PanelListView] 生成分镜 ${generatingPanel.id}，参考图数量: ${referenceImageUrls.length}`);
-
-      // 调用生成 API，传递参考图
-      const response = await fetch("/api/panel/generate-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          panel_id: generatingPanel.id,
-          prompt,
-          reference_image_urls: referenceImageUrls,
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "生成失败");
-      }
-
-      const data = await response.json();
-      onImageGenerated?.(generatingPanel.id, data.image_url);
-      onRefresh?.();
-
-      toast({
-        title: "生成成功",
-        description: `分镜 #${generatingPanel.panel_order} 图片已生成`,
-      });
-    } catch (error) {
-      console.error("[PanelListView] 生成失败:", error);
-      toast({
-        title: "生成失败",
-        description: error instanceof Error ? error.message : "生成失败",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGeneratingSingle(false);
-      setGeneratingPanel(null);
-    }
-  };
-
-  const openGuidedDialog = (panel: Panel) => {
-    setTargetPanel(panel);
-    setGuidedDialogOpen(true);
+    const prompt = panel.prompt_used || panel.visual_prompt || panel.description;
+    await generateSingle(panel.id, prompt);
   };
 
   // 高级操作：在指定分镜之后插入
@@ -483,70 +269,30 @@ export function PanelListView({
           >
             <Sparkles className="w-4 h-4 mr-2" />多镜生成
           </Button>
-          <Button
-            variant="secondary"
-            type="button"
-            disabled={charactersLoading || characters.length === 0}
-            onClick={() => {
-              const candidate = filteredPanels.find((p) => !p.generated_image && !p.image_url) || filteredPanels[0];
-              if (candidate) {
-                openGuidedDialog(candidate);
-              } else {
-                onError("暂无可生成的分镜");
-              }
-            }}
-          >
-            <Sparkles className="w-4 h-4 mr-2" />锁脸生成
-          </Button>
-          <Button onClick={onAddPanel} disabled={!projectId}>
-            <Plus className="w-4 h-4 mr-2" />
-            添加分镜
-          </Button>
+          {onAddPanel && (
+            <Button onClick={onAddPanel} disabled={!projectId}>
+              <Plus className="w-4 h-4 mr-2" />
+              添加分镜
+            </Button>
+          )}
         </div>
       </div>
-
-      {/* 布局模式工具栏 */}
-      {panels.length > 0 && (
-        <TooltipProvider>
-          <LayoutModeToolbar
-            isLayoutMode={layoutOps.isLayoutMode}
-            selectedPanelIds={layoutOps.selectedPanelIds}
-            panels={panels}
-            isApplying={layoutOps.isApplying}
-            onEnterLayoutMode={layoutOps.enterLayoutMode}
-            onExitLayoutMode={layoutOps.exitLayoutMode}
-            onApplyLayout={(layoutType, direction, ratio) =>
-              layoutOps.applyLayout(layoutOps.selectedPanelIds, layoutType, direction, ratio)
-            }
-            onBatchApplyLayout={handleBatchApplyLayout}
-            canUndo={layoutOps.canUndo}
-            onUndo={layoutOps.undoLastOperation}
-            onClearSelection={layoutOps.clearSelection}
-          />
-        </TooltipProvider>
-      )}
-
-      {/* 布局预览 */}
-      {layoutOps.isLayoutMode && layoutPreviewData.selectedPanels.length > 0 && (
-        <LayoutPreview
-          selectedPanels={layoutPreviewData.selectedPanels}
-          availableLayouts={layoutPreviewData.availableLayouts}
-        />
-      )}
 
       {/* 分镜列表 */}
       {panels.length === 0 ? (
         <div className="text-center py-12 bg-muted/20 rounded-lg border border-dashed">
           <ImageIcon className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
           <p className="text-muted-foreground">暂无分镜</p>
-          <Button
-            variant="link"
-            onClick={onAddPanel}
-            disabled={!projectId}
-            className="mt-2"
-          >
-            立即添加
-          </Button>
+          {onAddPanel && (
+            <Button
+              variant="link"
+              onClick={onAddPanel}
+              disabled={!projectId}
+              className="mt-2"
+            >
+              立即添加
+            </Button>
+          )}
         </div>
       ) : layoutOps.isLayoutMode ? (
         // 布局模式：使用PanelLayoutGroup渲染布局组
@@ -581,7 +327,7 @@ export function PanelListView({
                     layoutOps.selectPanelWithModifiers(panelId, filteredPanels, modifiers)
                   }
                   onBreakLayout={() => layoutOps.breakLayout(group.groupStartId)}
-                  generatingPanels={mergedGeneratingPanels}
+                  generatingPanels={generatingPanels}
                   onEditPanel={onEditPanel}
                   onDeletePanel={onDeletePanel}
                   onGenerateSingle={handleGenerateSingle}
@@ -627,7 +373,7 @@ export function PanelListView({
                         isSelected={false}
                         onSelect={() => {}}
                         onBreakLayout={() => layoutOps.breakLayout(group.groupStartId)}
-                        generatingPanels={mergedGeneratingPanels}
+                        generatingPanels={generatingPanels}
                         onEditPanel={onEditPanel}
                         onDeletePanel={onDeletePanel}
                         onGenerateSingle={handleGenerateSingle}
@@ -698,27 +444,6 @@ export function PanelListView({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* 角色参考引导生成 */}
-      <ReferenceGuidedGenerationDialog
-        open={guidedDialogOpen}
-        panel={targetPanel}
-        characters={characters}
-        onCharactersRefresh={onCharactersRefresh}
-        onOpenChange={(open) => {
-          setGuidedDialogOpen(open);
-          if (!open) {
-            setTargetPanel(null);
-          }
-        }}
-        onGenerated={(panelId, imageUrl) => {
-          onImageGenerated?.(panelId, imageUrl);
-          onRefresh?.();
-        }}
-        onPromptUpdated={() => {
-          onRefresh?.();
-        }}
-      />
-
       {/* 多镜生成对话框 */}
       <MultiPanelGenerateDialog
         open={multiPanelDialogOpen}
@@ -729,15 +454,6 @@ export function PanelListView({
           console.log("[PanelListView] 多镜生成成功:", { imageUrl, panelIds });
           onRefresh?.();
         }}
-      />
-
-      {/* 单个分镜生成的参考图选择对话框 */}
-      <ReferenceImageSelector
-        open={singlePanelReferenceDialogOpen}
-        storyId={storyId}
-        panels={panels}
-        onOpenChange={setSinglePanelReferenceDialogOpen}
-        onConfirm={handleSinglePanelReferenceConfirm}
       />
     </div>
   );

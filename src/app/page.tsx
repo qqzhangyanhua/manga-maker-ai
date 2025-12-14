@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { WorkflowGuide } from "@/components/WorkflowGuide";
 import { TrialDialog } from "@/components/TrialDialog";
 import { OnboardingDialog } from "@/components/OnboardingDialog";
-import { HeroSection } from "@/components/Landing";
+import { HeroSection, FeaturesSection, ShowcaseSection, PricingSection, Navbar } from "@/components/Landing";
 
 const recordShortcuts = [
   {
@@ -52,12 +52,23 @@ const HomePage = () => {
 
   return (
     <div className="min-h-screen bg-[#09090b]">
-      <main>
+      {/* Navbar */}
+      <Navbar />
+
+      <main className="pt-16">
         {/* Hero Section with futuristic manga studio style */}
         <HeroSection onOpenTrial={() => setShowTrialDialog(true)} />
 
+        {/* Features Section - System Modules */}
+        <div id="features">
+          <FeaturesSection />
+        </div>
+
         {/* Workflow Guide */}
         <WorkflowGuide className="px-4 py-12 -mt-8" />
+
+        {/* Showcase Section - Production Logs */}
+        <ShowcaseSection />
 
         {/* Try It Section */}
         <section className="px-4 py-16 bg-[#09090b]">
@@ -86,6 +97,11 @@ const HomePage = () => {
             </div>
           </div>
         </section>
+
+        {/* Pricing Section - Compute Plans */}
+        <div id="pricing">
+          <PricingSection />
+        </div>
 
         {/* Quick Access */}
         <section className="px-4 py-16 bg-zinc-900/50">
