@@ -26,7 +26,7 @@ type UseStoryboardDataReturn = {
   handleMerge: (panelId: string) => Promise<void>;
   handleSplit: (panelId: string) => Promise<void>;
   handleInsertPanel: (description: string, useLLM: boolean, insertAfterOrder: number | null) => Promise<void>;
-  handleGenerateSketch: (panelId: string) => Promise<void>;
+  handleGenerateSketch: (panelId: string, characterId?: string) => Promise<void>;
   handleGeneratePrompt: (
     panelId: string,
     options?: { characterId?: string; styleKey?: string; soften?: boolean; aspectRatio?: string }
@@ -356,13 +356,49 @@ export function useStoryboardData(projectId: string): UseStoryboardDataReturn {
     [toast]
   );
 
-  // 生成草图（占位符）
+  // 生成草图（支持锁脸角色）
   const handleGenerateSketch = useCallback(
-    async (panelId: string) => {
-      toast({
-        title: "功能开发中",
-        description: "草图生成功能将在后续版本中实现",
-      });
+    async (panelId: string, characterId?: string) => {
+      setOperationLoading({ type: "sketch", panelId });
+      try {
+        const response = await fetch(`/api/panel/${panelId}/sketch`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            character_id: characterId,
+          }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "草图生成失败");
+        }
+
+        // 更新本地状态
+        setProject((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            panels: prev.panels.map((p) =>
+              p.id === panelId ? { ...p, sketch_image_url: data.sketch_url } : p
+            ),
+          };
+        });
+
+        toast({
+          title: "草图生成成功",
+          description: characterId ? "已使用锁脸角色生成草图" : "可以在分镜预览中查看草图",
+        });
+      } catch (error) {
+        console.error("Generate sketch error:", error);
+        toast({
+          title: "草图生成失败",
+          description: error instanceof Error ? error.message : "未知错误",
+          variant: "destructive",
+        });
+      } finally {
+        setOperationLoading({ type: null });
+      }
     },
     [toast]
   );

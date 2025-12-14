@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, use, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import { ArrowLeft, Save, Loader2, Grid, CheckSquare, Sparkles, Lightbulb } from "lucide-react";
@@ -31,10 +31,9 @@ import { useToast } from "@/hooks/use-toast";
 export default function StoryboardEditorPage({
   params,
 }: {
-  params: Promise<{ projectId: string }>;
+  params: { projectId: string };
 }) {
-  const resolvedParams = use(params);
-  const projectId = resolvedParams.projectId;
+  const projectId = params.projectId;
   const { toast } = useToast();
 
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);

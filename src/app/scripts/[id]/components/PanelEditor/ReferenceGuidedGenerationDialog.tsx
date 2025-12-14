@@ -19,18 +19,28 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Loader2, Sparkles, Wand2, UploadCloud, UserPlus } from "lucide-react";
+import { Loader2, Sparkles, Wand2, UploadCloud, UserPlus, Image as ImageIcon, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { CharacterReferencePicker } from "./CharacterReferencePicker";
+import { ReferenceImageSelector } from "../ReferenceImageSelector";
 import type { Panel } from "../../types/script-editor.types";
 import type { CharacterReference } from "../../types/character.types";
 import CreateCharacterDialog from "@/components/AssetLibrary/CreateCharacterDialog";
 import type { CharacterAsset } from "@/components/AssetLibrary/CharacterLibrary";
 import ImageUploadDialog from "@/components/AssetLibrary/ImageUploadDialog";
 
+interface ReferenceImage {
+  id: string;
+  url: string;
+  label: string;
+  source: string;
+}
+
 interface ReferenceGuidedGenerationDialogProps {
   open: boolean;
   panel: Panel | null;
+  allPanels?: Panel[];
+  storyId?: string;
   characters: CharacterReference[];
   onCharactersRefresh?: () => void | Promise<void>;
   onOpenChange: (open: boolean) => void;
@@ -62,6 +72,8 @@ function mapAssetToReference(character: CharacterAsset): CharacterReference {
 export function ReferenceGuidedGenerationDialog({
   open,
   panel,
+  allPanels,
+  storyId,
   characters,
   onCharactersRefresh,
   onOpenChange,
@@ -80,6 +92,10 @@ export function ReferenceGuidedGenerationDialog({
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadViewType, setUploadViewType] = useState<ViewType>("front");
   const [isUploadingView, setIsUploadingView] = useState(false);
+
+  // 参考图片选择状态
+  const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
+  const [referenceSelectorOpen, setReferenceSelectorOpen] = useState(false);
 
   useEffect(() => {
     setCharacterList(characters);
@@ -109,6 +125,7 @@ export function ReferenceGuidedGenerationDialog({
     setAspectRatio(undefined);
     setIsBuildingPrompt(false);
     setIsGenerating(false);
+    setReferenceImages([]);
   };
 
   const handleClose = (openState: boolean) => {
@@ -168,6 +185,7 @@ export function ReferenceGuidedGenerationDialog({
           panel_id: panel.id,
           prompt,
           wait: true,
+          reference_image_urls: referenceImages.map(img => img.url),
         }),
       });
 
@@ -392,6 +410,47 @@ export function ReferenceGuidedGenerationDialog({
               selectedId={selectedCharacterId}
               onSelect={(char) => setSelectedCharacterId(char?.id || null)}
             />
+
+            {/* 参考图片选择 */}
+            <div className="space-y-2 pt-3 border-t">
+              <div className="flex items-center justify-between">
+                <Label>参考图片 (可选)</Label>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setReferenceSelectorOpen(true)}
+                >
+                  <ImageIcon className="w-4 h-4 mr-1" />
+                  选择参考图
+                </Button>
+              </div>
+              {referenceImages.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 p-2 border rounded-lg bg-muted/20">
+                  {referenceImages.map(img => (
+                    <div key={img.id} className="relative group">
+                      <img
+                        src={img.url}
+                        alt={img.label}
+                        className="w-full h-16 object-cover rounded border"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setReferenceImages(prev => prev.filter(i => i.id !== img.id))}
+                        className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                      <p className="text-xs text-center mt-1 truncate">{img.label}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {referenceImages.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  未选择参考图，将自动使用角色的默认参考图
+                </p>
+              )}
+            </div>
           </div>
         </div>
         <DialogFooter>
@@ -416,6 +475,21 @@ export function ReferenceGuidedGenerationDialog({
           onUploadSuccess={handleUploadReferenceView}
           title={`上传${VIEW_LABELS[uploadViewType]}视图`}
           description="拖拽或点击上传角色参考图"
+        />
+
+        {/* 参考图选择对话框 */}
+        <ReferenceImageSelector
+          open={referenceSelectorOpen}
+          storyId={storyId}
+          panels={allPanels || (panel ? [panel] : [])}
+          onOpenChange={setReferenceSelectorOpen}
+          onConfirm={(images) => {
+            setReferenceImages(images);
+            toast({
+              title: "已选择参考图",
+              description: `已添加 ${images.length} 张参考图`,
+            });
+          }}
         />
       </DialogContent>
     </Dialog>

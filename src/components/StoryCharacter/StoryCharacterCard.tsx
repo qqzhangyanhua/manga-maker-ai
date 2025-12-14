@@ -5,12 +5,7 @@ import Image from "next/image";
 import { X, GripVertical, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RoleSelector } from "./RoleSelector";
-import {
-  type StoryCharacterWithDetails,
-  type CharacterRole,
-  ROLE_COLORS,
-  ROLE_OPTIONS,
-} from "./types";
+import { type StoryCharacterWithDetails, type CharacterRole } from "./types";
 
 interface StoryCharacterCardProps {
   storyCharacter: StoryCharacterWithDetails;
@@ -30,8 +25,6 @@ export function StoryCharacterCard({
 
   const { character } = storyCharacter;
   const role = storyCharacter.role as CharacterRole;
-  const roleLabel = ROLE_OPTIONS.find((r) => r.value === role)?.label || role;
-  const roleColor = ROLE_COLORS[role] || ROLE_COLORS.supporting;
 
   const imageUrl =
     character.reference_image ||
@@ -57,10 +50,13 @@ export function StoryCharacterCard({
     }
   };
 
+  const expressionCount = character.expressions?.length || 0;
+  const outfitCount = character.outfits?.length || 0;
+
   return (
     <div
       className={`
-        flex items-center gap-3 p-3 rounded-lg border bg-card
+        flex items-center gap-2 p-2 rounded-lg border bg-card
         transition-all duration-200
         ${isDragging ? "shadow-lg ring-2 ring-primary" : "hover:bg-accent/50"}
         ${isRemoving ? "opacity-50" : ""}
@@ -68,14 +64,14 @@ export function StoryCharacterCard({
     >
       {/* Drag handle */}
       <div
-        className="cursor-grab text-muted-foreground hover:text-foreground"
+        className="cursor-grab text-muted-foreground hover:text-foreground flex-shrink-0"
         onClick={(e) => e.stopPropagation()}
       >
         <GripVertical className="w-4 h-4" />
       </div>
 
       {/* Character avatar */}
-      <div className="relative w-12 h-12 rounded-full overflow-hidden bg-muted flex-shrink-0">
+      <div className="relative w-10 h-10 rounded-full overflow-hidden bg-muted flex-shrink-0">
         {imageUrl ? (
           <Image
             src={imageUrl}
@@ -85,29 +81,23 @@ export function StoryCharacterCard({
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <User className="w-6 h-6 text-muted-foreground" />
+            <User className="w-5 h-5 text-muted-foreground" />
           </div>
         )}
       </div>
 
       {/* Character info */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-sm truncate">{character.name}</span>
-          <span
-            className={`text-xs px-2 py-0.5 rounded-full border ${roleColor}`}
-          >
-            {roleLabel}
-          </span>
-        </div>
-        <div className="text-xs text-muted-foreground mt-0.5">
-          {character.expressions?.length || 0} 表情 ·{" "}
-          {character.outfits?.length || 0} 服装
-        </div>
+        <p className="font-medium text-sm truncate" title={character.name}>
+          {character.name}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {expressionCount}表情 · {outfitCount}服装
+        </p>
       </div>
 
       {/* Role selector */}
-      <div onClick={(e) => e.stopPropagation()}>
+      <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
         <RoleSelector
           value={role}
           onChange={handleRoleChange}
@@ -119,7 +109,7 @@ export function StoryCharacterCard({
       <Button
         variant="ghost"
         size="icon"
-        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+        className="h-7 w-7 flex-shrink-0 text-muted-foreground hover:text-destructive"
         onClick={(e) => {
           e.stopPropagation();
           handleRemove();

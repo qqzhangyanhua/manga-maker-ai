@@ -44,6 +44,6 @@ export type Project = {
 };
 
 export type OperationLoadingState = {
-  type: "merge" | "split" | "insert" | "prompt" | null;
+  type: "merge" | "split" | "insert" | "prompt" | "sketch" | null;
   panelId?: string;
 };

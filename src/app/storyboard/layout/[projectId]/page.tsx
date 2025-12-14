@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect, use } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import { ArrowLeft, Download, Save, Loader2, Grid, Eye, RotateCcw, RotateCw } from "lucide-react";
@@ -30,10 +30,9 @@ interface LayoutVersion {
 export default function LayoutEditorPage({
   params,
 }: {
-  params: Promise<{ projectId: string }>;
+  params: { projectId: string };
 }) {
-  const resolvedParams = use(params);
-  const projectId = resolvedParams.projectId;
+  const projectId = params.projectId;
   const { toast } = useToast();
 
   // State

@@ -34,6 +34,7 @@ import { SortablePanelCard } from "./PanelEditor/SortablePanelCard";
 import { PanelCardActions } from "./PanelEditor/PanelCardActions";
 import { InsertPanelDialog } from "./PanelEditor/InsertPanelDialog";
 import { SplitPanelDialog } from "./PanelEditor/SplitPanelDialog";
+import { ReferenceGuidedGenerationDialog } from "./PanelEditor/ReferenceGuidedGenerationDialog";
 import { usePanelDragDrop } from "../hooks/usePanelDragDrop";
 import { usePanelGeneration } from "../hooks/usePanelGeneration";
 import { MultiPanelGenerateDialog } from "./MultiPanelGenerateDialog";
@@ -115,6 +116,10 @@ export function PanelListView({
   const [mergingPanels, setMergingPanels] = useState<{ current: Panel; next: Panel } | null>(null);
   const [multiPanelDialogOpen, setMultiPanelDialogOpen] = useState(false);
 
+  // 参考图片辅助生成对话框状态
+  const [referenceDialogOpen, setReferenceDialogOpen] = useState(false);
+  const [selectedPanelForGeneration, setSelectedPanelForGeneration] = useState<Panel | null>(null);
+
   // 配置拖拽传感器（需要移动至少 5px 才触发拖拽，避免误触）
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -150,15 +155,16 @@ export function PanelListView({
     },
   });
 
-  // 生成单个分镜图片
-  const handleGenerateSingle = async (panel: Panel) => {
-    if (!panel.prompt_used && !panel.visual_prompt) {
-      onError("分镜缺少提示词，请先编辑分镜添加描述");
-      return;
-    }
+  // 生成单个分镜图片 - 打开参考图片选择弹窗
+  const handleGenerateSingle = (panel: Panel) => {
+    setSelectedPanelForGeneration(panel);
+    setReferenceDialogOpen(true);
+  };
 
-    const prompt = panel.prompt_used || panel.visual_prompt || panel.description;
-    await generateSingle(panel.id, prompt);
+  // 参考图片辅助生成完成回调
+  const handleReferenceGenerated = (panelId: string, imageUrl: string) => {
+    onImageGenerated?.(panelId, imageUrl);
+    onRefresh?.();
   };
 
   // 高级操作：在指定分镜之后插入
@@ -401,6 +407,18 @@ export function PanelListView({
           console.log("[PanelListView] 多镜生成成功:", { imageUrl, panelIds });
           onRefresh?.();
         }}
+      />
+
+      {/* 参考图片辅助生成对话框 */}
+      <ReferenceGuidedGenerationDialog
+        open={referenceDialogOpen}
+        panel={selectedPanelForGeneration}
+        allPanels={panels}
+        storyId={storyId}
+        characters={characters}
+        onCharactersRefresh={onCharactersRefresh}
+        onOpenChange={setReferenceDialogOpen}
+        onGenerated={handleReferenceGenerated}
       />
     </div>
   );

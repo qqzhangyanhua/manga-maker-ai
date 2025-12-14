@@ -12,7 +12,8 @@ type UsageAction =
   | "llm_chat"
   | "chapter_generation"
   | "panel_generation"
-  | "panel_optimization";
+  | "panel_optimization"
+  | "sketch_generation";
 
 const parseLimit = (value: string | undefined, fallback: number) => {
   const n = Number(value);
@@ -32,6 +33,7 @@ const DAILY_LIMITS: Record<UsageAction, number> = {
   chapter_generation: parseLimit(process.env.QUOTA_CHAPTER_DAILY, 20),
   panel_generation: parseLimit(process.env.QUOTA_PANEL_GENERATION_DAILY, 50),
   panel_optimization: parseLimit(process.env.QUOTA_PANEL_OPTIMIZATION_DAILY, 100),
+  sketch_generation: parseLimit(process.env.QUOTA_SKETCH_DAILY, 100),
 };
 
 export async function assertAndIncrementUsage(params: {

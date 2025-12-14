@@ -54,7 +54,7 @@ interface EditablePanelCardProps {
   onMerge?: (panelId: string) => void;
   onSplit?: (panelId: string) => void;
   onInsertAfter?: (panelOrder: number) => void;
-  onGenerateSketch?: (panelId: string) => void;
+  onGenerateSketch?: (panelId: string, characterId?: string) => void;
   onGeneratePrompt?: (panelId: string, opts?: { characterId?: string; styleKey?: string }) => void;
   onSelectionChange?: (panelId: string, selection: { characterId?: string; styleKey?: string }) => void;
   operationLoading?: OperationLoadingState;
@@ -590,11 +590,23 @@ const EditablePanelCard = ({
                 className="h-7 text-xs ml-auto"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onGenerateSketch(panel.id);
+                  onGenerateSketch(panel.id, selectedCharacterId);
                 }}
+                disabled={
+                  operationLoading?.type === "sketch" && operationLoading?.panelId === panel.id
+                }
               >
-                <Sparkles className="w-3 h-3 mr-1" />
-                生成草图
+                <Sparkles
+                  className={cn(
+                    "w-3 h-3 mr-1",
+                    operationLoading?.type === "sketch" &&
+                      operationLoading?.panelId === panel.id &&
+                      "animate-spin"
+                  )}
+                />
+                {operationLoading?.type === "sketch" && operationLoading?.panelId === panel.id
+                  ? "生成中..."
+                  : selectedCharacterId ? "生成草图(锁脸)" : "生成草图"}
               </Button>
             )}
           </div>
