@@ -126,7 +126,24 @@ export function Navbar({ className }: NavbarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [userCredits, setUserCredits] = useState<number | null>(null);
   const dropdownTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Fetch user credits
+  useEffect(() => {
+    const fetchUserCredits = async () => {
+      try {
+        const response = await fetch("/api/auth/me");
+        const result = await response.json();
+        if (result.success && result.data.user) {
+          setUserCredits(result.data.user.credits);
+        }
+      } catch (error) {
+        // User not logged in or error, ignore
+      }
+    };
+    fetchUserCredits();
+  }, []);
 
   // Handle scroll effect
   useEffect(() => {
@@ -360,9 +377,11 @@ export function Navbar({ className }: NavbarProps) {
             {/* Right: User Status Pill + Mobile Menu Button */}
             <div className="flex items-center gap-4">
               {/* User Status Pill - Desktop */}
-              <div className="hidden lg:block">
-                <UserStatusPill credits={2400} />
-              </div>
+              {userCredits !== null && (
+                <div className="hidden lg:block">
+                  <UserStatusPill credits={userCredits} />
+                </div>
+              )}
 
               {/* Mobile Menu Button */}
               <button
@@ -459,12 +478,14 @@ function UserStatusPill({ credits, avatarUrl }: UserStatusPillProps) {
       </div>
 
       {/* 设置按钮 */}
-      <button
-        className="p-1.5 text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors"
-        aria-label="设置"
-      >
-        <Settings className="w-4 h-4" />
-      </button>
+      <Link href="/profile">
+        <button
+          className="p-1.5 text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors"
+          aria-label="设置"
+        >
+          <Settings className="w-4 h-4" />
+        </button>
+      </Link>
     </div>
   );
 }
@@ -509,12 +530,14 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
           </div>
 
           {/* 算力显示 - 移动端 */}
-          <div className="mb-6 pb-6 border-b border-zinc-800">
-            <div className="text-[10px] font-mono text-zinc-600 mb-2">
-              账户状态
+          {userCredits !== null && (
+            <div className="mb-6 pb-6 border-b border-zinc-800">
+              <div className="text-[10px] font-mono text-zinc-600 mb-2">
+                账户状态
+              </div>
+              <UserStatusPill credits={userCredits} />
             </div>
-            <UserStatusPill credits={2400} />
-          </div>
+          )}
 
           {/* 导航 */}
           <nav className="space-y-2">

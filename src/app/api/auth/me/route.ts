@@ -25,10 +25,13 @@ export async function GET(request: NextRequest) {
         id: true,
         email: true,
         name: true,
+        image: true,
         verified: true,
         created_at: true,
         role: true,
         status: true,
+        credits: true,
+        total_credits_used: true,
       },
     });
 
