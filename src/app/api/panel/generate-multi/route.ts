@@ -15,27 +15,22 @@ interface RequestBody {
 }
 
 /**
- * 计算布局信息
+ * 获取合理的图片尺寸（基于分镜数量）
  */
-function calculateLayout(count: number): { rows: number; cols: number; description: string } {
-  switch (count) {
-    case 2:
-      return { rows: 1, cols: 2, description: "2格横排" };
-    case 3:
-      return { rows: 1, cols: 3, description: "3格横排" };
-    case 4:
-      return { rows: 2, cols: 2, description: "2×2网格" };
-    case 5:
-      return { rows: 2, cols: 3, description: "2×3网格（5格）" };
-    case 6:
-      return { rows: 2, cols: 3, description: "2×3网格" };
-    default:
-      return { rows: 1, cols: count, description: `${count}格横排` };
+function getImageDimensions(count: number): { width: number; height: number } {
+  // 根据分镜数量返回合理的画布尺寸
+  // AI 会在这个画布上自己决定如何排列分镜
+  if (count <= 2) {
+    return { width: 1024, height: 512 };  // 横向宽幅
+  } else if (count <= 4) {
+    return { width: 1024, height: 1024 }; // 方形画布
+  } else {
+    return { width: 1536, height: 1024 }; // 更大的画布
   }
 }
 
 /**
- * 构建多格提示词
+ * 构建多格提示词（让 AI 自己决定布局）
  */
 function buildMultiPanelPrompt(panels: Array<{
   panel_order: number;
@@ -46,13 +41,10 @@ function buildMultiPanelPrompt(panels: Array<{
   emotion: string | null;
   camera_angle: string | null;
   shot_size: string | null;
-}>, layout: { rows: number; cols: number; description: string }): string {
-  // 构建多格漫画的结构化提示词
-  const gridLayout = `${layout.rows}x${layout.cols} manga panel grid layout`;
-
+}>): string {
   // 每个分镜的描述
   const panelDescriptions = panels.map((panel, index) => {
-    const position = `panel ${index + 1}`;
+    const position = `Panel ${index + 1}`;
     const content = panel.visual_prompt || panel.prompt_used || panel.description || "empty panel";
 
     let desc = `[${position}]: ${content}`;
@@ -80,8 +72,8 @@ function buildMultiPanelPrompt(panels: Array<{
     return desc;
   }).join("; ");
 
-  // 组合完整提示词
-  return `Create a ${gridLayout} manga comic page with the following panels: ${panelDescriptions}. Style: manga/comic style, black and white or toned, professional layout with clear panel borders, high quality, detailed artwork`;
+  // 组合完整提示词 - 不指定布局，让 AI 自己决定
+  return `Create a manga comic page with ${panels.length} panels arranged in the most appropriate layout. Panels content: ${panelDescriptions}. Style: manga/comic style, black and white or toned, professional panel arrangement with clear panel borders, seamless composition, high quality, detailed artwork. You decide the best layout (grid, staggered, or asymmetric) based on the content and flow of the story.`;
 }
 
 export async function POST(request: NextRequest) {
@@ -175,14 +167,14 @@ export async function POST(request: NextRequest) {
       throw quotaError;
     }
 
-    // 计算布局
-    const layout = calculateLayout(panels.length);
+    // 获取图片尺寸
+    const dimensions = getImageDimensions(panels.length);
 
-    // 构建多格提示词
-    const multiPrompt = buildMultiPanelPrompt(panels, layout);
+    // 构建多格提示词（AI 自己决定布局）
+    const multiPrompt = buildMultiPanelPrompt(panels);
 
     console.log(`[MultiPanelGenerate] 生成 ${panels.length} 格图片:`, {
-      layout: layout.description,
+      dimensions: `${dimensions.width}x${dimensions.height}`,
       prompt: multiPrompt.substring(0, 200) + "...",
       referenceImageCount: reference_image_urls.length,
     });
@@ -195,8 +187,8 @@ export async function POST(request: NextRequest) {
       const result = await callImageGenerationByType({
         providerType: "image_generation",
         prompt: multiPrompt,
-        width: layout.cols * 512, // 根据列数调整宽度
-        height: layout.rows * 512, // 根据行数调整高度
+        width: dimensions.width,
+        height: dimensions.height,
         referenceImageUrls: reference_image_urls,
       });
 
@@ -259,7 +251,7 @@ export async function POST(request: NextRequest) {
         durationMs: Date.now() - startedAt,
         requestPayload: {
           panel_ids,
-          layout: layout.description,
+          layout: `${panels.length}格（AI自动布局）`,
           prompt: multiPrompt,
           reference_image_count: reference_image_urls.length,
         },
@@ -272,7 +264,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         image_url: imageUrl,
-        layout: layout.description,
+        layout: `${panels.length}格（AI自动布局）`,
         panel_count: panels.length,
       });
     } catch (genError) {
@@ -287,7 +279,7 @@ export async function POST(request: NextRequest) {
         durationMs: Date.now() - startedAt,
         requestPayload: {
           panel_ids,
-          layout: layout.description,
+          layout: `${panels.length}格（AI自动布局）`,
           prompt: multiPrompt,
           reference_image_count: reference_image_urls.length,
         },
