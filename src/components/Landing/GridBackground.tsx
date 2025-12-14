@@ -24,7 +24,7 @@ export function GridBackground() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const colors = ["#a855f7", "#3b82f6", "#ec4899"];
+    const colors = ["#f97316", "#fb923c", "#fdba74"];
 
     const resizeCanvas = () => {
       canvas.width = window.innerWidth;
@@ -49,7 +49,7 @@ export function GridBackground() {
 
     const drawGrid = () => {
       const gridSize = 60;
-      ctx.strokeStyle = "rgba(168, 85, 247, 0.08)";
+      ctx.strokeStyle = "rgba(82, 82, 91, 0.15)";
       ctx.lineWidth = 1;
 
       // Vertical lines
@@ -95,8 +95,8 @@ export function GridBackground() {
 
       // Draw gradient background
       const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      gradient.addColorStop(0, "#0a0a1a");
-      gradient.addColorStop(1, "#1a1a3a");
+      gradient.addColorStop(0, "#09090b");
+      gradient.addColorStop(1, "#09090b");
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 

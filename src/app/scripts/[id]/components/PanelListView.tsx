@@ -61,9 +61,9 @@ interface PanelListViewProps {
   charactersLoading?: boolean;
   onCharactersRefresh?: () => void | Promise<void>;
   onPanelsChange: (panels: Panel[]) => void;
-  onEditPanel: (panel: Panel) => void;
-  onDeletePanel: (id: string) => void;
-  onAddPanel: () => void;
+  onEditPanel?: (panel: Panel) => void;
+  onDeletePanel?: (id: string) => void;
+  onAddPanel?: () => void;
   onError: (message: string) => void;
   onImageGenerated?: (panelId: string, imageUrl: string) => void;
   onRefresh?: () => void; // New callback to trigger data refresh

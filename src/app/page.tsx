@@ -51,7 +51,7 @@ const HomePage = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-[#09090b]">
       <main>
         {/* Hero Section with futuristic manga studio style */}
         <HeroSection onOpenTrial={() => setShowTrialDialog(true)} />
@@ -60,23 +60,23 @@ const HomePage = () => {
         <WorkflowGuide className="px-4 py-12 -mt-8" />
 
         {/* Try It Section */}
-        <section className="px-4 py-16 bg-gradient-to-b from-slate-950 to-slate-900">
+        <section className="px-4 py-16 bg-[#09090b]">
           <div className="max-w-4xl mx-auto">
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-8 text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-500/20 mb-6">
-                <Play className="w-8 h-8 text-purple-400" />
+            <div className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800 rounded-2xl p-8 text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-orange-500/10 mb-6">
+                <Play className="w-8 h-8 text-orange-500" />
               </div>
               <h2 className="text-3xl font-bold text-white mb-4">
                 30 秒体验 AI 漫画生成
               </h2>
-              <p className="text-slate-400 mb-6 max-w-xl mx-auto">
+              <p className="text-zinc-400 mb-6 max-w-xl mx-auto">
                 不需要注册，输入一句话描述，AI 立即为你生成 4 格漫画预览。
                 <br />
                 喜欢就注册保存，继续编辑。
               </p>
               <Button
                 size="lg"
-                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white border-0"
+                className="bg-orange-500 hover:bg-orange-600 text-white border-0"
                 onClick={() => setShowTrialDialog(true)}
               >
                 <Sparkles className="w-5 h-5 mr-2" />
@@ -88,18 +88,18 @@ const HomePage = () => {
         </section>
 
         {/* Quick Access */}
-        <section className="px-4 py-16 bg-slate-900">
+        <section className="px-4 py-16 bg-zinc-900/50">
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-8">
               <div>
                 <h2 className="text-3xl font-bold text-white">
                   快速入口
                 </h2>
-                <p className="text-slate-400">
+                <p className="text-zinc-400">
                   示例项目、剧本、分镜、漫画素材一键进入
                 </p>
               </div>
-              <div className="text-xs text-slate-500">
+              <div className="text-xs text-zinc-500">
                 需要登录后访问
               </div>
             </div>
@@ -110,20 +110,20 @@ const HomePage = () => {
                   <Link
                     key={item.title}
                     href={item.href}
-                    className="group rounded-xl border border-slate-700/50 bg-slate-800/50 hover:border-purple-500/50 hover:bg-slate-800 transition-all p-4 flex flex-col gap-3"
+                    className="group rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-orange-500/50 hover:bg-zinc-900 transition-all p-4 flex flex-col gap-3"
                   >
                     <div className="flex items-center gap-2">
-                      <div className="w-10 h-10 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-lg bg-orange-500/10 text-orange-500 flex items-center justify-center">
                         <Icon className="w-5 h-5" />
                       </div>
-                      <span className="font-semibold text-white group-hover:text-purple-400 transition-colors">
+                      <span className="font-semibold text-white group-hover:text-orange-500 transition-colors">
                         {item.title}
                       </span>
                     </div>
-                    <p className="text-sm text-slate-400 leading-relaxed">
+                    <p className="text-sm text-zinc-400 leading-relaxed">
                       {item.description}
                     </p>
-                    <span className="text-sm text-purple-400 font-medium">
+                    <span className="text-sm text-orange-500 font-medium">
                       立即进入
                       <ArrowRight className="w-4 h-4 inline ml-1" />
                     </span>
@@ -135,15 +135,15 @@ const HomePage = () => {
         </section>
 
         {/* Footer */}
-        <footer className="py-12 px-4 border-t border-slate-800 bg-slate-950">
+        <footer className="py-12 px-4 border-t border-zinc-800 bg-[#09090b]">
           <div className="max-w-7xl mx-auto text-center">
-            <div className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-4">
+            <div className="text-2xl font-bold text-orange-500 mb-4">
               ComicAI
             </div>
-            <p className="text-slate-400 text-sm">
+            <p className="text-zinc-400 text-sm">
               用 AI 释放你的创意，创造属于你的漫画世界
             </p>
-            <p className="text-slate-600 text-xs mt-4">
+            <p className="text-zinc-600 text-xs mt-4">
               &copy; 2024 ComicAI. All rights reserved.
             </p>
           </div>

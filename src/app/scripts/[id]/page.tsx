@@ -8,30 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { StoryInfoPanel } from "./components/StoryInfoPanel";
 import { ChapterList } from "./components/ChapterList";
 import { PanelListView } from "./components/PanelListView";
-import { PanelEditDialog } from "./components/PanelEditor/PanelEditDialog";
 import { StoryDetailsSkeleton } from "./components/StoryDetailsSkeleton";
 import { StoryImagesGallery } from "./components/StoryImagesGallery";
 import type { Story, Panel } from "./types/script-editor.types";
-import {
-  useUpdateStory,
-  useCreatePanel,
-  useUpdatePanel,
-  useDeletePanel,
-} from "./hooks/useStoryData";
+import { useUpdateStory } from "./hooks/useStoryData";
 import { useStoryDataOptimized } from "./hooks/useStoryDataOptimized";
 import { useCharacterAssets } from "./hooks/useCharacterAssets";
 import {
@@ -82,9 +66,6 @@ export default function ScriptDetailsPage() {
   const updateStoryCharacterRole = useUpdateStoryCharacterRole(storyId);
 
   const updateStory = useUpdateStory(storyId);
-  const createPanel = useCreatePanel(storyId);
-  const updatePanel = useUpdatePanel(storyId);
-  const deletePanel = useDeletePanel(storyId);
 
   // 为章节生成分镜（旧版，保留作为后备）
   const generatePanelsForChapter = useGeneratePanelsForChapter(
@@ -153,65 +134,9 @@ export default function ScriptDetailsPage() {
     }
   }
 
-  async function handleSavePanel(e: React.FormEvent) {
-    e.preventDefault();
-    if (!data?.projectId) return;
-
-    try {
-      const isNew = !uiState.editingPanel?.id;
-
-      if (isNew) {
-        await createPanel.mutateAsync({
-          ...uiState.editingPanel,
-          project_id: data.projectId,
-        } as any);
-        toast({ title: "分镜已创建" });
-      } else {
-        await updatePanel.mutateAsync(uiState.editingPanel as any);
-        toast({ title: "分镜已更新" });
-      }
-
-      uiActions.closePanelDialog();
-    } catch (error) {
-      const errorInfo = formatErrorForToast(error);
-      toast({
-        title: errorInfo.title,
-        description: errorInfo.description,
-        variant: "destructive"
-      });
-    }
-  }
-
-  async function handleDeletePanel(id: string) {
-    uiActions.setDeletingPanel(id);
-  }
-
-  async function confirmDeletePanel() {
-    if (!uiState.deletingPanelId) return;
-
-    try {
-      await deletePanel.mutateAsync(uiState.deletingPanelId);
-      toast({ title: "分镜已删除" });
-    } catch (error) {
-      const errorInfo = formatErrorForToast(error);
-      toast({
-        title: errorInfo.title,
-        description: errorInfo.description,
-        variant: "destructive"
-      });
-    } finally {
-      uiActions.setDeletingPanel(null);
-    }
-  }
-
   async function handleImageGenerated(panelId: string, imageUrl: string) {
     await refetchPanels?.();
     toast({ title: "图片生成成功" });
-  }
-
-  function handleAddPanel() {
-    if (!data?.projectId) return;
-    uiActions.openNewPanelDialog(data.projectId);
   }
 
   // Story character handlers
@@ -426,9 +351,6 @@ export default function ScriptDetailsPage() {
                     charactersLoading={isCharactersLoading}
                     onCharactersRefresh={() => { refetchCharacters(); }}
                     onPanelsChange={() => { }}
-                    onEditPanel={(panel) => uiActions.openEditPanelDialog(panel)}
-                    onDeletePanel={handleDeletePanel}
-                    onAddPanel={handleAddPanel}
                     onImageGenerated={handleImageGenerated}
                     onRefresh={() => refetchPanels?.()}
                     onError={(msg) =>
@@ -444,36 +366,6 @@ export default function ScriptDetailsPage() {
             </Tabs>
           </div>
         </div>
-
-        {/* Edit/Create Dialog */}
-        <PanelEditDialog
-          open={uiState.isDialogOpen}
-          panel={uiState.editingPanel}
-          characters={data?.story?.characters || []}
-          storyId={storyId}
-          saving={false}
-          onOpenChange={(open) => !open && uiActions.closePanelDialog()}
-          onSave={handleSavePanel}
-          onChange={uiActions.updatePanelField}
-        />
-
-        {/* Delete Confirmation Dialog */}
-        <AlertDialog open={!!uiState.deletingPanelId} onOpenChange={(open) => !open && uiActions.setDeletingPanel(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>确认删除</AlertDialogTitle>
-              <AlertDialogDescription>
-                确定要删除这个分镜吗？此操作无法撤销。
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>取消</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDeletePanel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                删除
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
 
         {/* Streaming Generation Progress */}
         <GenerationProgress progress={progress} onCancel={cancel} />

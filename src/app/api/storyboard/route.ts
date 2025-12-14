@@ -181,7 +181,7 @@ ${story}
           description: story,
           style: storyboardData.style || style || null,
           status: "draft",
-          storyId: storyId || null, // Link to Story if provided
+          story_id: storyId || null, // Link to Story if provided
           panels: {
             create: storyboardData.panels.map((panel: any) => ({
               panel_order: panel.panel_order,
