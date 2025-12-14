@@ -2,7 +2,7 @@
  * Panel Generator - Core logic for AI panel/storyboard generation from chapter summary
  */
 
-import { callChatCompletionByType } from "./llm-provider";
+import { callChatCompletionByType, callChatCompletionStreamByType } from "./llm-provider";
 
 export interface PanelGenerationParams {
   chapterTitle: string;
@@ -163,6 +163,90 @@ ${chapterSummary}
   } catch (error) {
     console.error("Failed to parse panel generation response:", error);
     console.error("Raw response:", result.content);
+    throw new Error(
+      `解析分镜生成结果失败: ${error instanceof Error ? error.message : "未知错误"}`
+    );
+  }
+}
+
+/**
+ * 流式生成分镜（支持实时推送生成进度）
+ * @param onChunk 接收每个文本片段的回调函数
+ */
+export async function generatePanelsFromChapterStream(
+  params: PanelGenerationParams,
+  onChunk: (chunk: string) => void
+): Promise<GeneratedPanel[]> {
+  const { chapterTitle, chapterSummary, storyTitle, genre, panelCount } = params;
+
+  const userPrompt = `
+故事标题：${storyTitle}
+故事类型：${genre}
+章节标题：${chapterTitle}
+
+章节梗概：
+${chapterSummary}
+
+要求生成分镜数量：${panelCount || "根据内容决定（建议8-15个分镜）"}
+
+请根据以上信息，生成详细的分镜脚本。确保每个分镜都有清晰的视觉描述和构图设计。
+`.trim();
+
+  let accumulatedContent = "";
+
+  // 使用流式调用
+  const stream = callChatCompletionStreamByType({
+    providerType: "script_analyzer",
+    messages: [
+      { role: "system", content: PANEL_GENERATION_SYSTEM_PROMPT },
+      { role: "user", content: userPrompt },
+    ],
+    temperature: 0.8,
+    maxTokens: 4000,
+  });
+
+  // 逐块累积内容
+  for await (const chunk of stream) {
+    accumulatedContent += chunk;
+    onChunk(chunk); // 实时推送给调用者
+  }
+
+  // 解析完整响应
+  try {
+    const content = tryFixJSON(accumulatedContent);
+    const parsed = JSON.parse(content);
+
+    if (!parsed.panels || !Array.isArray(parsed.panels)) {
+      throw new Error("LLM返回的数据格式错误：缺少panels数组");
+    }
+
+    // Validate panel structure
+    const panels = parsed.panels as GeneratedPanel[];
+    for (const panel of panels) {
+      if (typeof panel.panel_order !== "number" || panel.panel_order < 1) {
+        throw new Error("分镜缺少有效的顺序号");
+      }
+      if (!panel.description || typeof panel.description !== "string") {
+        throw new Error(`分镜 ${panel.panel_order} 缺少描述`);
+      }
+      if (!panel.visual_prompt || typeof panel.visual_prompt !== "string") {
+        throw new Error(`分镜 ${panel.panel_order} 缺少视觉提示词`);
+      }
+      if (!panel.panel_type) {
+        panel.panel_type = "medium"; // 默认值
+      }
+      if (!panel.importance) {
+        panel.importance = "medium"; // 默认值
+      }
+    }
+
+    // Sort by panel_order to ensure correct order
+    panels.sort((a, b) => a.panel_order - b.panel_order);
+
+    return panels;
+  } catch (error) {
+    console.error("Failed to parse panel generation response:", error);
+    console.error("Raw accumulated content:", accumulatedContent);
     throw new Error(
       `解析分镜生成结果失败: ${error instanceof Error ? error.message : "未知错误"}`
     );

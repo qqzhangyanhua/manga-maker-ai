@@ -45,6 +45,8 @@ import { useUIState } from "./hooks/useUIState";
 import { formatErrorForToast, isRetryableError } from "./utils/errorHandling";
 import { StoryCharacterList } from "@/components/StoryCharacter/StoryCharacterList";
 import type { CharacterRole } from "@/components/StoryCharacter/types";
+import { useStreamingGeneration } from "./hooks/useStreamingGeneration";
+import { GenerationProgress } from "./components/GenerationProgress";
 
 export default function ScriptDetailsPage() {
   const params = useParams();
@@ -84,10 +86,13 @@ export default function ScriptDetailsPage() {
   const updatePanel = useUpdatePanel(storyId);
   const deletePanel = useDeletePanel(storyId);
 
-  // 为章节生成分镜
+  // 为章节生成分镜（旧版，保留作为后备）
   const generatePanelsForChapter = useGeneratePanelsForChapter(
     currentChapterId || ""
   );
+
+  // 流式生成 hook
+  const { progress, isGenerating, generate, cancel, reset } = useStreamingGeneration();
 
   // Unified UI state management
   const { state: uiState, actions: uiActions } = useUIState();
@@ -258,7 +263,7 @@ export default function ScriptDetailsPage() {
     }
   }
 
-  // AI生成分镜（章节级别）
+  // AI生成分镜（章节级别）- 使用流式 SSE 版本
   async function handleGeneratePanelsForChapter(chapterId: string): Promise<void> {
     if (!data?.story) {
       toast({ title: "故事不存在", variant: "destructive" });
@@ -293,22 +298,30 @@ export default function ScriptDetailsPage() {
         await refetchPanels?.();
       }
 
-      await generatePanelsForChapter.mutateAsync({
+      // 使用流式生成
+      await generate({
+        chapterId,
         projectId: projectId,
         overwrite: false,
       });
+
+      // 生成完成后提示并刷新
       toast({
-        title: "分镜已生成",
-        description: "AI已为当前章节生成分镜脚本",
+        title: "分镜生成完成",
+        description: "AI 已成功为当前章节生成分镜脚本",
       });
-      refetchPanels?.();
+      await refetchPanels?.();
+      reset(); // 重置进度状态
     } catch (error) {
-      const errorInfo = formatErrorForToast(error);
-      toast({
-        title: errorInfo.title,
-        description: errorInfo.description,
-        variant: "destructive",
-      });
+      // 只在非取消错误时显示 toast（取消错误已经在 hook 中处理）
+      if (error instanceof Error && error.name !== "AbortError") {
+        const errorInfo = formatErrorForToast(error);
+        toast({
+          title: errorInfo.title,
+          description: errorInfo.description,
+          variant: "destructive",
+        });
+      }
     }
   }
 
@@ -407,7 +420,7 @@ export default function ScriptDetailsPage() {
                     storyId={storyId}
                     currentChapterId={currentChapterId}
                     onGeneratePanelsForChapter={handleGeneratePanelsForChapter}
-                    isGeneratingPanels={generatePanelsForChapter.isPending}
+                    isGeneratingPanels={isGenerating}
                     characters={characterAssets}
                     charactersLoading={isCharactersLoading}
                     onCharactersRefresh={() => { refetchCharacters(); }}
@@ -460,6 +473,9 @@ export default function ScriptDetailsPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Streaming Generation Progress */}
+        <GenerationProgress progress={progress} onCancel={cancel} />
       </div>
     </ErrorBoundary>
   );
