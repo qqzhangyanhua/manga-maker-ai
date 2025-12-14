@@ -79,7 +79,6 @@ const bootstrapSqlStatements = [
   `UPDATE users SET verified = FALSE WHERE verified IS NULL`,
   `UPDATE users SET role = 'user' WHERE role IS NULL`,
   `UPDATE users SET status = 'active' WHERE status IS NULL`,
-  `UPDATE users SET role = 'admin' WHERE email = 'yanz57213@gmail.com'`,
   `CREATE TABLE IF NOT EXISTS email_verifications (
     id SERIAL PRIMARY KEY,
     email TEXT NOT NULL,
@@ -157,17 +156,44 @@ const bootstrapSqlStatements = [
 
 export const ensureDb = async () => {
   if (initialized) return;
-  
+
   for (const sql of bootstrapSqlStatements) {
     try {
       await prisma.$executeRawUnsafe(sql);
-    } catch (error: any) {
-      if (error.code !== 'P2010' && !error.message?.includes('already exists')) {
+    } catch (error: unknown) {
+      const err = error as { code?: string; message?: string };
+      if (err.code !== 'P2010' && !err.message?.includes('already exists')) {
         console.error('数据库初始化错误:', sql, error);
       }
     }
   }
-  
+
+  // 初始化管理员：仅在无管理员且配置了 INITIAL_ADMIN_EMAIL 时生效
+  const initialAdminEmail = process.env.INITIAL_ADMIN_EMAIL;
+  if (initialAdminEmail) {
+    try {
+      const adminCount = await prisma.user.count({
+        where: { role: 'admin' }
+      });
+
+      if (adminCount === 0) {
+        const user = await prisma.user.findUnique({
+          where: { email: initialAdminEmail }
+        });
+
+        if (user) {
+          await prisma.user.update({
+            where: { email: initialAdminEmail },
+            data: { role: 'admin' }
+          });
+          console.log(`已将 ${initialAdminEmail} 提权为管理员`);
+        }
+      }
+    } catch (error) {
+      console.error('初始化管理员失败:', error);
+    }
+  }
+
   initialized = true;
   globalThis.dbInitialized = true;
 };

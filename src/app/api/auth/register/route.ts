@@ -16,8 +16,6 @@ const schema = z.object({
   name: z.string().min(2, "昵称至少 2 个字符").max(32, "昵称过长").optional(),
 });
 
-const ADMIN_EMAILS = ["yanz57213@gmail.com"];
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -31,7 +29,6 @@ export async function POST(request: NextRequest) {
 
     await ensureDb();
 
-    const targetRole = ADMIN_EMAILS.includes(email) ? "admin" : "user";
     const passwordHash = await hashText(password);
     const now = new Date();
 
@@ -100,7 +97,7 @@ export async function POST(request: NextRequest) {
             verified: true,
             email_verified_at: now,
             updated_at: now,
-            role: targetRole,
+            role: "user",
             status: "active",
           },
           select: {
@@ -120,7 +117,7 @@ export async function POST(request: NextRequest) {
             name: name ?? null,
             verified: true,
             email_verified_at: now,
-            role: targetRole,
+            role: "user",
             status: "active",
             created_at: now,
             updated_at: now,

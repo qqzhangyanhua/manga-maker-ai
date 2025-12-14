@@ -404,6 +404,7 @@ export function Navbar({ className }: NavbarProps) {
       <MobileMenu
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
+        userCredits={userCredits}
       />
     </>
   );
@@ -494,9 +495,10 @@ function UserStatusPill({ credits, avatarUrl }: UserStatusPillProps) {
 interface MobileMenuProps {
   isOpen: boolean;
   onClose: () => void;
+  userCredits: number | null;
 }
 
-function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
+function MobileMenu({ isOpen, onClose, userCredits }: MobileMenuProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   return (

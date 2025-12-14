@@ -10,8 +10,6 @@ const schema = z.object({
   password: z.string().min(8, "密码格式不正确"),
 });
 
-const ADMIN_EMAILS = ["yanz57213@gmail.com"];
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -25,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     await ensureDb();
 
-    const userFromDb = await prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { email },
       select: {
         id: true,
@@ -38,26 +36,8 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (!userFromDb) {
+    if (!user) {
       return NextResponse.json({ success: false, message: "邮箱或密码错误" }, { status: 401 });
-    }
-
-    let user = userFromDb;
-
-    if (ADMIN_EMAILS.includes(user.email) && user.role !== "admin") {
-      user = await prisma.user.update({
-        where: { id: user.id },
-        data: { role: "admin", updated_at: new Date() },
-        select: {
-          id: true,
-          email: true,
-          password_hash: true,
-          name: true,
-          verified: true,
-          role: true,
-          status: true,
-        },
-      });
     }
 
     if (!user.verified) {
