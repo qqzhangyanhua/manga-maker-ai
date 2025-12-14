@@ -70,7 +70,8 @@ function tryFixJSON(text: string): string {
  * Generate chapter structure from story outline using LLM
  */
 export async function generateChapters(
-  params: ChapterGenerationParams
+  params: ChapterGenerationParams,
+  userId?: string
 ): Promise<GeneratedChapter[]> {
   const { storyTitle, premise, genre, outline, chapterCount } = params;
 
@@ -95,6 +96,7 @@ ${JSON.stringify(outline, null, 2)}
     ],
     temperature: 0.7,
     maxTokens: 3000,
+    options: userId ? { userId } : { skipCreditsCheck: true },
   });
 
   try {

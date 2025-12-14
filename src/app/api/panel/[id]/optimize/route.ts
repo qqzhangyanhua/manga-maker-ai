@@ -158,7 +158,10 @@ ${instruction ? `\n优化要求：${instruction}` : ""}
         { role: "user", content: userPrompt }
       ],
       temperature: 0.7,
-      maxTokens: 500
+      maxTokens: 500,
+      options: {
+        userId: userId!,
+      },
     });
 
     const optimizedText = result.content.trim();

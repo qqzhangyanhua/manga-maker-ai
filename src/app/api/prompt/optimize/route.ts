@@ -1,8 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callChatCompletionByType } from "@/lib/llm-provider";
+import { cookies } from "next/headers";
+import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
+    // 验证用户身份
+    const cookieStore = await cookies();
+    const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+
+    if (!token) {
+      return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
+
+    const payload = verifyAuthToken(token);
+    if (!payload?.userId) {
+      return NextResponse.json({ error: "无效的token" }, { status: 401 });
+    }
+
     const body = await req.json();
     const { prompt, style, character } = body;
 
@@ -48,6 +63,9 @@ ${character ? `选择的角色：${character}` : ""}
       ],
       temperature: 0.7,
       maxTokens: 800,
+      options: {
+        userId: payload.userId,
+      },
     });
 
     // 尝试解析 JSON

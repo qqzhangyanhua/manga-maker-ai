@@ -111,6 +111,9 @@ export async function POST(req: Request) {
         ],
         temperature: 0.7,
         maxTokens: 800,
+        options: {
+          userId: payload.userId,
+        },
       });
 
       optimizedPrompt = content.trim();

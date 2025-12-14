@@ -9,12 +9,16 @@ export type ChatMessage = {
   content: string;
 };
 
-export interface LlmCallOptions {
-  /** 用户ID，用于扣除算力（如果provider配置了credits_cost > 0） */
-  userId?: string;
-  /** 跳过算力检查（仅用于免费操作） */
-  skipCreditsCheck?: boolean;
-}
+/**
+ * LLM Call Options - 使用 discriminated union 强制类型安全
+ *
+ * 两种模式：
+ * 1. skipCreditsCheck: true - 跳过算力检查（试用/免费功能）
+ * 2. skipCreditsCheck: false - 需要提供 userId（付费功能）
+ */
+export type LlmCallOptions =
+  | { skipCreditsCheck: true; userId?: never }
+  | { skipCreditsCheck?: false; userId: string };
 
 const normalizeBaseUrl = (url: string) => url.replace(/\/$/, "");
 

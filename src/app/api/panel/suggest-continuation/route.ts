@@ -154,6 +154,9 @@ ${contextSummary}
       ],
       temperature: 0.7,
       maxTokens: 2000,
+      options: {
+        userId,
+      },
     });
 
     // 解析响应

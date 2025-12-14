@@ -178,6 +178,9 @@ export async function POST(req: Request) {
       ],
       temperature: 0.6,
       maxTokens: 1500,
+      options: {
+        userId: userId!,
+      },
     });
 
     // 解析响应

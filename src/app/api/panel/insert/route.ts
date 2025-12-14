@@ -108,6 +108,9 @@ ${contextInfo}
         ],
         temperature: 0.7,
         maxTokens: 1000,
+        options: {
+          userId: payload.userId,
+        },
       });
 
       try {

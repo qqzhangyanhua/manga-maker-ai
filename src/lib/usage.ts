@@ -8,6 +8,7 @@ type UsageAction =
   | "character_setup_generation"
   | "outfit_generation"
   | "image_generation"
+  | "image_edit"
   | "batch_image_generation"
   | "llm_chat"
   | "chapter_generation"
@@ -28,6 +29,7 @@ const DAILY_LIMITS: Record<UsageAction, number> = {
   character_setup_generation: parseLimit(process.env.QUOTA_CHARACTER_SETUP_DAILY, 50),
   outfit_generation: parseLimit(process.env.QUOTA_OUTFIT_DAILY, 30),
   image_generation: parseLimit(process.env.QUOTA_IMAGE_DAILY, 50),
+  image_edit: parseLimit(process.env.QUOTA_IMAGE_EDIT_DAILY, 50),
   batch_image_generation: parseLimit(process.env.QUOTA_BATCH_IMAGE_DAILY, 20),
   llm_chat: parseLimit(process.env.QUOTA_LLM_DAILY, 200),
   chapter_generation: parseLimit(process.env.QUOTA_CHAPTER_DAILY, 20),

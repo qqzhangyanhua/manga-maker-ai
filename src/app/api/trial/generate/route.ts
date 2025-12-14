@@ -67,6 +67,9 @@ async function generatePanelDescriptions(
       ],
       temperature: 0.8,
       maxTokens: 1000,
+      options: {
+        skipCreditsCheck: true, // 试用功能不消耗用户算力
+      },
     });
 
     // 解析 JSON 响应

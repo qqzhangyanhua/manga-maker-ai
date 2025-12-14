@@ -163,17 +163,20 @@ export async function POST(req: Request) {
         const result = await callChatCompletionByType({
           providerType: promptProviderType,
           messages: [
-            { 
-              role: "system", 
+            {
+              role: "system",
               content: `你是翻译助手。将服装描述翻译为简短的英文关键词。
 要求：只输出3-5个英文关键词，逗号分隔，不要任何解释。
 示例输入：蓝白色水手服，有蝴蝶结
-示例输出：blue and white, sailor style, bow tie` 
+示例输出：blue and white, sailor style, bow tie`
             },
             { role: "user", content: description },
           ],
           temperature: 0.1,
           maxTokens: 50,
+          options: {
+            userId: payload.userId,
+          },
         });
         promptModifier = result.content.trim();
         console.log(`简化后的描述: ${promptModifier}`);

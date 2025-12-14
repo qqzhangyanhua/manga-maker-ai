@@ -123,7 +123,8 @@ function fixJsonSyntax(jsonString: string): string {
  * Generate story outline from premise
  */
 export async function generateStoryOutline(
-    premise: StoryPremise
+    premise: StoryPremise,
+    userId?: string
 ): Promise<StoryOutline> {
     const { premise: idea, genre, characterCount, length, templateId } = premise;
 
@@ -146,6 +147,7 @@ ${templateId ? `- 使用模板ID: ${templateId}` : ""}
         ],
         temperature: 0.8,
         maxTokens: 3000,
+        options: userId ? { userId } : { skipCreditsCheck: true },
     });
 
     try {
@@ -196,7 +198,8 @@ export interface CharacterSetup extends StoryCharacter {
  */
 export async function generateCharacterSetup(
     characterDescription: string,
-    storyContext?: string
+    storyContext?: string,
+    userId?: string
 ): Promise<CharacterSetup> {
     const userPrompt = `
 角色描述: ${characterDescription}
@@ -212,6 +215,7 @@ ${storyContext ? `\n故事背景: ${storyContext}` : ""}
         ],
         temperature: 0.7,
         maxTokens: 1500,
+        options: userId ? { userId } : { skipCreditsCheck: true },
     });
 
     try {
@@ -259,7 +263,8 @@ export interface ExpandedScene {
 export async function expandStoryAct(
     act: StoryAct,
     characters: StoryCharacter[],
-    detailLevel: "brief" | "detailed" = "detailed"
+    detailLevel: "brief" | "detailed" = "detailed",
+    userId?: string
 ): Promise<ExpandedScene[]> {
     const userPrompt = `
 幕次: ${act.name}
@@ -278,6 +283,7 @@ export async function expandStoryAct(
         ],
         temperature: 0.7,
         maxTokens: 2500,
+        options: userId ? { userId } : { skipCreditsCheck: true },
     });
 
     try {

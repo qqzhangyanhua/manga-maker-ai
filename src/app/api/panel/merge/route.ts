@@ -163,6 +163,9 @@ export async function POST(req: Request) {
       ],
       temperature: 0.7,
       maxTokens: 1000,
+      options: {
+        userId: payload.userId,
+      },
     });
 
     let mergedData;

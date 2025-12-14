@@ -145,6 +145,9 @@ ${story}
       ],
       temperature: 0.7,
       maxTokens: 3000,
+      options: {
+        userId,
+      },
     });
 
     // 解析LLM返回的JSON

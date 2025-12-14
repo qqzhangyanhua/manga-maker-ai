@@ -127,7 +127,7 @@ ${chapterSummary}
     ],
     temperature: 0.8,
     maxTokens: 4000,
-    options: userId ? { userId } : undefined,
+    options: userId ? { userId } : { skipCreditsCheck: true },
   });
 
   try {
@@ -206,7 +206,7 @@ ${chapterSummary}
     ],
     temperature: 0.8,
     maxTokens: 4000,
-    options: userId ? { userId } : undefined,
+    options: userId ? { userId } : { skipCreditsCheck: true },
   });
 
   // 逐块累积内容

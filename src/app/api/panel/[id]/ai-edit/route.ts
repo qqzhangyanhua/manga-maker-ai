@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { callChatCompletionByType } from "@/lib/llm-provider";
+import { callImageGenerationByType } from "@/lib/image-generation";
 import { recordGenerationLog } from "@/lib/generation-log";
+import { uploadBase64Image } from "@/lib/upload-helpers";
+import { assertAndIncrementUsage } from "@/lib/usage";
 
 export async function POST(
   req: Request,
@@ -51,35 +53,75 @@ export async function POST(
       );
     }
 
-    // 调用 LLM 生成图片修改指令（使用 image_edit provider）
-    // 这里我们使用文本转图片的方式，因为大多数 AI 图片生成服务支持 img2img
-    const llmResponse = await callChatCompletionByType({
-      providerType: "image_edit",
-      messages: [
-        {
-          role: "system",
-          content: `你是一个专业的图片编辑助手。用户会提供一个修改需求，你需要将其转换为详细的图片生成提示词。
-要求：
-1. 保持原图的主体内容和构图
-2. 根据用户需求进行修改
-3. 输出简洁的英文提示词（不超过200词）
-4. 不要包含任何解释，只输出提示词`,
-        },
-        {
-          role: "user",
-          content: `原图描述：${panel.description || "无描述"}
-修改需求：${modifyPrompt}
+    // 检查配额并增加使用次数
+    try {
+      await assertAndIncrementUsage({
+        userId: payload.userId,
+        action: "image_edit",
+        providerType: "image_edit",
+      });
+    } catch (quotaError: unknown) {
+      const error = quotaError as { code?: string; message?: string; limit?: number; count?: number };
+      if (error?.code === "QUOTA_EXCEEDED") {
+        return NextResponse.json(
+          {
+            error: error.message,
+            code: "QUOTA_EXCEEDED",
+            limit: error.limit,
+            used: error.count,
+          },
+          { status: 429 }
+        );
+      }
+      throw quotaError;
+    }
 
-请生成修改后的图片提示词：`,
-        },
-      ],
-      temperature: 0.7,
-      maxTokens: 300,
+    // 构建完整的提示词：结合面板描述和用户修改需求
+    const fullPrompt = `${panel.description || "漫画面板"}, ${modifyPrompt}, manga style, high quality, detailed`;
+
+    console.log(`\n========== AI 图片编辑 ==========`);
+    console.log(`Panel ID: ${panelId}`);
+    console.log(`Reference Image: ${imageUrl}`);
+    console.log(`Modify Prompt: ${modifyPrompt}`);
+    console.log(`Full Prompt: ${fullPrompt}`);
+    console.log(`=====================================\n`);
+
+    // 直接调用图片生成 API，将原图作为参考
+    const result = await callImageGenerationByType({
+      providerType: "image_edit",
+      prompt: fullPrompt,
+      width: 1024,
+      height: 768,
+      referenceImageUrls: [imageUrl], // 关键：传递原图作为参考
     });
 
-    const optimizedPrompt = llmResponse.content.trim();
+    if (!result.success || !result.images || result.images.length === 0) {
+      throw new Error(result.error || "图片修改失败");
+    }
 
-    // 记录生成日志（准备阶段）
+    console.log(`✓ 图片生成成功，收到 ${result.images.length} 张图片`);
+
+    // 提取生成的图片 URL（可能是 base64 或 URL）
+    let newImageUrl: string = result.images[0];
+
+    // 如果是 base64，上传到 MinIO
+    if (newImageUrl.startsWith("data:")) {
+      console.log("正在上传生成的图片到 MinIO...");
+      newImageUrl = await uploadBase64Image(
+        newImageUrl,
+        `edited-${panelId}-${Date.now()}.png`
+      );
+      console.log(`✓ 图片已上传: ${newImageUrl}`);
+    }
+
+    // 如果返回的是 Markdown 格式的图片链接，提取 URL
+    const extractedUrls = extractImageUrlsFromMarkdown(newImageUrl);
+    if (extractedUrls.length > 0) {
+      newImageUrl = extractedUrls[0];
+      console.log(`✓ 从 Markdown 提取图片 URL: ${newImageUrl}`);
+    }
+
+    // 记录生成日志
     await recordGenerationLog({
       userId: payload.userId,
       action: "ai_edit_image",
@@ -91,37 +133,26 @@ export async function POST(
         panelId,
         originalImageUrl: imageUrl,
         modifyPrompt,
-        optimizedPrompt,
       },
       responsePayload: {
-        prompt: optimizedPrompt,
+        imageUrl: newImageUrl,
+        extractedUrls: extractedUrls.length > 0 ? extractedUrls : undefined,
       },
     });
-
-    // TODO: 这里应该调用实际的图片生成 API（如 Stable Diffusion img2img）
-    // 目前返回一个占位符，表示功能框架已就绪
-    // 实际实现时，需要：
-    // 1. 下载原始图片
-    // 2. 调用 img2img API
-    // 3. 上传生成的新图片到 MinIO
-    // 4. 返回新图片的 URL
-
-    // 占位符实现：使用优化后的提示词调用文本生成图片
-    const newImageUrl = await generateImagePlaceholder(optimizedPrompt);
 
     // 更新面板的图片 URL
     await prisma.panel.update({
       where: { id: panelId },
       data: {
         generated_image: newImageUrl,
-        prompt_used: optimizedPrompt,
+        prompt_used: fullPrompt,
       },
     });
 
     return NextResponse.json({
       success: true,
       imageUrl: newImageUrl,
-      optimizedPrompt,
+      optimizedPrompt: fullPrompt,
       message: "图片修改成功",
     });
   } catch (error) {
@@ -155,23 +186,30 @@ export async function POST(
 }
 
 /**
- * 占位符函数：生成图片
- * 实际实现时应该替换为真实的图片生成逻辑
+ * 从 Markdown 文本中提取图片 URL
+ * 支持格式：![alt](url) 和 <img src="url">
  */
-async function generateImagePlaceholder(prompt: string): Promise<string> {
-  // TODO: 替换为实际的图片生成 API 调用
-  // 例如：调用 Stable Diffusion、DALL-E 等服务
+function extractImageUrlsFromMarkdown(markdown: string): string[] {
+  const urls: string[] = [];
 
-  // 占位符：返回一个示例图片 URL
-  // 实际实现时，这里应该：
-  // 1. 调用图片生成 API
-  // 2. 获取生成的图片（通常是 base64 或 URL）
-  // 3. 上传到 MinIO
-  // 4. 返回公开访问的 URL
+  // 匹配 Markdown 格式的图片：![alt](url)
+  const markdownImageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+  let match;
+  while ((match = markdownImageRegex.exec(markdown)) !== null) {
+    const url = match[2].trim();
+    if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
+      urls.push(url);
+    }
+  }
 
-  console.warn("generateImagePlaceholder: This is a placeholder implementation");
-  console.log("Prompt:", prompt);
+  // 匹配 HTML img 标签：<img src="url">
+  const htmlImageRegex = /<img[^>]+src=["']([^"']+)["']/g;
+  while ((match = htmlImageRegex.exec(markdown)) !== null) {
+    const url = match[1].trim();
+    if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
+      urls.push(url);
+    }
+  }
 
-  // 返回一个占位符图片 URL（实际项目中应该生成真实图片）
-  return `https://via.placeholder.com/800x600.png?text=${encodeURIComponent("AI Generated: " + prompt.substring(0, 30))}`;
+  return urls;
 }

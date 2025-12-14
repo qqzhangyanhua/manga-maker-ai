@@ -138,6 +138,9 @@ export async function POST(req: Request) {
         ],
         temperature: 0.7,
         maxTokens: 300,
+        options: {
+          userId: payload.userId,
+        },
       });
 
       optimizedDescription = content.trim();

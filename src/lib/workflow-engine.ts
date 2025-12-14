@@ -175,6 +175,9 @@ ${act.summary}
             ],
             temperature: 0.7,
             maxTokens: 3000,
+            options: {
+                userId: this.userId,
+            },
         });
 
         let storyboardData;

@@ -105,6 +105,9 @@ export async function POST(req: Request) {
       ],
       temperature: 0.7,
       maxTokens: 1500,
+      options: {
+        userId: payload.userId,
+      },
     });
 
     let splitData;

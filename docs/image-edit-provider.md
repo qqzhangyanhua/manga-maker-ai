@@ -57,9 +57,13 @@ INSERT INTO llm_providers (
 ## 工作原理
 
 1. 用户在图片编辑器中输入修改描述
-2. 系统调用 `image_edit` provider 将修改描述转换为详细提示词
-3. （TODO）使用生成的提示词调用图片生成 API（Stable Diffusion img2img）
-4. 将生成的图片上传到存储并更新 Panel
+2. 系统调用 `image_edit` provider 的图片生成服务
+3. **将原图作为参考图（reference image）**，结合修改需求生成新图
+4. 支持多种返回格式：
+   - Base64 图片：自动上传到 MinIO
+   - 图片 URL：直接使用
+   - Markdown 图片链接：提取 URL
+5. 更新 Panel 并保存到数据库
 
 ## API 使用示例
 
@@ -69,7 +73,7 @@ INSERT INTO llm_providers (
 POST /api/panel/{panelId}/ai-edit
 
 {
-  "imageUrl": "https://example.com/image.png",
+  "imageUrl": "https://example.com/image.png",  // 原图 URL（作为参考）
   "modifyPrompt": "把背景换成晴朗的天空，增加阳光效果"
 }
 ```
@@ -80,22 +84,45 @@ POST /api/panel/{panelId}/ai-edit
 {
   "success": true,
   "imageUrl": "https://example.com/new-image.png",
-  "optimizedPrompt": "bright sunny sky, warm sunlight, clear blue atmosphere...",
+  "optimizedPrompt": "漫画面板, 把背景换成晴朗的天空，增加阳光效果, manga style, high quality, detailed",
   "message": "图片修改成功"
 }
 ```
 
+### 实现细节
+
+API 内部调用 `callImageGenerationByType` 时传递参考图：
+
+```typescript
+const result = await callImageGenerationByType({
+  providerType: "image_edit",
+  prompt: fullPrompt,
+  width: 1024,
+  height: 768,
+  referenceImageUrls: [imageUrl],  // 关键：原图作为参考
+});
+```
+
+参考图会被转换为 base64 并作为 multimodal content 发送给 LLM，LLM 可以"看到"原图并根据修改需求生成新图。
+
 ## 注意事项
 
 1. **API Key 安全**: 确保 API Key 安全存储，不要提交到版本控制
-2. **图片生成**: 当前 API 端点返回占位符图片，需要集成真实的图片生成服务（如 Stable Diffusion）
-3. **成本控制**: 每次 AI 修改都会消耗 API 调用额度，建议设置使用限制
-4. **性能**: 图片生成可能需要较长时间，建议使用异步队列处理
+2. **参考图大小**: 参考图会被转换为 base64，图片过大可能影响性能
+3. **成本控制**: 每次 AI 修改都会消耗 API 调用额度和配额，建议设置使用限制
+4. **性能**: 图片生成可能需要较长时间（通常 10-30 秒）
+5. **支持的服务**: 需要使用支持 multimodal（图文混合）输入的 LLM，如：
+   - OpenAI GPT-4 Vision
+   - Google Gemini Pro Vision
+   - Anthropic Claude 3 (Opus/Sonnet/Haiku)
+   - 其他兼容 OpenAI multimodal API 的服务
 
 ## 未来改进
 
-- [ ] 集成 Stable Diffusion img2img API
-- [ ] 支持局部修改（Inpainting）
+- [x] ~~集成 img2img API~~ (已实现：通过 referenceImageUrls)
+- [ ] 支持局部修改（Inpainting/遮罩编辑）
 - [ ] 支持风格转换
 - [ ] 添加图片生成进度查询
 - [ ] 支持批量修改
+- [ ] 支持多个参考图（已支持 API，待前端实现）
+- [ ] 优化参考图传输（压缩、CDN 加速）
