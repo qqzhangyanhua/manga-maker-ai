@@ -1,5 +1,5 @@
 import type { LlmProvider } from "@prisma/client";
-import { prisma, ensureDb } from "./db";
+import { prisma } from "./db";
 import { consumeCredits, checkCredits, type CreditError } from "./credits";
 
 type ChatRole = "system" | "user" | "assistant";
@@ -23,7 +23,6 @@ export type LlmCallOptions =
 const normalizeBaseUrl = (url: string) => url.replace(/\/$/, "");
 
 export const findLlmProviderByType = async (providerType: string): Promise<LlmProvider | null> => {
-  await ensureDb();
   return prisma.llmProvider.findFirst({
     where: { provider_type: providerType, enabled: true },
     orderBy: [{ priority: "asc" }, { id: "asc" }],

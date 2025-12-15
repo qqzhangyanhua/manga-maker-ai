@@ -5,7 +5,7 @@ import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { assertAndIncrementUsage } from "@/lib/usage";
 import { generateImage } from "@/lib/unified-image-generation";
 import { recordGenerationLog } from "@/lib/generation-log";
-import { prisma, ensureDb } from "@/lib/db";
+import { prisma } from "@/lib/db";
 
 const payloadSchema = z.object({
   prompt: z.string().min(10, "请提供至少 10 个字描述希望优化的方向"),
@@ -76,7 +76,6 @@ export async function POST(req: Request) {
       },
     });
 
-    await ensureDb();
     const version = await prisma.imagePageVersion.create({
       data: {
         user_id: authPayload.userId,

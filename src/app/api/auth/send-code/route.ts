@@ -1,9 +1,10 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { ensureDb, prisma } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { sendVerificationEmail } from "@/lib/mailer";
 import { hashText } from "@/lib/auth";
+import { checkAndIncrementWindowLimitDistributed } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,15 @@ const schema = z.object({
 });
 
 const generateCode = () => crypto.randomInt(100000, 999999).toString();
+const IP_HEADER_KEY = "x-forwarded-for";
+
+const getClientIp = (request: NextRequest) => {
+  const forwarded = request.headers.get(IP_HEADER_KEY);
+  if (forwarded) {
+    return forwarded.split(",")[0]?.trim();
+  }
+  return request.ip ?? "unknown";
+};
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,8 +33,25 @@ export async function POST(request: NextRequest) {
     }
 
     const { email } = parsed.data;
+    const clientIp = getClientIp(request);
 
-    await ensureDb();
+    // 双维度限流：同邮箱 30 分钟 3 次，同 IP 1 分钟 10 次
+    const emailLimit = await checkAndIncrementWindowLimitDistributed(`email:${email}`, 3, 30 * 60 * 1000);
+    if (!emailLimit.allowed) {
+      return NextResponse.json(
+        { success: false, message: "请求过于频繁，请稍后再试" },
+        { status: 429 },
+      );
+    }
+
+    const ipLimit = await checkAndIncrementWindowLimitDistributed(`ip:${clientIp}`, 10, 60 * 1000);
+    if (!ipLimit.allowed) {
+      return NextResponse.json(
+        { success: false, message: "操作过于频繁，请稍后再试" },
+        { status: 429 },
+      );
+    }
+
 
     const existingUser = await prisma.user.findFirst({
       where: { email, verified: true },

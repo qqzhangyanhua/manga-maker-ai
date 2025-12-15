@@ -4,6 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -11,8 +18,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Eye, EyeOff } from "lucide-react";
 import type { ProviderForm, Provider } from "../types";
-import { emptyForm } from "../types";
+import { emptyForm, KNOWN_PROVIDER_TYPES, CUSTOM_TYPE_VALUE } from "../types";
 
 interface ProviderFormDialogProps {
   open: boolean;
@@ -30,9 +38,13 @@ export const ProviderFormDialog = ({
   onSubmit,
 }: ProviderFormDialogProps) => {
   const [form, setForm] = useState<ProviderForm>(emptyForm);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [isCustomType, setIsCustomType] = useState(false);
 
   useEffect(() => {
     if (editingProvider) {
+      const isKnownType = KNOWN_PROVIDER_TYPES.includes(editingProvider.provider_type as typeof KNOWN_PROVIDER_TYPES[number]);
+      setIsCustomType(!isKnownType);
       setForm({
         provider_type: editingProvider.provider_type,
         provider_name: editingProvider.provider_name,
@@ -46,7 +58,9 @@ export const ProviderFormDialog = ({
       });
     } else {
       setForm(emptyForm);
+      setIsCustomType(false);
     }
+    setShowApiKey(false);
   }, [editingProvider, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -78,12 +92,39 @@ export const ProviderFormDialog = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>provider_type*</Label>
-              <Input
-                value={form.provider_type}
-                onChange={(e) => setForm((prev) => ({ ...prev, provider_type: e.target.value }))}
-                placeholder="如：storyboard"
-                required
-              />
+              <Select
+                value={isCustomType ? CUSTOM_TYPE_VALUE : form.provider_type}
+                onValueChange={(value) => {
+                  if (value === CUSTOM_TYPE_VALUE) {
+                    setIsCustomType(true);
+                    setForm((prev) => ({ ...prev, provider_type: "" }));
+                  } else {
+                    setIsCustomType(false);
+                    setForm((prev) => ({ ...prev, provider_type: value }));
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="选择类型" />
+                </SelectTrigger>
+                <SelectContent>
+                  {KNOWN_PROVIDER_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value={CUSTOM_TYPE_VALUE}>自定义类型...</SelectItem>
+                </SelectContent>
+              </Select>
+              {isCustomType && (
+                <Input
+                  value={form.provider_type}
+                  onChange={(e) => setForm((prev) => ({ ...prev, provider_type: e.target.value }))}
+                  placeholder="输入自定义类型"
+                  required
+                  className="mt-2"
+                />
+              )}
             </div>
             <div className="space-y-2">
               <Label>provider_name</Label>
@@ -113,11 +154,28 @@ export const ProviderFormDialog = ({
             </div>
             <div className="space-y-2">
               <Label>api_key</Label>
-              <Input
-                value={form.api_key}
-                onChange={(e) => setForm((prev) => ({ ...prev, api_key: e.target.value }))}
-                placeholder="sk-..."
-              />
+              <div className="relative">
+                <Input
+                  type={showApiKey ? "text" : "password"}
+                  value={form.api_key}
+                  onChange={(e) => setForm((prev) => ({ ...prev, api_key: e.target.value }))}
+                  placeholder="sk-..."
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                >
+                  {showApiKey ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
             </div>
             <div className="space-y-2">
               <Label>priority</Label>
@@ -173,6 +231,8 @@ export const ProviderFormDialog = ({
     </Dialog>
   );
 };
+
+
 
 
 

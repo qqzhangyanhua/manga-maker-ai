@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
-import { prisma, ensureDb } from "@/lib/db";
+import { prisma } from "@/lib/db";
 
 const sourceTypeEnum = z.enum(["original", "optimize", "layout", "upload"]);
 const statusEnum = z.enum(["pending", "completed", "failed"]);
@@ -38,7 +38,6 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const json = await req.json();
     const payload = updateSchema.parse(json);
 
-    await ensureDb();
     const existing = await prisma.imagePageVersion.findFirst({
       where: {
         id: params.id,

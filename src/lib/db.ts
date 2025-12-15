@@ -46,154 +46,33 @@ if (!globalThis.prisma) {
   globalThis.prisma = prisma;
 }
 
-let initialized = globalThis.dbInitialized || false;
-
-const bootstrapSqlStatements = [
-  `CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email TEXT UNIQUE NOT NULL,
-    email_verified TIMESTAMPTZ,
-    name TEXT,
-    image TEXT,
-    password TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    verified BOOLEAN DEFAULT FALSE,
-    email_verified_at TIMESTAMPTZ,
-    password_hash TEXT DEFAULT '',
-    role TEXT DEFAULT 'user',
-    status TEXT DEFAULT 'active'
-  )`,
-  `ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified TIMESTAMPTZ`,
-  `ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT`,
-  `ALTER TABLE users ADD COLUMN IF NOT EXISTS image TEXT`,
-  `ALTER TABLE users ADD COLUMN IF NOT EXISTS password TEXT`,
-  `ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()`,
-  `ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`,
-  `ALTER TABLE users ADD COLUMN IF NOT EXISTS verified BOOLEAN DEFAULT FALSE`,
-  `ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ`,
-  `ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT DEFAULT ''`,
-  `ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user'`,
-  `ALTER TABLE users ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active'`,
-  `UPDATE users SET password_hash = '' WHERE password_hash IS NULL`,
-  `UPDATE users SET verified = FALSE WHERE verified IS NULL`,
-  `UPDATE users SET role = 'user' WHERE role IS NULL`,
-  `UPDATE users SET status = 'active' WHERE status IS NULL`,
-  `CREATE TABLE IF NOT EXISTS email_verifications (
-    id SERIAL PRIMARY KEY,
-    email TEXT NOT NULL,
-    code_hash TEXT NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL,
-    used BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-  )`,
-  `ALTER TABLE email_verifications ADD COLUMN IF NOT EXISTS used BOOLEAN DEFAULT FALSE`,
-  `ALTER TABLE email_verifications ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()`,
-  `ALTER TABLE email_verifications ADD COLUMN IF NOT EXISTS code_hash TEXT`,
-  `ALTER TABLE email_verifications ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ`,
-  `CREATE INDEX IF NOT EXISTS idx_email_verifications_email ON email_verifications(email)`,
-  `CREATE TABLE IF NOT EXISTS llm_providers (
-    id SERIAL PRIMARY KEY,
-    provider_type TEXT NOT NULL,
-    provider_name TEXT DEFAULT 'openai',
-    model TEXT NOT NULL,
-    base_url TEXT NOT NULL,
-    api_key TEXT DEFAULT '' NOT NULL,
-    priority INT DEFAULT 1,
-    enabled BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-  )`,
-  `ALTER TABLE llm_providers ADD COLUMN IF NOT EXISTS provider_name TEXT DEFAULT 'openai'`,
-  `ALTER TABLE llm_providers ADD COLUMN IF NOT EXISTS api_key TEXT DEFAULT '' NOT NULL`,
-  `ALTER TABLE llm_providers ADD COLUMN IF NOT EXISTS priority INT DEFAULT 1`,
-  `ALTER TABLE llm_providers ADD COLUMN IF NOT EXISTS enabled BOOLEAN DEFAULT TRUE`,
-  `ALTER TABLE llm_providers ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()`,
-  `ALTER TABLE llm_providers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`,
-  `CREATE INDEX IF NOT EXISTS idx_llm_providers_type_enabled ON llm_providers(provider_type, enabled, priority)`,
-  `CREATE TABLE IF NOT EXISTS generation_logs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL,
-    project_id UUID,
-    action TEXT NOT NULL,
-    provider_type TEXT,
-    status TEXT NOT NULL,
-    duration_ms INT,
-    request_payload JSONB,
-    response_payload JSONB,
-    error_message TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-  )`,
-  `CREATE INDEX IF NOT EXISTS idx_generation_logs_user_action_time ON generation_logs(user_id, action, created_at)`,
-  `CREATE TABLE IF NOT EXISTS usage_stats (
-    id SERIAL PRIMARY KEY,
-    user_id UUID NOT NULL,
-    action TEXT NOT NULL,
-    provider_type TEXT,
-    date DATE NOT NULL,
-    count INT DEFAULT 0,
-    last_used_at TIMESTAMPTZ DEFAULT NOW()
-  )`,
-  `CREATE UNIQUE INDEX IF NOT EXISTS unique_usage_per_day ON usage_stats(user_id, action, date)`,
-  `CREATE INDEX IF NOT EXISTS idx_usage_user_action ON usage_stats(user_id, action)`,
-  `CREATE TABLE IF NOT EXISTS image_page_versions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL,
-    project_id UUID,
-    label TEXT NOT NULL,
-    source_type TEXT NOT NULL,
-    status TEXT DEFAULT 'completed',
-    image_url TEXT,
-    task_id TEXT,
-    metadata JSONB,
-    canvas_schema JSONB,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-  )`,
-  `CREATE INDEX IF NOT EXISTS idx_image_page_versions_user ON image_page_versions(user_id, created_at DESC)`,
-  `CREATE INDEX IF NOT EXISTS idx_image_page_versions_task ON image_page_versions(task_id)`,
-];
-
-export const ensureDb = async () => {
-  if (initialized) return;
-
-  for (const sql of bootstrapSqlStatements) {
-    try {
-      await prisma.$executeRawUnsafe(sql);
-    } catch (error: unknown) {
-      const err = error as { code?: string; message?: string };
-      if (err.code !== 'P2010' && !err.message?.includes('already exists')) {
-        console.error('数据库初始化错误:', sql, error);
-      }
-    }
-  }
-
-  // 初始化管理员：仅在无管理员且配置了 INITIAL_ADMIN_EMAIL 时生效
+/**
+ * Initialize admin user if INITIAL_ADMIN_EMAIL is set
+ * This is safe to call multiple times - it only promotes the first time
+ */
+export const initializeAdmin = async (): Promise<void> => {
   const initialAdminEmail = process.env.INITIAL_ADMIN_EMAIL;
-  if (initialAdminEmail) {
-    try {
-      const adminCount = await prisma.user.count({
-        where: { role: 'admin' }
+  if (!initialAdminEmail) return;
+
+  try {
+    const adminCount = await prisma.user.count({
+      where: { role: 'admin' }
+    });
+
+    if (adminCount === 0) {
+      const user = await prisma.user.findUnique({
+        where: { email: initialAdminEmail }
       });
 
-      if (adminCount === 0) {
-        const user = await prisma.user.findUnique({
-          where: { email: initialAdminEmail }
+      if (user) {
+        await prisma.user.update({
+          where: { email: initialAdminEmail },
+          data: { role: 'admin' }
         });
-
-        if (user) {
-          await prisma.user.update({
-            where: { email: initialAdminEmail },
-            data: { role: 'admin' }
-          });
-          console.log(`已将 ${initialAdminEmail} 提权为管理员`);
-        }
+        console.log(`已将 ${initialAdminEmail} 提权为管理员`);
       }
-    } catch (error) {
-      console.error('初始化管理员失败:', error);
     }
+  } catch (error) {
+    console.error('初始化管理员失败:', error);
   }
-
-  initialized = true;
-  globalThis.dbInitialized = true;
 };

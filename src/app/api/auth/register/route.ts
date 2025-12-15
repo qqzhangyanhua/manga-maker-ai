@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { ensureDb, prisma } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { attachAuthCookie, hashText, signAuthToken, verifyHash } from "@/lib/auth";
 import { DEFAULT_REGISTER_CREDITS } from "@/lib/credits";
+import { checkAndIncrementWindowLimitDistributed } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -16,6 +17,16 @@ const schema = z.object({
   name: z.string().min(2, "昵称至少 2 个字符").max(32, "昵称过长").optional(),
 });
 
+const IP_HEADER_KEY = "x-forwarded-for";
+
+const getClientIp = (request: NextRequest) => {
+  const forwarded = request.headers.get(IP_HEADER_KEY);
+  if (forwarded) {
+    return forwarded.split(",")[0]?.trim();
+  }
+  return request.ip ?? "unknown";
+};
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -27,7 +38,27 @@ export async function POST(request: NextRequest) {
 
     const { email, password, code, name } = parsed.data;
 
-    await ensureDb();
+    const clientIp = getClientIp(request);
+
+    // 注册限流：同邮箱 30 分钟 3 次，同 IP 10 分钟 20 次
+    const emailLimit = await checkAndIncrementWindowLimitDistributed(
+      `register:email:${email}`,
+      3,
+      30 * 60 * 1000,
+    );
+    if (!emailLimit.allowed) {
+      return NextResponse.json({ success: false, message: "注册过于频繁，请稍后再试" }, { status: 429 });
+    }
+
+    const ipLimit = await checkAndIncrementWindowLimitDistributed(
+      `register:ip:${clientIp}`,
+      20,
+      10 * 60 * 1000,
+    );
+    if (!ipLimit.allowed) {
+      return NextResponse.json({ success: false, message: "请求过于频繁，请稍后再试" }, { status: 429 });
+    }
+
 
     const passwordHash = await hashText(password);
     const now = new Date();

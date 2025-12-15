@@ -1,9 +1,23 @@
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Info } from "lucide-react";
+
 export const ProviderTypeInfo = () => {
   return (
-    <div className="p-4 rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
-      <h3 className="font-semibold mb-3 text-blue-900 dark:text-blue-100">
-        📋 系统已知的 provider_type 类型：
-      </h3>
+    <Accordion type="single" collapsible className="w-full">
+      <AccordionItem value="provider-types" className="border rounded-lg px-4">
+        <AccordionTrigger className="hover:no-underline">
+          <div className="flex items-center gap-2">
+            <Info className="h-4 w-4 text-blue-600" />
+            <span className="font-semibold">查看所有 Provider Type 说明 (13种类型)</span>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent>
+          <div className="pt-2 pb-4">
       <div className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
@@ -135,9 +149,14 @@ export const ProviderTypeInfo = () => {
           </div>
         </div>
       </div>
-    </div>
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
   );
 };
+
+
 
 
 

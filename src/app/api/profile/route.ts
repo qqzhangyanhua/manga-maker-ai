@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ensureDb, prisma } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { readAuthCookie, verifyAuthToken } from "@/lib/auth";
 
 export const runtime = "nodejs";
@@ -11,7 +11,6 @@ export const dynamic = "force-dynamic";
  */
 export async function PATCH(request: NextRequest) {
   try {
-    await ensureDb();
 
     const token = readAuthCookie(request);
     if (!token) {

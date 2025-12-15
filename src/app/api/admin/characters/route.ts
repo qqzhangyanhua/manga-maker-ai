@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
-import { ensureDb, prisma } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth-helpers";
 
 const trainingStatuses = ["pending", "training", "ready", "failed"] as const;
@@ -51,7 +51,6 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    await ensureDb();
 
     const [total, characters] = await prisma.$transaction([
       prisma.character.count({ where }),
@@ -110,7 +109,6 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = parsed.data;
-    await ensureDb();
     const now = new Date();
 
     const character = await prisma.character.create({

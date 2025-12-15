@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
-import { ensureDb, prisma } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { hashText } from "@/lib/auth";
 
@@ -29,7 +29,6 @@ export async function GET(request: NextRequest) {
       return adminCheck;
     }
 
-    await ensureDb();
     const users = await prisma.user.findMany({
       select: {
         id: true,
@@ -66,7 +65,6 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = parsed.data;
-    await ensureDb();
     const passwordHash = await hashText(payload.password);
     const now = new Date();
 

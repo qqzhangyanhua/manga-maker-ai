@@ -9,7 +9,7 @@ interface RouteContext {
 }
 
 const updateStyleSchema = z.object({
-  style_key: z.string().min(2).max(50).regex(/^[a-z0-9_]+$/).optional(),
+  style_key: z.string().min(2).max(50).regex(/^[a-z0-9_-]+$/).optional(),
   name_zh: z.string().min(1).max(50).optional(),
   name_en: z.string().min(1).max(50).optional(),
   image_url: z.string().min(1).optional(),

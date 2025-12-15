@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { ensureDb, prisma } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth-helpers";
 
 export const runtime = "nodejs";
@@ -30,7 +30,6 @@ export async function GET(request: NextRequest) {
       return adminCheck;
     }
 
-    await ensureDb();
     const providers = await prisma.llmProvider.findMany({
       orderBy: [{ enabled: "desc" }, { priority: "asc" }, { id: "asc" }],
     });
@@ -57,7 +56,6 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = parsed.data;
-    await ensureDb();
 
     const now = new Date();
     const provider = await prisma.llmProvider.create({

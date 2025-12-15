@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
-import { prisma, ensureDb } from "@/lib/db";
+import { prisma } from "@/lib/db";
 
 const sourceTypeEnum = z.enum(["original", "optimize", "layout", "upload"]);
 const statusEnum = z.enum(["pending", "completed", "failed"]);
@@ -64,7 +64,6 @@ export async function GET(req: Request) {
       ...(taskId ? { task_id: taskId } : {}),
     };
 
-    await ensureDb();
     const [versions, total] = await Promise.all([
       prisma.imagePageVersion.findMany({
         where: whereClause,
@@ -96,7 +95,6 @@ export async function POST(req: Request) {
     const json = await req.json();
     const payload = createSchema.parse(json);
 
-    await ensureDb();
     const version = await prisma.imagePageVersion.create({
       data: {
         user_id: auth.userId,

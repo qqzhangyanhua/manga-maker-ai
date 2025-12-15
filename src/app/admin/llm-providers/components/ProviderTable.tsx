@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -7,7 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Pencil, Copy, Trash2, Zap } from "lucide-react";
+import { Pencil, Copy, Trash2, Zap, Star } from "lucide-react";
 import type { Provider } from "../types";
 
 interface ProviderTableProps {
@@ -31,15 +32,14 @@ export const ProviderTable = ({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[80px] min-w-[80px] sticky left-0 bg-muted z-20 shadow-[inset_-1px_0_0_0_hsl(var(--border))]">
-                ID
+              <TableHead className="w-[100px] min-w-[100px] sticky left-0 bg-muted z-20 shadow-[inset_-1px_0_0_0_hsl(var(--border))]">
+                状态
               </TableHead>
-              <TableHead className="min-w-[120px] sticky left-[80px] bg-muted z-20 shadow-[inset_-1px_0_0_0_hsl(var(--border))]">
+              <TableHead className="min-w-[120px] sticky left-[100px] bg-muted z-20 shadow-[inset_-1px_0_0_0_hsl(var(--border))]">
                 Type
               </TableHead>
               <TableHead className="min-w-[100px]">Name</TableHead>
               <TableHead className="min-w-[150px]">Model</TableHead>
-              <TableHead className="min-w-[200px]">Base URL</TableHead>
               <TableHead className="min-w-[80px]">Priority</TableHead>
               <TableHead className="min-w-[90px]">
                 <div className="flex items-center gap-1">
@@ -56,33 +56,37 @@ export const ProviderTable = ({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   正在加载...
                 </TableCell>
               </TableRow>
             ) : providers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   暂无配置，先在上方添加一条记录。
                 </TableCell>
               </TableRow>
             ) : (
               providers.map((p) => (
                 <TableRow key={p.id}>
-                  <TableCell className="sticky left-0 bg-background z-10 shadow-[inset_-1px_0_0_0_hsl(var(--border))] p-0 relative">
-                    <div className={`absolute inset-y-0 left-0 w-1 ${p.enabled ? "bg-green-500" : "bg-muted-foreground/30"}`} />
-                    <div className="px-4 py-2 h-full flex items-center">
-                      {p.id}
+                  <TableCell className="sticky left-0 bg-background z-10 shadow-[inset_-1px_0_0_0_hsl(var(--border))]">
+                    <div className="flex items-center gap-2">
+                      <Badge variant={p.enabled ? "default" : "secondary"}>
+                        {p.enabled ? "启用" : "禁用"}
+                      </Badge>
+                      {p.priority === 1 && (
+                        <Badge variant="outline" className="gap-1">
+                          <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
+                          优先
+                        </Badge>
+                      )}
                     </div>
                   </TableCell>
-                  <TableCell className="font-medium sticky left-[80px] bg-background z-10 shadow-[inset_-1px_0_0_0_hsl(var(--border))]">
+                  <TableCell className="font-medium sticky left-[100px] bg-background z-10 shadow-[inset_-1px_0_0_0_hsl(var(--border))]">
                     {p.provider_type}
                   </TableCell>
                   <TableCell>{p.provider_name}</TableCell>
                   <TableCell>{p.model}</TableCell>
-                  <TableCell className="max-w-[200px] truncate" title={p.base_url}>
-                    {p.base_url}
-                  </TableCell>
                   <TableCell>{p.priority}</TableCell>
                   <TableCell>
                     <span className={`inline-flex items-center gap-1 ${p.credits_cost > 0 ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
@@ -132,6 +136,8 @@ export const ProviderTable = ({
     </div>
   );
 };
+
+
 
 
 

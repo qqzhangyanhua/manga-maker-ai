@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ensureDb } from "@/lib/db";
 import { readAuthCookie, verifyAuthToken } from "@/lib/auth";
 import { getCreditTransactions } from "@/lib/credits";
 
@@ -12,7 +11,6 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(request: NextRequest) {
   try {
-    await ensureDb();
 
     const token = readAuthCookie(request);
     if (!token) {

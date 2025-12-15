@@ -46,10 +46,13 @@ git clone <YOUR_GIT_URL>
 cd manga-maker-ai
 npm install
 
-# 生成 Prisma Client
-npx prisma generate
-# 初始化数据库（本地开发可直接创建空库后执行）
-npx prisma migrate dev
+# 初始化数据库（推荐使用脚本）
+./scripts/init-db.sh
+
+# 或手动执行：
+# npx prisma migrate deploy  # 应用所有迁移
+# npx prisma generate        # 生成 Prisma Client
+
 # (可选) 打开 Prisma Studio
 npx prisma studio
 
@@ -57,6 +60,8 @@ npx prisma studio
 npm run dev
 # 访问 http://localhost:3000
 ```
+
+**重要**: 数据库初始化现已使用 Prisma 迁移系统。详见 [数据库设置指南](docs/DATABASE_SETUP.md)。
 
 ### 环境变量（`.env.local` 示例）
 
@@ -67,6 +72,7 @@ DATABASE_SSL=false           # 可选，生产如需 SSL 设为 true
 
 # 鉴权
 AUTH_SECRET=replace_with_strong_secret
+INITIAL_ADMIN_EMAIL=admin@example.com  # 可选，首次登录时自动提权为管理员
 
 # 邮件
 EMAIL_HOST=smtp.example.com

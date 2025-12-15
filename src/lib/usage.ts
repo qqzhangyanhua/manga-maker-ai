@@ -1,4 +1,4 @@
-import { prisma, ensureDb } from "./db";
+import { prisma } from "./db";
 
 type UsageAction =
   | "storyboard_generation"
@@ -45,7 +45,6 @@ export async function assertAndIncrementUsage(params: {
   amount?: number;
 }) {
   const { userId, action, providerType, amount = 1 } = params;
-  await ensureDb();
 
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
@@ -106,7 +105,6 @@ export async function getUsageSnapshot(params: {
   action: UsageAction;
 }) {
   const { userId, action } = params;
-  await ensureDb();
 
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);

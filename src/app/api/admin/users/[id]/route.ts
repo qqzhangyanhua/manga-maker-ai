@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
-import { ensureDb, prisma } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { hashText } from "@/lib/auth";
 
@@ -47,7 +47,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ success: false, message: "没有可更新的字段" }, { status: 400 });
     }
 
-    await ensureDb();
 
     const data: Prisma.UserUpdateInput = {};
 
@@ -106,7 +105,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ success: false, message: "无效的 id" }, { status: 400 });
     }
 
-    await ensureDb();
     await prisma.user.delete({ where: { id: userId } });
     return NextResponse.json({ success: true });
   } catch (error) {

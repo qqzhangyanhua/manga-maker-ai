@@ -1,4 +1,4 @@
-import { prisma, ensureDb } from "./db";
+import { prisma } from "./db";
 
 // 默认注册赠送算力
 export const DEFAULT_REGISTER_CREDITS = 2000;
@@ -42,7 +42,6 @@ export interface CreditError extends Error {
  * 获取用户当前算力余额
  */
 export async function getUserCredits(userId: string): Promise<number> {
-  await ensureDb();
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { credits: true },
@@ -54,7 +53,6 @@ export async function getUserCredits(userId: string): Promise<number> {
  * 获取用户算力详情
  */
 export async function getUserCreditsInfo(userId: string) {
-  await ensureDb();
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -90,7 +88,6 @@ export async function consumeCredits(params: ConsumeCreditsParams): Promise<{
     throw new Error("消耗算力必须大于0");
   }
 
-  await ensureDb();
 
   // 使用事务确保原子性
   const result = await prisma.$transaction(async (tx) => {
@@ -157,7 +154,6 @@ export async function addCredits(params: AddCreditsParams): Promise<{
     throw new Error("增加算力必须大于0");
   }
 
-  await ensureDb();
 
   const result = await prisma.$transaction(async (tx) => {
     const user = await tx.user.findUnique({
@@ -202,7 +198,6 @@ export async function addCredits(params: AddCreditsParams): Promise<{
 export async function initUserCredits(userId: string, credits?: number): Promise<void> {
   const amount = credits ?? DEFAULT_REGISTER_CREDITS;
 
-  await ensureDb();
 
   // 记录初始赠送的交易
   await prisma.creditTransaction.create({
@@ -227,7 +222,6 @@ export async function getCreditTransactions(
     action?: CreditAction;
   }
 ) {
-  await ensureDb();
 
   const { limit = 20, offset = 0, action } = options ?? {};
 
@@ -268,7 +262,6 @@ export async function adminAdjustCredits(params: {
     throw new Error("调整金额不能为0");
   }
 
-  await ensureDb();
 
   const result = await prisma.$transaction(async (tx) => {
     const user = await tx.user.findUnique({

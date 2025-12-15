@@ -1,15 +1,15 @@
 import { useState, useCallback, useRef } from "react";
+import { useToast } from "@/hooks/use-toast";
 import type { Provider, ProviderForm } from "../types";
 
 export const useProviders = () => {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string>("");
+  const { toast } = useToast();
 
   const fetchProvidersRef = useRef(async () => {
     setLoading(true);
-    setMessage("");
     try {
       const res = await fetch("/api/llm-providers", { cache: "no-store" });
       if (!res.ok) {
@@ -19,7 +19,11 @@ export const useProviders = () => {
       const data = await res.json();
       setProviders(data.data.providers as Provider[]);
     } catch (error) {
-      setMessage((error as Error).message);
+      toast({
+        variant: "destructive",
+        title: "获取失败",
+        description: (error as Error).message,
+      });
     } finally {
       setLoading(false);
     }
@@ -31,7 +35,6 @@ export const useProviders = () => {
 
   const saveProvider = useCallback(async (form: ProviderForm, editingId: number | null) => {
     setSaving(true);
-    setMessage("");
 
     const payload = {
       ...form,
@@ -55,19 +58,25 @@ export const useProviders = () => {
         throw new Error(errorMsg);
       }
 
-      setMessage("保存成功");
+      toast({
+        title: "保存成功",
+        description: editingId ? "配置已更新" : "配置已创建",
+      });
       await fetchProvidersRef.current();
       return true;
     } catch (error) {
-      setMessage((error as Error).message);
+      toast({
+        variant: "destructive",
+        title: "保存失败",
+        description: (error as Error).message,
+      });
       return false;
     } finally {
       setSaving(false);
     }
-  }, []);
+  }, [toast]);
 
   const copyProvider = useCallback(async (provider: Provider) => {
-    setMessage("");
     try {
       const payload = {
         provider_type: provider.provider_type,
@@ -76,8 +85,9 @@ export const useProviders = () => {
         base_url: provider.base_url,
         api_key: provider.api_key,
         priority: provider.priority,
-        enabled: false, // 复制后默认关闭
+        enabled: false,
         desc: provider.desc,
+        credits_cost: provider.credits_cost,
       };
 
       const res = await fetch("/api/llm-providers", {
@@ -91,40 +101,53 @@ export const useProviders = () => {
         throw new Error(data.message || "复制失败");
       }
 
-      setMessage("复制成功（已默认关闭）");
+      toast({
+        title: "复制成功",
+        description: "新配置已创建（默认禁用）",
+      });
       await fetchProvidersRef.current();
     } catch (error) {
-      setMessage((error as Error).message);
+      toast({
+        variant: "destructive",
+        title: "复制失败",
+        description: (error as Error).message,
+      });
     }
-  }, []);
+  }, [toast]);
 
   const deleteProvider = useCallback(async (id: number) => {
-    setMessage("");
     try {
       const res = await fetch(`/api/llm-providers/${id}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data.message || "删除失败");
       }
-      setMessage("删除成功");
+      toast({
+        title: "删除成功",
+        description: "配置已删除",
+      });
       await fetchProvidersRef.current();
     } catch (error) {
-      setMessage((error as Error).message);
+      toast({
+        variant: "destructive",
+        title: "删除失败",
+        description: (error as Error).message,
+      });
     }
-  }, []);
+  }, [toast]);
 
   return {
     providers,
     loading,
     saving,
-    message,
-    setMessage,
     fetchProviders,
     saveProvider,
     copyProvider,
     deleteProvider,
   };
 };
+
+
 
 
 

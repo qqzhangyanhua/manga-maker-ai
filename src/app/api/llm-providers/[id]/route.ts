@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
-import { ensureDb, prisma } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth-helpers";
 
 export const runtime = "nodejs";
@@ -50,7 +50,6 @@ export async function PUT(
     }
 
     const payload = parsed.data;
-    await ensureDb();
 
     // 处理 desc 字段：空字符串转为 null
     const descValue = payload.desc === "" || payload.desc === undefined ? null : payload.desc;
@@ -104,7 +103,6 @@ export async function DELETE(
       return NextResponse.json({ success: false, message: "无效的 id" }, { status: 400 });
     }
 
-    await ensureDb();
     await prisma.llmProvider.delete({ where: { id: providerId } });
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -1,5 +1,5 @@
 import { officialTemplatePresets } from "@/config/template-presets";
-import { prisma, ensureDb } from "./db";
+import { prisma } from "./db";
 
 /**
  * 确保官方模板存在：当数据库中缺少官方模板时，自动写入预置模板。
@@ -7,7 +7,6 @@ import { prisma, ensureDb } from "./db";
  */
 export const ensureOfficialTemplatesSeed = async () => {
   try {
-    await ensureDb();
   } catch (error) {
     console.error("初始化数据库失败，跳过官方模板注入:", error);
     return;

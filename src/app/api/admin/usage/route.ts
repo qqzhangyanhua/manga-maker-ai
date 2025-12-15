@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth-helpers";
-import { ensureDb, prisma } from "@/lib/db";
+import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +26,6 @@ export async function GET(request: Request) {
     const since = from ? new Date(from) : defaultSince;
     const until = to ? new Date(to) : now;
 
-    await ensureDb();
 
     const [usageStats, generationLogs] = await Promise.all([
       prisma.usageStat.findMany({

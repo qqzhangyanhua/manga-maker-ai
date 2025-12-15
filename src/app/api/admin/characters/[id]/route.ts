@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
-import { ensureDb, prisma } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth-helpers";
 
 const trainingStatuses = ["pending", "training", "ready", "failed"] as const;
@@ -39,7 +39,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ success: false, message: "无效的角色ID" }, { status: 400 });
     }
 
-    await ensureDb();
     const character = await prisma.character.findUnique({ where: { id: characterId } });
     if (!character) {
       return NextResponse.json({ success: false, message: "角色不存在" }, { status: 404 });
@@ -68,7 +67,6 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       );
     }
 
-    await ensureDb();
     const payload = parsed.data;
     const data: Prisma.CharacterUpdateInput = {
       updated_at: new Date(),
@@ -117,7 +115,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ success: false, message: "无效的角色ID" }, { status: 400 });
     }
 
-    await ensureDb();
     await prisma.character.delete({ where: { id: characterId } });
     return NextResponse.json({ success: true });
   } catch (error) {

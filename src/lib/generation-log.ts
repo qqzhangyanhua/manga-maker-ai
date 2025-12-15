@@ -1,4 +1,4 @@
-import { prisma, ensureDb } from "./db";
+import { prisma } from "./db";
 
 type GenerationStatus = "success" | "failed" | "pending";
 
@@ -26,7 +26,6 @@ export async function recordGenerationLog(params: {
   } = params;
 
   try {
-    await ensureDb();
     await prisma.generationLog.create({
       data: {
         user_id: userId,

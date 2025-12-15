@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ensureDb, prisma } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { readAuthCookie, verifyAuthToken } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 
@@ -12,7 +12,6 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: NextRequest) {
   try {
-    await ensureDb();
 
     const token = readAuthCookie(request);
     if (!token) {

@@ -46,7 +46,8 @@
       "Bash(grep:*)",
       "Bash(pnpm run build:*)",
       "Bash(psql:*)",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "Bash(chmod:*)"
     ],
     "deny": [],
     "ask": []
