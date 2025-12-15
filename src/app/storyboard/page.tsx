@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import Header from "@/components/Header";
+import { Navbar } from "@/components/Landing";
 import {
   ArrowLeft,
   Wand2,
@@ -264,7 +264,7 @@ const StoryboardEditorPageContent = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <Navbar />
 
       <main className="pt-20 pb-12 px-4">
         <div className="max-w-7xl mx-auto">

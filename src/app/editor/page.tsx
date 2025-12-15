@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Header from "@/components/Header";
+import { Navbar } from "@/components/Landing";
 import ActionSidebar from "@/components/ImageEditor/ActionSidebar";
 import CanvasWorkspace, { CanvasController } from "@/components/ImageEditor/CanvasWorkspace";
 import VersionTimeline, { EditorVersion } from "@/components/ImageEditor/VersionTimeline";
@@ -203,7 +203,7 @@ const EditorPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <Navbar />
       <main className="pt-20 pb-12 px-4">
         <div className="max-w-7xl mx-auto space-y-8">
           <section className="rounded-2xl border border-border bg-card/60 backdrop-blur p-6 flex flex-col gap-4 lg:flex-row lg:items-center">

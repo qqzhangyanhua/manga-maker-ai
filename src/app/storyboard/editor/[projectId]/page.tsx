@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
-import Header from "@/components/Header";
+import { Navbar } from "@/components/Landing";
 import { ArrowLeft, Save, Loader2, Grid, CheckSquare, Sparkles, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ScriptEditorPane from "@/components/Storyboard/ScriptEditorPane";
@@ -337,7 +337,7 @@ export default function StoryboardEditorPage({
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Header />
+      <Navbar />
 
       {/* Header Bar */}
       <div className="sticky top-16 z-40 border-b border-border bg-background/95 backdrop-blur">

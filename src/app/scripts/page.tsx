@@ -102,99 +102,101 @@ export default function ScriptsPage() {
     };
 
     return (
-        <div className="container py-8 space-y-8">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">剧本管理</h1>
-                    <p className="text-muted-foreground mt-2">
-                        查看和管理所有生成的剧本，点击卡片进入分镜编辑
-                    </p>
-                </div>
-                <Link href="/story">
-                    <Button>
-                        <Plus className="w-4 h-4 mr-2" />
-                        新建剧本
-                    </Button>
-                </Link>
-            </div>
-
-            {loading ? (
-                <div className="flex justify-center py-12">
-                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                </div>
-            ) : error ? (
-                <div className="text-center py-12 text-destructive">
-                    {error}
-                    <Button variant="outline" className="ml-4" onClick={fetchStories}>重试</Button>
-                </div>
-            ) : stories.length === 0 ? (
-                <div className="text-center py-12 border rounded-lg bg-muted/20">
-                    <BookOpen className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium">暂无剧本</h3>
-                    <p className="text-muted-foreground mb-6">你还没有创建任何剧本，快去创建一个吧！</p>
+        <div className="min-h-screen bg-[#09090b]">
+            <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-3xl font-bold text-white">剧本管理</h1>
+                        <p className="text-zinc-400 mt-2">
+                            查看和管理所有生成的剧本，点击卡片进入分镜编辑
+                        </p>
+                    </div>
                     <Link href="/story">
-                        <Button>去创建</Button>
+                        <Button className="bg-orange-500 hover:bg-orange-600 text-white border-0">
+                            <Plus className="w-4 h-4 mr-2" />
+                            新建剧本
+                        </Button>
                     </Link>
                 </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {stories.map((story) => (
-                        <Card key={story.id} className="flex flex-col hover:shadow-md transition-shadow">
-                            <CardHeader>
-                                <div className="flex items-start justify-between">
-                                    <CardTitle className="text-xl line-clamp-1" title={story.title}>
-                                        {story.title || "无标题剧本"}
-                                    </CardTitle>
-                                    <Badge variant="secondary">
-                                        {genreMap[story.genre] || story.genre || "未知"}
-                                    </Badge>
-                                </div>
-                                <CardDescription>
-                                    {format(new Date(story.created_at), "yyyy-MM-dd HH:mm", { locale: zhCN })}
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="flex-1">
-                                <p className="text-sm text-muted-foreground line-clamp-3">
-                                    {story.premise}
-                                </p>
-                            </CardContent>
-                            <CardFooter className="flex gap-2">
-                                <Link href={`/scripts/${story.id}`} className="flex-1">
-                                    <Button variant="outline" className="w-full">
-                                        <Edit className="w-4 h-4 mr-2" />
-                                        管理分镜
-                                    </Button>
-                                </Link>
 
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive">
-                                            <Trash2 className="w-4 h-4" />
+                {loading ? (
+                    <div className="flex justify-center py-12">
+                        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+                    </div>
+                ) : error ? (
+                    <div className="text-center py-12 text-red-400">
+                        {error}
+                        <Button variant="outline" className="ml-4 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-zinc-600" onClick={fetchStories}>重试</Button>
+                    </div>
+                ) : stories.length === 0 ? (
+                    <div className="text-center py-12 border border-zinc-800 rounded-lg bg-zinc-900/50">
+                        <BookOpen className="w-12 h-12 mx-auto text-zinc-500 mb-4" />
+                        <h3 className="text-lg font-medium text-white">暂无剧本</h3>
+                        <p className="text-zinc-400 mb-6">你还没有创建任何剧本，快去创建一个吧！</p>
+                        <Link href="/story">
+                            <Button className="bg-orange-500 hover:bg-orange-600 text-white border-0">去创建</Button>
+                        </Link>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {stories.map((story) => (
+                            <Card key={story.id} className="flex flex-col border-zinc-800 bg-zinc-900/50 hover:border-zinc-700 hover:bg-zinc-900 transition-all">
+                                <CardHeader>
+                                    <div className="flex items-start justify-between">
+                                        <CardTitle className="text-xl line-clamp-1 text-white" title={story.title}>
+                                            {story.title || "无标题剧本"}
+                                        </CardTitle>
+                                        <Badge variant="secondary" className="bg-orange-500/10 text-orange-500 border-0">
+                                            {genreMap[story.genre] || story.genre || "未知"}
+                                        </Badge>
+                                    </div>
+                                    <CardDescription className="text-zinc-500">
+                                        {format(new Date(story.created_at), "yyyy-MM-dd HH:mm", { locale: zhCN })}
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="flex-1">
+                                    <p className="text-sm text-zinc-400 line-clamp-3">
+                                        {story.premise}
+                                    </p>
+                                </CardContent>
+                                <CardFooter className="flex gap-2">
+                                    <Link href={`/scripts/${story.id}`} className="flex-1">
+                                        <Button variant="outline" className="w-full border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-zinc-600">
+                                            <Edit className="w-4 h-4 mr-2" />
+                                            管理分镜
                                         </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>确认删除？</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                此操作无法撤销。这将永久删除该剧本及其所有关联的分镜和设置。
-                                            </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>取消</AlertDialogCancel>
-                                            <AlertDialogAction
-                                                onClick={() => handleDelete(story.id)}
-                                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                            >
-                                                删除
-                                            </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            </CardFooter>
-                        </Card>
-                    ))}
-                </div>
-            )}
+                                    </Link>
+
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="text-zinc-500 hover:text-red-400 hover:bg-zinc-800">
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent className="bg-zinc-900 border-zinc-800">
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle className="text-white">确认删除？</AlertDialogTitle>
+                                                <AlertDialogDescription className="text-zinc-400">
+                                                    此操作无法撤销。这将永久删除该剧本及其所有关联的分镜和设置。
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">取消</AlertDialogCancel>
+                                                <AlertDialogAction
+                                                    onClick={() => handleDelete(story.id)}
+                                                    className="bg-red-600 text-white hover:bg-red-700"
+                                                >
+                                                    删除
+                                                </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                </CardFooter>
+                            </Card>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

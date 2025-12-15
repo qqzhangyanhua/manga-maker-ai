@@ -5,7 +5,7 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { Image as ImageIcon, Loader2, RefreshCw, Search, ArrowLeft, Filter, ArrowUpRight } from "lucide-react";
-import Header from "@/components/Header";
+import { Navbar } from "@/components/Landing";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -115,13 +115,13 @@ export default function GeneratedGalleryPage() {
   );
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
+    <div className="min-h-screen bg-[#09090b]">
+      <Navbar />
       <main className="pt-20 pb-12 px-4">
         <div className="max-w-7xl mx-auto">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6"
+            className="inline-flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-6"
           >
             <ArrowLeft className="w-4 h-4" />
             返回首页
@@ -129,18 +129,18 @@ export default function GeneratedGalleryPage() {
 
           <div className="flex items-center justify-between gap-3 mb-4">
             <div>
-              <h1 className="font-comic text-3xl text-foreground">生成图库</h1>
-              <p className="text-muted-foreground">按时间回溯所有生成图片，支持按关键词与风格筛选</p>
+              <h1 className="font-bold text-3xl text-white">生成图库</h1>
+              <p className="text-zinc-400">按时间回溯所有生成图片，支持按关键词与风格筛选</p>
             </div>
-            <Button variant="outline" size="sm" onClick={fetchImages} disabled={loading}>
+            <Button variant="outline" size="sm" onClick={fetchImages} disabled={loading} className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-zinc-600">
               <RefreshCw className={`w-4 h-4 mr-1 ${loading ? "animate-spin" : ""}`} />
               刷新
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 p-4 border border-border rounded-lg bg-card mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 p-4 border border-zinc-800 rounded-lg bg-zinc-900/50 mb-8">
             <div className="space-y-2">
-              <div className="text-xs text-muted-foreground flex items-center gap-1">
+              <div className="text-xs text-zinc-400 flex items-center gap-1">
                 <Search className="w-4 h-4" />
                 提示词关键词
               </div>
@@ -149,10 +149,11 @@ export default function GeneratedGalleryPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                className="bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600"
               />
             </div>
             <div className="space-y-2">
-              <div className="text-xs text-muted-foreground flex items-center gap-1">
+              <div className="text-xs text-zinc-400 flex items-center gap-1">
                 <Filter className="w-4 h-4" />
                 风格
               </div>
@@ -161,20 +162,21 @@ export default function GeneratedGalleryPage() {
                 value={style}
                 onChange={(e) => setStyle(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                className="bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600"
               />
             </div>
             <div className="space-y-2">
-              <div className="text-xs text-muted-foreground flex items-center gap-1">
+              <div className="text-xs text-zinc-400 flex items-center gap-1">
                 <Filter className="w-4 h-4" />
                 来源
               </div>
               <Select value={sourceType} onValueChange={(val) => setSourceType(val)}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-zinc-900 border-zinc-800 text-white">
                   <SelectValue placeholder="全部来源" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-zinc-900 border-zinc-800">
                   {sourceOptions.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
+                    <SelectItem key={opt.value} value={opt.value} className="text-white focus:bg-zinc-800 focus:text-white">
                       {opt.label}
                     </SelectItem>
                   ))}
@@ -182,7 +184,7 @@ export default function GeneratedGalleryPage() {
               </Select>
             </div>
             <div className="flex items-end">
-              <Button className="w-full md:w-auto" onClick={handleSearch} disabled={loading}>
+              <Button className="w-full md:w-auto bg-orange-500 hover:bg-orange-600 text-white border-0" onClick={handleSearch} disabled={loading}>
                 <Search className="w-4 h-4 mr-2" />
                 查询
               </Button>
@@ -190,14 +192,14 @@ export default function GeneratedGalleryPage() {
           </div>
 
           {loading && (
-            <div className="flex items-center justify-center py-12 text-muted-foreground">
+            <div className="flex items-center justify-center py-12 text-zinc-400">
               <Loader2 className="w-5 h-5 animate-spin mr-2" />
               加载中...
             </div>
           )}
 
           {!loading && images.length === 0 && (
-            <div className="border border-dashed border-border rounded-lg p-10 text-center text-muted-foreground">
+            <div className="border border-dashed border-zinc-800 rounded-lg p-10 text-center text-zinc-400">
               暂无生成记录
             </div>
           )}
@@ -206,8 +208,8 @@ export default function GeneratedGalleryPage() {
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {images.map((img) => (
-                  <div key={img.id} className="border border-border rounded-lg overflow-hidden bg-card">
-                    <div className="aspect-[4/5] bg-muted flex items-center justify-center overflow-hidden">
+                  <div key={img.id} className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-900/50 hover:border-zinc-700 hover:bg-zinc-900 transition-all">
+                    <div className="aspect-[4/5] bg-zinc-950 flex items-center justify-center overflow-hidden">
                       {/* 使用原图，避免 Next Image 需额外配置 */}
                       <img
                         src={img.image_url}
@@ -216,7 +218,7 @@ export default function GeneratedGalleryPage() {
                       />
                     </div>
                     <div className="p-3 space-y-2">
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <div className="flex items-center justify-between text-xs text-zinc-500">
                         <span className="inline-flex items-center gap-1">
                           <ImageIcon className="w-3 h-3" />
                           {img.style || "未标注风格"}
@@ -225,31 +227,31 @@ export default function GeneratedGalleryPage() {
                           <span>{format(new Date(img.created_at), "MM-dd HH:mm", { locale: zhCN })}</span>
                         )}
                       </div>
-                      <div className="text-xs text-muted-foreground inline-flex items-center gap-2 flex-wrap">
+                      <div className="text-xs text-zinc-500 inline-flex items-center gap-2 flex-wrap">
                         {img.source_type ? (
-                          <span className="px-2 py-1 rounded-md bg-muted text-foreground capitalize">
+                          <span className="px-2 py-1 rounded-md bg-zinc-800 text-zinc-300 capitalize">
                             {img.source_type}
                           </span>
                         ) : null}
-                        {img.source_id ? <span className="text-muted-foreground/80">ID: {img.source_id}</span> : null}
+                        {img.source_id ? <span className="text-zinc-600">ID: {img.source_id}</span> : null}
                         {buildSourceLink(img) && (
                           <Link
                             href={buildSourceLink(img)!}
-                            className="inline-flex items-center gap-1 text-primary text-xs hover:underline"
+                            className="inline-flex items-center gap-1 text-orange-500 text-xs hover:underline"
                           >
                             跳转
                             <ArrowUpRight className="w-3 h-3" />
                           </Link>
                         )}
                       </div>
-                      <p className="text-sm text-foreground line-clamp-3">{img.prompt}</p>
+                      <p className="text-sm text-zinc-300 line-clamp-3">{img.prompt}</p>
                     </div>
                   </div>
                 ))}
               </div>
 
               {pagination && (
-                <div className="flex items-center justify-between mt-6 text-sm text-muted-foreground">
+                <div className="flex items-center justify-between mt-6 text-sm text-zinc-400">
                   <div>
                     第 {pagination.page} / {pagination.totalPages} 页，共 {pagination.total} 条
                   </div>
@@ -259,6 +261,7 @@ export default function GeneratedGalleryPage() {
                       size="sm"
                       disabled={isFirstPage || loading}
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-zinc-600"
                     >
                       上一页
                     </Button>
@@ -267,6 +270,7 @@ export default function GeneratedGalleryPage() {
                       size="sm"
                       disabled={isLastPage || loading}
                       onClick={() => setPage((p) => p + 1)}
+                      className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-zinc-600"
                     >
                       下一页
                     </Button>
