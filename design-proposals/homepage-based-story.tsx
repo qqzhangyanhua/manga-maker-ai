@@ -2,7 +2,7 @@
  * story/page.tsx - 完全参考首页设计
  *
  * 设计元素与首页保持100%一致：
- * - 背景：bg-[#09090b]
+ * - 背景：bg-[#0f0f13]
  * - 容器卡片：bg-zinc-900/50 backdrop-blur-sm border-zinc-800 rounded-2xl
  * - 强调色：orange-500
  * - 文字：white 标题 + zinc-400 描述
@@ -14,7 +14,7 @@ import { StoryGenerator } from "@/components/Story/StoryGenerator";
 
 export default function StoryPage() {
     return (
-        <div className="min-h-screen bg-[#09090b]">
+        <div className="min-h-screen bg-[#0f0f13]">
             <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
                 {/* 标题区 - 参考首页"试用区块"的标题设计 */}
                 <div className="text-center">

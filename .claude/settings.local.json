@@ -48,7 +48,8 @@
       "Bash(psql:*)",
       "Bash(npx tsx:*)",
       "Bash(chmod:*)",
-      "Bash(timeout 120 pnpm test:*)"
+      "Bash(timeout 120 pnpm test:*)",
+      "Bash(design-proposalsapply-homepage-design.bat)"
     ],
     "deny": [],
     "ask": []

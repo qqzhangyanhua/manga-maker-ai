@@ -61,7 +61,7 @@ export default function SamplesPage() {
   const categoryOrder = ["beginner", "intermediate", "advanced"];
 
   return (
-    <div className="min-h-screen bg-[#09090b]">
+    <div className="min-h-screen bg-[#0f0f13]">
       <Navbar />
 
       <main className="max-w-7xl mx-auto px-4 py-8">

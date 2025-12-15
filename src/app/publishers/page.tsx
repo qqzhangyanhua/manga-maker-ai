@@ -24,7 +24,7 @@ import { Navbar } from "@/components/Landing";
 
 export default function PublishersPage() {
   return (
-    <div className="min-h-screen bg-[#09090b]">
+    <div className="min-h-screen bg-[#0f0f13]">
       <Navbar />
 
       <main className="pt-16">
@@ -146,7 +146,7 @@ export default function PublishersPage() {
         </section>
 
         {/* Features Section */}
-        <section id="features" className="px-4 py-24 bg-[#09090b]">
+        <section id="features" className="px-4 py-24 bg-[#0f0f13]">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-12">
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500/10 border border-orange-500/30 mb-4">
@@ -418,7 +418,7 @@ export default function PublishersPage() {
         </section>
 
         {/* Case Study Section */}
-        <section className="px-4 py-24 bg-[#09090b]">
+        <section className="px-4 py-24 bg-[#0f0f13]">
           <div className="max-w-4xl mx-auto">
             <div className="border border-zinc-800 bg-zinc-900/40 p-8 md:p-12">
               <div className="flex items-start gap-4 mb-6">
@@ -561,7 +561,7 @@ export default function PublishersPage() {
         </section>
 
         {/* CTA Section */}
-        <section className="px-4 py-24 bg-[#09090b]">
+        <section className="px-4 py-24 bg-[#0f0f13]">
           <div className="max-w-4xl mx-auto text-center">
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
               携手共建内容生态

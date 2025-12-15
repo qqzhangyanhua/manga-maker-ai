@@ -66,7 +66,7 @@ export default function ProjectListPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#09090b]">
+    <div className="min-h-screen bg-[#0f0f13]">
       <Navbar />
       <main className="pt-20 pb-12 px-4">
         <div className="max-w-7xl mx-auto">

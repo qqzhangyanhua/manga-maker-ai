@@ -2,7 +2,7 @@
  * scripts/page.tsx - 完全参考首页设计
  *
  * 设计元素与首页保持100%一致：
- * - 背景：bg-[#09090b]
+ * - 背景：bg-[#0f0f13]
  * - 卡片：bg-zinc-900/50 backdrop-blur-sm border-zinc-800
  * - 强调色：orange-500
  * - hover：border-orange-500/50 bg-zinc-900
@@ -114,7 +114,7 @@ export default function ScriptsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#09090b]">
+        <div className="min-h-screen bg-[#0f0f13]">
             <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
                 {/* 标题区 - 参考首页"快速入口"部分的设计 */}
                 <div className="flex items-center justify-between">

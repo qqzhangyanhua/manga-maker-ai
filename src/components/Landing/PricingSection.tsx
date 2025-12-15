@@ -118,7 +118,7 @@ export function PricingSection() {
   }, []);
 
   return (
-    <section className="relative px-4 py-24 bg-[#0c0c0e]">
+    <section className="relative px-4 py-24 bg-gradient-to-b from-[#0c0c0e] via-[#0e0a10] to-[#0d0d12]">
       {/* Top separator line */}
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-700 to-transparent" />
 
@@ -134,7 +134,7 @@ export function PricingSection() {
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">
             资源分配
           </h2>
-          <p className="text-zinc-400 max-w-xl font-mono text-sm">
+          <p className="text-zinc-300 max-w-xl font-mono text-sm">
             选择算力层级。按需扩展。透明收费。
           </p>
         </div>

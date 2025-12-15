@@ -93,11 +93,39 @@ export function GridBackground() {
     const animate = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Draw gradient background
-      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      gradient.addColorStop(0, "#09090b");
-      gradient.addColorStop(1, "#09090b");
+      // Draw enhanced gradient background - from deep blue-black to deep purple-black
+      const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      gradient.addColorStop(0, "#0f0f13"); // Lighter than pure black
+      gradient.addColorStop(0.5, "#0d0d12"); // Mid tone with slight blue
+      gradient.addColorStop(1, "#120e15"); // Deep purple-black at bottom
       ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Add radial gradient orbs for depth
+      const orb1 = ctx.createRadialGradient(
+        canvas.width * 0.2,
+        canvas.height * 0.3,
+        0,
+        canvas.width * 0.2,
+        canvas.height * 0.3,
+        canvas.width * 0.5
+      );
+      orb1.addColorStop(0, "rgba(249, 115, 22, 0.03)"); // Orange glow
+      orb1.addColorStop(1, "transparent");
+      ctx.fillStyle = orb1;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const orb2 = ctx.createRadialGradient(
+        canvas.width * 0.8,
+        canvas.height * 0.7,
+        0,
+        canvas.width * 0.8,
+        canvas.height * 0.7,
+        canvas.width * 0.4
+      );
+      orb2.addColorStop(0, "rgba(139, 92, 246, 0.02)"); // Purple glow
+      orb2.addColorStop(1, "transparent");
+      ctx.fillStyle = orb2;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       drawGrid();

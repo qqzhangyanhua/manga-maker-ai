@@ -59,7 +59,7 @@ const HomePage = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#09090b] relative overflow-hidden">
+    <div className="min-h-screen bg-[#0f0f13] relative overflow-hidden">
       {/* 🆕 背景渐变装饰 - 增强氛围感 */}
       <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 via-transparent to-purple-500/5 pointer-events-none" />
       <div className="absolute top-0 left-1/4 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -78,7 +78,7 @@ const HomePage = () => {
         <ShowcaseSection />
 
         {/* Try It Section */}
-        <section className="px-4 py-16 bg-[#09090b]/80">
+        <section className="px-4 py-16 bg-[#0f0f13]/80">
           <div className="max-w-4xl mx-auto">
             <div className="bg-zinc-900/40 backdrop-blur-sm border border-zinc-800/50 rounded-2xl p-8 text-center relative overflow-hidden">
               {/* 🆕 卡片内部渐变光晕 */}
@@ -170,7 +170,7 @@ const HomePage = () => {
         </section>
 
         {/* Footer */}
-        <footer className="py-12 px-4 border-t border-zinc-800/50 bg-[#09090b]/80 backdrop-blur-sm">
+        <footer className="py-12 px-4 border-t border-zinc-800/50 bg-[#0f0f13]/80 backdrop-blur-sm">
           <div className="max-w-7xl mx-auto text-center">
             <div className="text-2xl font-bold bg-gradient-to-r from-orange-500 to-orange-400 bg-clip-text text-transparent mb-4">
               ComicAI

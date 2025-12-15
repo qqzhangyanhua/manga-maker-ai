@@ -77,9 +77,9 @@ export function HeroSection({ onOpenTrial }: HeroSectionProps) {
       <div className="relative z-10 w-full max-w-7xl mx-auto px-4">
         {/* 顶部标题 - 居中 */}
         <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-zinc-700 backdrop-blur-sm mb-6">
-            <Sparkles className="w-4 h-4 text-orange-500" />
-            <span className="text-sm font-medium text-zinc-300">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-orange-500/10 to-orange-600/5 border border-orange-500/30 backdrop-blur-sm mb-6 shadow-lg shadow-orange-500/10">
+            <Sparkles className="w-4 h-4 text-orange-400" />
+            <span className="text-sm font-medium text-zinc-200">
               AI 驱动的漫画创作平台
             </span>
           </div>
@@ -92,7 +92,7 @@ export function HeroSection({ onOpenTrial }: HeroSectionProps) {
             <span className="text-white">三步进化</span>
           </h1>
 
-          <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto">
+          <p className="text-lg md:text-xl text-zinc-300 max-w-2xl mx-auto">
             输入你的故事，AI 自动生成剧本、分镜、成品漫画
           </p>
         </div>
@@ -263,19 +263,21 @@ export function HeroSection({ onOpenTrial }: HeroSectionProps) {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
           <Button
             size="lg"
-            className="bg-orange-500 hover:bg-orange-600 text-white border-0 px-8"
+            className="relative bg-orange-500 hover:bg-orange-600 text-white border-0 px-8 overflow-hidden group"
             asChild
           >
             <Link href="/story">
-              <Sparkles className="w-5 h-5 mr-2" />
-              开始创作
+              {/* Shimmer effect */}
+              <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+              <Sparkles className="w-5 h-5 mr-2 relative z-10" />
+              <span className="relative z-10">开始创作</span>
             </Link>
           </Button>
 
           <Button
             variant="outline"
             size="lg"
-            className="border-zinc-600 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-zinc-500 px-8"
+            className="border-zinc-600 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-zinc-500 px-8 transition-all duration-300 hover:scale-105"
             onClick={onOpenTrial}
           >
             <Play className="w-5 h-5 mr-2" />
@@ -303,7 +305,7 @@ export function HeroSection({ onOpenTrial }: HeroSectionProps) {
       </div>
 
       {/* 底部渐变 */}
-      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#09090b] to-transparent z-10" />
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#0f0f13] to-transparent z-10" />
 
       {/* 自定义动画样式 */}
       <style jsx>{`
@@ -375,12 +377,22 @@ function PipelineCard({
   return (
     <div
       className={cn(
-        "relative rounded-2xl border backdrop-blur-md transition-all duration-500",
-        "bg-zinc-900/40",
+        "relative rounded-2xl border backdrop-blur-xl transition-all duration-500 shadow-xl overflow-hidden",
+        "bg-zinc-900/50",
         active ? "border-zinc-600" : "border-zinc-800",
-        glow && "shadow-2xl shadow-orange-500/20 border-orange-500/50"
+        glow && "shadow-2xl shadow-orange-500/30 border-orange-500/60"
       )}
     >
+      {/* 顶部高光 */}
+      <div className={cn(
+        "absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent transition-opacity",
+        active ? "opacity-100" : "opacity-50"
+      )} />
+
+      {/* 内部光晕效果 */}
+      {glow && (
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-orange-500/10 blur-2xl rounded-full" />
+      )}
       {/* 毛玻璃内容区 */}
       <div className="p-4">
         {/* 头部 */}

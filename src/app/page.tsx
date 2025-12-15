@@ -50,7 +50,7 @@ const HomePage = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#09090b]">
+    <div className="min-h-screen bg-[#0f0f13]">
       {/* Navbar */}
       <Navbar />
 
@@ -62,29 +62,38 @@ const HomePage = () => {
         <ShowcaseSection />
 
         {/* Try It Section */}
-        <section className="px-4 py-16 bg-[#09090b]">
+        <section className="px-4 py-16 bg-gradient-to-b from-[#0f0f13] to-[#0d0d12]">
           <div className="max-w-4xl mx-auto">
-            <div className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800 rounded-2xl p-8 text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-orange-500/10 mb-6">
+            <div className="relative bg-zinc-900/60 backdrop-blur-md border border-zinc-700 rounded-2xl p-8 text-center shadow-2xl shadow-orange-500/5 overflow-hidden">
+              {/* 顶部高光 */}
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
+              {/* 内部光晕 */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-orange-500/5 blur-3xl rounded-full" />
+
+              <div className="relative z-10">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-orange-500/20 to-orange-600/10 mb-6 ring-2 ring-orange-500/30 shadow-lg shadow-orange-500/20">
                 <Play className="w-8 h-8 text-orange-500" />
               </div>
               <h2 className="text-3xl font-bold text-white mb-4">
                 30 秒体验 AI 漫画生成
               </h2>
-              <p className="text-zinc-400 mb-6 max-w-xl mx-auto">
+              <p className="text-zinc-300 mb-6 max-w-xl mx-auto">
                 不需要注册，输入一句话描述，AI 立即为你生成 4 格漫画预览。
                 <br />
                 喜欢就注册保存，继续编辑。
               </p>
               <Button
                 size="lg"
-                className="bg-orange-500 hover:bg-orange-600 text-white border-0"
+                className="relative bg-orange-500 hover:bg-orange-600 text-white border-0 overflow-hidden group"
                 onClick={() => setShowTrialDialog(true)}
               >
-                <Sparkles className="w-5 h-5 mr-2" />
-                立即体验
-                <ArrowRight className="w-4 h-4 ml-2" />
+                {/* Shimmer effect */}
+                <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                <Sparkles className="w-5 h-5 mr-2 relative z-10" />
+                <span className="relative z-10">立即体验</span>
+                <ArrowRight className="w-4 h-4 ml-2 relative z-10" />
               </Button>
+              </div>
             </div>
           </div>
         </section>
@@ -95,14 +104,14 @@ const HomePage = () => {
         </div>
 
         {/* Quick Access */}
-        <section className="px-4 py-16 bg-zinc-900/50">
+        <section className="px-4 py-16 bg-gradient-to-b from-zinc-900/30 to-zinc-900/50">
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-8">
               <div>
                 <h2 className="text-3xl font-bold text-white">
                   快速入口
                 </h2>
-                <p className="text-zinc-400">
+                <p className="text-zinc-300">
                   示例项目、剧本、分镜、漫画素材一键进入
                 </p>
               </div>
@@ -117,10 +126,14 @@ const HomePage = () => {
                   <Link
                     key={item.title}
                     href={item.href}
-                    className="group rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-orange-500/50 hover:bg-zinc-900 transition-all p-4 flex flex-col gap-3"
+                    className="group relative rounded-xl border border-zinc-700 bg-zinc-900/60 backdrop-blur-md hover:border-orange-500/50 hover:bg-zinc-900/80 transition-all duration-300 p-4 flex flex-col gap-3 shadow-lg hover:shadow-xl hover:shadow-orange-500/10 overflow-hidden hover:-translate-y-1"
                   >
-                    <div className="flex items-center gap-2">
-                      <div className="w-10 h-10 rounded-lg bg-orange-500/10 text-orange-500 flex items-center justify-center">
+                    {/* 顶部高光 */}
+                    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    {/* Hover时的内部光晕 */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-orange-500/0 to-orange-500/0 group-hover:from-orange-500/5 group-hover:to-transparent transition-all duration-300" />
+                    <div className="flex items-center gap-2 relative z-10">
+                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500/20 to-orange-600/10 text-orange-500 flex items-center justify-center ring-1 ring-orange-500/30 group-hover:ring-orange-500/50 group-hover:shadow-lg group-hover:shadow-orange-500/20 transition-all">
                         <Icon className="w-5 h-5" />
                       </div>
                       <span className="font-semibold text-white group-hover:text-orange-500 transition-colors">
@@ -142,9 +155,13 @@ const HomePage = () => {
         </section>
 
         {/* Footer */}
-        <footer className="py-12 px-4 border-t border-zinc-800 bg-[#09090b]">
-          <div className="max-w-7xl mx-auto text-center">
-            <div className="text-2xl font-bold text-orange-500 mb-4">
+        <footer className="relative py-12 px-4 border-t border-zinc-800 bg-gradient-to-b from-[#0d0d12] to-[#0f0f13] overflow-hidden">
+          {/* 装饰性光晕 */}
+          <div className="absolute top-0 left-1/4 w-64 h-64 bg-orange-500/5 blur-3xl rounded-full -translate-y-1/2" />
+          <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-purple-500/3 blur-3xl rounded-full translate-y-1/2" />
+
+          <div className="max-w-7xl mx-auto text-center relative z-10">
+            <div className="text-2xl font-bold bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500 bg-clip-text text-transparent mb-4">
               ComicAI
             </div>
             <p className="text-zinc-400 text-sm">

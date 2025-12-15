@@ -92,7 +92,7 @@ export function ShowcaseSection() {
   }, []);
 
   return (
-    <section className="relative py-24 bg-[#09090b]">
+    <section className="relative py-24 bg-gradient-to-b from-[#0f0f13] via-[#0d0d12] to-[#0c0c0e]">
       <div className="max-w-7xl mx-auto">
         {/* Section Header */}
         <div className="px-4 mb-12">
@@ -107,7 +107,7 @@ export function ShowcaseSection() {
               <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">
                 创作展示
               </h2>
-              <p className="text-zinc-400 max-w-xl">
+              <p className="text-zinc-300 max-w-xl">
                 用户作品档案，每一帧都记录着 AI 渲染的精确参数
               </p>
             </div>

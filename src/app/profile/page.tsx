@@ -69,7 +69,7 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#09090b] pt-20 px-4">
+      <div className="min-h-screen bg-[#0f0f13] pt-20 px-4">
         <div className="max-w-6xl mx-auto">
           <Skeleton className="h-12 w-48 mb-8" />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -117,9 +117,9 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#09090b]">
+    <div className="min-h-screen bg-[#0f0f13]">
       {/* Header */}
-      <header className="border-b border-zinc-800 bg-[#09090b]/95 backdrop-blur-md sticky top-0 z-10">
+      <header className="border-b border-zinc-800 bg-[#0f0f13]/95 backdrop-blur-md sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold text-white">个人中心</h1>

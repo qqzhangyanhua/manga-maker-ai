@@ -2,7 +2,7 @@
  * 方案 1: Vercel 风格深色主题
  *
  * 配色策略：
- * - 背景：从 #09090b 改为 #0a0a0a (稍亮) + 渐变叠加
+ * - 背景：从 #0f0f13 改为 #0a0a0a (稍亮) + 渐变叠加
  * - 卡片：使用 border-gradient 和 backdrop-blur 效果
  * - 强调色：orange-500 → orange-400 (降低饱和度) + 渐变光晕
  * - 文字：zinc-400 → zinc-300/zinc-100 (提高对比度)
