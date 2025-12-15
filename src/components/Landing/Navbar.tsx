@@ -22,6 +22,7 @@ import {
   FileCode,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CommandPalette } from "./CommandPalette";
 
 interface NavbarProps {
   className?: string;
@@ -103,20 +104,14 @@ const workspaceMenuItems = [
     ],
   },
   {
-    category: "管理面板",
+    category: "管理中心",
     adminOnly: true,
     items: [
       {
         icon: Shield,
-        title: "用户管理",
-        description: "管理系统用户",
-        href: "/admin/users",
-      },
-      {
-        icon: BarChart3,
-        title: "用量统计",
-        description: "查看用量数据",
-        href: "/admin/usage",
+        title: "管理中心",
+        description: "系统管理与配置",
+        href: "/admin",
       },
     ],
   },
@@ -127,22 +122,25 @@ export function Navbar({ className }: NavbarProps) {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
   const [userCredits, setUserCredits] = useState<number | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const dropdownTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch user credits
+  // Fetch user credits and role
   useEffect(() => {
-    const fetchUserCredits = async () => {
+    const fetchUserInfo = async () => {
       try {
         const response = await fetch("/api/auth/me");
         const result = await response.json();
         if (result.success && result.data.user) {
           setUserCredits(result.data.user.credits);
+          setUserRole(result.data.user.role);
         }
       } catch (error) {
         // User not logged in or error, ignore
       }
     };
-    fetchUserCredits();
+    fetchUserInfo();
   }, []);
 
   // Handle scroll effect
@@ -189,6 +187,19 @@ export function Navbar({ className }: NavbarProps) {
       setActiveDropdown(null);
     }, 150);
   };
+
+  // Handle Command Palette keyboard shortcut (⌘K / Ctrl+K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setCommandPaletteOpen(true);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   return (
     <>
@@ -315,7 +326,9 @@ export function Navbar({ className }: NavbarProps) {
                       </div>
 
                       <div className="space-y-3">
-                        {workspaceMenuItems.map((category) => (
+                        {workspaceMenuItems
+                          .filter((category) => !category.adminOnly || userRole === "admin")
+                          .map((category) => (
                           <div key={category.category}>
                             {/* Category Header */}
                             <div className="px-2 py-1 text-xs font-mono text-orange-500 uppercase tracking-wider">
@@ -371,7 +384,7 @@ export function Navbar({ className }: NavbarProps) {
 
             {/* Center: Command Palette Trigger */}
             <div className="hidden md:block flex-1 max-w-md mx-8">
-              <CommandPaletteTrigger />
+              <CommandPaletteTrigger onClick={() => setCommandPaletteOpen(true)} />
             </div>
 
             {/* Right: User Status Pill + Mobile Menu Button */}
@@ -405,13 +418,26 @@ export function Navbar({ className }: NavbarProps) {
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
         userCredits={userCredits}
+        userRole={userRole}
+        onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+      />
+
+      {/* Command Palette */}
+      <CommandPalette
+        open={commandPaletteOpen}
+        onOpenChange={setCommandPaletteOpen}
+        userRole={userRole}
       />
     </>
   );
 }
 
 // Command Palette Trigger Component
-function CommandPaletteTrigger() {
+interface CommandPaletteTriggerProps {
+  onClick: () => void;
+}
+
+function CommandPaletteTrigger({ onClick }: CommandPaletteTriggerProps) {
   return (
     <button
       className={cn(
@@ -420,10 +446,7 @@ function CommandPaletteTrigger() {
         "hover:border-zinc-700 hover:bg-zinc-900",
         "transition-colors group"
       )}
-      onClick={() => {
-        // TODO: Open command palette
-        console.log("Open command palette");
-      }}
+      onClick={onClick}
     >
       <Search className="w-4 h-4 text-zinc-500 group-hover:text-zinc-400" />
       <span className="flex-1 text-left text-sm text-zinc-500 group-hover:text-zinc-400">
@@ -496,9 +519,11 @@ interface MobileMenuProps {
   isOpen: boolean;
   onClose: () => void;
   userCredits: number | null;
+  userRole: string | null;
+  onOpenCommandPalette: () => void;
 }
 
-function MobileMenu({ isOpen, onClose, userCredits }: MobileMenuProps) {
+function MobileMenu({ isOpen, onClose, userCredits, userRole, onOpenCommandPalette }: MobileMenuProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   return (
@@ -528,7 +553,7 @@ function MobileMenu({ isOpen, onClose, userCredits }: MobileMenuProps) {
         <div className="p-4">
           {/* Command Palette - Mobile */}
           <div className="mb-6">
-            <CommandPaletteTrigger />
+            <CommandPaletteTrigger onClick={onOpenCommandPalette} />
           </div>
 
           {/* 算力显示 - 移动端 */}
@@ -613,7 +638,9 @@ function MobileMenu({ isOpen, onClose, userCredits }: MobileMenuProps) {
                 )}
               >
                 <div className="p-4 pt-0 space-y-3">
-                  {workspaceMenuItems.map((category) => (
+                  {workspaceMenuItems
+                    .filter((category) => !category.adminOnly || userRole === "admin")
+                    .map((category) => (
                     <div key={category.category}>
                       {/* Category Header */}
                       <div className="px-2 py-1 text-xs font-mono text-orange-500 uppercase tracking-wider">
