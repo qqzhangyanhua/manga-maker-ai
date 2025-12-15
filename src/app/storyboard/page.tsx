@@ -44,6 +44,7 @@ const StoryboardEditorPageContent = () => {
   const [promptErrors, setPromptErrors] = useState<Record<string, string>>({});
   const [panelTemplates, setPanelTemplates] = useState<TemplateWithMeta[]>([]);
   const [selectedPanelTemplateId, setSelectedPanelTemplateId] = useState<string | null>(null);
+  const [templateLoading, setTemplateLoading] = useState(true);
   const { toast } = useToast();
   const { usage, loading: usageLoading, refresh: refreshUsage } = useUsage();
 
@@ -54,17 +55,28 @@ const StoryboardEditorPageContent = () => {
   // 加载官方模板元数据，用于镜头分配与节拍参考
   useEffect(() => {
     const loadPanelTemplates = async () => {
+      setTemplateLoading(true);
       try {
         const res = await fetch("/api/templates?type=official&limit=50");
-        if (!res.ok) return;
+        if (!res.ok) {
+          const error = await res.json();
+          throw new Error(error.error || "加载模板失败");
+        }
         const json = await res.json();
         setPanelTemplates(json.data?.templates || []);
       } catch (error) {
         console.error("加载官方模板失败:", error);
+        toast({
+          title: "加载模板失败",
+          description: error instanceof Error ? error.message : "无法加载官方模板，请刷新页面重试",
+          variant: "destructive",
+        });
+      } finally {
+        setTemplateLoading(false);
       }
     };
     loadPanelTemplates();
-  }, []);
+  }, [toast]);
 
   const selectedPanelTemplate = panelTemplates.find((t) => t.id === selectedPanelTemplateId) || null;
 
@@ -97,13 +109,21 @@ const StoryboardEditorPageContent = () => {
     });
   }, [currentProject]);
 
-  const { isGenerating, handleGenerate, handleGenerateFromTemplate } = useStoryboardGeneration({
+  const { isGenerating, handleGenerate: generateStoryboard, handleGenerateFromTemplate } = useStoryboardGeneration({
     storyId,
     onProjectUpdate: handleProjectUpdate,
     onPanelsUpdate: handlePanelsUpdate,
     onRefreshUsage: refreshUsage,
     panelTemplate: selectedPanelTemplate,
   });
+
+  // 包装 handleGenerate 以添加额外的防抖保护
+  const handleGenerate = useCallback((script: string) => {
+    if (isGenerating) {
+      return; // 防止重复点击
+    }
+    generateStoryboard(script);
+  }, [isGenerating, generateStoryboard]);
 
   const { promptErrors: imagePromptErrors, handleGenerateImages, handleGenerateSingleImage } = useImageGeneration({
     panels,
@@ -149,6 +169,9 @@ const StoryboardEditorPageContent = () => {
   }, [currentProject, toast]);
 
   const handleTemplateGenerate = useCallback(async () => {
+    if (isGenerating) {
+      return; // 防止重复点击
+    }
     if (!selectedTemplate || Object.keys(templateData).length === 0) {
       toast({
         title: "请先填写模板",
@@ -158,7 +181,7 @@ const StoryboardEditorPageContent = () => {
       return;
     }
     await handleGenerateFromTemplate(templateData);
-  }, [selectedTemplate, templateData, handleGenerateFromTemplate, toast]);
+  }, [isGenerating, selectedTemplate, templateData, handleGenerateFromTemplate, toast]);
 
   const handleEnterEditor = useCallback(() => {
     if (!currentProject) return;
@@ -190,6 +213,7 @@ const StoryboardEditorPageContent = () => {
             panelTemplates={panelTemplates}
             selectedPanelTemplateId={selectedPanelTemplateId}
             onPanelTemplateChange={setSelectedPanelTemplateId}
+            templateLoading={templateLoading}
           />
 
           <GenerationSettings

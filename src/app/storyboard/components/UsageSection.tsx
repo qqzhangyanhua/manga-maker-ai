@@ -21,6 +21,7 @@ type UsageSectionProps = {
   panelTemplates: TemplateWithMeta[];
   selectedPanelTemplateId: string | null;
   onPanelTemplateChange: (id: string | null) => void;
+  templateLoading: boolean;
 };
 
 export function UsageSection({
@@ -29,6 +30,7 @@ export function UsageSection({
   panelTemplates,
   selectedPanelTemplateId,
   onPanelTemplateChange,
+  templateLoading,
 }: UsageSectionProps) {
   return (
     <div className="flex flex-wrap gap-3 mb-6 items-center">
@@ -47,9 +49,10 @@ export function UsageSection({
           onValueChange={(value) =>
             onPanelTemplateChange(value === TEMPLATE_NONE_VALUE ? null : value)
           }
+          disabled={templateLoading}
         >
           <SelectTrigger className="w-[220px]">
-            <SelectValue placeholder="可选：官方模板" />
+            <SelectValue placeholder={templateLoading ? "加载中..." : "可选：官方模板"} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={TEMPLATE_NONE_VALUE}>不使用模板</SelectItem>

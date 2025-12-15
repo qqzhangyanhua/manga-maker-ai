@@ -11,6 +11,10 @@ export function useExport({ currentProject }: UseExportOptions) {
   const { toast } = useToast();
 
   const handleExport = useCallback(async () => {
+    if (isExporting) {
+      return; // 防止重复点击
+    }
+
     if (!currentProject) {
       toast({
         title: "无可导出内容",
@@ -57,7 +61,7 @@ export function useExport({ currentProject }: UseExportOptions) {
     } finally {
       setIsExporting(false);
     }
-  }, [currentProject, toast]);
+  }, [isExporting, currentProject, toast]);
 
   return { isExporting, handleExport };
 }

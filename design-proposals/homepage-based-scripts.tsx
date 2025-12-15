@@ -41,7 +41,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Story } from "./[id]/types/script-editor.types";
+import { Story } from "@/app/scripts/[id]/types/script-editor.types";
 
 export default function ScriptsPage() {
     const router = useRouter();
