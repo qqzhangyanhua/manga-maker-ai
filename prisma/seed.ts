@@ -485,14 +485,14 @@ async function main() {
     console.log(`✓ 创建故事模板: ${template.name} (${template.category})`);
   }
 
-  // 3. Clear existing sample projects
-  console.log('\n3. 清理已有示例项目...');
+  // 4. Clear existing sample projects
+  console.log('\n4. 清理已有示例项目...');
   await prisma.story.deleteMany({
     where: { is_sample: true }
   });
 
-  // 4. Create sample projects
-  console.log('\n4. 创建示例项目...');
+  // 5. Create sample projects
+  console.log('\n5. 创建示例项目...');
   for (const sample of SAMPLE_PROJECTS) {
     // Create story
     const story = await prisma.story.create({
@@ -541,7 +541,8 @@ async function main() {
   }
 
   console.log(`\n种子数据初始化完成！`);
-  console.log(`- 官方模板: ${OFFICIAL_TEMPLATES.length} 个`);
+  console.log(`- 官方分镜模板: ${OFFICIAL_TEMPLATES.length} 个`);
+  console.log(`- 官方故事模板: ${PREDEFINED_TEMPLATES.length} 个`);
   console.log(`- 示例项目: ${SAMPLE_PROJECTS.length} 个`);
 }
 
