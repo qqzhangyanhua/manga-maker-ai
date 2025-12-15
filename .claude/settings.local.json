@@ -47,7 +47,8 @@
       "Bash(pnpm run build:*)",
       "Bash(psql:*)",
       "Bash(npx tsx:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(timeout 120 pnpm test:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,8 +1,7 @@
 // @ts-nocheck
-import { webcrypto } from "node:crypto";
 import { defineConfig } from "vitest/config";
 
-globalThis.crypto = webcrypto as unknown as Crypto;
+// Note: crypto is already available in Node.js v22+ as a global
 
 export default defineConfig({
   test: {

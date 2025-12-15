@@ -177,6 +177,53 @@ ${story}
 
     // 保存到数据库
     if (saveToDb) {
+      // 验证并规范化 panel 数据
+      const validPanelTypes = ["wide", "medium", "closeup", "action", "dialogue", "transition"];
+      const validImportanceLevels = ["high", "medium", "low"];
+
+      const normalizedPanels = storyboardData.panels.map((panel: any, index: number) => {
+        // 确保 panel_type 有效
+        let panelType = panel.panel_type;
+        if (!panelType || !validPanelTypes.includes(panelType)) {
+          // 根据上下文推断默认类型
+          if (panel.dialogue) {
+            panelType = "dialogue";
+          } else if (panel.shot_size === "特写") {
+            panelType = "closeup";
+          } else if (index === 0) {
+            panelType = "wide";
+          } else {
+            panelType = "medium";
+          }
+        }
+
+        // 确保 importance 有效
+        let importance = panel.importance;
+        if (!importance || !validImportanceLevels.includes(importance)) {
+          importance = "medium";
+        }
+
+        return {
+          panel_order: panel.panel_order || index + 1,
+          panel_type: panelType,
+          importance: importance,
+          description: panel.description || "无描述",
+          dialogue: panel.dialogue || null,
+          character_name: panel.character_name || null,
+          emotion: panel.emotion || null,
+          prompt_used: panel.english_prompt || panel.description || "",
+          generated_image: null, // 预留给图像生成
+
+          // New fields for script editor
+          script_segment_id: panel.script_segment_id || null,
+          script_start: panel.script_start ?? null,
+          script_end: panel.script_end ?? null,
+          camera_angle: panel.camera_angle || null,
+          shot_size: panel.shot_size || null,
+          visual_prompt: panel.visual_prompt || panel.description || "",
+        };
+      });
+
       const project = await prisma.project.create({
         data: {
           user_id: payload.userId,
@@ -186,25 +233,7 @@ ${story}
           status: "draft",
           story_id: storyId || null, // Link to Story if provided
           panels: {
-            create: storyboardData.panels.map((panel: any) => ({
-              panel_order: panel.panel_order,
-              panel_type: panel.panel_type,
-              importance: panel.importance,
-              description: panel.description,
-              dialogue: panel.dialogue || null,
-              character_name: panel.character_name || null,
-              emotion: panel.emotion || null,
-              prompt_used: panel.english_prompt,
-              generated_image: null, // 预留给图像生成
-
-              // New fields for script editor
-              script_segment_id: panel.script_segment_id || null,
-              script_start: panel.script_start || null,
-              script_end: panel.script_end || null,
-              camera_angle: panel.camera_angle || null,
-              shot_size: panel.shot_size || null,
-              visual_prompt: panel.visual_prompt || panel.description,
-            })),
+            create: normalizedPanels,
           },
           script: storyboardData.script_segments ? {
             create: {

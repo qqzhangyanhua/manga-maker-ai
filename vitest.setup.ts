@@ -1,9 +1,7 @@
 // 测试环境全局挂载 jest-dom 匹配器
 import "@testing-library/jest-dom";
 
-import { webcrypto } from "node:crypto";
-
-globalThis.crypto = webcrypto as unknown as Crypto;
+// Note: crypto is already available in Node.js v22+ as a global
 
 class ResizeObserverMock {
   observe() {}
