@@ -83,8 +83,13 @@ export function StoryGenerator({ onStoryGenerated }: StoryGeneratorProps) {
                 throw new Error(data.error || "生成失败");
             }
 
-            setGeneratedStory(data.outline || data.story);
-            setIsSaved(false); // 标记为未保存
+            // Normalize data structure: outline or story object
+            // - outline: { title, genre, logline, setting, acts, characters, themes }
+            // - story: { id, title, premise, genre, outline: {...}, characters: [...] }
+            const generatedData = data.outline || data.story;
+
+            setGeneratedStory(generatedData);
+            setIsSaved(!!generatedData.id); // Has id = saved to database
             setStep("result");
 
             toast({
@@ -386,54 +391,91 @@ export function StoryGenerator({ onStoryGenerated }: StoryGeneratorProps) {
                                 </CardHeader>
                                 <CardContent className="space-y-6">
                                     {/* Story outline preview */}
-                                    {(generatedStory.logline || generatedStory.outline) && (
+                                    {generatedStory && (
                                         <div className="space-y-4">
-                                            <div>
-                                                <h4 className="font-semibold mb-2">故事梗概</h4>
-                                                <p className="text-sm text-muted-foreground">
-                                                    {generatedStory.logline || generatedStory.outline?.logline}
-                                                </p>
-                                            </div>
+                                            {/* Helper: get field from both outline and story structures */}
+                                            {(() => {
+                                                const isStoryObj = "outline" in generatedStory;
+                                                const logline = isStoryObj ? generatedStory.outline?.logline : generatedStory.logline;
+                                                const setting = isStoryObj ? generatedStory.outline?.setting : generatedStory.setting;
+                                                const acts = isStoryObj ? generatedStory.outline?.acts : generatedStory.acts;
+                                                const characters = isStoryObj ? generatedStory.outline?.characters || generatedStory.characters : generatedStory.characters;
+                                                const themes = isStoryObj ? generatedStory.outline?.themes : generatedStory.themes;
 
-                                            {(generatedStory.acts || generatedStory.outline?.acts) && (
-                                                <div>
-                                                    <h4 className="font-semibold mb-2 flex items-center gap-2">
-                                                        <BookOpen className="w-4 h-4" />
-                                                        故事结构 ({(generatedStory.acts || generatedStory.outline.acts).length} 幕)
-                                                    </h4>
-                                                    <div className="space-y-2">
-                                                        {(generatedStory.acts || generatedStory.outline.acts).map((act: any, idx: number) => (
-                                                            <div key={idx} className="p-3 bg-muted rounded-md">
-                                                                <p className="font-medium text-sm">{act.name}</p>
-                                                                <p className="text-sm text-muted-foreground mt-1">
-                                                                    {act.summary}
-                                                                </p>
+                                                return (
+                                                    <>
+                                                        {logline && (
+                                                            <div>
+                                                                <h4 className="font-semibold mb-2">故事梗概</h4>
+                                                                <p className="text-sm text-muted-foreground">{logline}</p>
                                                             </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
+                                                        )}
 
-                                            {(generatedStory.characters || generatedStory.outline?.characters) && (
-                                                <div>
-                                                    <h4 className="font-semibold mb-2 flex items-center gap-2">
-                                                        <Users className="w-4 h-4" />
-                                                        主要角色 ({(generatedStory.characters || generatedStory.outline.characters).length})
-                                                    </h4>
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                                        {(generatedStory.characters || generatedStory.outline.characters).map((char: any, idx: number) => (
-                                                            <div key={idx} className="p-3 bg-muted rounded-md">
-                                                                <p className="font-medium text-sm">
-                                                                    {char.name} ({char.role})
-                                                                </p>
-                                                                <p className="text-sm text-muted-foreground mt-1">
-                                                                    {char.description}
-                                                                </p>
+                                                        {setting && (
+                                                            <div>
+                                                                <h4 className="font-semibold mb-2">故事背景</h4>
+                                                                <p className="text-sm text-muted-foreground">{setting}</p>
                                                             </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
+                                                        )}
+
+                                                        {acts && acts.length > 0 && (
+                                                            <div>
+                                                                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                                                    <BookOpen className="w-4 h-4" />
+                                                                    故事结构 ({acts.length} 幕)
+                                                                </h4>
+                                                                <div className="space-y-2">
+                                                                    {acts.map((act: any, idx: number) => (
+                                                                        <div key={idx} className="p-3 bg-muted rounded-md">
+                                                                            <p className="font-medium text-sm">{act.name}</p>
+                                                                            <p className="text-sm text-muted-foreground mt-1">
+                                                                                {act.summary}
+                                                                            </p>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {characters && characters.length > 0 && (
+                                                            <div>
+                                                                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                                                    <Users className="w-4 h-4" />
+                                                                    主要角色 ({characters.length})
+                                                                </h4>
+                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                                    {characters.map((char: any, idx: number) => (
+                                                                        <div key={idx} className="p-3 bg-muted rounded-md">
+                                                                            <p className="font-medium text-sm">
+                                                                                {char.name} ({char.role})
+                                                                            </p>
+                                                                            <p className="text-sm text-muted-foreground mt-1">
+                                                                                {char.description}
+                                                                            </p>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {themes && themes.length > 0 && (
+                                                            <div>
+                                                                <h4 className="font-semibold mb-2">故事主题</h4>
+                                                                <div className="flex flex-wrap gap-2">
+                                                                    {themes.map((theme: string, idx: number) => (
+                                                                        <span
+                                                                            key={idx}
+                                                                            className="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm"
+                                                                        >
+                                                                            {theme}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                );
+                                            })()}
                                         </div>
                                     )}
 

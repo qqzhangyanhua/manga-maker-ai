@@ -106,13 +106,16 @@ export async function PATCH(
 
         // Update story
         const body = await req.json();
-        const { title, premise, status } = body;
+        const { title, premise, genre, outline, characters, status } = body;
 
         const updated = await prisma.story.update({
             where: { id },
             data: {
                 ...(title && { title }),
                 ...(premise && { premise }),
+                ...(genre && { genre }),
+                ...(outline && { outline }),
+                ...(characters !== undefined && { characters }),
                 ...(status && { status }),
                 updated_at: new Date(),
             },

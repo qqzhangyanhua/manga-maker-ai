@@ -283,6 +283,7 @@ const StoryboardEditorPageContent = () => {
               isExporting={isExporting}
               onGenerateSingleImage={handleSingleImageGeneration}
               generatingSinglePanel={generatingSinglePanel}
+              isGenerating={isGenerating}
             />
           </div>
         </div>

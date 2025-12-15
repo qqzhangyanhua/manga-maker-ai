@@ -3,14 +3,16 @@
  *
  * Seeds:
  * 1. Official panel templates
- * 2. System user for sample projects
- * 3. Sample projects for new user onboarding
+ * 2. Official story templates
+ * 3. System user for sample projects
+ * 4. Sample projects for new user onboarding
  *
  * Run with: npx prisma db seed
  */
 
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { PREDEFINED_TEMPLATES } from '../src/lib/story-templates';
 
 const prisma = new PrismaClient();
 
@@ -444,8 +446,8 @@ async function main() {
     console.log('✓ 系统用户已存在:', systemUser.email);
   }
 
-  // 2. Clear and create official templates
-  console.log('\n2. 创建官方模板...');
+  // 2. Clear and create official panel templates
+  console.log('\n2. 创建官方分镜模板...');
   await prisma.panelTemplate.deleteMany({
     where: { is_official: true }
   });
@@ -459,7 +461,28 @@ async function main() {
         user_id: null
       }
     });
-    console.log(`✓ 创建模板: ${template.name}`);
+    console.log(`✓ 创建分镜模板: ${template.name}`);
+  }
+
+  // 3. Clear and create official story templates
+  console.log('\n3. 创建官方故事模板...');
+  await prisma.storyTemplate.deleteMany({
+    where: { user_id: null, is_public: true }
+  });
+
+  for (const template of PREDEFINED_TEMPLATES) {
+    await prisma.storyTemplate.create({
+      data: {
+        name: template.name,
+        category: template.category,
+        description: template.description,
+        structure: template.structure as any,
+        prompts: template.prompts as any,
+        is_public: true,
+        user_id: null, // System template
+      }
+    });
+    console.log(`✓ 创建故事模板: ${template.name} (${template.category})`);
   }
 
   // 3. Clear existing sample projects

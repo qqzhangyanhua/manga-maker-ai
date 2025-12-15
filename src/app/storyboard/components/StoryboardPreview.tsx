@@ -5,6 +5,7 @@ import { PanelData } from "@/components/Storyboard/StoryboardPanel";
 import { PanelDetails } from "./PanelDetails";
 import { PanelStats } from "./PanelStats";
 import { EmptyState } from "./EmptyState";
+import { GeneratingState } from "./GeneratingState";
 
 type StoryboardPreviewProps = {
   hasGeneratedPanels: boolean;
@@ -18,6 +19,7 @@ type StoryboardPreviewProps = {
   isExporting: boolean;
   onGenerateSingleImage: (panelId: string) => void;
   generatingSinglePanel: string | null;
+  isGenerating: boolean;
 };
 
 export function StoryboardPreview({
@@ -32,6 +34,7 @@ export function StoryboardPreview({
   isExporting,
   onGenerateSingleImage,
   generatingSinglePanel,
+  isGenerating,
 }: StoryboardPreviewProps) {
   return (
     <div className="comic-card p-6">
@@ -97,6 +100,8 @@ export function StoryboardPreview({
             />
           )}
         </>
+      ) : isGenerating ? (
+        <GeneratingState />
       ) : (
         <EmptyState />
       )}

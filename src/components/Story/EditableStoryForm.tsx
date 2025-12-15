@@ -19,7 +19,7 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
-import { Save, X, Plus, Trash2, BookOpen, Users } from "lucide-react";
+import { Save, X, Plus, Trash2, BookOpen, Users, Tag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface EditableStoryFormProps {
@@ -32,16 +32,44 @@ export function EditableStoryForm({ story, onSave, onCancel }: EditableStoryForm
     const { toast } = useToast();
     const [saving, setSaving] = useState(false);
 
-    // Editable state
-    const [title, setTitle] = useState(story.title || "");
-    const [premise, setPremise] = useState(story.premise || "");
-    const [genre, setGenre] = useState(story.genre || "suspense");
-    const [outline, setOutline] = useState(story.outline || {});
-    const [characters, setCharacters] = useState(story.characters || []);
+    // Normalize data structure: handle both outline object and story object
+    // - outline object (from /api/story/generate): { title, genre, logline, acts, characters, themes, setting }
+    // - story object (from database): { id, title, premise, genre, outline: {...}, characters: [...] }
+    const isStoryObject = "id" in story && "outline" in story;
 
-    // Edit outline
-    const [logline, setLogline] = useState(outline.logline || "");
-    const [acts, setActs] = useState(outline.acts || []);
+    const normalizedData = isStoryObject
+        ? {
+              id: story.id,
+              title: story.title,
+              premise: story.premise || "",
+              genre: story.genre || "suspense",
+              logline: story.outline?.logline || "",
+              setting: story.outline?.setting || "",
+              acts: story.outline?.acts || [],
+              characters: story.outline?.characters || story.characters || [],
+              themes: story.outline?.themes || [],
+          }
+        : {
+              id: story.id || null,
+              title: story.title || "",
+              premise: story.premise || "",
+              genre: story.genre || "suspense",
+              logline: story.logline || "",
+              setting: story.setting || "",
+              acts: story.acts || [],
+              characters: story.characters || [],
+              themes: story.themes || [],
+          };
+
+    // Editable state
+    const [title, setTitle] = useState(normalizedData.title);
+    const [premise, setPremise] = useState(normalizedData.premise);
+    const [genre, setGenre] = useState(normalizedData.genre);
+    const [logline, setLogline] = useState(normalizedData.logline);
+    const [setting, setSetting] = useState(normalizedData.setting);
+    const [acts, setActs] = useState(normalizedData.acts);
+    const [characters, setCharacters] = useState(normalizedData.characters);
+    const [themes, setThemes] = useState(normalizedData.themes);
 
     async function handleSave() {
         if (!title.trim()) {
@@ -65,45 +93,75 @@ export function EditableStoryForm({ story, onSave, onCancel }: EditableStoryForm
         try {
             setSaving(true);
 
-            const updatedStory = {
-                ...story,
+            // Build complete outline object
+            const completeOutline = {
                 title,
-                premise,
                 genre,
-                outline: {
-                    ...outline,
-                    logline,
-                    acts,
-                    characters,
-                },
+                logline,
+                setting,
+                acts,
                 characters,
+                themes,
             };
 
-            // Call PATCH API
-            const res = await fetch(`/api/story/${story.id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    title,
-                    premise,
-                    genre,
-                    status: story.status,
-                }),
-            });
+            const storyId = normalizedData.id;
 
-            if (!res.ok) {
+            if (storyId) {
+                // Update existing story using PATCH API
+                const res = await fetch(`/api/story/${storyId}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        title,
+                        premise,
+                        genre,
+                        outline: completeOutline,
+                        characters,
+                    }),
+                });
+
+                if (!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.error || "保存失败");
+                }
+
                 const data = await res.json();
-                throw new Error(data.error || "保存失败");
+
+                toast({
+                    title: "保存成功",
+                    description: "故事已更新",
+                });
+
+                onSave(data.story);
+            } else {
+                // Create new story using POST API
+                const res = await fetch("/api/story", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        title,
+                        premise,
+                        genre,
+                        outline: completeOutline,
+                        characters,
+                        status: "draft",
+                    }),
+                });
+
+                if (!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.error || "保存失败");
+                }
+
+                const data = await res.json();
+
+                toast({
+                    title: "保存成功",
+                    description: "故事已创建",
+                });
+
+                onSave(data.story);
             }
-
-            const data = await res.json();
-
-            toast({
-                title: "保存成功",
-                description: "故事已更新",
-            });
-
-            onSave(data.story || updatedStory);
         } catch (error: any) {
             console.error("Save story error:", error);
             toast({
@@ -160,6 +218,20 @@ export function EditableStoryForm({ story, onSave, onCancel }: EditableStoryForm
                 traits: [],
             },
         ]);
+    }
+
+    function addTheme() {
+        setThemes([...themes, ""]);
+    }
+
+    function updateTheme(index: number, value: string) {
+        const newThemes = [...themes];
+        newThemes[index] = value;
+        setThemes(newThemes);
+    }
+
+    function removeTheme(index: number) {
+        setThemes(themes.filter((_: string, i: number) => i !== index));
     }
 
     return (
@@ -221,6 +293,17 @@ export function EditableStoryForm({ story, onSave, onCancel }: EditableStoryForm
                             placeholder="一句话概括故事内容"
                         />
                     </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="setting">故事背景设定</Label>
+                        <Textarea
+                            id="setting"
+                            value={setting}
+                            onChange={(e) => setSetting(e.target.value)}
+                            rows={3}
+                            placeholder="时间、地点、世界观等背景设定"
+                        />
+                    </div>
                 </div>
 
                 {/* Acts */}
@@ -271,6 +354,53 @@ export function EditableStoryForm({ story, onSave, onCancel }: EditableStoryForm
                                 />
                             </div>
                         ))}
+                    </div>
+                </div>
+
+                {/* Themes */}
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <Label className="flex items-center gap-2">
+                            <Tag className="w-4 h-4" />
+                            故事主题 ({themes.length})
+                        </Label>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={addTheme}
+                        >
+                            <Plus className="w-4 h-4 mr-1" />
+                            添加主题
+                        </Button>
+                    </div>
+
+                    <div className="space-y-3">
+                        {themes.map((theme: string, idx: number) => (
+                            <div
+                                key={idx}
+                                className="flex gap-2 items-center"
+                            >
+                                <Input
+                                    placeholder="如：成长与自我认同"
+                                    value={theme}
+                                    onChange={(e) => updateTheme(idx, e.target.value)}
+                                />
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeTheme(idx)}
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </Button>
+                            </div>
+                        ))}
+                        {themes.length === 0 && (
+                            <p className="text-sm text-muted-foreground">
+                                暂无主题，点击"添加主题"按钮添加
+                            </p>
+                        )}
                     </div>
                 </div>
 

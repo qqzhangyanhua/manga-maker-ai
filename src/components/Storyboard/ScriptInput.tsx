@@ -111,14 +111,17 @@ const ScriptInput = ({ onGenerate, isGenerating, initialValue = "" }: ScriptInpu
       <Button
         variant="comic"
         size="lg"
-        className="w-full"
+        className={cn(
+          "w-full transition-all duration-300",
+          isGenerating && "bg-muted/50 hover:bg-muted/50 opacity-80 cursor-not-allowed"
+        )}
         onClick={handleGenerate}
         disabled={!script.trim() || isGenerating}
       >
         {isGenerating ? (
           <>
             <Loader2 className="w-5 h-5 animate-spin" />
-            AI 正在分析剧本...
+            正在编排中...
           </>
         ) : (
           <>
