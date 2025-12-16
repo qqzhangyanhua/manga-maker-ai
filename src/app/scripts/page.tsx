@@ -12,12 +12,14 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
-import { BookOpen, Plus, Loader2, Trash2, Edit } from "lucide-react";
+import { BookOpen, Plus, Loader2, Trash2, Edit, ArrowLeft } from "lucide-react";
+import { Navbar } from "@/components/Landing";
+import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -50,6 +52,31 @@ export default function ScriptsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+
+    // Spotlight effect state
+    const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
+    const [isHovering, setIsHovering] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    // Mouse tracking for spotlight effect
+    const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+        if (!containerRef.current) return;
+
+        const rect = containerRef.current.getBoundingClientRect();
+        setMousePosition({
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+        });
+    }, []);
+
+    const handleMouseEnter = useCallback(() => {
+        setIsHovering(true);
+    }, []);
+
+    const handleMouseLeave = useCallback(() => {
+        setIsHovering(false);
+        setMousePosition(null);
+    }, []);
 
     useEffect(() => {
         fetchStories();
@@ -115,135 +142,183 @@ export default function ScriptsPage() {
 
     return (
         <div className="min-h-screen bg-[#0f0f13]">
-            <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
-                {/* 标题区 - 参考首页"快速入口"部分的设计 */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold text-white">剧本管理</h1>
-                        <p className="text-zinc-400 mt-2">
-                            查看和管理所有生成的剧本，点击卡片进入分镜编辑
-                        </p>
-                    </div>
-                    <Link href="/story">
-                        <Button className="bg-orange-500 hover:bg-orange-600 text-white border-0">
-                            <Plus className="w-4 h-4 mr-2" />
-                            新建剧本
-                        </Button>
-                    </Link>
-                </div>
+            <Navbar />
 
-                {/* 加载状态 - 参考首页的加载样式 */}
-                {loading ? (
-                    <div className="flex justify-center py-12">
-                        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
-                    </div>
-                ) : error ? (
-                    /* 错误状态 */
-                    <div className="text-center py-12 text-red-400">
-                        {error}
-                        <Button
-                            variant="outline"
-                            className="ml-4 border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white"
-                            onClick={fetchStories}
+            <main className="pt-16">
+                {/* 装饰性光晕 */}
+                <div className="fixed top-20 left-1/4 w-96 h-96 bg-orange-500/5 blur-3xl rounded-full pointer-events-none" />
+                <div className="fixed bottom-20 right-1/4 w-96 h-96 bg-purple-500/3 blur-3xl rounded-full pointer-events-none" />
+
+                <div
+                    ref={containerRef}
+                    className="relative px-4 py-12"
+                    onMouseMove={handleMouseMove}
+                    onMouseEnter={handleMouseEnter}
+                    onMouseLeave={handleMouseLeave}
+                >
+                    {/* Global Spotlight Overlay */}
+                    <div
+                        className={cn(
+                            "pointer-events-none absolute inset-0 z-30 transition-opacity duration-500",
+                            isHovering ? "opacity-100" : "opacity-0"
+                        )}
+                        style={{
+                            background: mousePosition
+                                ? `radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(249, 115, 22, 0.08), transparent 40%)`
+                                : "none",
+                        }}
+                    />
+
+                    <div className="max-w-7xl mx-auto relative space-y-8">
+                        {/* 返回首页链接 */}
+                        <Link
+                            href="/"
+                            className="inline-flex items-center gap-2 text-zinc-400 hover:text-orange-500 transition-colors"
                         >
-                            重试
-                        </Button>
-                    </div>
-                ) : stories.length === 0 ? (
-                    /* 空状态 - 参考首页"试用区块"的卡片设计 */
-                    <div className="text-center py-12 border border-zinc-800 rounded-2xl bg-zinc-900/50 backdrop-blur-sm">
-                        <BookOpen className="w-12 h-12 mx-auto text-zinc-500 mb-4" />
-                        <h3 className="text-lg font-medium text-white mb-2">暂无剧本</h3>
-                        <p className="text-zinc-400 mb-6">你还没有创建任何剧本，快去创建一个吧！</p>
-                        <Link href="/story">
-                            <Button className="bg-orange-500 hover:bg-orange-600 text-white border-0">
-                                去创建
-                            </Button>
+                            <ArrowLeft className="w-4 h-4" />
+                            返回首页
                         </Link>
-                    </div>
-                ) : (
-                    /* 剧本列表 - 参考首页"快速入口"的链接卡片设计 */
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {stories.map((story) => (
-                            <Card
-                                key={story.id}
-                                className="group flex flex-col border-zinc-800 bg-zinc-900/50 backdrop-blur-sm hover:border-orange-500/50 hover:bg-zinc-900 transition-all"
-                            >
-                                <CardHeader>
-                                    <div className="flex items-start justify-between">
-                                        <CardTitle
-                                            className="text-xl line-clamp-1 text-white font-semibold"
-                                            title={story.title}
-                                        >
-                                            {story.title || "无标题剧本"}
-                                        </CardTitle>
-                                        <Badge
-                                            variant="secondary"
-                                            className="bg-orange-500/10 text-orange-500 border-0"
-                                        >
-                                            {genreMap[story.genre] || story.genre || "未知"}
-                                        </Badge>
+                        {/* 标题区 */}
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500 bg-clip-text text-transparent mb-4">
+                                    剧本管理
+                                </h1>
+                                <p className="text-zinc-300 text-lg">
+                                    查看和管理所有生成的剧本，点击卡片进入分镜编辑
+                                </p>
+                            </div>
+                            <Link href="/story">
+                                <Button className="bg-orange-500 hover:bg-orange-600 text-white border-0 shadow-lg shadow-orange-500/20">
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    新建剧本
+                                </Button>
+                            </Link>
+                        </div>
+
+                        {/* 加载状态 */}
+                        {loading ? (
+                            <div className="flex justify-center py-12">
+                                <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+                            </div>
+                        ) : error ? (
+                            /* 错误状态 */
+                            <div className="text-center py-12 text-red-400">
+                                {error}
+                                <Button
+                                    variant="outline"
+                                    className="ml-4 border-zinc-700 bg-zinc-900/60 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+                                    onClick={fetchStories}
+                                >
+                                    重试
+                                </Button>
+                            </div>
+                        ) : stories.length === 0 ? (
+                            /* 空状态 */
+                            <div className="relative text-center py-16 border border-zinc-700 rounded-2xl bg-zinc-900/60 backdrop-blur-md overflow-hidden shadow-lg">
+                                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
+                                <div className="relative">
+                                    <div className="w-16 h-16 mx-auto rounded-full bg-orange-500/10 flex items-center justify-center ring-2 ring-orange-500/30 mb-4">
+                                        <BookOpen className="w-8 h-8 text-orange-500" />
                                     </div>
-                                    <CardDescription className="text-zinc-400 text-sm">
-                                        {format(new Date(story.created_at), "yyyy-MM-dd HH:mm", {
-                                            locale: zhCN,
-                                        })}
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="flex-1">
-                                    <p className="text-sm text-zinc-400 line-clamp-3">
-                                        {story.premise}
-                                    </p>
-                                </CardContent>
-                                <CardFooter className="flex gap-2">
-                                    <Link href={`/scripts/${story.id}`} className="flex-1">
-                                        <Button
-                                            variant="outline"
-                                            className="w-full border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white"
-                                        >
-                                            <Edit className="w-4 h-4 mr-2" />
-                                            管理分镜
+                                    <h3 className="text-lg font-semibold text-white mb-2">暂无剧本</h3>
+                                    <p className="text-zinc-400 mb-6">你还没有创建任何剧本，快去创建一个吧！</p>
+                                    <Link href="/story">
+                                        <Button className="bg-orange-500 hover:bg-orange-600 text-white border-0 shadow-lg shadow-orange-500/20">
+                                            去创建
                                         </Button>
                                     </Link>
-
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-zinc-500 hover:text-red-400 hover:bg-zinc-900"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent className="bg-zinc-900 border-zinc-800">
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle className="text-white">
-                                                    确认删除？
-                                                </AlertDialogTitle>
-                                                <AlertDialogDescription className="text-zinc-400">
-                                                    此操作无法撤销。这将永久删除该剧本及其所有关联的分镜和设置。
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel className="border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white">
-                                                    取消
-                                                </AlertDialogCancel>
-                                                <AlertDialogAction
-                                                    onClick={() => handleDelete(story.id)}
-                                                    className="bg-red-600 text-white hover:bg-red-700"
+                                </div>
+                            </div>
+                        ) : (
+                            /* 剧本列表 */
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {stories.map((story) => (
+                                    <Card
+                                        key={story.id}
+                                        className="group relative flex flex-col border-zinc-700 bg-zinc-900/60 backdrop-blur-md hover:border-orange-500/50 hover:bg-zinc-900/80 transition-all overflow-hidden shadow-lg hover:shadow-xl hover:shadow-orange-500/10 hover:-translate-y-1"
+                                    >
+                                        {/* 顶部高光 */}
+                                        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        {/* Hover时的内部光晕 */}
+                                        <div className="absolute inset-0 bg-gradient-to-br from-orange-500/0 to-orange-500/0 group-hover:from-orange-500/5 group-hover:to-transparent transition-all duration-300" />
+                                        <CardHeader className="relative z-10">
+                                            <div className="flex items-start justify-between">
+                                                <CardTitle
+                                                    className="text-xl line-clamp-1 text-white font-semibold"
+                                                    title={story.title}
                                                 >
-                                                    删除
-                                                </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                </CardFooter>
-                            </Card>
-                        ))}
+                                                    {story.title || "无标题剧本"}
+                                                </CardTitle>
+                                                <Badge
+                                                    variant="secondary"
+                                                    className="bg-orange-500/20 text-orange-400 border border-orange-500/30"
+                                                >
+                                                    {genreMap[story.genre] || story.genre || "未知"}
+                                                </Badge>
+                                            </div>
+                                            <CardDescription className="text-zinc-400 text-sm">
+                                                {format(new Date(story.created_at), "yyyy-MM-dd HH:mm", {
+                                                    locale: zhCN,
+                                                })}
+                                            </CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="flex-1 relative z-10">
+                                            <p className="text-sm text-zinc-300 line-clamp-3">
+                                                {story.premise}
+                                            </p>
+                                        </CardContent>
+                                        <CardFooter className="flex gap-2 relative z-10">
+                                            <Link href={`/scripts/${story.id}`} className="flex-1">
+                                                <Button
+                                                    variant="outline"
+                                                    className="w-full border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-orange-500/50"
+                                                >
+                                                    <Edit className="w-4 h-4 mr-2" />
+                                                    管理分镜
+                                                </Button>
+                                            </Link>
+
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="text-zinc-500 hover:text-red-400 hover:bg-zinc-800/50"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent className="bg-zinc-900 border-zinc-700">
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle className="text-white">
+                                                            确认删除？
+                                                        </AlertDialogTitle>
+                                                        <AlertDialogDescription className="text-zinc-400">
+                                                            此操作无法撤销。这将永久删除该剧本及其所有关联的分镜和设置。
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel className="border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:bg-zinc-800 hover:text-white">
+                                                            取消
+                                                        </AlertDialogCancel>
+                                                        <AlertDialogAction
+                                                            onClick={() => handleDelete(story.id)}
+                                                            className="bg-red-600 text-white hover:bg-red-700"
+                                                        >
+                                                            删除
+                                                        </AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        </CardFooter>
+                                    </Card>
+                                ))}
+                            </div>
+                        )}
                     </div>
-                )}
-            </div>
+                </div>
+            </main>
         </div>
     );
 }

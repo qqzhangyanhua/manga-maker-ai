@@ -129,28 +129,26 @@ export function WorkflowDashboard() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 relative">
             <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-2xl font-bold">工作流管理</h2>
-                    <p className="text-muted-foreground">
-                        一键生成完整漫画,自动化整个创作流程
-                    </p>
-                </div>
-                <Button onClick={() => setShowAutoGenerate(true)}>
+                <Button
+                    onClick={() => setShowAutoGenerate(true)}
+                    className="bg-orange-500 hover:bg-orange-600 text-white border-0 shadow-lg shadow-orange-500/20"
+                >
                     <Sparkles className="w-4 h-4 mr-2" />
                     一键生成漫画
                 </Button>
             </div>
 
             {workflows.length === 0 ? (
-                <Card>
-                    <CardContent className="py-12">
+                <Card className="relative border-zinc-700 bg-zinc-900/60 backdrop-blur-md overflow-hidden shadow-lg">
+                    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
+                    <CardContent className="py-12 relative z-10">
                         <div className="text-center space-y-4">
-                            <PlayCircle className="w-16 h-16 mx-auto text-muted-foreground" />
+                            <PlayCircle className="w-16 h-16 mx-auto text-orange-500" />
                             <div>
-                                <h3 className="text-lg font-semibold">还没有工作流</h3>
-                                <p className="text-sm text-muted-foreground mt-2">
+                                <h3 className="text-lg font-semibold text-white">还没有工作流</h3>
+                                <p className="text-sm text-zinc-400 mt-2">
                                     点击"一键生成漫画"开始创作
                                 </p>
                             </div>
@@ -189,37 +187,38 @@ function WorkflowCard({
     const StatusIcon = statusConfig.icon;
 
     return (
-        <Card>
-            <CardHeader>
+        <Card className="relative border-zinc-700 bg-zinc-900/60 backdrop-blur-md overflow-hidden shadow-lg hover:shadow-xl hover:shadow-orange-500/10 hover:-translate-y-1 transition-all">
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
+            <CardHeader className="relative z-10">
                 <div className="flex items-start justify-between">
                     <div className="flex-1">
-                        <CardTitle className="text-base flex items-center gap-2">
+                        <CardTitle className="text-base flex items-center gap-2 text-white">
                             工作流 #{workflow.id.slice(0, 8)}
                             <Badge className={statusConfig.color}>
                                 {statusConfig.label}
                             </Badge>
                         </CardTitle>
-                        <CardDescription className="mt-1">
+                        <CardDescription className="mt-1 text-zinc-400">
                             创建时间: {new Date(workflow.createdAt).toLocaleString()}
                         </CardDescription>
                     </div>
                     <StatusIcon
-                        className={`w-5 h-5 ${workflow.status === "running" ? "animate-spin" : ""
+                        className={`w-5 h-5 text-zinc-400 ${workflow.status === "running" ? "animate-spin" : ""
                             }`}
                     />
                 </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 relative z-10">
                 {workflow.status === "running" && (
                     <div className="space-y-2">
                         <div className="flex items-center justify-between text-sm">
-                            <span>
+                            <span className="text-zinc-300">
                                 当前步骤:{" "}
                                 {workflow.currentStep
                                     ? STEP_LABELS[workflow.currentStep]
                                     : "准备中"}
                             </span>
-                            <span>{workflow.progress}%</span>
+                            <span className="text-zinc-300">{workflow.progress}%</span>
                         </div>
                         <Progress value={workflow.progress} />
                     </div>
@@ -229,40 +228,45 @@ function WorkflowCard({
                     <div className="grid grid-cols-2 gap-2 text-sm">
                         {workflow.result.storyId && (
                             <div>
-                                <span className="text-muted-foreground">故事ID:</span>{" "}
-                                {workflow.result.storyId.slice(0, 8)}
+                                <span className="text-zinc-400">故事ID:</span>{" "}
+                                <span className="text-white">{workflow.result.storyId.slice(0, 8)}</span>
                             </div>
                         )}
                         {workflow.result.projectId && (
                             <div>
-                                <span className="text-muted-foreground">项目ID:</span>{" "}
-                                {workflow.result.projectId.slice(0, 8)}
+                                <span className="text-zinc-400">项目ID:</span>{" "}
+                                <span className="text-white">{workflow.result.projectId.slice(0, 8)}</span>
                             </div>
                         )}
                         {workflow.result.panelCount && (
                             <div>
-                                <span className="text-muted-foreground">分镜数:</span>{" "}
-                                {workflow.result.panelCount}
+                                <span className="text-zinc-400">分镜数:</span>{" "}
+                                <span className="text-white">{workflow.result.panelCount}</span>
                             </div>
                         )}
                         {workflow.result.generatedImages !== undefined && (
                             <div>
-                                <span className="text-muted-foreground">生成图片:</span>{" "}
-                                {workflow.result.generatedImages}
+                                <span className="text-zinc-400">生成图片:</span>{" "}
+                                <span className="text-white">{workflow.result.generatedImages}</span>
                             </div>
                         )}
                     </div>
                 )}
 
                 {workflow.status === "failed" && workflow.error && (
-                    <div className="p-3 bg-destructive/10 text-destructive rounded-md text-sm">
+                    <div className="p-3 bg-red-950/30 border border-red-500/30 text-red-400 rounded-md text-sm">
                         {workflow.error}
                     </div>
                 )}
 
                 <div className="flex gap-2">
                     {workflow.status === "running" && (
-                        <Button variant="outline" size="sm" onClick={onRefresh}>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={onRefresh}
+                            className="border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-orange-500/50"
+                        >
                             刷新状态
                         </Button>
                     )}
@@ -272,6 +276,7 @@ function WorkflowCard({
                             onClick={() => {
                                 window.location.href = `/storyboard?project_id=${workflow.result.projectId}`;
                             }}
+                            className="bg-orange-500 hover:bg-orange-600 text-white border-0 shadow-lg shadow-orange-500/20"
                         >
                             查看项目
                         </Button>
@@ -290,6 +295,7 @@ function WorkflowCard({
                                     console.error("Resume failed:", error);
                                 }
                             }}
+                            className="border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-orange-500/50"
                         >
                             重试
                         </Button>

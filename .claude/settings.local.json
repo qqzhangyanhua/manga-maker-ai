@@ -54,7 +54,9 @@
       "Bash(node -e:*)",
       "Bash(pkill:*)",
       "Bash(node test-ssl-fix.js:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []

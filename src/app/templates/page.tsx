@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
+import { Navbar } from "@/components/Landing";
 import { TemplateGrid } from "@/components/Template/TemplateGrid";
 import { ApplyTemplateWithProjectDialog, ApplyTemplateData } from "@/components/Template/ApplyTemplateWithProjectDialog";
 import { Button } from "@/components/ui/button";
@@ -16,10 +18,11 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Search, Filter, X, Plus, Info, Users, SlidersHorizontal } from "lucide-react";
+import { Search, Filter, X, Plus, Info, Users, SlidersHorizontal, ArrowLeft } from "lucide-react";
 import { TemplateWithMeta, SuccessResponse, TemplateCategory } from "@/types/template";
 import { useToast } from "@/hooks/use-toast";
 import { Slider } from "@/components/ui/slider";
+import { cn } from "@/lib/utils";
 
 const COMMON_TAGS = [
   "对话", "战斗", "情感", "动作", "悬疑",
@@ -48,6 +51,31 @@ export default function TemplatesPage() {
   const [category, setCategory] = useState<TemplateCategory | "all">("all");
   const [difficulty, setDifficulty] = useState<"all" | "newbie" | "pro">("all");
   const [targetCharacters, setTargetCharacters] = useState<number | null>(null);
+
+  // Spotlight effect state
+  const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
+  const [isHovering, setIsHovering] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Mouse tracking for spotlight effect
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    setMousePosition({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+  }, []);
+
+  const handleMouseEnter = useCallback(() => {
+    setIsHovering(true);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setIsHovering(false);
+    setMousePosition(null);
+  }, []);
 
   // Build query params
   const buildQueryParams = () => {
@@ -203,227 +231,268 @@ export default function TemplatesPage() {
     targetCharacters !== null;
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-6">
-      {/* Header */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">模板市场</h1>
-        </div>
-        <p className="text-muted-foreground">
-          探索和应用各种分镜模板，快速创建专业的漫画故事板
-        </p>
-      </div>
+    <div className="min-h-screen bg-[#0f0f13]">
+      <Navbar />
 
-      {/* Info alert for creating templates */}
-      <Alert>
-        <Info className="h-4 w-4" />
-        <AlertDescription>
-          想创建自己的模板？在故事板编辑器中选择分镜，点击"另存为模板"即可将您的创作保存为可复用的模板。
-        </AlertDescription>
-      </Alert>
+      <main className="pt-16">
+        {/* 装饰性光晕 */}
+        <div className="fixed top-20 left-1/4 w-96 h-96 bg-orange-500/5 blur-3xl rounded-full pointer-events-none" />
+        <div className="fixed bottom-20 right-1/4 w-96 h-96 bg-purple-500/3 blur-3xl rounded-full pointer-events-none" />
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(value) => {
-        setActiveTab(value as "official" | "community" | "my");
-        setPage(1);
-      }}>
-        <TabsList>
-          <TabsTrigger value="official">官方模板</TabsTrigger>
-          <TabsTrigger value="community">社区模板</TabsTrigger>
-          <TabsTrigger value="my">我的模板</TabsTrigger>
-        </TabsList>
+        <div
+          ref={containerRef}
+          className="relative px-4 py-12"
+          onMouseMove={handleMouseMove}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
+          {/* Global Spotlight Overlay */}
+          <div
+            className={cn(
+              "pointer-events-none absolute inset-0 z-30 transition-opacity duration-500",
+              isHovering ? "opacity-100" : "opacity-0"
+            )}
+            style={{
+              background: mousePosition
+                ? `radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(249, 115, 22, 0.08), transparent 40%)`
+                : "none",
+            }}
+          />
 
-        {/* Filters */}
-        <div className="mt-6 space-y-4">
-          {/* Search bar */}
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="搜索模板名称或描述..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setPage(1);
-                }}
-                className="pl-10"
-              />
+          <div className="max-w-7xl mx-auto relative space-y-6">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 text-zinc-400 hover:text-orange-500 transition-colors mb-6"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              返回首页
+            </Link>
+
+            {/* Header */}
+            <div className="space-y-2">
+              <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500 bg-clip-text text-transparent">
+                模板市场
+              </h1>
+              <p className="text-zinc-300 text-lg">
+                探索和应用各种分镜模板，快速创建专业的漫画故事板
+              </p>
             </div>
-            <Select value={panelCountRange} onValueChange={(value) => {
-              setPanelCountRange(value);
+
+            {/* Info alert for creating templates */}
+            <Alert className="border-zinc-700 bg-zinc-900/60 backdrop-blur-md">
+              <Info className="h-4 w-4 text-orange-500" />
+              <AlertDescription className="text-zinc-300">
+                想创建自己的模板？在故事板编辑器中选择分镜，点击"另存为模板"即可将您的创作保存为可复用的模板。
+              </AlertDescription>
+            </Alert>
+
+            {/* Tabs */}
+            <Tabs value={activeTab} onValueChange={(value) => {
+              setActiveTab(value as "official" | "community" | "my");
               setPage(1);
             }}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="分镜数量" />
-              </SelectTrigger>
-              <SelectContent>
-                {PANEL_COUNT_RANGES.map(range => (
-                  <SelectItem key={range.value} value={range.value}>
-                    {range.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {hasFilters && (
-              <Button variant="outline" onClick={handleClearFilters}>
-                <X className="h-4 w-4 mr-1" />
-                清除筛选
-              </Button>
-            )}
-          </div>
+              <TabsList className="bg-zinc-900/60 backdrop-blur-md border border-zinc-700">
+                <TabsTrigger value="official" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">官方模板</TabsTrigger>
+                <TabsTrigger value="community" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">社区模板</TabsTrigger>
+                <TabsTrigger value="my" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">我的模板</TabsTrigger>
+              </TabsList>
 
-          {/* Tag filters */}
-          <div className="flex flex-wrap gap-2">
-            <span className="text-sm text-muted-foreground flex items-center">
-              <Filter className="h-4 w-4 mr-1" />
-              标签筛选:
-            </span>
-            {COMMON_TAGS.map(tag => (
-              <Badge
-                key={tag}
-                variant={selectedTags.includes(tag) ? "default" : "outline"}
-                className="cursor-pointer"
-                onClick={() => handleToggleTag(tag)}
-              >
-                {tag}
-              </Badge>
-            ))}
-          </div>
+              {/* Filters */}
+              <div className="mt-6 space-y-4">
+                {/* Search bar */}
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                    <Input
+                      placeholder="搜索模板名称或描述..."
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setPage(1);
+                      }}
+                      className="pl-10 bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-500"
+                    />
+                  </div>
+                  <Select value={panelCountRange} onValueChange={(value) => {
+                    setPanelCountRange(value);
+                    setPage(1);
+                  }}>
+                    <SelectTrigger className="w-[180px] bg-zinc-900 border-zinc-700 text-white">
+                      <SelectValue placeholder="分镜数量" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-700">
+                      {PANEL_COUNT_RANGES.map(range => (
+                        <SelectItem key={range.value} value={range.value} className="text-white focus:bg-zinc-800 focus:text-white">
+                          {range.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {hasFilters && (
+                    <Button variant="outline" onClick={handleClearFilters} className="border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-orange-500/50">
+                      <X className="h-4 w-4 mr-1" />
+                      清除筛选
+                    </Button>
+                  )}
+                </div>
 
-          {/* 模板元信息筛选 */}
-          <div className="flex flex-wrap gap-3 items-center">
-            <div className="flex items-center gap-2">
-              <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
-              <Select
-                value={category}
-                onValueChange={(value) => {
-                  setCategory(value as TemplateCategory | "all");
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="类型" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部类型</SelectItem>
-                  <SelectItem value="short">短篇</SelectItem>
-                  <SelectItem value="strip">条漫</SelectItem>
-                  <SelectItem value="four">四格</SelectItem>
-                  <SelectItem value="comic">分幕</SelectItem>
-                  <SelectItem value="blank">空白</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                {/* Tag filters */}
+                <div className="flex flex-wrap gap-2">
+                  <span className="text-sm text-zinc-400 flex items-center">
+                    <Filter className="h-4 w-4 mr-1" />
+                    标签筛选:
+                  </span>
+                  {COMMON_TAGS.map(tag => (
+                    <Badge
+                      key={tag}
+                      variant={selectedTags.includes(tag) ? "default" : "outline"}
+                      className={selectedTags.includes(tag) ? "cursor-pointer bg-orange-500 text-white hover:bg-orange-600" : "cursor-pointer border-zinc-700 text-zinc-300 hover:bg-zinc-800"}
+                      onClick={() => handleToggleTag(tag)}
+                    >
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
 
-            <div className="flex items-center gap-2">
-              <Select
-                value={difficulty}
-                onValueChange={(value) => {
-                  setDifficulty(value as "all" | "newbie" | "pro");
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="难度" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部难度</SelectItem>
-                  <SelectItem value="newbie">新手友好</SelectItem>
-                  <SelectItem value="pro">进阶</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                {/* 模板元信息筛选 */}
+                <div className="flex flex-wrap gap-3 items-center">
+                  <div className="flex items-center gap-2">
+                    <SlidersHorizontal className="h-4 w-4 text-zinc-400" />
+                    <Select
+                      value={category}
+                      onValueChange={(value) => {
+                        setCategory(value as TemplateCategory | "all");
+                        setPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="w-[150px] bg-zinc-900 border-zinc-700 text-white">
+                        <SelectValue placeholder="类型" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-zinc-900 border-zinc-700">
+                        <SelectItem value="all" className="text-white focus:bg-zinc-800 focus:text-white">全部类型</SelectItem>
+                        <SelectItem value="short" className="text-white focus:bg-zinc-800 focus:text-white">短篇</SelectItem>
+                        <SelectItem value="strip" className="text-white focus:bg-zinc-800 focus:text-white">条漫</SelectItem>
+                        <SelectItem value="four" className="text-white focus:bg-zinc-800 focus:text-white">四格</SelectItem>
+                        <SelectItem value="comic" className="text-white focus:bg-zinc-800 focus:text-white">分幕</SelectItem>
+                        <SelectItem value="blank" className="text-white focus:bg-zinc-800 focus:text-white">空白</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">角色数</span>
-              <div className="w-40">
-                <Slider
-                  min={1}
-                  max={6}
-                  step={1}
-                  value={[targetCharacters ?? 3]}
-                  onValueChange={([value]) => setTargetCharacters(value)}
-                />
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={difficulty}
+                      onValueChange={(value) => {
+                        setDifficulty(value as "all" | "newbie" | "pro");
+                        setPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="w-[150px] bg-zinc-900 border-zinc-700 text-white">
+                        <SelectValue placeholder="难度" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-zinc-900 border-zinc-700">
+                        <SelectItem value="all" className="text-white focus:bg-zinc-800 focus:text-white">全部难度</SelectItem>
+                        <SelectItem value="newbie" className="text-white focus:bg-zinc-800 focus:text-white">新手友好</SelectItem>
+                        <SelectItem value="pro" className="text-white focus:bg-zinc-800 focus:text-white">进阶</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-zinc-400" />
+                    <span className="text-sm text-zinc-400">角色数</span>
+                    <div className="w-40">
+                      <Slider
+                        min={1}
+                        max={6}
+                        step={1}
+                        value={[targetCharacters ?? 3]}
+                        onValueChange={([value]) => setTargetCharacters(value)}
+                      />
+                    </div>
+                    <span className="text-sm text-zinc-400 w-6 text-center">
+                      {targetCharacters ?? "—"}
+                    </span>
+                    <Button variant="ghost" size="sm" onClick={() => setTargetCharacters(null)} className="text-zinc-400 hover:text-white hover:bg-zinc-800">
+                      重置
+                    </Button>
+                  </div>
+                </div>
               </div>
-              <span className="text-sm text-muted-foreground w-6 text-center">
-                {targetCharacters ?? "—"}
-              </span>
-              <Button variant="ghost" size="sm" onClick={() => setTargetCharacters(null)}>
-                重置
-              </Button>
-            </div>
+
+              {/* Template grid */}
+              <TabsContent value="official" className="mt-6">
+                <TemplateGrid
+                  templates={filteredTemplates}
+                  isLoading={isLoading}
+                  likedTemplateIds={likedTemplateIds}
+                  onLike={handleLike}
+                  onApply={handleApplyClick}
+                  emptyMessage="暂无官方模板"
+                  targetCharacters={targetCharacters}
+                />
+              </TabsContent>
+
+              <TabsContent value="community" className="mt-6">
+                <TemplateGrid
+                  templates={filteredTemplates}
+                  isLoading={isLoading}
+                  likedTemplateIds={likedTemplateIds}
+                  onLike={handleLike}
+                  onApply={handleApplyClick}
+                  emptyMessage="暂无社区模板"
+                  targetCharacters={targetCharacters}
+                />
+              </TabsContent>
+
+              <TabsContent value="my" className="mt-6">
+                <TemplateGrid
+                  templates={filteredTemplates}
+                  isLoading={isLoading}
+                  likedTemplateIds={likedTemplateIds}
+                  onLike={handleLike}
+                  onApply={handleApplyClick}
+                  emptyMessage="您还没有创建任何模板"
+                  targetCharacters={targetCharacters}
+                />
+              </TabsContent>
+            </Tabs>
+
+            {/* Pagination */}
+            {data && data.pagination.totalPages > 1 && (
+              <div className="flex justify-center gap-2 mt-8">
+                <Button
+                  variant="outline"
+                  disabled={page === 1}
+                  onClick={() => setPage(p => p - 1)}
+                  className="border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-orange-500/50"
+                >
+                  上一页
+                </Button>
+                <span className="flex items-center px-4 text-sm text-zinc-400">
+                  第 {data.pagination.page} / {data.pagination.totalPages} 页
+                </span>
+                <Button
+                  variant="outline"
+                  disabled={page === data.pagination.totalPages}
+                  onClick={() => setPage(p => p + 1)}
+                  className="border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-orange-500/50"
+                >
+                  下一页
+                </Button>
+              </div>
+            )}
+
+            {/* Apply template dialog */}
+            <ApplyTemplateWithProjectDialog
+              open={showApplyDialog}
+              onOpenChange={setShowApplyDialog}
+              template={selectedTemplate}
+              onApply={handleApplyTemplate}
+            />
           </div>
         </div>
-
-        {/* Template grid */}
-        <TabsContent value="official" className="mt-6">
-          <TemplateGrid
-            templates={filteredTemplates}
-            isLoading={isLoading}
-            likedTemplateIds={likedTemplateIds}
-            onLike={handleLike}
-            onApply={handleApplyClick}
-            emptyMessage="暂无官方模板"
-            targetCharacters={targetCharacters}
-          />
-        </TabsContent>
-
-        <TabsContent value="community" className="mt-6">
-          <TemplateGrid
-            templates={filteredTemplates}
-            isLoading={isLoading}
-            likedTemplateIds={likedTemplateIds}
-            onLike={handleLike}
-            onApply={handleApplyClick}
-            emptyMessage="暂无社区模板"
-            targetCharacters={targetCharacters}
-          />
-        </TabsContent>
-
-        <TabsContent value="my" className="mt-6">
-          <TemplateGrid
-            templates={filteredTemplates}
-            isLoading={isLoading}
-            likedTemplateIds={likedTemplateIds}
-            onLike={handleLike}
-            onApply={handleApplyClick}
-            emptyMessage="您还没有创建任何模板"
-            targetCharacters={targetCharacters}
-          />
-        </TabsContent>
-      </Tabs>
-
-      {/* Pagination */}
-      {data && data.pagination.totalPages > 1 && (
-        <div className="flex justify-center gap-2 mt-8">
-          <Button
-            variant="outline"
-            disabled={page === 1}
-            onClick={() => setPage(p => p - 1)}
-          >
-            上一页
-          </Button>
-          <span className="flex items-center px-4 text-sm text-muted-foreground">
-            第 {data.pagination.page} / {data.pagination.totalPages} 页
-          </span>
-          <Button
-            variant="outline"
-            disabled={page === data.pagination.totalPages}
-            onClick={() => setPage(p => p + 1)}
-          >
-            下一页
-          </Button>
-        </div>
-      )}
-
-      {/* Apply template dialog */}
-      <ApplyTemplateWithProjectDialog
-        open={showApplyDialog}
-        onOpenChange={setShowApplyDialog}
-        template={selectedTemplate}
-        onApply={handleApplyTemplate}
-      />
+      </main>
     </div>
   );
 }

@@ -55,12 +55,12 @@ export function GeneratingState() {
     <div className="flex flex-col items-center justify-center py-16 text-center space-y-8">
       {/* 生成终端效果 */}
       <div className="w-full max-w-md">
-        <div className="bg-background/50 border-2 border-primary/30 rounded-lg p-6 space-y-4">
+        <div className="bg-zinc-900/80 border-2 border-orange-500/30 rounded-lg p-6 space-y-4 shadow-lg shadow-orange-500/10">
           <div className="flex items-center gap-2 mb-6">
             <div className="w-3 h-3 rounded-full bg-comic-red animate-pulse" />
             <div className="w-3 h-3 rounded-full bg-comic-yellow animate-pulse delay-75" />
             <div className="w-3 h-3 rounded-full bg-comic-green animate-pulse delay-150" />
-            <span className="ml-2 text-sm font-mono text-primary">
+            <span className="ml-2 text-sm font-mono text-orange-500">
               AI 编排引擎
             </span>
           </div>
@@ -73,7 +73,7 @@ export function GeneratingState() {
                 className={cn(
                   "flex items-center gap-3 p-3 rounded-md transition-all duration-300",
                   stage.status === "inProgress" &&
-                    "bg-primary/10 border border-primary/30",
+                    "bg-orange-500/10 border border-orange-500/30",
                   stage.status === "completed" && "opacity-60"
                 )}
               >
@@ -84,19 +84,19 @@ export function GeneratingState() {
                   </div>
                 )}
                 {stage.status === "inProgress" && (
-                  <Loader2 className="w-5 h-5 text-primary animate-spin flex-shrink-0" />
+                  <Loader2 className="w-5 h-5 text-orange-500 animate-spin flex-shrink-0" />
                 )}
                 {stage.status === "waiting" && (
-                  <Clock className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                  <Clock className="w-5 h-5 text-zinc-500 flex-shrink-0" />
                 )}
 
                 {/* 阶段文本 */}
                 <span
                   className={cn(
                     "text-sm font-medium transition-colors",
-                    stage.status === "inProgress" && "text-primary",
-                    stage.status === "completed" && "text-muted-foreground",
-                    stage.status === "waiting" && "text-muted-foreground"
+                    stage.status === "inProgress" && "text-orange-500",
+                    stage.status === "completed" && "text-zinc-400",
+                    stage.status === "waiting" && "text-zinc-500"
                   )}
                 >
                   {stage.label}
@@ -114,14 +114,14 @@ export function GeneratingState() {
             <div
               key={i}
               className={cn(
-                "aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30",
-                "bg-background/30 relative overflow-hidden",
+                "aspect-square rounded-lg border-2 border-dashed border-zinc-600",
+                "bg-zinc-800/30 relative overflow-hidden",
                 i === 0 && "col-span-2 row-span-2"
               )}
             >
               {/* 扫光效果 */}
               <div
-                className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/20 to-transparent animate-scan"
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-orange-500/20 to-transparent animate-scan"
                 style={{
                   animationDelay: `${i * 0.3}s`,
                 }}
@@ -131,7 +131,7 @@ export function GeneratingState() {
         </div>
 
         {/* 提示文字 */}
-        <p className="text-sm text-muted-foreground mt-4">
+        <p className="text-sm text-zinc-400 mt-4">
           正在生成专业分镜画面，请稍候...
         </p>
       </div>

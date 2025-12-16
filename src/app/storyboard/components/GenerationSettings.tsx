@@ -16,8 +16,9 @@ export const GenerationSettings = ({
 }: GenerationSettingsProps) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-      <div className="comic-card p-4">
-        <div className="text-xs text-muted-foreground mb-1">默认锁脸角色</div>
+      <div className="relative rounded-xl border border-zinc-700 bg-zinc-900/60 backdrop-blur-md p-4 overflow-hidden shadow-lg">
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
+        <div className="text-xs text-zinc-400 mb-1">默认锁脸角色</div>
         <Select
           value={defaultCharacterId ?? NO_SELECTION_VALUE}
           onValueChange={(val) => onCharacterChange(val === NO_SELECTION_VALUE ? undefined : val)}
@@ -35,13 +36,14 @@ export const GenerationSettings = ({
           </SelectContent>
         </Select>
         {defaultCharacterId && characters.find((c) => c.id === defaultCharacterId)?.viewCount === 0 && (
-          <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-500">
+          <p className="mt-1 text-[11px] text-amber-500">
             当前角色缺少三视图，可能导致角色不一致
           </p>
         )}
       </div>
-      <div className="comic-card p-4">
-        <div className="text-xs text-muted-foreground mb-1">默认漫画风格</div>
+      <div className="relative rounded-xl border border-zinc-700 bg-zinc-900/60 backdrop-blur-md p-4 overflow-hidden shadow-lg">
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
+        <div className="text-xs text-zinc-400 mb-1">默认漫画风格</div>
         <Select
           value={defaultStyleKey ?? NO_SELECTION_VALUE}
           onValueChange={(val) => onStyleChange(val === NO_SELECTION_VALUE ? undefined : val)}
@@ -59,10 +61,11 @@ export const GenerationSettings = ({
           </SelectContent>
         </Select>
       </div>
-      <div className="comic-card p-4 flex items-center justify-between">
+      <div className="relative rounded-xl border border-zinc-700 bg-zinc-900/60 backdrop-blur-md p-4 flex items-center justify-between overflow-hidden shadow-lg">
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
         <div>
-          <div className="text-sm font-medium text-foreground">柔和模式</div>
-          <div className="text-xs text-muted-foreground">自动替换敏感词，减少安全拦截</div>
+          <div className="text-sm font-medium text-white">柔和模式</div>
+          <div className="text-xs text-zinc-400">自动替换敏感词，减少安全拦截</div>
         </div>
         <Switch checked={softMode} onCheckedChange={onSoftModeChange} />
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense, useEffect, useMemo, useCallback } from "react";
+import { useState, Suspense, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +27,7 @@ import { useExport } from "./hooks/useExport";
 import { apiPanelsToPanelData, panelDataToApiPanels } from "./utils";
 import { TabValue } from "./constants";
 import { PanelData } from "@/components/Storyboard/StoryboardPanel";
+import { cn } from "@/lib/utils";
 
 const StoryboardEditorPageContent = () => {
   const router = useRouter();
@@ -48,9 +49,34 @@ const StoryboardEditorPageContent = () => {
   const { toast } = useToast();
   const { usage, loading: usageLoading, refresh: refreshUsage } = useUsage();
 
+  // Spotlight effect state
+  const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
+  const [isHovering, setIsHovering] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   // Custom hooks
   const { storyId, initialScript } = useStoryIntegration();
   const { characters, styles } = useMetadata();
+
+  // Mouse tracking for spotlight effect
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    setMousePosition({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+  }, []);
+
+  const handleMouseEnter = useCallback(() => {
+    setIsHovering(true);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setIsHovering(false);
+    setMousePosition(null);
+  }, []);
 
   // 加载官方模板元数据，用于镜头分配与节拍参考
   useEffect(() => {
@@ -194,97 +220,126 @@ const StoryboardEditorPageContent = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#0f0f13]">
       <Navbar />
 
-      <main className="pt-20 pb-12 px-4">
-        <div className="max-w-7xl mx-auto">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            返回首页
-          </Link>
+      <main className="pt-16">
+        {/* 装饰性光晕 */}
+        <div className="fixed top-20 left-1/4 w-96 h-96 bg-orange-500/5 blur-3xl rounded-full pointer-events-none" />
+        <div className="fixed bottom-20 right-1/4 w-96 h-96 bg-purple-500/3 blur-3xl rounded-full pointer-events-none" />
 
-          <UsageSection
-            usage={usage}
-            usageLoading={usageLoading}
-            panelTemplates={panelTemplates}
-            selectedPanelTemplateId={selectedPanelTemplateId}
-            onPanelTemplateChange={setSelectedPanelTemplateId}
-            templateLoading={templateLoading}
+        <div
+          ref={containerRef}
+          className="relative px-4 py-12"
+          onMouseMove={handleMouseMove}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
+          {/* Global Spotlight Overlay */}
+          <div
+            className={cn(
+              "pointer-events-none absolute inset-0 z-30 transition-opacity duration-500",
+              isHovering ? "opacity-100" : "opacity-0"
+            )}
+            style={{
+              background: mousePosition
+                ? `radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(249, 115, 22, 0.08), transparent 40%)`
+                : "none",
+            }}
           />
 
-          <GenerationSettings
-            characters={characters}
-            styles={styles}
-            defaultCharacterId={defaultCharacterId}
-            defaultStyleKey={defaultStyleKey}
-            softMode={softMode}
-            onCharacterChange={setDefaultCharacterId}
-            onStyleChange={setDefaultStyleKey}
-            onSoftModeChange={setSoftMode}
-          />
+          <div className="max-w-7xl mx-auto relative">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 text-zinc-400 hover:text-orange-500 transition-colors mb-6"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              返回首页
+            </Link>
 
-          {hasGeneratedPanels && (
-            <GenerationStrategy
+            <UsageSection
+              usage={usage}
+              usageLoading={usageLoading}
+              panelTemplates={panelTemplates}
+              selectedPanelTemplateId={selectedPanelTemplateId}
+              onPanelTemplateChange={setSelectedPanelTemplateId}
+              templateLoading={templateLoading}
+            />
+
+            <GenerationSettings
               characters={characters}
               styles={styles}
               defaultCharacterId={defaultCharacterId}
               defaultStyleKey={defaultStyleKey}
               softMode={softMode}
-              promptErrors={promptErrors}
+              onCharacterChange={setDefaultCharacterId}
+              onStyleChange={setDefaultStyleKey}
+              onSoftModeChange={setSoftMode}
             />
-          )}
 
-          <div className="text-center mb-10">
-            <h1 className="font-comic text-4xl md:text-5xl comic-title mb-4">剧本与分镜系统</h1>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              从小说到分镜的智能翻译器，AI 编剧助理帮你完成专业分镜
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="space-y-6">
-              <ScriptInputSection
-                activeTab={activeTab}
-                onTabChange={setActiveTab}
-                initialScript={initialScript}
-                isGenerating={isGenerating}
-                onGenerate={handleGenerate}
-                selectedTemplate={selectedTemplate}
-                onSelectTemplate={setSelectedTemplate}
-                templateData={templateData}
-                onTemplateDataChange={setTemplateData}
-                onTemplateGenerate={handleTemplateGenerate}
+            {hasGeneratedPanels && (
+              <GenerationStrategy
+                characters={characters}
+                styles={styles}
+                defaultCharacterId={defaultCharacterId}
+                defaultStyleKey={defaultStyleKey}
+                softMode={softMode}
+                promptErrors={promptErrors}
               />
+            )}
 
-              {hasGeneratedPanels && (
-                <div className="comic-card p-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <MessageSquare className="w-5 h-5 text-primary" />
-                    <h2 className="font-comic text-xl text-foreground">对白智能优化</h2>
-                  </div>
-                  <DialogueRefiner panels={panels} onDialogueUpdate={handleDialogueUpdate} />
-                </div>
-              )}
+            <div className="text-center mb-10">
+              <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500 bg-clip-text text-transparent mb-4">
+                剧本与分镜系统
+              </h1>
+              <p className="text-zinc-300 text-lg max-w-2xl mx-auto">
+                从小说到分镜的智能翻译器，AI 编剧助理帮你完成专业分镜
+              </p>
             </div>
 
-            <StoryboardPreview
-              hasGeneratedPanels={hasGeneratedPanels}
-              panels={panels}
-              selectedPanel={selectedPanel}
-              onPanelSelect={setSelectedPanel}
-              selectedPanelData={selectedPanelData}
-              onEnterEditor={handleEnterEditor}
-              onGenerateImages={handleGenerateImages}
-              onExport={handleExport}
-              isExporting={isExporting}
-              onGenerateSingleImage={handleSingleImageGeneration}
-              generatingSinglePanel={generatingSinglePanel}
-              isGenerating={isGenerating}
-            />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="space-y-6">
+                <ScriptInputSection
+                  activeTab={activeTab}
+                  onTabChange={setActiveTab}
+                  initialScript={initialScript}
+                  isGenerating={isGenerating}
+                  onGenerate={handleGenerate}
+                  selectedTemplate={selectedTemplate}
+                  onSelectTemplate={setSelectedTemplate}
+                  templateData={templateData}
+                  onTemplateDataChange={setTemplateData}
+                  onTemplateGenerate={handleTemplateGenerate}
+                />
+
+                {hasGeneratedPanels && (
+                  <div className="relative rounded-xl border border-zinc-700 bg-zinc-900/60 backdrop-blur-md p-6 overflow-hidden shadow-lg">
+                    {/* 顶部高光 */}
+                    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
+                    <div className="flex items-center gap-2 mb-4">
+                      <MessageSquare className="w-5 h-5 text-orange-500" />
+                      <h2 className="text-xl font-semibold text-white">对白智能优化</h2>
+                    </div>
+                    <DialogueRefiner panels={panels} onDialogueUpdate={handleDialogueUpdate} />
+                  </div>
+                )}
+              </div>
+
+              <StoryboardPreview
+                hasGeneratedPanels={hasGeneratedPanels}
+                panels={panels}
+                selectedPanel={selectedPanel}
+                onPanelSelect={setSelectedPanel}
+                selectedPanelData={selectedPanelData}
+                onEnterEditor={handleEnterEditor}
+                onGenerateImages={handleGenerateImages}
+                onExport={handleExport}
+                isExporting={isExporting}
+                onGenerateSingleImage={handleSingleImageGeneration}
+                generatingSinglePanel={generatingSinglePanel}
+                isGenerating={isGenerating}
+              />
+            </div>
           </div>
         </div>
       </main>

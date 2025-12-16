@@ -37,11 +37,12 @@ export function StoryboardPreview({
   isGenerating,
 }: StoryboardPreviewProps) {
   return (
-    <div className="comic-card p-6">
+    <div className="relative rounded-xl border border-zinc-700 bg-zinc-900/60 backdrop-blur-md p-6 overflow-hidden shadow-lg">
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Grid3X3 className="w-5 h-5 text-primary" />
-          <h2 className="font-comic text-xl text-foreground">智能分镜排版</h2>
+          <Grid3X3 className="w-5 h-5 text-orange-500" />
+          <h2 className="text-xl font-semibold text-white">智能分镜排版</h2>
         </div>
         {hasGeneratedPanels && (
           <div className="flex gap-2">
@@ -70,8 +71,8 @@ export function StoryboardPreview({
         <>
           <PanelStats panels={panels} />
 
-          <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b border-border text-xs">
-            <span className="text-muted-foreground">自动排版：</span>
+          <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b border-zinc-700 text-xs">
+            <span className="text-zinc-400">自动排版：</span>
             <span className="px-2 py-0.5 rounded-full bg-comic-red/20 text-comic-red">
               高重要度=大格
             </span>
@@ -81,7 +82,7 @@ export function StoryboardPreview({
             <span className="px-2 py-0.5 rounded-full bg-comic-blue/20 text-comic-blue">
               特写=竖格
             </span>
-            <span className="px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+            <span className="px-2 py-0.5 rounded-full bg-zinc-700/50 text-zinc-300">
               过渡=小格
             </span>
           </div>

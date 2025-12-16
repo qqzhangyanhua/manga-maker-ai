@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Navbar } from "@/components/Landing";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,10 +9,36 @@ import CharacterLibrary from "@/components/AssetLibrary/CharacterLibrary";
 import SceneLibrary from "@/components/AssetLibrary/SceneLibrary";
 import PoseLabEditor from "@/components/PoseLab/PoseLabEditor";
 import { useUsage } from "@/hooks/use-usage";
+import { cn } from "@/lib/utils";
 
 const AssetLibraryPage = () => {
   const [activeTab, setActiveTab] = useState("characters");
   const { usage, loading: usageLoading } = useUsage();
+
+  // Spotlight effect state
+  const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
+  const [isHovering, setIsHovering] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Mouse tracking for spotlight effect
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    setMousePosition({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+  }, []);
+
+  const handleMouseEnter = useCallback(() => {
+    setIsHovering(true);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setIsHovering(false);
+    setMousePosition(null);
+  }, []);
 
   const renderUsageBadge = (
     label: string,
@@ -26,11 +52,11 @@ const AssetLibraryPage = () => {
       ? "border-red-500/70 bg-red-500/10 text-red-400"
       : isLow
       ? "border-yellow-500/60 bg-yellow-500/10 text-yellow-400"
-      : "border-zinc-800";
+      : "border-zinc-700 bg-zinc-900/60";
 
     return (
-      <div className={`rounded-lg border px-3 py-2 text-sm ${badgeClass}`}>
-        <div className="text-xs text-zinc-500">{label}</div>
+      <div className={`rounded-lg border px-3 py-2 text-sm ${badgeClass} backdrop-blur-md`}>
+        <div className="text-xs text-zinc-400">{label}</div>
         <div className="font-medium text-white">
           {usageLoading
             ? "加载中..."
@@ -45,32 +71,58 @@ const AssetLibraryPage = () => {
   return (
     <div className="min-h-screen bg-[#0f0f13]">
       <Navbar />
-      <main className="pt-20 pb-12 px-4">
-        <div className="max-w-7xl mx-auto">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-6"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            返回首页
-          </Link>
+      <main className="pt-16">
+        {/* 装饰性光晕 */}
+        <div className="fixed top-20 left-1/4 w-96 h-96 bg-orange-500/5 blur-3xl rounded-full pointer-events-none" />
+        <div className="fixed bottom-20 right-1/4 w-96 h-96 bg-purple-500/3 blur-3xl rounded-full pointer-events-none" />
 
-          <div className="flex flex-wrap gap-3 mb-6 items-center">
-            <div className="text-sm text-zinc-400">今日用量</div>
-            {renderUsageBadge("分镜生成", usage?.storyboard_generation)}
-            {renderUsageBadge("图像生成", usage?.image_generation)}
-            {renderUsageBadge("聊天/LLM", usage?.llm_chat)}
-          </div>
+        <div
+          ref={containerRef}
+          className="relative px-4 py-12"
+          onMouseMove={handleMouseMove}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
+          {/* Global Spotlight Overlay */}
+          <div
+            className={cn(
+              "pointer-events-none absolute inset-0 z-30 transition-opacity duration-500",
+              isHovering ? "opacity-100" : "opacity-0"
+            )}
+            style={{
+              background: mousePosition
+                ? `radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(249, 115, 22, 0.08), transparent 40%)`
+                : "none",
+            }}
+          />
 
-          <div className="text-center mb-10">
-            <h1 className="font-bold text-4xl md:text-5xl text-white mb-4">资产管理系统</h1>
-            <p className="text-zinc-400 text-lg max-w-2xl mx-auto">
-              管理你的角色、姿势和场景资产，保持创作的一致性
-            </p>
-          </div>
+          <div className="max-w-7xl mx-auto relative">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 text-zinc-400 hover:text-orange-500 transition-colors mb-6"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              返回首页
+            </Link>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="w-full max-w-md mx-auto grid grid-cols-3 mb-8 h-auto p-1 bg-zinc-900/50 border border-zinc-800">
+            <div className="flex flex-wrap gap-3 mb-6 items-center">
+              <div className="text-sm text-zinc-400">今日用量</div>
+              {renderUsageBadge("分镜生成", usage?.storyboard_generation)}
+              {renderUsageBadge("图像生成", usage?.image_generation)}
+              {renderUsageBadge("聊天/LLM", usage?.llm_chat)}
+            </div>
+
+            <div className="text-center mb-10">
+              <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500 bg-clip-text text-transparent mb-4">
+                资产管理系统
+              </h1>
+              <p className="text-zinc-300 text-lg max-w-2xl mx-auto">
+                管理你的角色、姿势和场景资产，保持创作的一致性
+              </p>
+            </div>
+
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="w-full max-w-md mx-auto grid grid-cols-3 mb-8 h-auto p-1 bg-zinc-900/60 backdrop-blur-md border border-zinc-700">
               <TabsTrigger
                 value="characters"
                 className="flex items-center gap-2 py-3 data-[state=active]:bg-orange-500 data-[state=active]:text-black text-zinc-400"
@@ -98,26 +150,27 @@ const AssetLibraryPage = () => {
               <CharacterLibrary />
             </TabsContent>
 
-            <TabsContent value="poses" className="mt-0">
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="font-bold text-2xl text-white">3D 姿态辅助库</h2>
-                    <p className="text-zinc-400">
-                      使用 3D 人偶编辑器摆出精确的姿势，解决 AI 难以绘制的透视和动态问题
-                    </p>
+              <TabsContent value="poses" className="mt-0">
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="font-bold text-2xl text-white">3D 姿态辅助库</h2>
+                      <p className="text-zinc-300">
+                        使用 3D 人偶编辑器摆出精确的姿势，解决 AI 难以绘制的透视和动态问题
+                      </p>
+                    </div>
+                  </div>
+                  <div className="min-h-[600px]">
+                    <PoseLabEditor />
                   </div>
                 </div>
-                <div className="min-h-[600px]">
-                  <PoseLabEditor />
-                </div>
-              </div>
-            </TabsContent>
+              </TabsContent>
 
-            <TabsContent value="scenes" className="mt-0">
-              <SceneLibrary />
-            </TabsContent>
-          </Tabs>
+              <TabsContent value="scenes" className="mt-0">
+                <SceneLibrary />
+              </TabsContent>
+            </Tabs>
+          </div>
         </div>
       </main>
     </div>

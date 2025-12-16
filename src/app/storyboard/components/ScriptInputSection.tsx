@@ -44,12 +44,13 @@ export function ScriptInputSection({
       </TabsList>
 
       <TabsContent value="freeform" className="mt-4">
-        <div className="comic-card p-6">
+        <div className="relative rounded-xl border border-zinc-700 bg-zinc-900/60 backdrop-blur-md p-6 overflow-hidden shadow-lg">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
           <div className="flex items-center gap-2 mb-4">
-            <Wand2 className="w-5 h-5 text-primary" />
-            <h2 className="font-comic text-xl text-foreground">小说转漫画</h2>
+            <Wand2 className="w-5 h-5 text-orange-500" />
+            <h2 className="text-xl font-semibold text-white">小说转漫画</h2>
           </div>
-          <p className="text-sm text-muted-foreground mb-6">
+          <p className="text-sm text-zinc-400 mb-6">
             粘贴你的小说或剧本文本，AI 将自动分析并拆解为专业分镜。
           </p>
           <ScriptInput
@@ -62,12 +63,13 @@ export function ScriptInputSection({
       </TabsContent>
 
       <TabsContent value="template" className="mt-4">
-        <div className="comic-card p-6">
+        <div className="relative rounded-xl border border-zinc-700 bg-zinc-900/60 backdrop-blur-md p-6 overflow-hidden shadow-lg">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
           <div className="flex items-center gap-2 mb-4">
-            <BookOpen className="w-5 h-5 text-primary" />
-            <h2 className="font-comic text-xl text-foreground">结构化写作模板</h2>
+            <BookOpen className="w-5 h-5 text-orange-500" />
+            <h2 className="text-xl font-semibold text-white">结构化写作模板</h2>
           </div>
-          <p className="text-sm text-muted-foreground mb-6">
+          <p className="text-sm text-zinc-400 mb-6">
             选择经典叙事结构，跟随模板引导完成故事大纲。
           </p>
           <NarrativeTemplateSelector

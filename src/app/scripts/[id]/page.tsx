@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import { Navbar } from "@/components/Landing";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -45,6 +47,31 @@ export default function ScriptDetailsPage() {
   // AI生成分镜对话框状态
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
   const [pendingChapterId, setPendingChapterId] = useState<string | null>(null);
+
+  // Spotlight effect state
+  const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
+  const [isHovering, setIsHovering] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Mouse tracking for spotlight effect
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    setMousePosition({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+  }, []);
+
+  const handleMouseEnter = useCallback(() => {
+    setIsHovering(true);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setIsHovering(false);
+    setMousePosition(null);
+  }, []);
 
   // React Query hooks for data management - 使用优化版渐进式加载
   const {
@@ -311,31 +338,81 @@ export default function ScriptDetailsPage() {
 
   if (!data?.story) {
     return (
-      <div className="container py-8 text-center">
-        <h1 className="text-2xl font-bold">未找到剧本</h1>
-        <Button className="mt-4" onClick={() => router.push("/scripts")}>
-          返回列表
-        </Button>
+      <div className="min-h-screen bg-[#0f0f13]">
+        <Navbar />
+        <main className="pt-16">
+          <div className="container py-12 text-center">
+            <h1 className="text-2xl font-bold text-white mb-4">未找到剧本</h1>
+            <Button
+              className="bg-orange-500 hover:bg-orange-600 text-white border-0"
+              onClick={() => router.push("/scripts")}
+            >
+              返回列表
+            </Button>
+          </div>
+        </main>
       </div>
     );
   }
 
   return (
     <ErrorBoundary>
-      <div className="container py-8 space-y-8">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push("/scripts")}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">{data.story.title}</h1>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Badge variant="outline">{data.story.genre}</Badge>
-              <span>Updated: {format(new Date(data.story.updated_at), "yyyy-MM-dd HH:mm")}</span>
-            </div>
-          </div>
-        </div>
+      <div className="min-h-screen bg-[#0f0f13]">
+        <Navbar />
+
+        <main className="pt-16">
+          {/* 装饰性光晕 */}
+          <div className="fixed top-20 left-1/4 w-96 h-96 bg-orange-500/5 blur-3xl rounded-full pointer-events-none" />
+          <div className="fixed bottom-20 right-1/4 w-96 h-96 bg-purple-500/3 blur-3xl rounded-full pointer-events-none" />
+
+          <div
+            ref={containerRef}
+            className="relative px-4 py-12"
+            onMouseMove={handleMouseMove}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+          >
+            {/* Global Spotlight Overlay */}
+            <div
+              className={cn(
+                "pointer-events-none absolute inset-0 z-30 transition-opacity duration-500",
+                isHovering ? "opacity-100" : "opacity-0"
+              )}
+              style={{
+                background: mousePosition
+                  ? `radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(249, 115, 22, 0.08), transparent 40%)`
+                  : "none",
+              }}
+            />
+
+            <div className="max-w-7xl mx-auto relative space-y-8">
+              {/* Header */}
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => router.push("/scripts")}
+                  className="text-zinc-400 hover:text-orange-500 hover:bg-zinc-800/50"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </Button>
+                <div>
+                  <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500 bg-clip-text text-transparent">
+                    {data.story.title}
+                  </h1>
+                  <div className="flex items-center gap-2 text-sm text-zinc-400 mt-2">
+                    <Badge
+                      variant="secondary"
+                      className="bg-orange-500/20 text-orange-400 border border-orange-500/30"
+                    >
+                      {data.story.genre}
+                    </Badge>
+                    <span>
+                      更新于: {format(new Date(data.story.updated_at), "yyyy-MM-dd HH:mm")}
+                    </span>
+                  </div>
+                </div>
+              </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Left: Story Info, Characters & Chapters */}
@@ -424,24 +501,27 @@ export default function ScriptDetailsPage() {
           </div>
         </div>
 
-        {/* Streaming Generation Progress */}
-        <GenerationProgress progress={progress} onCancel={cancel} />
+              {/* Streaming Generation Progress */}
+              <GenerationProgress progress={progress} onCancel={cancel} />
 
-        {/* AI生成分镜对话框 */}
-        <GeneratePanelsDialog
-          open={generateDialogOpen}
-          existingPanelCount={
-            pendingChapterId
-              ? (data?.panels || []).filter(p => p.chapter_id === pendingChapterId).length
-              : 0
-          }
-          onOpenChange={setGenerateDialogOpen}
-          onConfirm={(mode, panelCount) => {
-            if (pendingChapterId) {
-              executeGeneration(pendingChapterId, mode, panelCount);
-            }
-          }}
-        />
+              {/* AI生成分镜对话框 */}
+              <GeneratePanelsDialog
+                open={generateDialogOpen}
+                existingPanelCount={
+                  pendingChapterId
+                    ? (data?.panels || []).filter(p => p.chapter_id === pendingChapterId).length
+                    : 0
+                }
+                onOpenChange={setGenerateDialogOpen}
+                onConfirm={(mode, panelCount) => {
+                  if (pendingChapterId) {
+                    executeGeneration(pendingChapterId, mode, panelCount);
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </main>
       </div>
     </ErrorBoundary>
   );

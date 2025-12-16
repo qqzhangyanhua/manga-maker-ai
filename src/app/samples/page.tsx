@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, BookOpen, Sparkles, Layers } from "lucide-react";
@@ -12,6 +12,7 @@ import { SampleCard } from "./components/SampleCard";
 import { SamplePreviewDialog } from "./components/SamplePreviewDialog";
 import type { SampleProject } from "./types";
 import { CATEGORY_LABELS } from "./types";
+import { cn } from "@/lib/utils";
 
 export default function SamplesPage() {
   const router = useRouter();
@@ -19,6 +20,31 @@ export default function SamplesPage() {
   const { samples, loading, error, copySample, copying } = useSamples();
   const [previewSample, setPreviewSample] = useState<SampleProject | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+
+  // Spotlight effect state
+  const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
+  const [isHovering, setIsHovering] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Mouse tracking for spotlight effect
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    setMousePosition({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+  }, []);
+
+  const handleMouseEnter = useCallback(() => {
+    setIsHovering(true);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setIsHovering(false);
+    setMousePosition(null);
+  }, []);
 
   // 按分类分组
   const groupedSamples = samples.reduce<Record<string, SampleProject[]>>(
@@ -64,35 +90,60 @@ export default function SamplesPage() {
     <div className="min-h-screen bg-[#0f0f13]">
       <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <Link
-            href="/"
-            className="text-zinc-400 hover:text-white inline-flex items-center gap-2 mb-4 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            返回首页
-          </Link>
+      <main className="pt-16">
+        {/* 装饰性光晕 */}
+        <div className="fixed top-20 left-1/4 w-96 h-96 bg-orange-500/5 blur-3xl rounded-full pointer-events-none" />
+        <div className="fixed bottom-20 right-1/4 w-96 h-96 bg-purple-500/3 blur-3xl rounded-full pointer-events-none" />
 
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold flex items-center gap-3 text-white">
-                <BookOpen className="w-8 h-8 text-orange-500" />
-                示例项目
-              </h1>
-              <p className="text-zinc-400 mt-1">
-                浏览优质示例，一键复制到你的账号开始学习和修改
-              </p>
-            </div>
-            <Button className="bg-orange-500 hover:bg-orange-600 text-white border-0" asChild>
-              <Link href="/story">
-                <Sparkles className="w-4 h-4 mr-2" />
-                从零开始创作
+        <div
+          ref={containerRef}
+          className="relative px-4 py-12"
+          onMouseMove={handleMouseMove}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
+          {/* Global Spotlight Overlay */}
+          <div
+            className={cn(
+              "pointer-events-none absolute inset-0 z-30 transition-opacity duration-500",
+              isHovering ? "opacity-100" : "opacity-0"
+            )}
+            style={{
+              background: mousePosition
+                ? `radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(249, 115, 22, 0.08), transparent 40%)`
+                : "none",
+            }}
+          />
+
+          <div className="max-w-7xl mx-auto relative">
+            {/* Header */}
+            <div className="mb-8">
+              <Link
+                href="/"
+                className="text-zinc-400 hover:text-orange-500 inline-flex items-center gap-2 mb-6 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                返回首页
               </Link>
-            </Button>
-          </div>
-        </div>
+
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500 bg-clip-text text-transparent mb-4 flex items-center gap-3">
+                    <BookOpen className="w-10 h-10 text-orange-500" />
+                    示例项目
+                  </h1>
+                  <p className="text-zinc-300 text-lg">
+                    浏览优质示例，一键复制到你的账号开始学习和修改
+                  </p>
+                </div>
+                <Button className="bg-orange-500 hover:bg-orange-600 text-white border-0 shadow-lg shadow-orange-500/20" asChild>
+                  <Link href="/story">
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    从零开始创作
+                  </Link>
+                </Button>
+              </div>
+            </div>
 
         {/* Loading State */}
         {loading && (
@@ -109,7 +160,11 @@ export default function SamplesPage() {
           <div className="flex items-center justify-center py-20">
             <div className="text-center space-y-4">
               <p className="text-red-400">{error}</p>
-              <Button variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-zinc-600" onClick={() => window.location.reload()}>
+              <Button
+                variant="outline"
+                className="border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-orange-500/50"
+                onClick={() => window.location.reload()}
+              >
                 重试
               </Button>
             </div>
@@ -118,11 +173,14 @@ export default function SamplesPage() {
 
         {/* Empty State */}
         {!loading && !error && samples.length === 0 && (
-          <div className="flex items-center justify-center py-20">
-            <div className="text-center space-y-4">
-              <Layers className="w-16 h-16 text-zinc-700 mx-auto" />
+          <div className="relative text-center py-20 border border-zinc-700 rounded-2xl bg-zinc-900/60 backdrop-blur-md overflow-hidden shadow-lg">
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
+            <div className="relative space-y-4">
+              <div className="w-16 h-16 mx-auto rounded-full bg-orange-500/10 flex items-center justify-center ring-2 ring-orange-500/30">
+                <Layers className="w-8 h-8 text-orange-500" />
+              </div>
               <p className="text-zinc-400">暂无示例项目</p>
-              <Button className="bg-orange-500 hover:bg-orange-600 text-white border-0" asChild>
+              <Button className="bg-orange-500 hover:bg-orange-600 text-white border-0 shadow-lg shadow-orange-500/20" asChild>
                 <Link href="/story">
                   <Sparkles className="w-4 h-4 mr-2" />
                   开始创作你的第一个作品
@@ -167,9 +225,10 @@ export default function SamplesPage() {
         )}
 
         {/* Tips Section */}
-        <div className="mt-16 rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
-          <h3 className="font-semibold text-white mb-3">使用提示</h3>
-          <ul className="space-y-2 text-sm text-zinc-400">
+        <div className="relative mt-16 rounded-xl border border-zinc-700 bg-zinc-900/60 backdrop-blur-md p-6 overflow-hidden shadow-lg">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
+          <h3 className="font-semibold text-white mb-3 relative z-10">使用提示</h3>
+          <ul className="space-y-2 text-sm text-zinc-400 relative z-10">
             <li className="flex items-start gap-2">
               <span className="text-orange-500">1.</span>
               <span>
@@ -195,6 +254,8 @@ export default function SamplesPage() {
               </span>
             </li>
           </ul>
+        </div>
+          </div>
         </div>
       </main>
 

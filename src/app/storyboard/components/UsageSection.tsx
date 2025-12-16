@@ -34,7 +34,7 @@ export function UsageSection({
 }: UsageSectionProps) {
   return (
     <div className="flex flex-wrap gap-3 mb-6 items-center">
-      <div className="text-sm text-muted-foreground">今日用量</div>
+      <div className="text-sm text-zinc-400">今日用量</div>
       <UsageBadge
         label="分镜生成"
         item={usage?.storyboard_generation}
@@ -43,7 +43,7 @@ export function UsageSection({
       <UsageBadge label="图像生成" item={usage?.image_generation} loading={usageLoading} />
       <UsageBadge label="聊天/LLM" item={usage?.llm_chat} loading={usageLoading} />
       <div className="flex items-center gap-2">
-        <span className="text-sm text-muted-foreground">分镜模板</span>
+        <span className="text-sm text-zinc-400">分镜模板</span>
         <Select
           value={selectedPanelTemplateId ?? TEMPLATE_NONE_VALUE}
           onValueChange={(value) =>
