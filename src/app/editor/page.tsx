@@ -13,16 +13,27 @@ import { useVersionManager } from "./hooks/useVersionManager";
 import { useImageOptimizer } from "./hooks/useImageOptimizer";
 import { usePagination } from "./hooks/usePagination";
 import { FilterBar } from "./components/FilterBar";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { showErrorToast, showSuccessToast } from "@/lib/error-handler";
 
 const EditorPage = () => {
   const canvasController = useRef<CanvasController | null>(null);
-  const activeVersionRef = useRef<string | null>(null);
   const { toast } = useToast();
 
   const [loadingVersion, setLoadingVersion] = useState<string | null>(null);
   const [activeTemplate, setActiveTemplate] = useState<string | null>(null);
   const [historyInfo, setHistoryInfo] = useState({ undo: 0, redo: 0 });
   const [isSavingLayout, setIsSavingLayout] = useState(false);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [timelineStatusFilter, setTimelineStatusFilter] = useState<
     "all" | "pending" | "completed" | "failed"
   >("all");
@@ -61,22 +72,22 @@ const EditorPage = () => {
     fetchVersions(page, pageSize, { projectId: "", taskId: "" });
   }, [fetchVersions, page, pageSize]);
 
+  // 计算当前选中的版本对象
+  const currentVersion = useMemo(
+    () => versions.find((v) => v.id === activeVersion),
+    [versions, activeVersion]
+  );
+
+  // 当选中版本变化时，加载到画布
   useEffect(() => {
-    if (!activeVersion) return;
-    if (activeVersionRef.current === activeVersion) return;
-    activeVersionRef.current = activeVersion;
-    const target = versions.find((version) => version.id === activeVersion);
-    if (!target) return;
-    canvasController.current?.setBackgroundImage(target.thumbnail);
-    canvasController.current?.loadSchema(target.canvasSchema);
-  }, [activeVersion, versions]);
+    if (!currentVersion) return;
+    canvasController.current?.setBackgroundImage(currentVersion.thumbnail);
+    canvasController.current?.loadSchema(currentVersion.canvasSchema);
+  }, [currentVersion]);
 
   const currentImage = useMemo(() => {
-    if (activeVersion) {
-      return versions.find((v) => v.id === activeVersion)?.thumbnail ?? null;
-    }
-    return null;
-  }, [versions, activeVersion]);
+    return currentVersion?.thumbnail ?? null;
+  }, [currentVersion]);
 
   const { isOptimizing, handleOptimize } = useImageOptimizer({
     currentImage,
@@ -109,15 +120,22 @@ const EditorPage = () => {
     canvasController.current?.redo();
   };
 
-  const handleRefresh = () => {
-    fetchVersions(page, pageSize, { projectId: "", taskId: "" });
-  };
-
-  const handleSaveLayout = async () => {
+  const handleSaveLayoutRequest = () => {
     if (!activeVersion) {
-      toast({ title: "没有可保存的版本", description: "请选择一个版本后再试", variant: "destructive" });
+      toast({
+        title: "没有可保存的版本",
+        description: "请选择一个版本后再试",
+        variant: "destructive",
+      });
       return;
     }
+    setShowSaveConfirm(true);
+  };
+
+  const handleSaveLayoutConfirmed = async () => {
+    setShowSaveConfirm(false);
+    if (!activeVersion) return;
+
     const schema = canvasController.current?.exportSchema();
     setIsSavingLayout(true);
     try {
@@ -127,11 +145,9 @@ const EditorPage = () => {
       if (updated) {
         setVersions((prev) => prev.map((version) => (version.id === updated.id ? updated : version)));
       }
-      toast({ title: "布局已保存", description: "版本记录已更新，可随时回溯" });
+      showSuccessToast(toast, "布局已保存", "版本记录已更新，可随时回溯");
     } catch (error: unknown) {
-      console.error("保存布局失败:", error);
-      const message = error instanceof Error ? error.message : "请稍后再试";
-      toast({ title: "保存失败", description: message, variant: "destructive" });
+      showErrorToast(toast, "保存失败", error);
     } finally {
       setIsSavingLayout(false);
     }
@@ -155,9 +171,7 @@ const EditorPage = () => {
         setVersions((prev) => [version, ...prev]);
         setActiveVersion(version.id);
       } catch (error: unknown) {
-        console.error("上传版本失败:", error);
-        const message = error instanceof Error ? error.message : "请稍后再试";
-        toast({ title: "保存版本失败", description: message, variant: "destructive" });
+        showErrorToast(toast, "保存版本失败", error);
       }
     };
     reader.readAsDataURL(file);
@@ -178,9 +192,7 @@ const EditorPage = () => {
       setVersions((prev) => [version, ...prev]);
       setActiveVersion(version.id);
     } catch (error: unknown) {
-      console.error("载入外部图片失败:", error);
-      const message = error instanceof Error ? error.message : "请检查链接或跨域设置";
-      toast({ title: "加载失败", description: message, variant: "destructive" });
+      showErrorToast(toast, "加载失败", error, "请检查链接或跨域设置");
     }
   };
 
@@ -191,14 +203,18 @@ const EditorPage = () => {
   const handleExport = async () => {
     const dataUrl = await canvasController.current?.exportImage();
     if (!dataUrl) {
-      toast({ title: "导出失败", description: "请先加载背景或等待画布准备", variant: "destructive" });
+      toast({
+        title: "导出失败",
+        description: "请先加载背景或等待画布准备",
+        variant: "destructive",
+      });
       return;
     }
     const link = document.createElement("a");
     link.href = dataUrl;
     link.download = `comic-page-${Date.now()}.png`;
     link.click();
-    toast({ title: "导出成功", description: "图片已保存到本地" });
+    showSuccessToast(toast, "导出成功", "图片已保存到本地");
   };
 
   return (
@@ -285,12 +301,12 @@ const EditorPage = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={handleSaveLayout}
+                      onClick={handleSaveLayoutRequest}
                       disabled={!activeVersion || isSavingLayout}
                     >
                       {isSavingLayout ? "保存中..." : "保存当前布局"}
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={handleRefresh} disabled={listLoading}>
+                    <Button variant="ghost" size="sm" onClick={refreshPagination} disabled={listLoading}>
                       手动刷新
                     </Button>
                   </div>
@@ -314,6 +330,22 @@ const EditorPage = () => {
           </div>
         </div>
       </main>
+
+      {/* 保存确认对话框 */}
+      <AlertDialog open={showSaveConfirm} onOpenChange={setShowSaveConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认保存布局</AlertDialogTitle>
+            <AlertDialogDescription>
+              此操作会覆盖当前版本的画布布局。确定要继续吗？
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSaveLayoutConfirmed}>确认保存</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

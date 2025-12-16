@@ -21,6 +21,9 @@ import {
   BarChart3,
   FileCode,
   LogOut,
+  Palette,
+  Workflow,
+  LayoutTemplate,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CommandPalette } from "./CommandPalette";
@@ -70,6 +73,12 @@ const workspaceMenuItems = [
         description: "查看和编辑剧本",
         href: "/scripts",
       },
+      {
+        icon: BookOpen,
+        title: "分镜编辑",
+        description: "编辑分镜和面板",
+        href: "/storyboard",
+      },
     ],
   },
   {
@@ -86,6 +95,18 @@ const workspaceMenuItems = [
         title: "生成图库",
         description: "浏览生成的图片",
         href: "/generated",
+      },
+      {
+        icon: Workflow,
+        title: "一键生成",
+        description: "自动化工作流程",
+        href: "/workflow",
+      },
+      {
+        icon: Palette,
+        title: "画面精炼",
+        description: "图像编辑和优化",
+        href: "/editor",
       },
     ],
   },
@@ -104,6 +125,12 @@ const workspaceMenuItems = [
         description: "管理场景素材",
         href: "/assets?tab=scenes",
       },
+      {
+        icon: LayoutTemplate,
+        title: "模板市场",
+        description: "浏览和使用模板",
+        href: "/templates",
+      },
     ],
   },
   {
@@ -121,6 +148,7 @@ const workspaceMenuItems = [
 ];
 
 export function Navbar({ className }: NavbarProps) {
+  const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -203,6 +231,26 @@ export function Navbar({ className }: NavbarProps) {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+      });
+
+      if (response.ok) {
+        // Clear user state
+        setUserCredits(null);
+        setUserRole(null);
+        // Redirect to home page
+        router.push("/");
+        router.refresh();
+      }
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
 
   return (
     <>
@@ -395,7 +443,7 @@ export function Navbar({ className }: NavbarProps) {
               {/* User Status Pill - Desktop (Logged in) */}
               {userCredits !== null && (
                 <div className="hidden lg:block">
-                  <UserStatusPill credits={userCredits} />
+                  <UserStatusPill credits={userCredits} onLogout={handleLogout} />
                 </div>
               )}
 
@@ -439,6 +487,7 @@ export function Navbar({ className }: NavbarProps) {
         userCredits={userCredits}
         userRole={userRole}
         onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+        onLogout={handleLogout}
       />
 
       {/* Command Palette */}
@@ -550,9 +599,10 @@ interface MobileMenuProps {
   userCredits: number | null;
   userRole: string | null;
   onOpenCommandPalette: () => void;
+  onLogout: () => void;
 }
 
-function MobileMenu({ isOpen, onClose, userCredits, userRole, onOpenCommandPalette }: MobileMenuProps) {
+function MobileMenu({ isOpen, onClose, userCredits, userRole, onOpenCommandPalette, onLogout }: MobileMenuProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   return (
@@ -591,7 +641,23 @@ function MobileMenu({ isOpen, onClose, userCredits, userRole, onOpenCommandPalet
               <div className="text-[10px] font-mono text-zinc-600 mb-2">
                 账户状态
               </div>
-              <UserStatusPill credits={userCredits} />
+              <UserStatusPill credits={userCredits} onLogout={onLogout} />
+            </div>
+          )}
+
+          {/* 登录/注册按钮 - 移动端 */}
+          {userCredits === null && (
+            <div className="mb-6 pb-6 border-b border-zinc-800 flex flex-col gap-2">
+              <Link href="/auth/login" onClick={onClose}>
+                <Button variant="ghost" className="w-full text-zinc-400 hover:text-white">
+                  登录
+                </Button>
+              </Link>
+              <Link href="/auth/register" onClick={onClose}>
+                <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white">
+                  注册
+                </Button>
+              </Link>
             </div>
           )}
 

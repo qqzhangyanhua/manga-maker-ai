@@ -53,7 +53,8 @@
       "Bash(npx prisma db execute:*)",
       "Bash(node -e:*)",
       "Bash(pkill:*)",
-      "Bash(node test-ssl-fix.js:*)"
+      "Bash(node test-ssl-fix.js:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []
