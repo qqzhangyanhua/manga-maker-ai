@@ -5,25 +5,31 @@ import { prisma } from "@/lib/db";
 import { generateStoryOutline } from "@/lib/story-generator";
 import { assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
+import { logInfo, logError } from "@/lib/api-logger";
 
 export async function POST(req: Request) {
     const startedAt = Date.now();
     let userId: string | null = null;
 
     try {
+        logInfo("Story generation request received", { endpoint: "/api/story/generate", method: "POST" });
+
         // Verify authentication
         const cookieStore = await cookies();
         const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
 
         if (!token) {
+            logInfo("Authentication failed: no token", { endpoint: "/api/story/generate" });
             return NextResponse.json({ error: "未登录" }, { status: 401 });
         }
 
         const payload = verifyAuthToken(token);
         if (!payload?.userId) {
+            logInfo("Authentication failed: invalid token", { endpoint: "/api/story/generate" });
             return NextResponse.json({ error: "无效的token" }, { status: 401 });
         }
         userId = payload.userId;
+        logInfo("User authenticated", { endpoint: "/api/story/generate", userId });
 
         const body = await req.json();
         const {
@@ -43,11 +49,14 @@ export async function POST(req: Request) {
         } = body;
 
         if (!premise || typeof premise !== "string") {
+            logInfo("Validation failed: missing premise", { endpoint: "/api/story/generate", userId });
             return NextResponse.json(
                 { error: "缺少创意前提 premise" },
                 { status: 400 }
             );
         }
+
+        logInfo("Request validated", { endpoint: "/api/story/generate", userId, genre, length });
 
         // Check quota
         try {
@@ -56,8 +65,15 @@ export async function POST(req: Request) {
                 action: "story_generation",
                 providerType: "story_generator",
             });
+            logInfo("Quota check passed", { endpoint: "/api/story/generate", userId });
         } catch (quotaError: any) {
             if (quotaError?.code === "QUOTA_EXCEEDED") {
+                logInfo("Quota exceeded", {
+                    endpoint: "/api/story/generate",
+                    userId,
+                    limit: quotaError.limit,
+                    used: quotaError.count
+                });
                 return NextResponse.json(
                     {
                         error: quotaError.message,
@@ -72,6 +88,7 @@ export async function POST(req: Request) {
         }
 
         // Generate story outline
+        logInfo("Starting story generation", { endpoint: "/api/story/generate", userId, templateId });
         const outline = await generateStoryOutline({
             premise,
             genre: genre as any,
@@ -79,9 +96,16 @@ export async function POST(req: Request) {
             length,
             templateId,
         });
+        logInfo("Story generation completed", {
+            endpoint: "/api/story/generate",
+            userId,
+            title: outline.title,
+            durationMs: Date.now() - startedAt
+        });
 
         // Save to database if requested
         if (saveToDb) {
+            logInfo("Saving story to database", { endpoint: "/api/story/generate", userId });
             const story = await prisma.story.create({
                 data: {
                     user_id: userId,
@@ -103,6 +127,13 @@ export async function POST(req: Request) {
                 durationMs: Date.now() - startedAt,
                 requestPayload: { premise, genre, characterCount, length, templateId },
                 responsePayload: { story_id: story.id, title: outline.title },
+            });
+
+            logInfo("Story saved successfully", {
+                endpoint: "/api/story/generate",
+                userId,
+                storyId: story.id,
+                totalDurationMs: Date.now() - startedAt
             });
 
             return NextResponse.json({
@@ -129,8 +160,12 @@ export async function POST(req: Request) {
             message: `成功生成故事: ${outline.title}`,
         });
     } catch (error) {
-        console.error("Story generation error:", error);
         const message = error instanceof Error ? error.message : "未知错误";
+        logError("Story generation failed", error, {
+            endpoint: "/api/story/generate",
+            userId: userId || "unknown",
+            durationMs: Date.now() - startedAt
+        });
 
         if (userId) {
             await recordGenerationLog({

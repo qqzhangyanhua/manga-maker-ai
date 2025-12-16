@@ -1,6 +1,7 @@
 import type { LlmProvider } from "@prisma/client";
 import { prisma } from "./db";
 import { consumeCredits, checkCredits, type CreditError } from "./credits";
+import https from "https";
 
 type ChatRole = "system" | "user" | "assistant";
 
@@ -21,6 +22,11 @@ export type LlmCallOptions =
   | { skipCreditsCheck?: false; userId: string };
 
 const normalizeBaseUrl = (url: string) => url.replace(/\/$/, "");
+
+// Create HTTPS agent that ignores SSL certificate errors
+const httpsAgent = new https.Agent({
+  rejectUnauthorized: false
+});
 
 export const findLlmProviderByType = async (providerType: string): Promise<LlmProvider | null> => {
   return prisma.llmProvider.findFirst({
@@ -92,6 +98,8 @@ export const callChatCompletionByType = async (params: {
       temperature,
       max_tokens: maxTokens,
     }),
+    // @ts-ignore - Node.js fetch supports agent option
+    agent: endpoint.startsWith("https") ? httpsAgent : undefined,
   });
 
   if (!response.ok) {
@@ -158,6 +166,8 @@ export async function* callChatCompletionStreamByType(params: {
       max_tokens: maxTokens,
       stream: true, // 启用流式返回
     }),
+    // @ts-ignore - Node.js fetch supports agent option
+    agent: endpoint.startsWith("https") ? httpsAgent : undefined,
   });
 
   if (!response.ok) {

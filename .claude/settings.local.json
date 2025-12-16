@@ -49,7 +49,11 @@
       "Bash(npx tsx:*)",
       "Bash(chmod:*)",
       "Bash(timeout 120 pnpm test:*)",
-      "Bash(design-proposalsapply-homepage-design.bat)"
+      "Bash(design-proposalsapply-homepage-design.bat)",
+      "Bash(npx prisma db execute:*)",
+      "Bash(node -e:*)",
+      "Bash(pkill:*)",
+      "Bash(node test-ssl-fix.js:*)"
     ],
     "deny": [],
     "ask": []

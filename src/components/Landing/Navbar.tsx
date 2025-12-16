@@ -20,9 +20,12 @@ import {
   Shield,
   BarChart3,
   FileCode,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CommandPalette } from "./CommandPalette";
+import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 
 interface NavbarProps {
   className?: string;
@@ -389,10 +392,26 @@ export function Navbar({ className }: NavbarProps) {
 
             {/* Right: User Status Pill + Mobile Menu Button */}
             <div className="flex items-center gap-4">
-              {/* User Status Pill - Desktop */}
+              {/* User Status Pill - Desktop (Logged in) */}
               {userCredits !== null && (
                 <div className="hidden lg:block">
                   <UserStatusPill credits={userCredits} />
+                </div>
+              )}
+
+              {/* Login/Register Buttons - Desktop (Not logged in) */}
+              {userCredits === null && (
+                <div className="hidden lg:flex items-center gap-2">
+                  <Link href="/auth/login">
+                    <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white">
+                      登录
+                    </Button>
+                  </Link>
+                  <Link href="/auth/register">
+                    <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white">
+                      注册
+                    </Button>
+                  </Link>
                 </div>
               )}
 
@@ -463,9 +482,10 @@ function CommandPaletteTrigger({ onClick }: CommandPaletteTriggerProps) {
 interface UserStatusPillProps {
   credits: number;
   avatarUrl?: string;
+  onLogout: () => void;
 }
 
-function UserStatusPill({ credits, avatarUrl }: UserStatusPillProps) {
+function UserStatusPill({ credits, avatarUrl, onLogout }: UserStatusPillProps) {
   const formattedCredits = credits.toLocaleString();
 
   return (
@@ -510,6 +530,15 @@ function UserStatusPill({ credits, avatarUrl }: UserStatusPillProps) {
           <Settings className="w-4 h-4" />
         </button>
       </Link>
+
+      {/* 退出登录按钮 */}
+      <button
+        onClick={onLogout}
+        className="p-1.5 text-zinc-500 hover:text-red-500 hover:bg-zinc-800 transition-colors"
+        aria-label="退出登录"
+      >
+        <LogOut className="w-4 h-4" />
+      </button>
     </div>
   );
 }

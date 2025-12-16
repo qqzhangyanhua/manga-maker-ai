@@ -434,6 +434,57 @@ const imageUrl = await uploadBase64Image(base64String, "character-123.png");
    );
    ```
 
+## Logging Pattern
+
+All API routes should use structured logging for monitoring and debugging:
+
+```typescript
+import { logInfo, logError } from "@/lib/api-logger";
+
+export async function POST(req: Request) {
+  const startedAt = Date.now();
+  let userId: string | null = null;
+
+  try {
+    logInfo("Request received", { endpoint: "/api/example", method: "POST" });
+
+    // Authentication
+    userId = payload.userId;
+    logInfo("User authenticated", { endpoint: "/api/example", userId });
+
+    // Validation
+    logInfo("Request validated", { endpoint: "/api/example", userId, ...params });
+
+    // Business logic
+    logInfo("Starting operation", { endpoint: "/api/example", userId });
+    const result = await doSomething();
+    logInfo("Operation completed", {
+      endpoint: "/api/example",
+      userId,
+      durationMs: Date.now() - startedAt
+    });
+
+    return NextResponse.json({ success: true, result });
+  } catch (error) {
+    logError("Operation failed", error, {
+      endpoint: "/api/example",
+      userId: userId || "unknown",
+      durationMs: Date.now() - startedAt
+    });
+    return NextResponse.json({ error: "操作失败" }, { status: 500 });
+  }
+}
+```
+
+**Key logging points:**
+- Request received
+- Authentication success/failure
+- Validation errors
+- Business logic start/completion
+- Database operations
+- External API calls
+- Errors with full context
+
 ## Common Workflows
 
 ### Character Creation
