@@ -31,6 +31,17 @@ export async function GET(
         views: true,
         expressions: true,
         outfits: true,
+        comic_style: {
+          select: {
+            id: true,
+            style_key: true,
+            name_zh: true,
+            name_en: true,
+            image_url: true,
+            tag_color: true,
+            prompt_prefix: true,
+          },
+        },
       },
     });
 
@@ -65,7 +76,18 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { name, description, base_prompt, tags, base_image_url, training_status } = body;
+    const { name, description, base_prompt, tags, base_image_url, training_status, comic_style_id } = body;
+
+    // Validate comic_style_id if provided (null is allowed to unset)
+    if (comic_style_id !== undefined && comic_style_id !== null) {
+      const styleExists = await prisma.comicStyle.findUnique({
+        where: { id: comic_style_id },
+      });
+
+      if (!styleExists) {
+        return NextResponse.json({ error: "指定的漫画风格不存在" }, { status: 400 });
+      }
+    }
 
     const character = await prisma.character.updateMany({
       where: {
@@ -79,6 +101,7 @@ export async function PATCH(
         ...(tags !== undefined && { tags }),
         ...(base_image_url !== undefined && { base_image_url }),
         ...(training_status !== undefined && { training_status }),
+        ...(comic_style_id !== undefined && { comic_style_id }),
         updated_at: new Date(),
       },
     });
@@ -93,6 +116,17 @@ export async function PATCH(
         views: true,
         expressions: true,
         outfits: true,
+        comic_style: {
+          select: {
+            id: true,
+            style_key: true,
+            name_zh: true,
+            name_en: true,
+            image_url: true,
+            tag_color: true,
+            prompt_prefix: true,
+          },
+        },
       },
     });
 

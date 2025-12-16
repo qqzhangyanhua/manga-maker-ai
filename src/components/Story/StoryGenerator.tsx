@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,13 +33,14 @@ import { ToastAction } from "@/components/ui/toast";
 
 interface StoryGeneratorProps {
     onStoryGenerated?: (story: any) => void;
+    initialPremise?: string;
 }
 
-export function StoryGenerator({ onStoryGenerated }: StoryGeneratorProps) {
+export function StoryGenerator({ onStoryGenerated, initialPremise }: StoryGeneratorProps) {
     const router = useRouter();
     const { toast } = useToast();
     const [step, setStep] = useState<"input" | "template" | "generating" | "result">("input");
-    const [premise, setPremise] = useState("");
+    const [premise, setPremise] = useState(initialPremise || "");
     const [genre, setGenre] = useState("auto");
     const [characterCount, setCharacterCount] = useState("3");
     const [length, setLength] = useState<"short" | "medium" | "long">("medium");
@@ -49,6 +50,13 @@ export function StoryGenerator({ onStoryGenerated }: StoryGeneratorProps) {
     const [editMode, setEditMode] = useState(false);
     const [saving, setSaving] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
+
+    // Update premise when initialPremise changes
+    React.useEffect(() => {
+        if (initialPremise) {
+            setPremise(initialPremise);
+        }
+    }, [initialPremise]);
 
     async function handleGenerate() {
         if (!premise.trim()) {

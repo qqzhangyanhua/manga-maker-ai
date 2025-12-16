@@ -87,6 +87,9 @@ model Character {
   reference_image String? // Main reference image URL for IP-Adapter
   style_prompt    String? @db.Text // Detailed style description for prompt
 
+  // Phase 3: Comic Style relation
+  comic_style_id String? @db.Uuid // FK to ComicStyle
+
   views       CharacterView[]
   expressions CharacterExpression[]
   outfits     CharacterOutfit[]
@@ -94,8 +97,10 @@ model Character {
   // Phase 2: New relations
   story_characters StoryCharacter[]
   panels           Panel[]
+  comic_style      ComicStyle? @relation(fields: [comic_style_id], references: [id], onDelete: SetNull)
 
   @@index([user_id, training_status], map: "idx_characters_user_status")
+  @@index([comic_style_id], map: "idx_characters_comic_style")
   @@map("characters")
 }
 
@@ -301,6 +306,9 @@ model ComicStyle {
   usage_count   Int      @default(0) // Usage statistics
   created_at    DateTime @default(now()) @db.Timestamptz(6)
   updated_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  // Phase 3: Reverse relation for characters using this style
+  characters Character[]
 
   @@index([enabled, sort_order], map: "idx_comic_styles_enabled_sort")
   @@map("comic_styles")

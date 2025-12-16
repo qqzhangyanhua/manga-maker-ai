@@ -94,12 +94,17 @@ export default {
           from: { transform: "scale(0.95)", opacity: "0" },
           to: { transform: "scale(1)", opacity: "1" },
         },
+        shimmer: {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(100%)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "bounce-subtle": "bounce-subtle 2s ease-in-out infinite",
         "scale-in": "scale-in 0.3s ease-out",
+        shimmer: "shimmer 2s infinite",
       },
       boxShadow: {
         comic: "4px 4px 0px hsl(var(--foreground))",

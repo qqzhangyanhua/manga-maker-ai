@@ -112,9 +112,9 @@ export async function POST(req: Request) {
             status = "draft",
         } = body;
 
-        if (!title || !premise) {
+        if (!title) {
             return NextResponse.json(
-                { error: "缺少必填字段：title, premise" },
+                { error: "缺少必填字段：title" },
                 { status: 400 }
             );
         }

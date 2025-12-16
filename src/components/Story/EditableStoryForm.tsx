@@ -81,15 +81,6 @@ export function EditableStoryForm({ story, onSave, onCancel }: EditableStoryForm
             return;
         }
 
-        if (!premise.trim()) {
-            toast({
-                title: "错误",
-                description: "请输入故事前提",
-                variant: "destructive",
-            });
-            return;
-        }
-
         try {
             setSaving(true);
 
@@ -256,7 +247,7 @@ export function EditableStoryForm({ story, onSave, onCancel }: EditableStoryForm
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="premise">故事前提 *</Label>
+                        <Label htmlFor="premise">故事前提</Label>
                         <Textarea
                             id="premise"
                             value={premise}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,10 +11,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Sparkles, Loader2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Sparkles, Loader2, Palette } from "lucide-react";
 import ImageUpload from "./ImageUpload";
 import { useToast } from "@/hooks/use-toast";
-import type { CharacterAsset } from "./CharacterLibrary";
+import type { CharacterAsset, ComicStyle } from "./CharacterLibrary";
 
 interface CreateCharacterDialogProps {
   open: boolean;
@@ -35,6 +42,33 @@ const CreateCharacterDialog = ({
   const [error, setError] = useState("");
   const { toast } = useToast();
 
+  // Comic style selection
+  const [styles, setStyles] = useState<ComicStyle[]>([]);
+  const [selectedStyleId, setSelectedStyleId] = useState<string>("__none__");
+  const [stylesLoading, setStylesLoading] = useState(false);
+
+  // Fetch comic styles when dialog opens
+  useEffect(() => {
+    if (open) {
+      const fetchStyles = async () => {
+        setStylesLoading(true);
+        try {
+          const response = await fetch("/api/comic-styles");
+          if (response.ok) {
+            const data = await response.json();
+            setStyles(data.data || []);
+          }
+        } catch (error) {
+          console.error("Error fetching comic styles:", error);
+        } finally {
+          setStylesLoading(false);
+        }
+      };
+
+      fetchStyles();
+    }
+  }, [open]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -52,6 +86,11 @@ const CreateCharacterDialog = ({
       formData.append("name", name.trim());
       formData.append("description", description.trim());
       formData.append("tags", JSON.stringify([]));
+
+      // Add comic style if selected
+      if (selectedStyleId && selectedStyleId !== "__none__") {
+        formData.append("comic_style_id", selectedStyleId);
+      }
 
       // 添加所有图片文件
       if (imageFiles.length > 0) {
@@ -86,6 +125,7 @@ const CreateCharacterDialog = ({
       setName("");
       setDescription("");
       setImageFiles([]);
+      setSelectedStyleId("__none__");
       setUploadProgress("");
       onOpenChange(false);
 
@@ -112,6 +152,7 @@ const CreateCharacterDialog = ({
       setName("");
       setDescription("");
       setImageFiles([]);
+      setSelectedStyleId("__none__");
       setUploadProgress("");
       setError("");
       onOpenChange(false);
@@ -183,6 +224,44 @@ const CreateCharacterDialog = ({
             />
             <p className="text-xs text-muted-foreground">
               {description.length}/500 字符 · 详细的描述有助于生成更准确的角色
+            </p>
+          </div>
+
+          {/* Comic Style Selection */}
+          <div className="space-y-2">
+            <Label htmlFor="comic-style" className="text-base font-semibold flex items-center gap-2">
+              <Palette className="w-4 h-4" />
+              漫画风格
+            </Label>
+            <Select
+              value={selectedStyleId}
+              onValueChange={setSelectedStyleId}
+              disabled={isSubmitting || stylesLoading}
+            >
+              <SelectTrigger className="h-11">
+                <SelectValue placeholder={stylesLoading ? "加载中..." : "选择漫画风格（可选）"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">无风格</SelectItem>
+                {styles.map((style) => (
+                  <SelectItem key={style.id} value={style.id}>
+                    <div className="flex items-center gap-2">
+                      {style.image_url && (
+                        <img
+                          src={style.image_url}
+                          alt={style.name_zh}
+                          className="w-5 h-5 rounded object-cover"
+                        />
+                      )}
+                      <span>{style.name_zh}</span>
+                      <span className="text-xs text-muted-foreground">({style.name_en})</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              选择一个漫画风格可以让角色保持统一的美术风格
             </p>
           </div>
 

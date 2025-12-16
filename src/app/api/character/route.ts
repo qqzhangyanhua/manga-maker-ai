@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { uploadImageToMinio, validateImageFile } from "@/lib/upload-helpers";
 
 // GET /api/character - Get all characters for current user
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
@@ -19,12 +19,45 @@ export async function GET() {
       return NextResponse.json({ error: "无效的token" }, { status: 401 });
     }
 
+    // Parse query parameters for filtering
+    const { searchParams } = new URL(req.url);
+    const styleId = searchParams.get("style_id");
+
+    // Build where clause
+    const whereClause: {
+      user_id: string;
+      comic_style_id?: string | null;
+    } = {
+      user_id: payload.userId,
+    };
+
+    // Filter by style if provided
+    if (styleId === "null") {
+      // Show characters without style
+      whereClause.comic_style_id = null;
+    } else if (styleId) {
+      // Show characters with specific style
+      whereClause.comic_style_id = styleId;
+    }
+    // If no styleId parameter, show all characters
+
     const characters = await prisma.character.findMany({
-      where: { user_id: payload.userId },
+      where: whereClause,
       include: {
         views: true,
         expressions: true,
         outfits: true,
+        comic_style: {
+          select: {
+            id: true,
+            style_key: true,
+            name_zh: true,
+            name_en: true,
+            image_url: true,
+            tag_color: true,
+            prompt_prefix: true,
+          },
+        },
       },
       orderBy: { created_at: "desc" },
     });
@@ -63,9 +96,21 @@ export async function POST(req: Request) {
       const description = formData.get("description") as string | null;
       const base_prompt = formData.get("base_prompt") as string | null;
       const tags = formData.get("tags") as string | null;
+      const comic_style_id = formData.get("comic_style_id") as string | null;
 
       if (!name || !name.trim()) {
         return NextResponse.json({ error: "角色名称不能为空" }, { status: 400 });
+      }
+
+      // Validate comic_style_id if provided
+      if (comic_style_id) {
+        const styleExists = await prisma.comicStyle.findUnique({
+          where: { id: comic_style_id },
+        });
+
+        if (!styleExists) {
+          return NextResponse.json({ error: "指定的漫画风格不存在" }, { status: 400 });
+        }
       }
 
       // Create character first to get ID
@@ -76,6 +121,7 @@ export async function POST(req: Request) {
           description: description?.trim() || null,
           base_prompt: base_prompt?.trim() || "",
           tags: tags ? JSON.parse(tags) : [],
+          comic_style_id: comic_style_id || null,
           training_status: "pending",
         },
       });
@@ -148,6 +194,17 @@ export async function POST(req: Request) {
           views: true,
           expressions: true,
           outfits: true,
+          comic_style: {
+            select: {
+              id: true,
+              style_key: true,
+              name_zh: true,
+              name_en: true,
+              image_url: true,
+              tag_color: true,
+              prompt_prefix: true,
+            },
+          },
         },
       });
 
@@ -161,10 +218,21 @@ export async function POST(req: Request) {
     // Handle JSON (no images)
     else {
       const body = await req.json();
-      const { name, description, base_prompt, tags, base_image_url } = body;
+      const { name, description, base_prompt, tags, base_image_url, comic_style_id } = body;
 
       if (!name) {
         return NextResponse.json({ error: "角色名称不能为空" }, { status: 400 });
+      }
+
+      // Validate comic_style_id if provided
+      if (comic_style_id) {
+        const styleExists = await prisma.comicStyle.findUnique({
+          where: { id: comic_style_id },
+        });
+
+        if (!styleExists) {
+          return NextResponse.json({ error: "指定的漫画风格不存在" }, { status: 400 });
+        }
       }
 
       const character = await prisma.character.create({
@@ -175,7 +243,24 @@ export async function POST(req: Request) {
           base_prompt: base_prompt || "",
           tags: tags || [],
           base_image_url: base_image_url || null,
+          comic_style_id: comic_style_id || null,
           training_status: "pending",
+        },
+        include: {
+          views: true,
+          expressions: true,
+          outfits: true,
+          comic_style: {
+            select: {
+              id: true,
+              style_key: true,
+              name_zh: true,
+              name_en: true,
+              image_url: true,
+              tag_color: true,
+              prompt_prefix: true,
+            },
+          },
         },
       });
 

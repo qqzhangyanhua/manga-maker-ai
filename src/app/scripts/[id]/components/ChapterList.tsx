@@ -209,7 +209,20 @@ export function ChapterList({
           </div>
         </CardHeader>
         <CardContent className="space-y-2">
-          {chapters.length === 0 ? (
+          {generateChapters.isPending ? (
+            // Skeleton loading state with shimmer animation
+            <div className="space-y-2">
+              {[...Array(4)].map((_, i) => (
+                <div
+                  key={i}
+                  className="relative overflow-hidden rounded-lg border bg-zinc-800/30 h-16 animate-pulse"
+                >
+                  {/* Shimmer effect */}
+                  <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-zinc-700/20 to-transparent animate-shimmer" />
+                </div>
+              ))}
+            </div>
+          ) : chapters.length === 0 ? (
             <div className="text-center py-8 text-sm text-muted-foreground">
               <p>暂无章节</p>
               <p className="mt-2">点击 AI 按钮自动生成章节结构</p>

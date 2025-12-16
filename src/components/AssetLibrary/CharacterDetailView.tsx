@@ -1,7 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Sparkles, Plus, Shirt, Smile, RotateCcw, Camera, Copy, User } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { ArrowLeft, Sparkles, Plus, Shirt, Smile, RotateCcw, Camera, Copy, User, Palette, Save, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
@@ -11,6 +19,7 @@ import ImagePreviewCard from "./ImagePreviewCard";
 import GenerateSimilarDialog from "./GenerateSimilarDialog";
 import PoseVariantsView from "./PoseVariantsView";
 import { useUsage } from "@/hooks/use-usage";
+import type { ComicStyle } from "./CharacterLibrary";
 
 interface CharacterAsset {
   id: string;
@@ -20,6 +29,7 @@ interface CharacterAsset {
   tags: string[];
   training_status: "pending" | "training" | "ready" | "failed";
   usage_count: number;
+  comic_style?: ComicStyle | null;
   views?: Array<{ id: string; view_type: string; image_url: string }>;
   expressions?: Array<{ id: string; expression_type: string; image_url: string }>;
   outfits?: Array<{ id: string; outfit_name: string; outfit_type: string; image_url: string | null }>;
@@ -66,19 +76,41 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
   const [currentUploadType, setCurrentUploadType] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
   const [generateSimilarDialogOpen, setGenerateSimilarDialogOpen] = useState(false);
-  
+
   // 本地服装列表状态，用于立即响应UI更新
   const [localOutfits, setLocalOutfits] = useState<Array<{ id: string; outfit_name: string; outfit_type: string; image_url: string | null }>>(character.outfits || []);
-  
+
   // 三视图独立loading状态
   const [viewGenerating, setViewGenerating] = useState<{front?: boolean; side?: boolean; back?: boolean}>({});
   // 服装生成loading状态
   const [outfitGenerating, setOutfitGenerating] = useState<Record<string, boolean>>({});
   // 全局表情生成loading
   const [allExpressionsGenerating, setAllExpressionsGenerating] = useState(false);
-  
+
+  // Comic style management
+  const [styles, setStyles] = useState<ComicStyle[]>([]);
+  const [selectedStyleId, setSelectedStyleId] = useState<string>(character.comic_style?.id || "__none__");
+  const [isStyleSaving, setIsStyleSaving] = useState(false);
+
   const { toast } = useToast();
   const { usage, loading: usageLoading, refresh: refreshUsage } = useUsage();
+
+  // Fetch comic styles
+  useEffect(() => {
+    const fetchStyles = async () => {
+      try {
+        const response = await fetch("/api/comic-styles");
+        if (response.ok) {
+          const data = await response.json();
+          setStyles(data.data || []);
+        }
+      } catch (error) {
+        console.error("Error fetching comic styles:", error);
+      }
+    };
+
+    fetchStyles();
+  }, []);
 
   // Load existing data from character and sync with character prop changes
   useState(() => {
@@ -761,6 +793,46 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
     }
   };
 
+  // Handle comic style save
+  const handleSaveStyle = async () => {
+    setIsStyleSaving(true);
+    try {
+      const response = await fetch(`/api/character/${character.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          comic_style_id: selectedStyleId || null,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "保存失败");
+      }
+
+      const data = await response.json();
+
+      toast({
+        title: "风格保存成功",
+        description: selectedStyleId ? "漫画风格已更新" : "已移除漫画风格",
+      });
+
+      // Update parent component
+      if (onUpdate && data.character) {
+        onUpdate(data.character);
+      }
+    } catch (error) {
+      console.error("Save style error:", error);
+      toast({
+        title: "保存失败",
+        description: error instanceof Error ? error.message : "请稍后重试",
+        variant: "destructive",
+      });
+    } finally {
+      setIsStyleSaving(false);
+    }
+  };
+
   return (
     <>
       <CreateOutfitDialog
@@ -824,7 +896,72 @@ const CharacterDetailView = ({ character, onBack, onUpdate }: CharacterDetailPro
         <div>
           <h2 className="font-comic text-3xl text-foreground">{character.name}</h2>
           <p className="text-muted-foreground">{character.description || "暂无描述"}</p>
-          <div className="flex gap-2 mt-2">
+
+          {/* Comic Style Display and Edit */}
+          <div className="mt-3 space-y-2">
+            <Label className="text-sm font-semibold flex items-center gap-2">
+              <Palette className="w-4 h-4" />
+              漫画风格
+            </Label>
+            <div className="flex items-center gap-2">
+              <Select
+                value={selectedStyleId}
+                onValueChange={setSelectedStyleId}
+                disabled={isStyleSaving}
+              >
+                <SelectTrigger className="w-[250px] h-9">
+                  <SelectValue placeholder="选择漫画风格（可选）" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">无风格</SelectItem>
+                  {styles.map((style) => (
+                    <SelectItem key={style.id} value={style.id}>
+                      <div className="flex items-center gap-2">
+                        {style.image_url && (
+                          <img
+                            src={style.image_url}
+                            alt={style.name_zh}
+                            className="w-4 h-4 rounded object-cover"
+                          />
+                        )}
+                        <span>{style.name_zh}</span>
+                        <span className="text-xs text-muted-foreground">({style.name_en})</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedStyleId !== (character.comic_style?.id || "__none__") && (
+                <Button
+                  size="sm"
+                  onClick={handleSaveStyle}
+                  disabled={isStyleSaving}
+                >
+                  {isStyleSaving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      保存中...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-1" />
+                      保存
+                    </>
+                  )}
+                </Button>
+              )}
+              {character.comic_style && (
+                <span className={cn(
+                  "px-2 py-1 rounded-full text-xs font-semibold",
+                  character.comic_style.tag_color
+                )}>
+                  当前: {character.comic_style.name_en}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex gap-2 mt-3">
             {character.tags.map(tag => (
               <span key={tag} className="px-2 py-0.5 rounded-full text-xs bg-muted text-muted-foreground">
                 {tag}

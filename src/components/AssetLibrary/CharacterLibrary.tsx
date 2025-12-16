@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Sparkles, Eye, Loader2, Trash2 } from "lucide-react";
+import { Plus, Sparkles, Eye, Loader2, Trash2, Filter } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,6 +17,19 @@ import CharacterDetailView from "./CharacterDetailView";
 import RelationshipChart from "./RelationshipChart";
 import CreateCharacterDialog from "./CreateCharacterDialog";
 
+export interface ComicStyle {
+  id: string;
+  style_key: string;
+  name_zh: string;
+  name_en: string;
+  image_url: string;
+  tag_color: string;
+  description: string | null;
+  prompt_prefix: string | null;
+  sort_order: number;
+  usage_count: number;
+}
+
 export interface CharacterAsset {
   id: string;
   name: string;
@@ -25,6 +38,7 @@ export interface CharacterAsset {
   tags: string[];
   training_status: "pending" | "training" | "ready" | "failed";
   usage_count: number;
+  comic_style?: ComicStyle | null;
   views?: Array<{ id: string; view_type: string; image_url: string }>;
   expressions?: Array<{ id: string; expression_type: string; image_url: string }>;
   outfits?: Array<{ id: string; outfit_name: string; outfit_type: string; image_url: string | null }>;
@@ -43,11 +57,48 @@ const CharacterLibrary = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
+  // Style filtering states
+  const [styles, setStyles] = useState<ComicStyle[]>([]);
+  const [selectedStyleId, setSelectedStyleId] = useState<string | null>(null);
+  const [stylesLoading, setStylesLoading] = useState(false);
+
+  // Fetch comic styles
+  useEffect(() => {
+    const fetchStyles = async () => {
+      setStylesLoading(true);
+      try {
+        const response = await fetch("/api/comic-styles");
+        if (response.ok) {
+          const data = await response.json();
+          setStyles(data.data || []);
+        } else {
+          console.error("Failed to fetch comic styles");
+        }
+      } catch (error) {
+        console.error("Error fetching comic styles:", error);
+      } finally {
+        setStylesLoading(false);
+      }
+    };
+
+    fetchStyles();
+  }, []);
+
   // Fetch characters from API
   useEffect(() => {
     const fetchCharacters = async () => {
       try {
-        const response = await fetch("/api/character");
+        setIsLoading(true);
+
+        // Build query params based on selected style
+        const params = new URLSearchParams();
+        if (selectedStyleId) {
+          params.append("style_id", selectedStyleId);
+        }
+
+        const url = `/api/character${params.toString() ? `?${params.toString()}` : ""}`;
+        const response = await fetch(url);
+
         if (response.ok) {
           const data = await response.json();
           setCharacters(data.characters);
@@ -62,7 +113,7 @@ const CharacterLibrary = () => {
     };
 
     fetchCharacters();
-  }, []);
+  }, [selectedStyleId]);
 
   const handleCreateNew = async (character: CharacterAsset) => {
     setCharacters((prev) => {
@@ -205,6 +256,73 @@ const CharacterLibrary = () => {
           </div>
         </div>
 
+        {/* Style Filter */}
+        {!stylesLoading && styles.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm text-zinc-400">
+              <Filter className="w-4 h-4" />
+              <span>按风格筛选</span>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              <button
+                onClick={() => setSelectedStyleId(null)}
+                className={cn(
+                  "px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all",
+                  "border backdrop-blur-md",
+                  !selectedStyleId
+                    ? "bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/20"
+                    : "bg-zinc-900/60 text-zinc-300 border-zinc-700 hover:border-orange-500/50"
+                )}
+              >
+                全部风格
+                {!selectedStyleId && (
+                  <span className="ml-2 text-xs opacity-75">({characters.length})</span>
+                )}
+              </button>
+              <button
+                onClick={() => setSelectedStyleId("null")}
+                className={cn(
+                  "px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all",
+                  "border backdrop-blur-md",
+                  selectedStyleId === "null"
+                    ? "bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/20"
+                    : "bg-zinc-900/60 text-zinc-300 border-zinc-700 hover:border-orange-500/50"
+                )}
+              >
+                无风格
+              </button>
+              {styles.map((style) => (
+                <button
+                  key={style.id}
+                  onClick={() => setSelectedStyleId(style.id)}
+                  className={cn(
+                    "px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all",
+                    "border backdrop-blur-md flex items-center gap-2",
+                    selectedStyleId === style.id
+                      ? "bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/20"
+                      : "bg-zinc-900/60 text-zinc-300 border-zinc-700 hover:border-orange-500/50"
+                  )}
+                >
+                  {style.image_url && (
+                    <img
+                      src={style.image_url}
+                      alt={style.name_zh}
+                      className="w-5 h-5 rounded object-cover"
+                    />
+                  )}
+                  <span>{style.name_zh}</span>
+                  <span className={cn(
+                    "px-2 py-0.5 rounded-full text-xs font-semibold",
+                    style.tag_color
+                  )}>
+                    {style.name_en}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
       {/* Loading State */}
       {isLoading && (
         <div className="flex items-center justify-center py-12">
@@ -246,11 +364,23 @@ const CharacterLibrary = () => {
                   </div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
-                
+
                 {/* Status Badge */}
                 <div className="absolute top-3 right-3">
                   {getStatusBadge(character.training_status)}
                 </div>
+
+                {/* Style Badge */}
+                {character.comic_style && (
+                  <div className="absolute top-3 left-3">
+                    <span className={cn(
+                      "px-2 py-1 rounded-full text-xs font-semibold backdrop-blur-md",
+                      character.comic_style.tag_color
+                    )}>
+                      {character.comic_style.name_en}
+                    </span>
+                  </div>
+                )}
 
                 {/* Quick Actions */}
                 <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
@@ -293,6 +423,16 @@ const CharacterLibrary = () => {
 
                 {/* Tags */}
                 <div className="flex flex-wrap gap-1 mb-3">
+                  {character.comic_style && (
+                    <span
+                      className={cn(
+                        "px-2 py-0.5 rounded-full text-xs font-semibold",
+                        character.comic_style.tag_color
+                      )}
+                    >
+                      {character.comic_style.name_zh}
+                    </span>
+                  )}
                   {character.tags.map((tag) => (
                     <span
                       key={tag}

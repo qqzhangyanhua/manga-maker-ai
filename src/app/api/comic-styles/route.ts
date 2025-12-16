@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
         image_url: true,
         tag_color: true,
         description: true,
+        prompt_prefix: true,
         sort_order: true,
         enabled: true,
         usage_count: true,
