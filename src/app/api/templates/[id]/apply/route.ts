@@ -17,7 +17,8 @@ interface RouteParams {
 }
 
 interface ApplyTemplateRequestBody {
-  projectId: string;
+  storyId: string | null;
+  newStoryTitle?: string;
   insertAfterOrder?: number;
   mode: "insert" | "replace";
   targetPanelIds?: string[];
@@ -26,10 +27,11 @@ interface ApplyTemplateRequestBody {
 /**
  * POST /api/templates/[id]/apply
  *
- * Apply template to a project
+ * Apply template to a story (auto-creates/finds associated project)
  *
  * Body:
- * - projectId: string (required)
+ * - storyId: string | null (required, null for new story)
+ * - newStoryTitle: string (required if storyId is null)
  * - mode: "insert" | "replace" (required)
  * - insertAfterOrder: number (optional, for insert mode)
  * - targetPanelIds: string[] (optional, for replace mode)
@@ -59,12 +61,12 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
     // Parse request body
     const body: ApplyTemplateRequestBody = await req.json();
-    const { projectId, insertAfterOrder, mode, targetPanelIds } = body;
+    const { storyId, newStoryTitle, insertAfterOrder, mode, targetPanelIds } = body;
 
     // Validate input
-    if (!projectId || typeof projectId !== "string") {
+    if (storyId === null && !newStoryTitle) {
       return NextResponse.json(
-        { success: false, error: "项目ID不能为空" },
+        { success: false, error: "创建新剧本时必须提供标题" },
         { status: 400 }
       );
     }
@@ -83,25 +85,66 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Check project ownership
-    const project = await prisma.project.findUnique({
-      where: { id: projectId },
+    // Step 1: Get or create Story
+    let story;
+    if (storyId) {
+      // Use existing story
+      story = await prisma.story.findUnique({
+        where: { id: storyId },
+        select: { id: true, title: true, user_id: true }
+      });
+
+      if (!story) {
+        return NextResponse.json(
+          { success: false, error: "剧本不存在" },
+          { status: 404 }
+        );
+      }
+
+      if (story.user_id !== payload.userId) {
+        return NextResponse.json(
+          { success: false, error: "无权操作此剧本" },
+          { status: 403 }
+        );
+      }
+    } else {
+      // Create new story
+      story = await prisma.story.create({
+        data: {
+          user_id: payload.userId,
+          title: newStoryTitle!,
+          premise: `基于模板创建的剧本`,
+          genre: "daily",
+          outline: {},
+          status: "draft"
+        },
+        select: { id: true, title: true, user_id: true }
+      });
+    }
+
+    // Step 2: Find or create associated Project
+    let project = await prisma.project.findFirst({
+      where: {
+        story_id: story.id,
+        user_id: payload.userId
+      },
       select: { id: true, user_id: true }
     });
 
     if (!project) {
-      return NextResponse.json(
-        { success: false, error: "项目不存在" },
-        { status: 404 }
-      );
+      // Auto-create project for this story
+      project = await prisma.project.create({
+        data: {
+          story_id: story.id,
+          user_id: payload.userId,
+          title: story.title,
+          status: "draft"
+        },
+        select: { id: true, user_id: true }
+      });
     }
 
-    if (project.user_id !== payload.userId) {
-      return NextResponse.json(
-        { success: false, error: "无权操作此项目" },
-        { status: 403 }
-      );
-    }
+    const projectId = project.id;
 
     // Check template exists
     const template = await prisma.panelTemplate.findUnique({
@@ -312,6 +355,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         id: string;
         name: string;
       };
+      story: {
+        id: string;
+        title: string;
+      };
+      projectId: string;
     }> = {
       success: true,
       data: {
@@ -319,9 +367,14 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         template: {
           id: template.id,
           name: template.name
-        }
+        },
+        story: {
+          id: story.id,
+          title: story.title
+        },
+        projectId
       },
-      message: `成功应用模板「${template.name}」`
+      message: `成功将模板「${template.name}」应用到剧本「${story.title}」`
     };
 
     return NextResponse.json(response);
