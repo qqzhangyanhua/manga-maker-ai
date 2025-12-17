@@ -6,7 +6,7 @@ import { BarChart3, BookOpen, FileText, Images, Play, ArrowRight, Layers, Sparkl
 import { Button } from "@/components/ui/button";
 import { TrialDialog } from "@/components/TrialDialog";
 import { OnboardingDialog } from "@/components/OnboardingDialog";
-import { HeroSection, ShowcaseSection, PricingSection, Navbar } from "@/components/Landing";
+import { HeroSection, ShowcaseSection, Navbar } from "@/components/Landing";
 
 const recordShortcuts = [
   {
@@ -97,11 +97,6 @@ const HomePage = () => {
             </div>
           </div>
         </section>
-
-        {/* Pricing Section - Compute Plans */}
-        <div id="pricing">
-          <PricingSection />
-        </div>
 
         {/* Quick Access */}
         <section className="px-4 py-16 bg-gradient-to-b from-zinc-900/30 to-zinc-900/50">

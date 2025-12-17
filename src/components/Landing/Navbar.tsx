@@ -425,7 +425,7 @@ export function Navbar({ className }: NavbarProps) {
 
                 {/* 价格链接 */}
                 <Link
-                  href="#pricing"
+                  href="/pricing"
                   className="px-3 py-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors"
                 >
                   价格
@@ -780,7 +780,7 @@ function MobileMenu({ isOpen, onClose, userCredits, userRole, onOpenCommandPalet
 
             {/* 价格链接 */}
             <Link
-              href="#pricing"
+              href="/pricing"
               className="flex items-center justify-between p-4 border border-zinc-800 text-white font-medium hover:bg-zinc-900 transition-colors"
               onClick={onClose}
             >

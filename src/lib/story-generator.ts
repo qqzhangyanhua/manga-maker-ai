@@ -2,7 +2,7 @@
  * Story Generator - Core logic for AI story generation
  */
 
-import { callChatCompletionByType } from "./llm-provider";
+import { callChatCompletionByType, callChatCompletionStreamByType } from "./llm-provider";
 
 export type StoryGenre = "suspense" | "romance" | "adventure" | "scifi" | "daily" | "fantasy";
 export type StoryLength = "short" | "medium" | "long";
@@ -218,6 +218,66 @@ ${templateId ? `- 使用模板ID: ${templateId}` : ""}
             console.error("Original JSON:", content);
             console.error("Fixed attempt JSON:", fixJsonSyntax(content));
             throw new Error(`Failed to parse story outline after fix attempts: ${content.substring(0, 500)}...`);
+        }
+    }
+}
+
+/**
+ * Generate story outline from premise with streaming
+ * @param premise Story premise
+ * @param onChunk Callback for each text chunk
+ * @param userId User ID for credits
+ * @returns Complete story outline after streaming
+ */
+export async function generateStoryOutlineStream(
+    premise: StoryPremise,
+    onChunk: (chunk: string) => void,
+    userId?: string
+): Promise<StoryOutline> {
+    const { premise: idea, genre, characterCount, length, templateId } = premise;
+
+    const userPrompt = `
+创意前提: ${idea}
+
+参数:
+- 类型: ${genre || "根据创意自动判断"}
+- 角色数量: ${characterCount || "2-4个主要角色"}
+- 故事长度: ${length || "medium"}
+${templateId ? `- 使用模板ID: ${templateId}` : ""}
+
+请严格按照JSON格式输出完整的故事大纲。`;
+
+    let accumulatedContent = "";
+
+    for await (const chunk of callChatCompletionStreamByType({
+        providerType: "story_generator",
+        messages: [
+            { role: "system", content: STORY_GENERATION_SYSTEM_PROMPT },
+            { role: "user", content: userPrompt },
+        ],
+        temperature: 0.8,
+        maxTokens: 3000,
+        options: userId ? { userId } : { skipCreditsCheck: true },
+    })) {
+        accumulatedContent += chunk;
+        onChunk(chunk);
+    }
+
+    try {
+        // Try to parse original content
+        const outline = JSON.parse(accumulatedContent);
+        return outline as StoryOutline;
+    } catch (error) {
+        // Try to fix common syntax errors and parse again
+        try {
+            const fixedContent = fixJsonSyntax(accumulatedContent);
+            const outline = JSON.parse(fixedContent);
+            console.log("⚠️ JSON syntax fixed automatically");
+            return outline as StoryOutline;
+        } catch (retryError) {
+            console.error("Original JSON:", accumulatedContent);
+            console.error("Fixed attempt JSON:", fixJsonSyntax(accumulatedContent));
+            throw new Error(`Failed to parse story outline after fix attempts: ${accumulatedContent.substring(0, 500)}...`);
         }
     }
 }
