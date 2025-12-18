@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { callChatCompletionByType } from "@/lib/llm-provider";
+import { callChatCompletionStreamByType } from "@/lib/llm-provider";
 
 const insertSystemPrompt = `你是一位专业的漫画分镜编辑。
 
@@ -100,7 +100,8 @@ ${contextInfo}
 
 请输出新分镜的JSON。`;
 
-      const { content } = await callChatCompletionByType({
+      let content = "";
+      for await (const chunk of callChatCompletionStreamByType({
         providerType: "storyboard",
         messages: [
           { role: "system", content: insertSystemPrompt },
@@ -111,7 +112,9 @@ ${contextInfo}
         options: {
           userId: payload.userId,
         },
-      });
+      })) {
+        content += chunk;
+      }
 
       try {
         panelData = JSON.parse(content);

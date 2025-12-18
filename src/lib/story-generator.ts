@@ -339,6 +339,45 @@ ${storyContext ? `\n故事背景: ${storyContext}` : ""}
     }
 }
 
+/**
+ * Generate detailed character setup (streaming version)
+ */
+export async function generateCharacterSetupStream(
+    characterDescription: string,
+    onChunk: (chunk: string) => void,
+    storyContext?: string,
+    userId?: string
+): Promise<CharacterSetup> {
+    const userPrompt = `
+角色描述: ${characterDescription}
+${storyContext ? `\n故事背景: ${storyContext}` : ""}
+
+请生成详细的角色设定。`;
+
+    let accumulatedContent = "";
+
+    for await (const chunk of callChatCompletionStreamByType({
+        providerType: "story_generator",
+        messages: [
+            { role: "system", content: CHARACTER_SETUP_SYSTEM_PROMPT },
+            { role: "user", content: userPrompt },
+        ],
+        temperature: 0.7,
+        maxTokens: 1500,
+        options: userId ? { userId } : { skipCreditsCheck: true },
+    })) {
+        accumulatedContent += chunk;
+        onChunk(chunk);
+    }
+
+    try {
+        const character = JSON.parse(accumulatedContent);
+        return character as CharacterSetup;
+    } catch (error) {
+        throw new Error(`Failed to parse character setup: ${accumulatedContent}`);
+    }
+}
+
 const STORY_EXPANSION_SYSTEM_PROMPT = `你是一位故事扩展专家。
 
 任务: 将简要的场景描述扩展为详细的剧情内容。
@@ -404,5 +443,48 @@ export async function expandStoryAct(
         return result.expandedScenes as ExpandedScene[];
     } catch (error) {
         throw new Error(`Failed to parse expanded scenes: ${content}`);
+    }
+}
+
+/**
+ * Expand story act with detailed scenes (streaming version)
+ */
+export async function expandStoryActStream(
+    act: StoryAct,
+    characters: StoryCharacter[],
+    onChunk: (chunk: string) => void,
+    detailLevel: "brief" | "detailed" = "detailed",
+    userId?: string
+): Promise<ExpandedScene[]> {
+    const userPrompt = `
+幕次: ${act.name}
+概述: ${act.summary}
+场景列表: ${act.scenes.join(", ")}
+角色: ${characters.map((c) => c.name).join(", ")}
+详细程度: ${detailLevel}
+
+请将每个场景扩展为详细内容。`;
+
+    let accumulatedContent = "";
+
+    for await (const chunk of callChatCompletionStreamByType({
+        providerType: "story_generator",
+        messages: [
+            { role: "system", content: STORY_EXPANSION_SYSTEM_PROMPT },
+            { role: "user", content: userPrompt },
+        ],
+        temperature: 0.7,
+        maxTokens: 2500,
+        options: userId ? { userId } : { skipCreditsCheck: true },
+    })) {
+        accumulatedContent += chunk;
+        onChunk(chunk);
+    }
+
+    try {
+        const result = JSON.parse(accumulatedContent);
+        return result.expandedScenes as ExpandedScene[];
+    } catch (error) {
+        throw new Error(`Failed to parse expanded scenes: ${accumulatedContent}`);
     }
 }

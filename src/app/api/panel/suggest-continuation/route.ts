@@ -22,7 +22,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { callChatCompletionByType } from "@/lib/llm-provider";
+import { callChatCompletionStreamByType } from "@/lib/llm-provider";
 import { recordGenerationLog } from "@/lib/generation-log";
 
 export interface PanelSuggestion {
@@ -146,7 +146,9 @@ ${contextSummary}
 
 请以JSON格式返回建议。`;
 
-    const result = await callChatCompletionByType({
+    // 使用流式调用LLM
+    let accumulatedContent = "";
+    for await (const chunk of callChatCompletionStreamByType({
       providerType: "story_generator",
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
@@ -157,12 +159,14 @@ ${contextSummary}
       options: {
         userId,
       },
-    });
+    })) {
+      accumulatedContent += chunk;
+    }
 
     // 解析响应
     let suggestions: PanelSuggestion[] = [];
     try {
-      const content = result.content.trim();
+      const content = accumulatedContent.trim();
       // 尝试提取 JSON
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {

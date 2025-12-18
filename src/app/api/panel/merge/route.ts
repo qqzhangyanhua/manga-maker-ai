@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { callChatCompletionByType } from "@/lib/llm-provider";
+import { callChatCompletionStreamByType } from "@/lib/llm-provider";
 
 const mergeSystemPrompt = `你是一位专业的漫画分镜编辑。
 
@@ -155,7 +155,8 @@ export async function POST(req: Request) {
 
 请输出融合后的分镜JSON。`;
 
-    const { content } = await callChatCompletionByType({
+    let content = "";
+    for await (const chunk of callChatCompletionStreamByType({
       providerType: "storyboard",
       messages: [
         { role: "system", content: mergeSystemPrompt },
@@ -166,7 +167,9 @@ export async function POST(req: Request) {
       options: {
         userId: payload.userId,
       },
-    });
+    })) {
+      content += chunk;
+    }
 
     let mergedData;
     try {

@@ -87,29 +87,6 @@ export function useTrialGenerate() {
       error: null,
     }));
 
-    // 模拟进度
-    const progressSteps = [
-      { progress: 15, text: "正在分析你的故事创意..." },
-      { progress: 30, text: "AI 正在构思分镜剧情..." },
-      { progress: 50, text: "生成第 1 格分镜图像..." },
-      { progress: 65, text: "生成第 2 格分镜图像..." },
-      { progress: 80, text: "生成第 3 格分镜图像..." },
-      { progress: 90, text: "生成第 4 格分镜图像..." },
-      { progress: 95, text: "最终处理中..." },
-    ];
-
-    let stepIndex = 0;
-    const progressInterval = setInterval(() => {
-      if (stepIndex < progressSteps.length) {
-        setState((prev) => ({
-          ...prev,
-          progress: progressSteps[stepIndex].progress,
-          progressText: progressSteps[stepIndex].text,
-        }));
-        stepIndex++;
-      }
-    }, 2000);
-
     try {
       const res = await fetch("/api/trial/generate", {
         method: "POST",
@@ -121,34 +98,75 @@ export function useTrialGenerate() {
         }),
       });
 
-      clearInterval(progressInterval);
-
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "生成失败");
+        throw new Error("网络请求失败");
       }
 
-      const data: TrialGenerateResponse = await res.json();
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
 
-      if (data.success) {
-        // 保存 trialId 到 localStorage
-        if (data.trialId) {
-          localStorage.setItem(STORAGE_KEY, data.trialId);
+      if (!reader) {
+        throw new Error("无法读取响应流");
+      }
+
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+
+          try {
+            const data = JSON.parse(line.slice(6));
+
+            if (data.type === "progress") {
+              setState((prev) => ({
+                ...prev,
+                progress: data.progress || prev.progress,
+                progressText: data.text || prev.progressText,
+              }));
+            } else if (data.type === "chunk") {
+              // 可选：显示生成的文本块
+            } else if (data.type === "panels") {
+              // 保存 trialId 到 localStorage
+              if (data.trialId) {
+                localStorage.setItem(STORAGE_KEY, data.trialId);
+              }
+
+              setState((prev) => ({
+                ...prev,
+                progress: 100,
+                progressText: "生成完成！",
+                result: {
+                  success: true,
+                  panels: data.panels || [],
+                  remainingTrials: data.remainingTrials || 0,
+                  trialId: data.trialId || "",
+                },
+                remainingTrials: data.remainingTrials || 0,
+              }));
+            } else if (data.type === "done") {
+              setState((prev) => ({
+                ...prev,
+                step: "result",
+              }));
+            } else if (data.type === "error") {
+              throw new Error(data.message || "生成失败");
+            }
+          } catch (parseError) {
+            console.error("解析 SSE 消息失败:", parseError);
+          }
         }
-
-        setState((prev) => ({
-          ...prev,
-          step: "result",
-          progress: 100,
-          progressText: "生成完成！",
-          result: data,
-          remainingTrials: data.remainingTrials,
-        }));
-      } else {
-        throw new Error(data.error || "生成失败");
       }
     } catch (error) {
-      clearInterval(progressInterval);
       setState((prev) => ({
         ...prev,
         step: "input",

@@ -20,7 +20,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { callChatCompletionByType } from "@/lib/llm-provider";
+import { callChatCompletionStreamByType } from "@/lib/llm-provider";
 import { recordGenerationLog } from "@/lib/generation-log";
 
 export interface PanelOptimization {
@@ -169,8 +169,9 @@ export async function POST(req: Request) {
     // 构建分析请求
     const userPrompt = buildAnalysisPrompt(panel, prevPanel, nextPanel);
 
-    // 调用 LLM
-    const result = await callChatCompletionByType({
+    // 使用流式调用 LLM
+    let accumulatedContent = "";
+    for await (const chunk of callChatCompletionStreamByType({
       providerType: "story_generator",
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
@@ -181,12 +182,14 @@ export async function POST(req: Request) {
       options: {
         userId: userId!,
       },
-    });
+    })) {
+      accumulatedContent += chunk;
+    }
 
     // 解析响应
     let optimization: PanelOptimization;
     try {
-      const content = result.content.trim();
+      const content = accumulatedContent.trim();
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         optimization = JSON.parse(jsonMatch[0]);

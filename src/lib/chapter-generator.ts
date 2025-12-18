@@ -2,7 +2,7 @@
  * Chapter Generator - Core logic for AI chapter generation from story outline
  */
 
-import { callChatCompletionByType } from "./llm-provider";
+import { callChatCompletionByType, callChatCompletionStreamByType } from "./llm-provider";
 
 export interface ChapterGenerationParams {
   storyTitle: string;
@@ -128,6 +128,80 @@ ${JSON.stringify(outline, null, 2)}
   } catch (error) {
     console.error("Failed to parse chapter generation response:", error);
     console.error("Raw response:", result.content);
+    throw new Error(
+      `解析章节生成结果失败: ${error instanceof Error ? error.message : "未知错误"}`
+    );
+  }
+}
+
+/**
+ * Generate chapter structure from story outline using LLM (streaming version)
+ */
+export async function generateChaptersStream(
+  params: ChapterGenerationParams,
+  onChunk: (chunk: string) => void,
+  userId?: string
+): Promise<GeneratedChapter[]> {
+  const { storyTitle, premise, genre, outline, chapterCount } = params;
+
+  const userPrompt = `
+故事标题：${storyTitle}
+故事类型：${genre}
+创意前提：${premise}
+
+故事大纲：
+${JSON.stringify(outline, null, 2)}
+
+要求生成章节数量：${chapterCount || "根据故事内容决定（建议5-12章）"}
+
+请根据以上信息，生成结构化的章节划分。确保每章梗概足够详细，能够指导后续的分镜脚本生成。
+`.trim();
+
+  let accumulatedContent = "";
+
+  for await (const chunk of callChatCompletionStreamByType({
+    providerType: "chapter_generator",
+    messages: [
+      { role: "system", content: CHAPTER_GENERATION_SYSTEM_PROMPT },
+      { role: "user", content: userPrompt },
+    ],
+    temperature: 0.7,
+    maxTokens: 3000,
+    options: userId ? { userId } : { skipCreditsCheck: true },
+  })) {
+    accumulatedContent += chunk;
+    onChunk(chunk);
+  }
+
+  try {
+    const content = tryFixJSON(accumulatedContent);
+    const parsed = JSON.parse(content);
+
+    if (!parsed.chapters || !Array.isArray(parsed.chapters)) {
+      throw new Error("LLM返回的数据格式错误：缺少chapters数组");
+    }
+
+    // Validate chapter structure
+    const chapters = parsed.chapters as GeneratedChapter[];
+    for (const chapter of chapters) {
+      if (!chapter.title || typeof chapter.title !== "string") {
+        throw new Error("章节缺少有效的标题");
+      }
+      if (!chapter.summary || typeof chapter.summary !== "string") {
+        throw new Error(`章节"${chapter.title}"缺少梗概`);
+      }
+      if (typeof chapter.chapter_order !== "number" || chapter.chapter_order < 1) {
+        throw new Error(`章节"${chapter.title}"的顺序号无效`);
+      }
+    }
+
+    // Sort by chapter_order to ensure correct order
+    chapters.sort((a, b) => a.chapter_order - b.chapter_order);
+
+    return chapters;
+  } catch (error) {
+    console.error("Failed to parse chapter generation response:", error);
+    console.error("Raw response:", accumulatedContent);
     throw new Error(
       `解析章节生成结果失败: ${error instanceof Error ? error.message : "未知错误"}`
     );
