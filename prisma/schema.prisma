@@ -198,6 +198,12 @@ model Panel {
   script_end        Int? // Text end position
   camera_angle      String? // 俯视/仰视/平视/荷兰角
   shot_size         String? // 特写/近景/中景/全景/远景
+
+  // Camera movement parameters
+  camera_movement   String? // static | push_in | pull_out | pan_left | pan_right | tilt_up | tilt_down | dolly | zoom
+  movement_speed    String? // slow | medium | fast | sudden
+  movement_direction String? // 补充描述（如：diagonal_up_right）
+
   sketch_image_url  String? // Sketch preview URL
   visual_prompt     String? // Editable visual description
 
@@ -374,6 +380,7 @@ model Scene {
   image_url   String?
   tags        String[] @default([])
   prompt      String?  @db.Text // AI prompt used to generate/describe the scene
+  lighting_preset String? // golden_hour | harsh_midday | soft_diffused | dramatic_rim | neon_night | moonlight | studio | natural_window | none
   usage_count Int      @default(0)
   created_at  DateTime @default(now()) @db.Timestamptz(6)
   updated_at  DateTime @default(now()) @db.Timestamptz(6)

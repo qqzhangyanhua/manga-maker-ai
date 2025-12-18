@@ -175,7 +175,8 @@ export default function StoryPage() {
 
     // Auto-save effect with debounce
     useEffect(() => {
-        if (!currentStoryData || !currentStoryData.premise) return;
+        // Skip auto-save if data is empty or AI is generating idea
+        if (!currentStoryData || !currentStoryData.premise || generatingIdea) return;
 
         // Clear previous timeout
         if (saveTimeoutRef.current) {
@@ -207,7 +208,7 @@ export default function StoryPage() {
                 clearTimeout(saveTimeoutRef.current);
             }
         };
-    }, [currentStoryData]);
+    }, [currentStoryData, generatingIdea]);
 
     // Handle history item selection
     const handleHistorySelect = useCallback((item: StoryHistoryItem) => {

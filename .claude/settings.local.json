@@ -56,7 +56,9 @@
       "Bash(node test-ssl-fix.js:*)",
       "Bash(npm run build:*)",
       "Bash(dir:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(npx prisma --version)",
+      "Bash(pnpm type-check:story:*)"
     ],
     "deny": [],
     "ask": []

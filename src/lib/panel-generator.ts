@@ -21,6 +21,9 @@ export interface GeneratedPanel {
   importance: string; // high, medium, low
   camera_angle?: string; // 俯视, 仰视, 平视, 荷兰角
   shot_size?: string; // 特写, 近景, 中景, 全景, 远景
+  camera_movement?: string; // static, push_in, pull_out, pan_left, pan_right, tilt_up, tilt_down, dolly, zoom
+  movement_speed?: string; // slow, medium, fast, sudden
+  movement_direction?: string; // 补充描述
 }
 
 const PANEL_GENERATION_SYSTEM_PROMPT = `你是一位资深漫画分镜师和视觉叙事专家，擅长将文字剧本转化为分镜脚本。
@@ -38,7 +41,10 @@ const PANEL_GENERATION_SYSTEM_PROMPT = `你是一位资深漫画分镜师和视�
       "panel_type": "wide/medium/closeup/action/dialogue/transition",
       "importance": "high/medium/low",
       "camera_angle": "俯视/仰视/平视/荷兰角",
-      "shot_size": "特写/近景/中景/全景/远景"
+      "shot_size": "特写/近景/中景/全景/远景",
+      "camera_movement": "static/push_in/pull_out/pan_left/pan_right/tilt_up/tilt_down/dolly/zoom",
+      "movement_speed": "slow/medium/fast/sudden",
+      "movement_direction": "补充描述（可选）"
     }
   ]
 }
@@ -69,6 +75,21 @@ const PANEL_GENERATION_SYSTEM_PROMPT = `你是一位资深漫画分镜师和视�
 - 全景：完整角色和周围环境
 - 远景：广阔的环境全景
 
+运镜类型：
+- static: 静止镜头，无运镜（默认）
+- push_in: 推镜，向主体推进，强化情感
+- pull_out: 拉镜，拉远展示环境
+- pan_left/pan_right: 左摇/右摇，展示横向空间
+- tilt_up/tilt_down: 上摇/下摇，展示纵向空间
+- dolly: 移动镜头，跟随主体
+- zoom: 变焦特效，快速放大/缩小
+
+运镜速度：
+- slow: 缓慢（3-5秒），营造氛围
+- medium: 中速（1-2秒），常规叙事
+- fast: 快速（0.5-1秒），动作场景
+- sudden: 突然（瞬间），惊吓/震撼效果
+
 规则：
 1. 每个章节通常8-20个分镜，根据内容复杂度调整
 2. 开场用wide建立场景，关键时刻用closeup强化情感
@@ -76,7 +97,15 @@ const PANEL_GENERATION_SYSTEM_PROMPT = `你是一位资深漫画分镜师和视�
 4. 动作场景：用多个分镜展示动作过程，注意节奏
 5. visual_prompt要具体可视化，包含人物动作、表情、环境、光影、氛围
 6. dialogue只在需要时添加，避免过度依赖文字
-7. 确保分镜间有视觉连贯性和节奏变化`;
+7. 确保分镜间有视觉连贯性和节奏变化
+
+8. 运镜设计原则：
+   - 对话场景优先使用static，保持稳定
+   - 情感强化时使用push_in（慢速）
+   - 建立镜头用pull_out揭示环境
+   - 动作追逐用dolly或pan跟随
+   - 震撼时刻用zoom+sudden制造冲击
+   - 避免过度使用运镜，60%分镜应为static`;
 
 /**
  * Try to fix common JSON syntax errors and extract JSON from markdown

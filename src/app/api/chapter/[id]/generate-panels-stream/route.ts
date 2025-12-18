@@ -326,6 +326,9 @@ export async function POST(
                 importance: panel.importance,
                 camera_angle: panel.camera_angle || null,
                 shot_size: panel.shot_size || null,
+                camera_movement: panel.camera_movement || null,
+                movement_speed: panel.movement_speed || null,
+                movement_direction: panel.movement_direction || null,
               },
             })
           )

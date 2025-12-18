@@ -2,6 +2,7 @@ import type { LlmProvider } from "@prisma/client";
 import { prisma } from "./db";
 import { consumeCredits, checkCredits, type CreditError } from "./credits";
 import https from "https";
+import { logInfo } from "./api-logger";
 
 type ChatRole = "system" | "user" | "assistant";
 
@@ -86,6 +87,18 @@ export const callChatCompletionByType = async (params: {
 
   const endpoint = `${normalizeBaseUrl(provider.base_url)}/v1/chat/completions`;
 
+  // 记录 LLM API 调用信息
+  logInfo("LLM API call", {
+    endpoint: "llm-provider",
+    providerType,
+    providerName: provider.provider_name,
+    model: provider.model,
+    baseUrl: provider.base_url,
+    fullEndpoint: endpoint,
+    creditsCost,
+    userId: options?.userId,
+  });
+
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
@@ -152,6 +165,18 @@ export async function* callChatCompletionStreamByType(params: {
   }
 
   const endpoint = `${normalizeBaseUrl(provider.base_url)}/v1/chat/completions`;
+
+  // 记录流式 LLM API 调用信息
+  logInfo("LLM API call (stream)", {
+    endpoint: "llm-provider-stream",
+    providerType,
+    providerName: provider.provider_name,
+    model: provider.model,
+    baseUrl: provider.base_url,
+    fullEndpoint: endpoint,
+    creditsCost,
+    userId: options?.userId,
+  });
 
   const response = await fetch(endpoint, {
     method: "POST",

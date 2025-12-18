@@ -6,7 +6,9 @@ import {
   ComicStyle,
   Panel,
   Project,
+  Scene,
 } from "@prisma/client";
+import { getLightingPromptModifier } from "./lighting-presets";
 
 type PanelWithProject = Panel & { project: Project | null };
 type CharacterWithAssets = Character & {
@@ -19,6 +21,7 @@ export type PromptBlocks = {
   references: string[];
   characterProfile: string;
   scene: string;
+  lighting?: string;
   dialogue?: string | null;
   camera?: string;
   style: string;
@@ -29,6 +32,7 @@ export type PromptBlocks = {
 export type BuildPanelPromptOptions = {
   panel: PanelWithProject;
   character?: CharacterWithAssets | null;
+  scene?: Scene | null;
   style?: ComicStyle | null;
   soften?: boolean;
   aspectRatio?: string | null;
@@ -137,7 +141,7 @@ function pickStyleText(style?: ComicStyle | null, fallback?: string | null): str
  * 构建分镜的“三明治”提示词
  */
 export function buildPanelPrompt(options: BuildPanelPromptOptions) {
-  const { panel, character, style, soften = true, aspectRatio } = options;
+  const { panel, character, scene, style, soften = true, aspectRatio } = options;
   const sceneText = panel.visual_prompt || panel.description || "";
   const { text: softenedScene, replacements } = soften
     ? softenSensitiveText(sceneText)
@@ -149,10 +153,16 @@ export function buildPanelPrompt(options: BuildPanelPromptOptions) {
   const aspect = aspectRatio || inferAspectRatio(panel);
   const styleText = pickStyleText(style, panel.project?.style);
 
+  // 获取场景光效
+  const lightingModifier = scene && 'lighting_preset' in scene && scene.lighting_preset
+    ? getLightingPromptModifier(scene.lighting_preset as any)
+    : "";
+
   const blocks: PromptBlocks = {
     references: referenceHints,
     characterProfile: profile,
     scene: softenedScene,
+    lighting: lightingModifier,
     dialogue: panel.dialogue,
     camera,
     style: styleText,
@@ -164,6 +174,7 @@ export function buildPanelPrompt(options: BuildPanelPromptOptions) {
     referenceHints.length > 0 ? `Reference images: ${referenceHints.join(" | ")}` : null,
     `Character profile: ${profile}`,
     `Scene: ${softenedScene}`,
+    lightingModifier ? `Lighting: ${lightingModifier}` : null,
     panel.dialogue ? `Dialogue (do NOT render text, only use as mood): ${panel.dialogue}` : null,
     camera ? `Camera: ${camera}` : null,
     mood,

@@ -23,12 +23,24 @@ export interface StoryCharacter {
     traits?: string[];
 }
 
+export interface ConflictRhythm {
+    timeMarkers: {
+        timestamp: string;      // "0:15", "0:30", "0:45"
+        event: string;          // "冲突引入", "矛盾升级"
+        intensity: "low" | "medium" | "high" | "peak";
+    }[];
+    pacingStyle?: "slow_burn" | "fast_paced" | "mixed";
+}
+
 export interface StoryAct {
     actNumber: number;
     name: string;
     summary: string;
     scenes: string[];
     keyEvents?: string[];
+    conflicts?: string[];              // 显式声明（已在系统提示词中使用）
+    memorableQuotes?: string[];        // 新增：金句列表（2-3条）
+    conflictRhythm?: ConflictRhythm;   // 新增：冲突节奏控制
 }
 
 export interface StoryOutline {
@@ -67,6 +79,18 @@ const STORY_GENERATION_SYSTEM_PROMPT = `你是一位资深编剧和故事顾问,
         "情节点1：明确标注第一幕结尾的重大转折"
       ],
       "conflicts": ["本幕呈现的主要冲突1", "冲突2"],
+      "memorableQuotes": [
+        "「我不再是那个躲在阴影里的懦夫了。」",
+        "「有些真相，值得用一生去追寻。」"
+      ],
+      "conflictRhythm": {
+        "timeMarkers": [
+          { "timestamp": "0:00", "event": "平静日常", "intensity": "low" },
+          { "timestamp": "0:15", "event": "触发事件引入冲突", "intensity": "medium" },
+          { "timestamp": "0:45", "event": "选择冒险的关键决定", "intensity": "high" }
+        ],
+        "pacingStyle": "slow_burn"
+      },
       "characterDevelopment": "本幕中角色的状态和初步发展"
     },
     {
@@ -146,6 +170,18 @@ const STORY_GENERATION_SYSTEM_PROMPT = `你是一位资深编剧和故事顾问,
    - 关键动作/对话意图
 
 7. 确保逻辑自洽,前后呼应,伏笔与回收完整
+
+8. 金句提炼要求:
+   - 每幕提炼2-3条核心金句
+   - 金句应体现角色成长、主题深化或情节转折
+   - 语言凝练有力,具有传播性和记忆点
+   - 避免陈词滥调,力求原创性
+
+9. 冲突节奏控制（60秒标准）:
+   - 每幕按60秒时长规划冲突节奏点
+   - timeMarkers标注关键节奏转折（0:00、0:15、0:30、0:45等）
+   - intensity从low→medium→high→peak渐进,制造张力
+   - pacingStyle根据类型选择：悬疑用slow_burn，动作用fast_paced
 
 请创作一个引人入胜、情节紧凑、人物鲜活、富有深度的完整故事大纲！`;
 
