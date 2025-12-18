@@ -28,6 +28,8 @@ interface StoryHistoryProps {
 
 export function StoryHistory({ isOpen, onClose, onSelect }: StoryHistoryProps) {
     const [history, setHistory] = useState<StoryHistoryItem[]>([]);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<StoryHistoryItem | null>(null);
 
     // Load history on mount and when opened
     useEffect(() => {
@@ -37,10 +39,24 @@ export function StoryHistory({ isOpen, onClose, onSelect }: StoryHistoryProps) {
         }
     }, [isOpen]);
 
-    const handleDelete = (id: string, e: React.MouseEvent) => {
+    const handleDeleteClick = (item: StoryHistoryItem, e: React.MouseEvent) => {
         e.stopPropagation();
-        deleteStoryHistory(id);
-        setHistory((prev) => prev.filter((item) => item.id !== id));
+        setItemToDelete(item);
+        setDeleteDialogOpen(true);
+    };
+
+    const handleConfirmDelete = () => {
+        if (itemToDelete) {
+            deleteStoryHistory(itemToDelete.id);
+            setHistory((prev) => prev.filter((item) => item.id !== itemToDelete.id));
+            setItemToDelete(null);
+        }
+        setDeleteDialogOpen(false);
+    };
+
+    const handleCancelDelete = () => {
+        setItemToDelete(null);
+        setDeleteDialogOpen(false);
     };
 
     const handleSelect = (item: StoryHistoryItem) => {
@@ -166,7 +182,7 @@ export function StoryHistory({ isOpen, onClose, onSelect }: StoryHistoryProps) {
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={(e) => handleDelete(item.id, e)}
+                                                onClick={(e) => handleDeleteClick(item, e)}
                                                 className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/10 hover:text-red-500"
                                             >
                                                 <Trash2 className="w-3.5 h-3.5" />
@@ -186,6 +202,38 @@ export function StoryHistory({ isOpen, onClose, onSelect }: StoryHistoryProps) {
                     </div>
                 </div>
             </div>
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <AlertDialogContent className="bg-zinc-900 border-zinc-700">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-white">
+                            确认删除历史记录
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-zinc-400">
+                            {itemToDelete && (
+                                <>
+                                    确定要删除 <span className="text-orange-500 font-medium">「{itemToDelete.title || "未命名故事"}」</span> 吗？此操作无法撤销。
+                                </>
+                            )}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel
+                            onClick={handleCancelDelete}
+                            className="bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700 hover:text-white"
+                        >
+                            取消
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleConfirmDelete}
+                            className="bg-red-500 text-white hover:bg-red-600"
+                        >
+                            删除
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     );
 }
