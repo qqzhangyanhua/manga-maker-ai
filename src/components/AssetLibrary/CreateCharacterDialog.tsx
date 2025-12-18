@@ -18,7 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Sparkles, Loader2, Palette } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Sparkles, Loader2, Palette, Upload, Wand2 } from "lucide-react";
 import ImageUpload from "./ImageUpload";
 import { useToast } from "@/hooks/use-toast";
 import type { CharacterAsset, ComicStyle } from "./CharacterLibrary";
@@ -29,11 +30,14 @@ interface CreateCharacterDialogProps {
   onSubmit: (character: CharacterAsset) => Promise<void>;
 }
 
+type CreateMode = "manual" | "ai";
+
 const CreateCharacterDialog = ({
   open,
   onOpenChange,
   onSubmit,
 }: CreateCharacterDialogProps) => {
+  const [createMode, setCreateMode] = useState<CreateMode>("manual");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [imageFiles, setImageFiles] = useState<File[]>([]);
@@ -41,6 +45,11 @@ const CreateCharacterDialog = ({
   const [uploadProgress, setUploadProgress] = useState<string>("");
   const [error, setError] = useState("");
   const { toast } = useToast();
+
+  // AI generation states
+  const [stylePrompt, setStylePrompt] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedImageBase64, setGeneratedImageBase64] = useState<string>("");
 
   // Comic style selection
   const [styles, setStyles] = useState<ComicStyle[]>([]);
@@ -92,8 +101,22 @@ const CreateCharacterDialog = ({
         formData.append("comic_style_id", selectedStyleId);
       }
 
-      // 添加所有图片文件
-      if (imageFiles.length > 0) {
+      // Handle AI-generated image (base64)
+      if (createMode === "ai" && generatedImageBase64) {
+        setUploadProgress("正在保存 AI 生成的角色...");
+        // Convert base64 to blob and add to formData
+        const base64Data = generatedImageBase64.replace(/^data:image\/\w+;base64,/, "");
+        const binaryData = atob(base64Data);
+        const arrayBuffer = new Uint8Array(binaryData.length);
+        for (let i = 0; i < binaryData.length; i++) {
+          arrayBuffer[i] = binaryData.charCodeAt(i);
+        }
+        const blob = new Blob([arrayBuffer], { type: "image/png" });
+        const file = new File([blob], "ai-generated.png", { type: "image/png" });
+        formData.append("images[0]", file);
+      }
+      // Handle manual uploaded images
+      else if (imageFiles.length > 0) {
         setUploadProgress(`正在创建角色并上传 ${imageFiles.length} 张图片...`);
         imageFiles.forEach((file, index) => {
           formData.append(`images[${index}]`, file);
@@ -122,9 +145,12 @@ const CreateCharacterDialog = ({
       await onSubmit(result.character as CharacterAsset);
 
       // Reset form
+      setCreateMode("manual");
       setName("");
       setDescription("");
       setImageFiles([]);
+      setStylePrompt("");
+      setGeneratedImageBase64("");
       setSelectedStyleId("__none__");
       setUploadProgress("");
       onOpenChange(false);
@@ -147,11 +173,66 @@ const CreateCharacterDialog = ({
     }
   };
 
+  // AI Generation Handler
+  const handleAIGenerate = async () => {
+    if (!stylePrompt.trim()) {
+      setError("请输入风格描述");
+      return;
+    }
+
+    setError("");
+    setIsGenerating(true);
+
+    try {
+      const response = await fetch("/api/character/generate-from-style", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          style_prompt: stylePrompt.trim(),
+          comic_style_id: selectedStyleId !== "__none__" ? selectedStyleId : null,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (errorData.code === "QUOTA_EXCEEDED") {
+          throw new Error(`今日图像生成配额已用完（${errorData.used}/${errorData.limit}）`);
+        }
+        throw new Error(errorData.error || "生成失败");
+      }
+
+      const result = await response.json();
+
+      // Fill form with generated data
+      setName(result.character.name);
+      setDescription(result.character.description);
+      setGeneratedImageBase64(result.character.image_url);
+
+      toast({
+        title: "角色生成成功",
+        description: "请确认信息后点击创建按钮保存角色",
+      });
+    } catch (err) {
+      console.error("AI generation error:", err);
+      setError(err instanceof Error ? err.message : "生成失败，请重试");
+      toast({
+        title: "生成失败",
+        description: err instanceof Error ? err.message : "请稍后重试",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const handleClose = () => {
-    if (!isSubmitting) {
+    if (!isSubmitting && !isGenerating) {
+      setCreateMode("manual");
       setName("");
       setDescription("");
       setImageFiles([]);
+      setStylePrompt("");
+      setGeneratedImageBase64("");
       setSelectedStyleId("__none__");
       setUploadProgress("");
       setError("");
@@ -176,136 +257,323 @@ const CreateCharacterDialog = ({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6 py-4">
-          {/* 图片上传区域 */}
-          <div className="space-y-2">
-            <Label className="text-base font-semibold">
-              角色参考图
-            </Label>
-            <p className="text-xs text-muted-foreground mb-2">
-              上传角色参考图用于训练 LoRA 模型（可选，第一张将作为基础形象）
-            </p>
-            <ImageUpload
-              onUpload={handleImageUpload}
-              maxFiles={5}
-              disabled={isSubmitting}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="name" className="text-base font-semibold">
-              角色名称 <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="name"
-              placeholder="例如：赛博朋克少女、幻想战士..."
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={isSubmitting}
-              className="h-11"
-              maxLength={50}
-            />
-            <p className="text-xs text-muted-foreground">
-              {name.length}/50 字符
-            </p>
-          </div>
+        <Tabs value={createMode} onValueChange={(v) => setCreateMode(v as CreateMode)} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="manual" className="flex items-center gap-2">
+              <Upload className="w-4 h-4" />
+              手动创建
+            </TabsTrigger>
+            <TabsTrigger value="ai" className="flex items-center gap-2">
+              <Wand2 className="w-4 h-4" />
+              AI 生成
+            </TabsTrigger>
+          </TabsList>
 
-          <div className="space-y-2">
-            <Label htmlFor="description" className="text-base font-semibold">
-              角色描述
-            </Label>
-            <Textarea
-              id="description"
-              placeholder="描述角色的外观、性格、特征...&#10;例如：蓝色双马尾，赛博朋克风格，自信的眼神，科技感十足的装备"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              disabled={isSubmitting}
-              className="min-h-[120px] resize-none"
-              maxLength={500}
-            />
-            <p className="text-xs text-muted-foreground">
-              {description.length}/500 字符 · 详细的描述有助于生成更准确的角色
-            </p>
-          </div>
+          {/* Manual Mode */}
+          <TabsContent value="manual" className="space-y-6 py-4">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* 图片上传区域 */}
+              <div className="space-y-2">
+                <Label className="text-base font-semibold">
+                  角色参考图
+                </Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  上传角色参考图用于训练 LoRA 模型（可选，第一张将作为基础形象）
+                </p>
+                <ImageUpload
+                  onUpload={handleImageUpload}
+                  maxFiles={5}
+                  disabled={isSubmitting}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="name" className="text-base font-semibold">
+                  角色名称 <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="name"
+                  placeholder="例如：赛博朋克少女、幻想战士..."
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={isSubmitting}
+                  className="h-11"
+                  maxLength={50}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {name.length}/50 字符
+                </p>
+              </div>
 
-          {/* Comic Style Selection */}
-          <div className="space-y-2">
-            <Label htmlFor="comic-style" className="text-base font-semibold flex items-center gap-2">
-              <Palette className="w-4 h-4" />
-              漫画风格
-            </Label>
-            <Select
-              value={selectedStyleId}
-              onValueChange={setSelectedStyleId}
-              disabled={isSubmitting || stylesLoading}
-            >
-              <SelectTrigger className="h-11">
-                <SelectValue placeholder={stylesLoading ? "加载中..." : "选择漫画风格（可选）"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">无风格</SelectItem>
-                {styles.map((style) => (
-                  <SelectItem key={style.id} value={style.id}>
-                    <div className="flex items-center gap-2">
-                      {style.image_url && (
-                        <img
-                          src={style.image_url}
-                          alt={style.name_zh}
-                          className="w-5 h-5 rounded object-cover"
-                        />
-                      )}
-                      <span>{style.name_zh}</span>
-                      <span className="text-xs text-muted-foreground">({style.name_en})</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              选择一个漫画风格可以让角色保持统一的美术风格
-            </p>
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="description" className="text-base font-semibold">
+                  角色描述
+                </Label>
+                <Textarea
+                  id="description"
+                  placeholder="描述角色的外观、性格、特征...&#10;例如：蓝色双马尾，赛博朋克风格，自信的眼神，科技感十足的装备"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  disabled={isSubmitting}
+                  className="min-h-[120px] resize-none"
+                  maxLength={500}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {description.length}/500 字符 · 详细的描述有助于生成更准确的角色
+                </p>
+              </div>
 
-          {error && (
-            <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3">
-              {error}
-            </div>
-          )}
+              {/* Comic Style Selection */}
+              <div className="space-y-2">
+                <Label htmlFor="comic-style" className="text-base font-semibold flex items-center gap-2">
+                  <Palette className="w-4 h-4" />
+                  漫画风格
+                </Label>
+                <Select
+                  value={selectedStyleId}
+                  onValueChange={setSelectedStyleId}
+                  disabled={isSubmitting || stylesLoading}
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder={stylesLoading ? "加载中..." : "选择漫画风格（可选）"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">无风格</SelectItem>
+                    {styles.map((style) => (
+                      <SelectItem key={style.id} value={style.id}>
+                        <div className="flex items-center gap-2">
+                          {style.image_url && (
+                            <img
+                              src={style.image_url}
+                              alt={style.name_zh}
+                              className="w-5 h-5 rounded object-cover"
+                            />
+                          )}
+                          <span>{style.name_zh}</span>
+                          <span className="text-xs text-muted-foreground">({style.name_en})</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  选择一个漫画风格可以让角色保持统一的美术风格
+                </p>
+              </div>
 
-          {uploadProgress && (
-            <div className="text-sm text-primary bg-primary/10 border border-primary/20 rounded-lg p-3 flex items-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              {uploadProgress}
-            </div>
-          )}
-
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleClose}
-              disabled={isSubmitting}
-            >
-              取消
-            </Button>
-            <Button
-              type="submit"
-              variant="comic"
-              disabled={isSubmitting || !name.trim()}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  创建中...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  创建角色
-                </>
+              {error && (
+                <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+                  {error}
+                </div>
               )}
-            </Button>
-          </DialogFooter>
-        </form>
+
+              {uploadProgress && (
+                <div className="text-sm text-primary bg-primary/10 border border-primary/20 rounded-lg p-3 flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {uploadProgress}
+                </div>
+              )}
+
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleClose}
+                  disabled={isSubmitting}
+                >
+                  取消
+                </Button>
+                <Button
+                  type="submit"
+                  variant="comic"
+                  disabled={isSubmitting || !name.trim()}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      创建中...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      创建角色
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </TabsContent>
+
+          {/* AI Generation Mode */}
+          <TabsContent value="ai" className="space-y-6 py-4">
+            <div className="space-y-6">
+              {/* AI Generation Input */}
+              <div className="space-y-2">
+                <Label htmlFor="style-prompt" className="text-base font-semibold">
+                  风格描述 <span className="text-destructive">*</span>
+                </Label>
+                <Textarea
+                  id="style-prompt"
+                  placeholder="描述你想要的角色风格...&#10;例如：赛博朋克风格的少女，蓝色双马尾，戴着科技护目镜"
+                  value={stylePrompt}
+                  onChange={(e) => setStylePrompt(e.target.value)}
+                  disabled={isGenerating || isSubmitting}
+                  className="min-h-[100px] resize-none"
+                  maxLength={500}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {stylePrompt.length}/500 字符 · AI 将根据你的描述自动生成角色
+                </p>
+              </div>
+
+              {/* Comic Style Selection */}
+              <div className="space-y-2">
+                <Label htmlFor="ai-comic-style" className="text-base font-semibold flex items-center gap-2">
+                  <Palette className="w-4 h-4" />
+                  漫画风格
+                </Label>
+                <Select
+                  value={selectedStyleId}
+                  onValueChange={setSelectedStyleId}
+                  disabled={isGenerating || isSubmitting || stylesLoading}
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder={stylesLoading ? "加载中..." : "选择漫画风格（可选）"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">无风格</SelectItem>
+                    {styles.map((style) => (
+                      <SelectItem key={style.id} value={style.id}>
+                        <div className="flex items-center gap-2">
+                          {style.image_url && (
+                            <img
+                              src={style.image_url}
+                              alt={style.name_zh}
+                              className="w-5 h-5 rounded object-cover"
+                            />
+                          )}
+                          <span>{style.name_zh}</span>
+                          <span className="text-xs text-muted-foreground">({style.name_en})</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  选择一个漫画风格可以让角色保持统一的美术风格
+                </p>
+              </div>
+
+              {/* Generate Button */}
+              <Button
+                type="button"
+                variant="comic"
+                onClick={handleAIGenerate}
+                disabled={isGenerating || isSubmitting || !stylePrompt.trim()}
+                className="w-full"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    AI 生成中...
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="w-4 h-4" />
+                    AI 生成角色
+                  </>
+                )}
+              </Button>
+
+              {/* Generated Preview */}
+              {generatedImageBase64 && (
+                <div className="space-y-4 pt-4 border-t border-border">
+                  <Label className="text-base font-semibold">生成预览</Label>
+                  <div className="rounded-lg overflow-hidden border border-border">
+                    <img
+                      src={generatedImageBase64}
+                      alt="AI 生成的角色"
+                      className="w-full h-auto"
+                    />
+                  </div>
+
+                  {/* Editable Fields */}
+                  <div className="space-y-2">
+                    <Label htmlFor="ai-name" className="text-base font-semibold">
+                      角色名称
+                    </Label>
+                    <Input
+                      id="ai-name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      disabled={isSubmitting}
+                      className="h-11"
+                      maxLength={50}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="ai-description" className="text-base font-semibold">
+                      角色描述
+                    </Label>
+                    <Textarea
+                      id="ai-description"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      disabled={isSubmitting}
+                      className="min-h-[120px] resize-none"
+                      maxLength={500}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+                  {error}
+                </div>
+              )}
+
+              {uploadProgress && (
+                <div className="text-sm text-primary bg-primary/10 border border-primary/20 rounded-lg p-3 flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {uploadProgress}
+                </div>
+              )}
+
+              {/* Save Button (only shown after generation) */}
+              {generatedImageBase64 && (
+                <DialogFooter className="gap-2 sm:gap-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleClose}
+                    disabled={isSubmitting}
+                  >
+                    取消
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="comic"
+                    onClick={handleSubmit}
+                    disabled={isSubmitting || !name.trim()}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        保存中...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        保存角色
+                      </>
+                    )}
+                  </Button>
+                </DialogFooter>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
