@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/table";
 import { Pencil, Copy, Trash2, Zap, Star } from "lucide-react";
 import type { Provider } from "../types";
+import { getProviderTypeLabel } from "../types";
 
 interface ProviderTableProps {
   providers: Provider[];
@@ -47,7 +48,7 @@ export const ProviderTable = ({
                   算力
                 </div>
               </TableHead>
-              <TableHead className="min-w-[200px]">描述</TableHead>
+              <TableHead className="min-w-[250px]">Base URL</TableHead>
               <TableHead className="min-w-[140px] sticky right-0 bg-muted z-20 text-right shadow-[inset_1px_0_0_0_hsl(var(--border))]">
                 操作
               </TableHead>
@@ -83,7 +84,7 @@ export const ProviderTable = ({
                     </div>
                   </TableCell>
                   <TableCell className="font-medium sticky left-[100px] bg-background z-10 shadow-[inset_-1px_0_0_0_hsl(var(--border))]">
-                    {p.provider_type}
+                    {getProviderTypeLabel(p.provider_type)}
                   </TableCell>
                   <TableCell>{p.provider_name}</TableCell>
                   <TableCell>{p.model}</TableCell>
@@ -93,8 +94,8 @@ export const ProviderTable = ({
                       {p.credits_cost > 0 ? p.credits_cost : "免费"}
                     </span>
                   </TableCell>
-                  <TableCell className="max-w-[200px] truncate" title={p.desc || ""}>
-                    {p.desc || "-"}
+                  <TableCell className="max-w-[250px] truncate font-mono text-xs" title={p.base_url}>
+                    {p.base_url}
                   </TableCell>
                   <TableCell className="sticky right-0 bg-background z-10 shadow-[inset_1px_0_0_0_hsl(var(--border))]">
                     <div className="flex items-center justify-end gap-1">
@@ -136,6 +137,7 @@ export const ProviderTable = ({
     </div>
   );
 };
+
 
 
 

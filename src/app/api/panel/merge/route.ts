@@ -8,6 +8,11 @@ const mergeSystemPrompt = `你是一位专业的漫画分镜编辑。
 
 任务：将两个相邻的分镜融合为一个分镜。
 
+硬性要求：
+- 只输出 JSON，不要添加解释、前后缀或 markdown 代码块
+- description 中文 80-150 字；visual_prompt 中文 20-60 字；english_prompt 英文 80-150 chars，禁止涉黄/暴力/政治/真实人物/网址
+- 字段使用半角双引号；未定义字段不要新增；缺失值用 null
+
 输出要求（严格JSON格式）：
 {
   "panel_type": "wide/medium/closeup/action/dialogue/transition",

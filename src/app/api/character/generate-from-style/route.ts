@@ -72,6 +72,11 @@ export async function POST(req: Request) {
     // Step 1: Use LLM to generate detailed character information
     const systemPrompt = `你是专业的角色设计师。根据用户提供的风格描述，生成一个完整的角色设定。
 
+硬性要求：
+- 只输出 JSON，不要添加解释、markdown 代码块或额外文本
+- 字段使用半角双引号；缺失字段用 null；不要新增未定义字段
+- description 使用中文 150-300 字；prompt 必须英文，禁止涉黄/暴力/政治/真实人物/网站
+
 任务：
 1. 根据风格描述创造一个独特的角色
 2. 生成角色的中文名称（2-6个字，富有创意且符合风格）
@@ -80,18 +85,18 @@ export async function POST(req: Request) {
    - 服装风格（具体的服装描述）
    - 性格特点
    - 背景故事（简短）
-4. 生成适合 AI 绘画的英文提示词（详细、专业、富有画面感）
+4. 生成适合 AI 绘画的英文提示词（详细、专业、富有画面感，含 anime style, detailed, high quality 等关键词）
 
-输出格式（严格按照以下 JSON 格式）：
+输出格式：
 {
   "name": "角色名称",
   "description": "详细的中文描述",
-  "prompt": "详细的英文 AI 绘画提示词，包含 anime style, detailed, high quality, 8k 等关键词"
+  "prompt": "英文 AI 绘画提示词（80-180 chars, 不得包含违规内容）"
 }`;
 
-    const userMessage = `风格描述：${style_prompt}
+    const userMessage = `<style>${style_prompt}</style>
 
-请生成一个符合此风格的完整角色设定。`;
+请只输出符合上述格式的 JSON。`;
 
     logInfo("Starting LLM character generation", { endpoint: "/api/character/generate-from-style", userId });
 

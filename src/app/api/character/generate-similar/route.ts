@@ -80,6 +80,11 @@ export async function POST(req: Request) {
     // Step 1: Use LLM to analyze character and generate optimized prompts
     const systemPrompt = `你是专业的角色设计师。请分析原角色特征，并根据用户的变化要求生成新的角色描述。
 
+硬性要求：
+- 只输出英文提示词纯文本，不要添加解释、前后缀或 markdown
+- 提示词 80-180 chars，包含 anime style/detailed/high quality 等术语
+- 禁止涉黄/暴力/政治/真实人物/网址，不要新增无关角色
+
 任务：
 1. 提取原角色的核心特征（性别、年龄、发型、发色、眼睛、服装、体型、风格等）
 2. 根据用户的变化要求，调整相应特征
@@ -92,12 +97,12 @@ export async function POST(req: Request) {
 输出格式：纯文本提示词，不要 JSON 或其他格式。`;
 
     const userMessage = `
-原角色名称：${character.name}
-原角色描述：${character.description || "无描述"}
-原角色标签：${character.tags.join(", ") || "无标签"}
-用户的变化要求：${variation_prompt}
+<original_name>${character.name}</original_name>
+<original_desc>${character.description || "无描述"}</original_desc>
+<original_tags>${character.tags.join(", ") || "无标签"}</original_tags>
+<variation>${variation_prompt}</variation>
 
-请生成适合 AI 绘画的详细提示词。`;
+请生成适合 AI 绘画的详细提示词，只输出英文提示词文本。`;
 
     console.log(`开始分析角色 ${character.name}，变化要求: ${variation_prompt}`);
 

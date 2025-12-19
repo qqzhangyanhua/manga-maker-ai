@@ -55,6 +55,11 @@ export interface PanelOptimization {
 
 const SYSTEM_PROMPT = `你是一位专业的漫画分镜师和视觉叙事专家。你的任务是分析给定的分镜内容，并提供专业的优化建议。
 
+硬性要求：
+- 只输出 JSON，不要添加解释、前后缀或 markdown 代码块
+- 字段使用半角双引号；未定义字段不要新增；缺失值用 null
+- optimized_visual_prompt 必须英文（80-150 chars），禁止涉黄/暴力/政治/真实人物/网址；其余描述保持中文
+
 你需要从以下几个维度分析和优化：
 
 1. **镜头角度 (camera_angle)**
@@ -85,7 +90,7 @@ const SYSTEM_PROMPT = `你是一位专业的漫画分镜师和视觉叙事专家
    - 引导线
    - 留白运用
 
-请以JSON格式返回分析结果：
+请以JSON格式返回分析结果（仅 JSON，不要额外文本）：
 {
   "current_analysis": {
     "strengths": ["优点1", "优点2"],

@@ -26,12 +26,18 @@ interface GeneratedCharacterResult {
 
 const SYSTEM_PROMPT = `你是专业的漫画角色设计师。请根据故事背景分析并生成符合故事需要的角色。
 
+硬性要求：
+- 只输出 JSON 数组，不要添加任何解释、前后缀或 markdown 代码块
+- 字段使用半角双引号；未提及字段不得新增；缺失值用 null
+- description 中文 50-120 字；appearance 必须英文（80-160 chars），禁止涉黄/暴力/政治/真实人物/网站
+- 至少包含一个 role 为 protagonist
+
 任务：
-1. 分析故事的premise（前提）和genre（类型）
+1. 分析故事的 premise（前提）和 genre（类型）
 2. 生成指定数量的角色，每个角色包含：
    - name: 角色名字（简短有特色）
-   - description: 角色背景和性格描述（50-100字）
-   - appearance: 外貌特征描述（用于AI绘画，要具体详细，包含性别、年龄、发型、发色、眼睛颜色、服装风格等，英文描述）
+   - description: 角色背景和性格描述（50-120字中文）
+   - appearance: 外貌特征（英文，包含性别、年龄、发型、发色、眼睛颜色、服装风格等，便于 AI 绘画）
    - role: 角色类型（protagonist/antagonist/supporting/minor）
 
 要求：
@@ -39,9 +45,8 @@ const SYSTEM_PROMPT = `你是专业的漫画角色设计师。请根据故事背
 - 外貌描述要具体、可视化，便于AI绘画
 - 适合故事类型的角色设计
 - 必须包含至少一个主角(protagonist)
-- appearance字段使用英文描述，便于图片生成
 
-输出格式：严格JSON数组格式，不要包含任何其他文字
+输出格式（仅此 JSON，不要其他文字）：
 [
   {
     "name": "角色名",
@@ -103,12 +108,12 @@ export async function POST(
       : "";
 
     const userMessage = `
-故事标题：${story.title}
-故事类型：${story.genre || "未指定"}
-故事前提：${story.premise || "未提供"}
-${outlineText ? `故事大纲：${outlineText}` : ""}
+<story_title>${story.title}</story_title>
+<story_genre>${story.genre || "未指定"}</story_genre>
+<story_premise>${story.premise || "未提供"}</story_premise>
+${outlineText ? `<story_outline>${outlineText}</story_outline>` : ""}
 
-请生成 ${characterCount} 个角色。`;
+请生成 ${characterCount} 个角色，只输出上方格式的 JSON 数组，不要任何解释。`;
 
     // Step 1: Call LLM to generate character descriptions
     console.log("[generate-characters] Calling LLM for character generation...");

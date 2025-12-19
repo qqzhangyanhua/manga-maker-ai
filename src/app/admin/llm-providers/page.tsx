@@ -12,14 +12,14 @@ import {
 } from "@/components/ui/select";
 import { Toaster } from "@/components/ui/toaster";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Database, ShieldCheck } from "lucide-react";
 import { useProviders } from "./hooks/useProviders";
 import { ProviderTypeInfo } from "./components/ProviderTypeInfo";
 import { ProviderTable } from "./components/ProviderTable";
 import { ProviderFormDialog } from "./components/ProviderFormDialog";
 import { DeleteProviderDialog } from "./components/DeleteProviderDialog";
 import type { Provider } from "./types";
-import { KNOWN_PROVIDER_TYPES } from "./types";
+import { KNOWN_PROVIDER_TYPES, getProviderTypeLabel } from "./types";
 
 const AdminLlmProvidersPage = () => {
   const { data: currentUser, isLoading: userLoading, error: userError } = useCurrentUser();
@@ -139,80 +139,92 @@ const AdminLlmProvidersPage = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-10 space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">模型配置管理</h1>
-        <p className="text-muted-foreground">
-          按 provider_type 归类的模型配置；调用前会按 type 查表并取优先级最高的记录。
-        </p>
-      </div>
-
-      <ProviderTypeInfo />
-
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="flex flex-col sm:flex-row gap-3 flex-1 w-full sm:w-auto">
-          <div className="relative flex-1 sm:max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="搜索 Type、Name、Model..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <Select value={statusFilter} onValueChange={(value: "all" | "enabled" | "disabled") => setStatusFilter(value)}>
-            <SelectTrigger className="w-full sm:w-[140px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部状态</SelectItem>
-              <SelectItem value="enabled">已启用</SelectItem>
-              <SelectItem value="disabled">已禁用</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部类型</SelectItem>
-              {uniqueTypes.map((type) => (
-                <SelectItem key={type} value={type}>
-                  {type}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+    <div className="min-h-screen halftone-pattern">
+      <div className="max-w-6xl mx-auto px-4 py-10 space-y-8">
+        <div className="relative">
+          <div className="absolute -left-4 -top-4 w-20 h-20 bg-blue-400 rounded-full blur-3xl opacity-20 animate-pulse" />
+          <h1 className="text-5xl font-bold mb-4 flex items-center gap-3 comic-title relative z-10">
+            <Database className="w-12 h-12 text-primary drop-shadow-md" />
+            模型配置管理
+          </h1>
+          <p className="text-xl text-muted-foreground font-medium pl-2 border-l-4 border-primary/50">
+            按 provider_type 归类的模型配置；调用前会按 type 查表并取优先级最高的记录。
+          </p>
         </div>
-        <Button onClick={handleAddNew} className="gap-2 w-full sm:w-auto">
-          <Plus className="h-4 w-4" />
-          新增配置
-        </Button>
+
+        <div className="p-1 comic-card bg-card">
+          <div className="p-4">
+            <ProviderTypeInfo />
+          </div>
+        </div>
+
+        <div className="p-5 comic-card bg-card space-y-6">
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+            <div className="flex flex-col sm:flex-row gap-3 flex-1 w-full sm:w-auto">
+              <div className="relative flex-1 sm:max-w-xs">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="搜索 Type、Name、Model..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={(value: "all" | "enabled" | "disabled") => setStatusFilter(value)}>
+                <SelectTrigger className="w-full sm:w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部状态</SelectItem>
+                  <SelectItem value="enabled">已启用</SelectItem>
+                  <SelectItem value="disabled">已禁用</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部类型</SelectItem>
+                  {uniqueTypes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {getProviderTypeLabel(type)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleAddNew} className="gap-2 w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+              <Plus className="h-4 w-4" />
+              新增配置
+            </Button>
+          </div>
+
+          <ProviderTable
+            providers={filteredProviders}
+            loading={loading}
+            onEdit={handleEdit}
+            onCopy={handleCopy}
+            onDelete={handleDelete}
+          />
+        </div>
+
+        <ProviderFormDialog
+          open={dialogOpen}
+          editingProvider={editingProvider}
+          saving={saving}
+          onOpenChange={setDialogOpen}
+          onSubmit={handleSubmit}
+        />
+
+        <DeleteProviderDialog
+          provider={deletingProvider}
+          onOpenChange={handleDeleteDialogOpenChange}
+          onConfirm={confirmDelete}
+        />
+
+        <Toaster />
       </div>
-
-      <ProviderTable
-        providers={filteredProviders}
-        loading={loading}
-        onEdit={handleEdit}
-        onCopy={handleCopy}
-        onDelete={handleDelete}
-      />
-
-      <ProviderFormDialog
-        open={dialogOpen}
-        editingProvider={editingProvider}
-        saving={saving}
-        onOpenChange={setDialogOpen}
-        onSubmit={handleSubmit}
-      />
-
-      <DeleteProviderDialog
-        provider={deletingProvider}
-        onOpenChange={handleDeleteDialogOpenChange}
-        onConfirm={confirmDelete}
-      />
-
-      <Toaster />
     </div>
   );
 };

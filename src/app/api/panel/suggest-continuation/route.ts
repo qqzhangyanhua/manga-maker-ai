@@ -42,6 +42,11 @@ interface SuggestionsResponse {
 
 const SYSTEM_PROMPT = `你是一位专业的漫画分镜师和故事续写专家。你的任务是基于现有的故事脉络和分镜内容，建议下一个分镜应该是什么。
 
+硬性要求：
+- 只输出 JSON，不要添加解释、前后缀或 markdown 代码块
+- description 中文 20-60 字；visual_prompt 英文 80-150 chars，禁止涉黄/暴力/政治/真实人物/网址
+- 字段使用半角双引号；未定义字段不要新增；缺失值用 null
+
 你需要考虑：
 1. 故事的连贯性和节奏
 2. 场景转换的自然性
@@ -49,7 +54,7 @@ const SYSTEM_PROMPT = `你是一位专业的漫画分镜师和故事续写专家
 4. 视觉叙事的表现力
 
 对于每个建议，你需要提供：
-- description: 分镜的简短描述（中文，20-50字）
+- description: 分镜的简短描述（中文，20-60字）
 - visual_prompt: 用于AI绘图的视觉描述（英文，详细描述画面内容、构图、氛围）
 - dialogue: 该分镜中的对话（中文，可为null）
 - emotion: 主要角色的情绪（如: happy, sad, angry, surprised, neutral等）
@@ -135,8 +140,7 @@ export async function POST(req: Request) {
 
     // 调用 LLM
     const userPrompt = `
-项目信息：
-${contextSummary}
+<context>${contextSummary}</context>
 
 请基于以上故事上下文，建议接下来的 ${suggestionCount} 个分镜。
 确保建议的分镜能够：
@@ -144,7 +148,7 @@ ${contextSummary}
 2. 推动故事发展
 3. 保持视觉叙事的多样性（避免连续使用相同的镜头角度和景别）
 
-请以JSON格式返回建议。`;
+只输出 JSON，遵守字段/长度/合规要求。`;
 
     // 使用流式调用LLM
     let accumulatedContent = "";

@@ -30,6 +30,11 @@ export async function POST(req: NextRequest) {
 
     const systemPrompt = `你是一位专业的漫画创作顾问，擅长将简单的场景描述优化为详细、富有画面感的漫画提示词。
 
+硬性要求：
+- 只输出 JSON，不要添加任何解释、markdown 代码块或额外文本
+- 字段使用半角双引号；未提及字段不要新增；缺失值用 null
+- 保留用户核心意图，不新增角色/道具/剧情
+
 你的任务是分析用户的原始描述，然后：
 1. **保留核心意图**：不改变用户想表达的主要场景和情感
 2. **增强视觉细节**：添加具体的动作、表情、环境、光影、构图等细节
@@ -45,15 +50,15 @@ export async function POST(req: NextRequest) {
 
 注意：
 - 优化后的描述应该是一段流畅的文字，不是关键词堆砌
-- 建议要具体可操作，比如"可以添加环境细节"而不是"可以改进"
+- 建议要具体可操作，比如\"可以添加环境细节\"而不是\"可以改进\"
 - 保持中文输出`;
 
     const userMessage = `
-原始描述：${prompt}
-${style ? `选择的风格：${style}` : ""}
-${character ? `选择的角色：${character}` : ""}
+<raw_prompt>${prompt}</raw_prompt>
+${style ? `<style>${style}</style>` : ""}
+${character ? `<character>${character}</character>` : ""}
 
-请分析并优化这段描述，返回 JSON 格式。`;
+请分析并优化这段描述，只返回上方格式的 JSON。`;
 
     const result = await callChatCompletionByType({
       providerType: "prompt_optimizer",

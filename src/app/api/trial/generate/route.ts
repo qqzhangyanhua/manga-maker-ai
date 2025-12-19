@@ -133,6 +133,10 @@ export async function POST(request: NextRequest) {
 
         const systemPrompt = `你是一个漫画分镜师。用户会给你一个故事想法，你需要将它转换为4格漫画的分镜描述。
 
+硬性要求：
+- 只输出 JSON 数组，不要添加解释、前后缀或 markdown 代码块
+- 每格描述中文 50-100 字，保持起承转合，禁止涉黄/暴力/政治/真实人物/网址
+
 要求：
 1. 每格描述要简洁明了，包含场景、角色动作和表情
 2. 4格要形成完整的叙事（起承转合）
@@ -157,7 +161,7 @@ export async function POST(request: NextRequest) {
           providerType: "story_generator",
           messages: [
             { role: "system", content: systemPrompt },
-            { role: "user", content: `故事想法：${prompt}\n漫画风格：${styleId}` },
+            { role: "user", content: `故事想法：<story>${prompt}</story>\n漫画风格：${styleId}` },
           ],
           temperature: 0.8,
           maxTokens: 1000,
