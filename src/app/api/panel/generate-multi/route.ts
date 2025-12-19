@@ -12,6 +12,7 @@ import { recordGenerationLog } from "@/lib/generation-log";
 interface RequestBody {
   panel_ids: string[];
   reference_image_urls?: string[];
+  style?: string;
 }
 
 /**
@@ -41,7 +42,7 @@ function buildMultiPanelPrompt(panels: Array<{
   emotion: string | null;
   camera_angle: string | null;
   shot_size: string | null;
-}>): string {
+}>, style?: string): string {
   // 每个分镜的描述
   const panelDescriptions = panels.map((panel, index) => {
     const position = `Panel ${index + 1}`;
@@ -73,7 +74,8 @@ function buildMultiPanelPrompt(panels: Array<{
   }).join("; ");
 
   // 组合完整提示词 - 不指定布局，让 AI 自己决定
-  return `Create a manga comic page with ${panels.length} panels arranged in the most appropriate layout. Panels content: ${panelDescriptions}. Style: manga/comic style, black and white or toned, professional panel arrangement with clear panel borders, seamless composition, high quality, detailed artwork. You decide the best layout (grid, staggered, or asymmetric) based on the content and flow of the story.`;
+  const stylePrompt = style ? `Style: ${style}` : "Style: manga/comic style, black and white or toned";
+  return `Create a manga comic page with ${panels.length} panels arranged in the most appropriate layout. Panels content: ${panelDescriptions}. ${stylePrompt}, professional panel arrangement with clear panel borders, seamless composition, high quality, detailed artwork. You decide the best layout (grid, staggered, or asymmetric) based on the content and flow of the story.`;
 }
 
 export async function POST(request: NextRequest) {
@@ -95,9 +97,8 @@ export async function POST(request: NextRequest) {
     }
     userId = payload.userId;
 
-    // 解析请求体
     const body = (await request.json()) as RequestBody;
-    const { panel_ids, reference_image_urls = [] } = body;
+    const { panel_ids, reference_image_urls = [], style } = body;
 
     if (!panel_ids || !Array.isArray(panel_ids) || panel_ids.length < 2 || panel_ids.length > 6) {
       return NextResponse.json(
@@ -171,7 +172,7 @@ export async function POST(request: NextRequest) {
     const dimensions = getImageDimensions(panels.length);
 
     // 构建多格提示词（AI 自己决定布局）
-    const multiPrompt = buildMultiPanelPrompt(panels);
+    const multiPrompt = buildMultiPanelPrompt(panels, style);
 
     console.log(`[MultiPanelGenerate] 生成 ${panels.length} 格图片:`, {
       dimensions: `${dimensions.width}x${dimensions.height}`,

@@ -14,9 +14,16 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Sparkles, CheckCircle2, AlertCircle, Image as ImageIcon, X } from "lucide-react";
+import { Loader2, Sparkles, CheckCircle2, AlertCircle, Image as ImageIcon, X, Palette } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ReferenceImageSelector } from "./ReferenceImageSelector";
 import type { Panel } from "../types/script-editor.types";
@@ -27,6 +34,16 @@ interface ReferenceImage {
   label: string;
   source: string;
 }
+
+const STYLE_OPTIONS = [
+  { id: "manga_bw", label: "日漫黑白 (Manga B&W)", value: "Japanese Manga style, black and white, high contrast, screentones" },
+  { id: "manga_color", label: "日漫彩色 (Manga Color)", value: "Japanese Manga style, full color, vibrant" },
+  { id: "webtoon", label: "韩漫 (Webtoon)", value: "Webtoon style, vertical scrolling format aesthetics, digital color, clean lines" },
+  { id: "american", label: "美漫 (American Comic)", value: "American Comic Book style, bold lines, dynamic coloring, western comics" },
+  { id: "sketch", label: "素描 (Sketch)", value: "Rough sketch style, pencil lines, loose, artistic" },
+  { id: "realistic", label: "写实 (Realistic)", value: "Realistic style, detailed shading, cinematic lighting" },
+  { id: "watercolor", label: "水彩 (Watercolor)", value: "Watercolor style, soft edges, artistic, painterly" },
+];
 
 interface MultiPanelGenerateDialogProps {
   open: boolean;
@@ -46,6 +63,7 @@ export function MultiPanelGenerateDialog({
   const { toast } = useToast();
   const [selectedPanelIds, setSelectedPanelIds] = useState<string[]>([]);
   const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
+  const [selectedStyle, setSelectedStyle] = useState<string>("");
   const [referenceSelectorOpen, setReferenceSelectorOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -74,6 +92,7 @@ export function MultiPanelGenerateDialog({
     if (open) {
       setSelectedPanelIds([]);
       setReferenceImages([]);
+      setSelectedStyle("");
       setIsGenerating(false);
       setProgress(0);
       setGeneratedImageUrl(null);
@@ -136,6 +155,7 @@ export function MultiPanelGenerateDialog({
         body: JSON.stringify({
           panel_ids: selectedPanelIds,
           reference_image_urls: referenceImages.map(img => img.url),
+          style: selectedStyle ? STYLE_OPTIONS.find(s => s.id === selectedStyle)?.value : undefined,
         }),
       });
 
@@ -192,6 +212,27 @@ export function MultiPanelGenerateDialog({
             <Button variant="ghost" size="sm" onClick={toggleAll}>
               {selectedPanelIds.length === panels.length ? "取消全选" : "全选"}
             </Button>
+          </div>
+
+          {/* 风格选择 */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">生成风格 (可选)</label>
+            <Select value={selectedStyle} onValueChange={setSelectedStyle}>
+              <SelectTrigger className="w-full">
+                <div className="flex items-center gap-2">
+                  <Palette className="w-4 h-4 text-muted-foreground" />
+                  <SelectValue placeholder="选择生成风格 (默认 AI 自动决定)" />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">默认 (AI 自动决定)</SelectItem>
+                {STYLE_OPTIONS.map((style) => (
+                  <SelectItem key={style.id} value={style.id}>
+                    {style.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* 参考图选择 */}
