@@ -6,6 +6,7 @@ import { callImageGenerationByType } from "@/lib/image-generation";
 import { assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
 import { logInfo, logError } from "@/lib/api-logger";
+import { uploadBase64Image } from "@/lib/upload-helpers";
 
 /**
  * POST /api/character/generate-from-style
@@ -154,13 +155,33 @@ export async function POST(req: Request) {
         throw new Error(result.error || "图像生成失败");
       }
 
-      imageUrl = result.images[0]; // base64 format
+      const base64Image = result.images[0]; // base64 format
 
       logInfo("Image generation completed", {
         endpoint: "/api/character/generate-from-style",
         userId,
         durationMs: Date.now() - startedAt,
       });
+
+      // Step 3: Upload image to MinIO
+      logInfo("Starting image upload to MinIO", { endpoint: "/api/character/generate-from-style", userId });
+
+      try {
+        const timestamp = Date.now();
+        const randomStr = Math.random().toString(36).substring(2, 8);
+        const filename = `character_${timestamp}_${randomStr}.png`;
+
+        imageUrl = await uploadBase64Image(base64Image, filename);
+
+        logInfo("Image uploaded to MinIO", {
+          endpoint: "/api/character/generate-from-style",
+          userId,
+          imageUrl,
+        });
+      } catch (uploadError) {
+        logError("MinIO upload failed", uploadError, { endpoint: "/api/character/generate-from-style", userId });
+        throw new Error("图片上传失败");
+      }
     } catch (error) {
       logError("Image generation failed", error, { endpoint: "/api/character/generate-from-style", userId });
 
@@ -202,7 +223,7 @@ export async function POST(req: Request) {
       character: {
         name: characterInfo.name,
         description: characterInfo.description,
-        image_url: imageUrl, // base64 format
+        image_url: imageUrl, // MinIO URL format
         prompt: characterInfo.prompt,
       },
       usage: usageSnapshot,

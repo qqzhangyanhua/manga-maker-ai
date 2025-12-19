@@ -49,7 +49,7 @@ const CreateCharacterDialog = ({
   // AI generation states
   const [stylePrompt, setStylePrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedImageBase64, setGeneratedImageBase64] = useState<string>("");
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string>("");
 
   // Comic style selection
   const [styles, setStyles] = useState<ComicStyle[]>([]);
@@ -101,19 +101,11 @@ const CreateCharacterDialog = ({
         formData.append("comic_style_id", selectedStyleId);
       }
 
-      // Handle AI-generated image (base64)
-      if (createMode === "ai" && generatedImageBase64) {
+      // Handle AI-generated image (MinIO URL)
+      if (createMode === "ai" && generatedImageUrl) {
         setUploadProgress("正在保存 AI 生成的角色...");
-        // Convert base64 to blob and add to formData
-        const base64Data = generatedImageBase64.replace(/^data:image\/\w+;base64,/, "");
-        const binaryData = atob(base64Data);
-        const arrayBuffer = new Uint8Array(binaryData.length);
-        for (let i = 0; i < binaryData.length; i++) {
-          arrayBuffer[i] = binaryData.charCodeAt(i);
-        }
-        const blob = new Blob([arrayBuffer], { type: "image/png" });
-        const file = new File([blob], "ai-generated.png", { type: "image/png" });
-        formData.append("images[0]", file);
+        // Use the MinIO URL directly instead of re-uploading
+        formData.append("ai_generated_image_url", generatedImageUrl);
       }
       // Handle manual uploaded images
       else if (imageFiles.length > 0) {
@@ -150,7 +142,7 @@ const CreateCharacterDialog = ({
       setDescription("");
       setImageFiles([]);
       setStylePrompt("");
-      setGeneratedImageBase64("");
+      setGeneratedImageUrl("");
       setSelectedStyleId("__none__");
       setUploadProgress("");
       onOpenChange(false);
@@ -206,7 +198,7 @@ const CreateCharacterDialog = ({
       // Fill form with generated data
       setName(result.character.name);
       setDescription(result.character.description);
-      setGeneratedImageBase64(result.character.image_url);
+      setGeneratedImageUrl(result.character.image_url);
 
       toast({
         title: "角色生成成功",
@@ -232,7 +224,7 @@ const CreateCharacterDialog = ({
       setDescription("");
       setImageFiles([]);
       setStylePrompt("");
-      setGeneratedImageBase64("");
+      setGeneratedImageUrl("");
       setSelectedStyleId("__none__");
       setUploadProgress("");
       setError("");
@@ -485,12 +477,12 @@ const CreateCharacterDialog = ({
               </Button>
 
               {/* Generated Preview */}
-              {generatedImageBase64 && (
+              {generatedImageUrl && (
                 <div className="space-y-4 pt-4 border-t border-border">
                   <Label className="text-base font-semibold">生成预览</Label>
                   <div className="rounded-lg overflow-hidden border border-border">
                     <img
-                      src={generatedImageBase64}
+                      src={generatedImageUrl}
                       alt="AI 生成的角色"
                       className="w-full h-auto"
                     />
@@ -541,7 +533,7 @@ const CreateCharacterDialog = ({
               )}
 
               {/* Save Button (only shown after generation) */}
-              {generatedImageBase64 && (
+              {generatedImageUrl && (
                 <DialogFooter className="gap-2 sm:gap-0">
                   <Button
                     type="button"

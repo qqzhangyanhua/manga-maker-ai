@@ -97,6 +97,7 @@ export async function POST(req: Request) {
       const base_prompt = formData.get("base_prompt") as string | null;
       const tags = formData.get("tags") as string | null;
       const comic_style_id = formData.get("comic_style_id") as string | null;
+      const ai_generated_image_url = formData.get("ai_generated_image_url") as string | null;
 
       if (!name || !name.trim()) {
         return NextResponse.json({ error: "角色名称不能为空" }, { status: 400 });
@@ -147,35 +148,42 @@ export async function POST(req: Request) {
       let baseImageUrl: string | null = null;
       const uploadedImages: Array<{ url: string; type: string }> = [];
 
-      // Upload images to MinIO
-      for (let i = 0; i < images.length; i++) {
-        const file = images[i];
-        
-        // Validate image
-        const validation = validateImageFile(file);
-        if (!validation.valid) {
-          console.warn(`Skipping invalid image ${i + 1}:`, validation.error);
-          continue;
-        }
+      // Use AI-generated image URL if provided
+      if (ai_generated_image_url) {
+        baseImageUrl = ai_generated_image_url;
+        uploadedImages.push({ url: ai_generated_image_url, type: "base" });
+      }
+      // Otherwise upload images to MinIO
+      else if (images.length > 0) {
+        for (let i = 0; i < images.length; i++) {
+          const file = images[i];
 
-        // Upload to MinIO
-        const type = i === 0 ? "base" : "reference";
-        const uploadResult = await uploadImageToMinio(
-          file,
-          payload.userId,
-          character.id,
-          type
-        );
-
-        if (uploadResult.success && uploadResult.url) {
-          uploadedImages.push({ url: uploadResult.url, type });
-          
-          // First image becomes base_image_url
-          if (i === 0) {
-            baseImageUrl = uploadResult.url;
+          // Validate image
+          const validation = validateImageFile(file);
+          if (!validation.valid) {
+            console.warn(`Skipping invalid image ${i + 1}:`, validation.error);
+            continue;
           }
-        } else {
-          console.warn(`Failed to upload image ${i + 1}:`, uploadResult.error);
+
+          // Upload to MinIO
+          const type = i === 0 ? "base" : "reference";
+          const uploadResult = await uploadImageToMinio(
+            file,
+            payload.userId,
+            character.id,
+            type
+          );
+
+          if (uploadResult.success && uploadResult.url) {
+            uploadedImages.push({ url: uploadResult.url, type });
+
+            // First image becomes base_image_url
+            if (i === 0) {
+              baseImageUrl = uploadResult.url;
+            }
+          } else {
+            console.warn(`Failed to upload image ${i + 1}:`, uploadResult.error);
+          }
         }
       }
 

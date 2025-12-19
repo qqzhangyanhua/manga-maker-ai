@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const AdminHomePage = () => {
   const { data: currentUser, isLoading, error } = useCurrentUser();
@@ -62,274 +63,331 @@ const AdminHomePage = () => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-10 space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
-          <ShieldCheck className="w-7 h-7" />
-          管理后台
-        </h1>
-        <p className="text-muted-foreground">
-          管理员功能导航。根据权限进入对应的配置页面。
-        </p>
-      </div>
+    <div className="min-h-screen halftone-pattern">
+      <div className="max-w-5xl mx-auto px-4 py-10 space-y-12">
+        <div className="relative">
+          <div className="absolute right-0 top-0 z-20">
+            <ThemeToggle />
+          </div>
+          <div className="absolute -left-4 -top-4 w-20 h-20 bg-yellow-400 rounded-full blur-3xl opacity-20 animate-pulse" />
+          <h1 className="text-5xl font-bold mb-4 flex items-center gap-3 comic-title relative z-10">
+            <ShieldCheck className="w-12 h-12 text-primary drop-shadow-md" />
+            管理后台
+          </h1>
+          <p className="text-xl text-muted-foreground font-medium pl-2 border-l-4 border-primary/50">
+            欢迎回来，指挥官！这里是您的漫画创作指挥中心。
+          </p>
+        </div>
 
-      {/* 系统配置模块 */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4">系统配置</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
-                <Database className="w-5 h-5" />
-              管理模型配置
+        {/* 系统配置模块 - 蓝色科技风 */}
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold flex items-center gap-2 text-blue-500">
+            <span className="w-2 h-8 bg-blue-500 rounded-full inline-block" />
+            系统配置 System
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+              <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-lg font-bold group-hover:text-blue-500 transition-colors">
+                    <Database className="w-6 h-6 text-blue-500" />
+                    模型配置
+                  </div>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    配置 AI 核心引擎。管理 provider_type、base_url 及模型优先级。
+                  </p>
+                </div>
+                <Link href="/admin/llm-providers">
+                  <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    进入 ->
+                  </Button>
+                </Link>
+              </div>
             </div>
-            <p className="text-muted-foreground text-sm">
-              配置 provider_type 对应的模型、base_url、优先级、启用状态。
-            </p>
-          </div>
-          <Link href="/admin/llm-providers">
-            <Button variant="outline" size="sm">
-              进入
-            </Button>
-          </Link>
-        </div>
-        <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
-              <Palette className="w-5 h-5" />
-              漫画风格管理
-            </div>
-            <p className="text-muted-foreground text-sm">
-              管理首页展示的漫画风格，包括新增、编辑、排序和启用/禁用。
-            </p>
-          </div>
-          <Link href="/admin/comic-styles">
-            <Button variant="outline" size="sm">
-              进入
-            </Button>
-          </Link>
-        </div>
-        <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
-              <BookOpen className="w-5 h-5" />
-              故事模板管理
-            </div>
-            <p className="text-muted-foreground text-sm">
-              管理故事生成模板，支持新增、编辑系统模板和用户模板。
-            </p>
-          </div>
-          <Link href="/admin/story-templates">
-            <Button variant="outline" size="sm">
-              进入
-            </Button>
-          </Link>
-        </div>
-        <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
-              <LayoutTemplate className="w-5 h-5" />
-              分镜模板管理
-            </div>
-            <p className="text-muted-foreground text-sm">
-              管理分镜模板，支持新增、编辑官方模板和用户模板。
-            </p>
-          </div>
-          <Link href="/admin/panel-templates">
-            <Button variant="outline" size="sm">
-              进入
-            </Button>
-          </Link>
-        </div>
-        <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
-              <Sparkles className="w-5 h-5" />
-              角色库管理
-            </div>
-            <p className="text-muted-foreground text-sm">
-              查看并管理所有用户创建的角色，支持增删改查与状态维护。
-            </p>
-          </div>
-          <Link href="/admin/characters">
-            <Button variant="outline" size="sm">
-              进入
-            </Button>
-          </Link>
-        </div>
-        <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
-              <Users className="w-5 h-5" />
-              用户管理
-            </div>
-            <p className="text-muted-foreground text-sm">
-              手动新增/编辑/封禁/删除用户，免验证码创建。
-            </p>
-          </div>
-          <Link href="/admin/users">
-            <Button variant="outline" size="sm">
-              进入
-            </Button>
-          </Link>
-        </div>
-        <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
-              <BarChart3 className="w-5 h-5" />
-              用量与日志
-            </div>
-            <p className="text-muted-foreground text-sm">
-              查看每日配额使用与生成日志，支持按用户筛选与限制条数。
-            </p>
-          </div>
-          <Link href="/admin/usage">
-            <Button variant="outline" size="sm">
-              进入
-            </Button>
-          </Link>
-        </div>
-        </div>
-      </div>
 
-      {/* 运营监控模块 */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4">运营监控</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
-                <FileText className="w-5 h-5" />
-                生成日志
+            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+              <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-lg font-bold group-hover:text-blue-500 transition-colors">
+                    <Palette className="w-6 h-6 text-blue-500" />
+                    漫画风格
+                  </div>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    定义视觉基调。管理首页展示的漫画风格与排序。
+                  </p>
+                </div>
+                <Link href="/admin/comic-styles">
+                  <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    进入 ->
+                  </Button>
+                </Link>
               </div>
-              <p className="text-muted-foreground text-sm">
-                监控所有 AI 生成调用，查看请求/响应详情、成功率和耗时统计。
-              </p>
             </div>
-            <Link href="/admin/generation-logs">
-              <Button variant="outline" size="sm">
-                进入
-              </Button>
-            </Link>
-          </div>
-          <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
-                <ImageIcon className="w-5 h-5" />
-                生成图片
+
+            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+              <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-lg font-bold group-hover:text-blue-500 transition-colors">
+                    <BookOpen className="w-6 h-6 text-blue-500" />
+                    故事模板
+                  </div>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    创意蓝图。管理官方和用户的故事生成模板。
+                  </p>
+                </div>
+                <Link href="/admin/story-templates">
+                  <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    进入 ->
+                  </Button>
+                </Link>
               </div>
-              <p className="text-muted-foreground text-sm">
-                审核管理所有 AI 生成的图片，支持批量删除和详情查看。
-              </p>
             </div>
-            <Link href="/admin/generated-images">
-              <Button variant="outline" size="sm">
-                进入
-              </Button>
-            </Link>
-          </div>
-          <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
-                <GitBranch className="w-5 h-5" />
-                工作流监控
+
+            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+              <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-lg font-bold group-hover:text-blue-500 transition-colors">
+                    <LayoutTemplate className="w-6 h-6 text-blue-500" />
+                    分镜模板
+                  </div>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    画面构图。管理分镜布局模板，掌控叙事节奏。
+                  </p>
+                </div>
+                <Link href="/admin/panel-templates">
+                  <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    进入 ->
+                  </Button>
+                </Link>
               </div>
-              <p className="text-muted-foreground text-sm">
-                查看自动化工作流执行状态，支持取消和重试操作。
-              </p>
             </div>
-            <Link href="/admin/workflows">
-              <Button variant="outline" size="sm">
-                进入
-              </Button>
-            </Link>
-          </div>
-          <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
-                <ListTodo className="w-5 h-5" />
-                生成任务
+
+            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+              <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-lg font-bold group-hover:text-blue-500 transition-colors">
+                    <Sparkles className="w-6 h-6 text-blue-500" />
+                    角色库
+                  </div>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    演员阵容。查看所有用户创建的角色与设定。
+                  </p>
+                </div>
+                <Link href="/admin/characters">
+                  <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    进入 ->
+                  </Button>
+                </Link>
               </div>
-              <p className="text-muted-foreground text-sm">
-                监控批量图片生成任务队列，查看进度和取消任务。
-              </p>
             </div>
-            <Link href="/admin/generation-tasks">
-              <Button variant="outline" size="sm">
-                进入
-              </Button>
-            </Link>
+
+            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+              <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-lg font-bold group-hover:text-blue-500 transition-colors">
+                    <Users className="w-6 h-6 text-blue-500" />
+                    用户管理
+                  </div>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    用户名单。管理用户权限、封禁与免验证创建。
+                  </p>
+                </div>
+                <Link href="/admin/users">
+                  <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    进入 ->
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+              <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-lg font-bold group-hover:text-blue-500 transition-colors">
+                    <BarChart3 className="w-6 h-6 text-blue-500" />
+                    用量与日志
+                  </div>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    能源监控。查看每日配额消耗与详细系统日志。
+                  </p>
+                </div>
+                <Link href="/admin/usage">
+                  <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    进入 ->
+                  </Button>
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* 业务数据管理 */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4">业务数据</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
-                <Map className="w-5 h-5" />
-                场景管理
+        {/* 运营监控模块 - 紫色神秘风 */}
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold flex items-center gap-2 text-purple-500">
+            <span className="w-2 h-8 bg-purple-500 rounded-full inline-block" />
+            运营监控 Operations
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+              <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-lg font-bold group-hover:text-purple-500 transition-colors">
+                    <FileText className="w-6 h-6 text-purple-500" />
+                    生成日志
+                  </div>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    核心记录。监控所有 AI 生成调用的请求与响应详情。
+                  </p>
+                </div>
+                <Link href="/admin/generation-logs">
+                  <Button size="sm" className="bg-purple-500 hover:bg-purple-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    进入 ->
+                  </Button>
+                </Link>
               </div>
-              <p className="text-muted-foreground text-sm">
-                管理场景库，包括室内、室外、城市、自然等各类场景资源。
-              </p>
             </div>
-            <Link href="/admin/scenes">
-              <Button variant="outline" size="sm">
-                进入
-              </Button>
-            </Link>
+
+            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+              <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-lg font-bold group-hover:text-purple-500 transition-colors">
+                    <ImageIcon className="w-6 h-6 text-purple-500" />
+                    图片画廊
+                  </div>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    成品审核。管理所有 AI 生成的图片资源。
+                  </p>
+                </div>
+                <Link href="/admin/generated-images">
+                  <Button size="sm" className="bg-purple-500 hover:bg-purple-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    进入 ->
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+              <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-lg font-bold group-hover:text-purple-500 transition-colors">
+                    <GitBranch className="w-6 h-6 text-purple-500" />
+                    工作流监控
+                  </div>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    流水线。查看自动化工作流执行状态与干预。
+                  </p>
+                </div>
+                <Link href="/admin/workflows">
+                  <Button size="sm" className="bg-purple-500 hover:bg-purple-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    进入 ->
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+              <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-lg font-bold group-hover:text-purple-500 transition-colors">
+                    <ListTodo className="w-6 h-6 text-purple-500" />
+                    任务队列
+                  </div>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    生产计划。监控批量图片生成任务的进度。
+                  </p>
+                </div>
+                <Link href="/admin/generation-tasks">
+                  <Button size="sm" className="bg-purple-500 hover:bg-purple-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    进入 ->
+                  </Button>
+                </Link>
+              </div>
+            </div>
           </div>
-          <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
-                <BookOpen className="w-5 h-5" />
-                故事管理
+        </div>
+
+        {/* 业务数据管理 - 橙色活力风 */}
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold flex items-center gap-2 text-orange-500">
+            <span className="w-2 h-8 bg-orange-500 rounded-full inline-block" />
+            业务数据 Business
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+              <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-lg font-bold group-hover:text-orange-500 transition-colors">
+                    <Map className="w-6 h-6 text-orange-500" />
+                    场景库
+                  </div>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    取景地。管理室内、室外、城市等场景资源。
+                  </p>
+                </div>
+                <Link href="/admin/scenes">
+                  <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    进入 ->
+                  </Button>
+                </Link>
               </div>
-              <p className="text-muted-foreground text-sm">
-                查看和管理用户创建的故事，包括大纲和脚本内容。
-              </p>
             </div>
-            <Link href="/admin/stories">
-              <Button variant="outline" size="sm">
-                进入
-              </Button>
-            </Link>
-          </div>
-          <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
-                <FolderKanban className="w-5 h-5" />
-                项目管理
+
+            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+              <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-lg font-bold group-hover:text-orange-500 transition-colors">
+                    <BookOpen className="w-6 h-6 text-orange-500" />
+                    故事数据
+                  </div>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    剧本库。查看和管理用户创建的精彩故事。
+                  </p>
+                </div>
+                <Link href="/admin/stories">
+                  <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    进入 ->
+                  </Button>
+                </Link>
               </div>
-              <p className="text-muted-foreground text-sm">
-                管理用户的漫画项目，查看面板数量和项目状态。
-              </p>
             </div>
-            <Link href="/admin/projects">
-              <Button variant="outline" size="sm">
-                进入
-              </Button>
-            </Link>
-          </div>
-          <div className="p-4 border border-border rounded-lg bg-card flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-1 text-lg font-semibold">
-                <Tags className="w-5 h-5" />
-                标签管理
+
+            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+              <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-lg font-bold group-hover:text-orange-500 transition-colors">
+                    <FolderKanban className="w-6 h-6 text-orange-500" />
+                    项目管理
+                  </div>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    作品集。管理用户的漫画项目与连载状态。
+                  </p>
+                </div>
+                <Link href="/admin/projects">
+                  <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    进入 ->
+                  </Button>
+                </Link>
               </div>
-              <p className="text-muted-foreground text-sm">
-                管理系统标签和用户标签，支持按类型和分类筛选。
-              </p>
             </div>
-            <Link href="/admin/tags">
-              <Button variant="outline" size="sm">
-                进入
-              </Button>
-            </Link>
+
+            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+              <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-lg font-bold group-hover:text-orange-500 transition-colors">
+                    <Tags className="w-6 h-6 text-orange-500" />
+                    标签管理
+                  </div>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    关键词。管理系统标签体系与用户分类。
+                  </p>
+                </div>
+                <Link href="/admin/tags">
+                  <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    进入 ->
+                  </Button>
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </div>

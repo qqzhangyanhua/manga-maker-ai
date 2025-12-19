@@ -6,7 +6,69 @@
 
 @layer base {
   :root {
-    /* 深色工业风 - 统一使用深色主题 */
+    /* Light Mode Defaults */
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 25 95% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 25 95% 53%;
+
+    --radius: 0.5rem;
+
+    /* Comic Colors (Shared) */
+    --comic-red: 358 85% 55%;
+    --comic-yellow: 45 100% 55%;
+    --comic-blue: 195 100% 50%;
+    --comic-purple: 280 80% 60%;
+    --comic-green: 140 70% 45%;
+    --comic-orange: 25 95% 53%;
+    --comic-pink: 330 85% 60%;
+
+    /* Gradients (Light) */
+    --gradient-hero: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--comic-orange)) 50%, hsl(45 100% 55%) 100%);
+    --gradient-card: linear-gradient(145deg, #ffffff 0%, #f3f4f6 100%);
+    --gradient-glow: radial-gradient(circle at center, hsl(var(--primary) / 0.2) 0%, transparent 70%);
+
+    /* Shadows (Light) */
+    --shadow-comic: 4px 4px 0px hsl(var(--foreground));
+    --shadow-comic-sm: 2px 2px 0px hsl(var(--foreground));
+    --shadow-glow: 0 0 30px hsl(var(--primary) / 0.3);
+    --shadow-card: 0 10px 40px -10px rgba(0,0,0,0.1);
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 25 95% 53%;
+  }
+
+  .dark {
+    /* Dark Mode Overrides (Original Values) */
     --background: 222 47% 4%;
     --foreground: 210 40% 98%;
 
@@ -35,25 +97,11 @@
     --input: 240 6% 20%;
     --ring: 25 95% 53%;
 
-    --radius: 0.5rem;
-
-    /* 工业风配色 */
-    --comic-red: 358 85% 55%;
-    --comic-yellow: 45 100% 55%;
-    --comic-blue: 195 100% 50%;
-    --comic-purple: 280 80% 60%;
-    --comic-green: 140 70% 45%;
-    --comic-orange: 25 95% 53%;
-    --comic-pink: 330 85% 60%;
-
-    /* Gradients */
-    --gradient-hero: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--comic-orange)) 50%, hsl(45 100% 55%) 100%);
+    /* Gradients (Dark) */
     --gradient-card: linear-gradient(145deg, hsl(var(--card)) 0%, hsl(240 6% 8%) 100%);
     --gradient-glow: radial-gradient(circle at center, hsl(var(--primary) / 0.3) 0%, transparent 70%);
-
-    /* Shadows */
-    --shadow-comic: 4px 4px 0px hsl(var(--foreground));
-    --shadow-comic-sm: 2px 2px 0px hsl(var(--foreground));
+    
+    /* Shadows (Dark) */
     --shadow-glow: 0 0 30px hsl(var(--primary) / 0.5);
     --shadow-card: 0 10px 40px -10px hsl(0 0% 0% / 0.5);
 
