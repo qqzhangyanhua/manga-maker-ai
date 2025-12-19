@@ -65,9 +65,10 @@ interface StoryGeneratorProps {
     onDraftChange?: (data: { premise: string; genre?: string; title?: string }) => void;
     initialPremise?: string;
     isGeneratingIdea?: boolean;
+    selectedStyleKey?: string | null;
 }
 
-export function StoryGenerator({ onStoryGenerated, onDraftChange, initialPremise, isGeneratingIdea }: StoryGeneratorProps) {
+export function StoryGenerator({ onStoryGenerated, onDraftChange, initialPremise, isGeneratingIdea, selectedStyleKey }: StoryGeneratorProps) {
     const router = useRouter();
     const { toast } = useToast();
     const [step, setStep] = useState<"input" | "template" | "generating" | "result">("input");
@@ -200,6 +201,7 @@ export function StoryGenerator({ onStoryGenerated, onDraftChange, initialPremise
                     characterCount: parseInt(characterCount) || undefined,
                     length,
                     templateId: selectedTemplate?.id,
+                    styleKey: selectedStyleKey || undefined,
                     saveToDb: false, // 草稿模式：不自动保存
                 }),
                 signal: abortController.signal,

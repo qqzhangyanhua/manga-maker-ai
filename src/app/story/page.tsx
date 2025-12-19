@@ -36,6 +36,18 @@ export default function StoryPage() {
     // History sidebar state
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
+    // Comic style state
+    const [comicStyles, setComicStyles] = useState<Array<{
+        id: string;
+        style_key: string;
+        name_zh: string;
+        name_en: string;
+        image_url: string;
+        tag_color: string;
+        description: string | null;
+    }>>([]);
+    const [selectedStyleKey, setSelectedStyleKey] = useState<string | null>(null);
+
     // Auto-save indicator state
     const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
     const [lastSavedTime, setLastSavedTime] = useState<number | null>(null);
@@ -49,6 +61,20 @@ export default function StoryPage() {
         status: "draft" | "generating" | "completed";
         outline?: any;
     } | null>(null);
+
+    // Fetch comic styles on mount
+    useEffect(() => {
+        async function fetchStyles() {
+            try {
+                const res = await fetch("/api/comic-styles");
+                const data = await res.json();
+                setComicStyles(data.data || []);
+            } catch (error) {
+                console.error("Failed to fetch comic styles:", error);
+            }
+        }
+        fetchStyles();
+    }, []);
 
     // Mouse tracking for spotlight effect
     const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -85,6 +111,9 @@ export default function StoryPage() {
             const response = await fetch("/api/story/generate-idea", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    styleKey: selectedStyleKey || undefined,
+                }),
                 signal: abortController.signal,
             });
 
@@ -134,15 +163,25 @@ export default function StoryPage() {
                             // Show toast on first chunk
                             if (!hasShownToast) {
                                 hasShownToast = true;
+                                const styleName = selectedStyleKey
+                                    ? comicStyles.find(s => s.style_key === selectedStyleKey)?.name_zh
+                                    : null;
                                 toast({
                                     title: "AI 正在生成创意",
-                                    description: "内容将实时显示在输入框中",
+                                    description: styleName
+                                        ? `将生成符合「${styleName}」风格的故事创意`
+                                        : "内容将实时显示在输入框中",
                                 });
                             }
                         } else if (data.type === "done") {
+                            const styleName = selectedStyleKey
+                                ? comicStyles.find(s => s.style_key === selectedStyleKey)?.name_zh
+                                : null;
                             toast({
                                 title: "创意已生成",
-                                description: "已自动填入故事创意输入框",
+                                description: styleName
+                                    ? `已生成符合「${styleName}」风格的创意`
+                                    : "已自动填入故事创意输入框",
                             });
                         } else if (data.type === "error") {
                             throw new Error(data.message || "生成失败");
@@ -171,7 +210,7 @@ export default function StoryPage() {
             setGeneratingIdea(false);
             abortControllerRef.current = null;
         }
-    }, [toast]);
+    }, [toast, selectedStyleKey, comicStyles]);
 
     // Auto-save effect with debounce
     useEffect(() => {
@@ -356,6 +395,66 @@ export default function StoryPage() {
                             </p>
                         </div>
 
+                        {/* 风格选择区 */}
+                        {comicStyles.length > 0 && (
+                            <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 backdrop-blur-md p-6 overflow-hidden shadow-lg">
+                                <div className="mb-4">
+                                    <h3 className="text-lg font-semibold text-white mb-2">画面风格</h3>
+                                    <p className="text-sm text-zinc-400">选择漫画风格，AI 将生成符合该风格特点的故事内容</p>
+                                </div>
+                                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                                    {comicStyles.map((style) => (
+                                        <button
+                                            key={style.id}
+                                            onClick={() => setSelectedStyleKey(
+                                                selectedStyleKey === style.style_key ? null : style.style_key
+                                            )}
+                                            className={cn(
+                                                "relative group overflow-hidden rounded-lg border-2 transition-all duration-300",
+                                                "hover:scale-105 hover:shadow-lg",
+                                                selectedStyleKey === style.style_key
+                                                    ? "border-orange-500 ring-2 ring-orange-500/50"
+                                                    : "border-zinc-700 hover:border-zinc-500"
+                                            )}
+                                        >
+                                            {/* Preview Image */}
+                                            <div className="aspect-[3/4] w-full overflow-hidden bg-zinc-800">
+                                                <img
+                                                    src={style.image_url}
+                                                    alt={style.name_zh}
+                                                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                                                />
+                                            </div>
+
+                                            {/* Style Info */}
+                                            <div className="p-2 bg-gradient-to-t from-zinc-900 to-transparent absolute bottom-0 left-0 right-0">
+                                                <div className="text-xs font-medium text-white text-center">
+                                                    {style.name_zh}
+                                                </div>
+                                                <div className="text-[10px] text-zinc-400 text-center">
+                                                    {style.name_en}
+                                                </div>
+                                            </div>
+
+                                            {/* Selected Indicator */}
+                                            {selectedStyleKey === style.style_key && (
+                                                <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center">
+                                                    <Check className="w-4 h-4 text-white" />
+                                                </div>
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                                {selectedStyleKey && (
+                                    <div className="mt-4 p-3 rounded-lg bg-orange-500/10 border border-orange-500/30">
+                                        <p className="text-sm text-orange-300">
+                                            已选择: {comicStyles.find(s => s.style_key === selectedStyleKey)?.name_zh}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {/* StoryGenerator 容器 */}
                         <div className="relative rounded-xl border border-zinc-700 bg-zinc-900/60 backdrop-blur-md p-8 overflow-hidden shadow-lg">
                             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
@@ -373,7 +472,13 @@ export default function StoryPage() {
                                     "group relative",
                                     generatingIdea && "animate-pulse cursor-not-allowed"
                                 )}
-                                title="没有创意？AI生成"
+                                title={
+                                    generatingIdea
+                                        ? "生成中..."
+                                        : selectedStyleKey
+                                            ? `AI生成${comicStyles.find(s => s.style_key === selectedStyleKey)?.name_zh}风格创意`
+                                            : "没有创意？AI随机生成"
+                                }
                             >
                                 <Lightbulb
                                     className={cn(
@@ -385,7 +490,11 @@ export default function StoryPage() {
                                 {/* Tooltip */}
                                 <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
                                     <div className="bg-zinc-800 text-white text-xs px-3 py-1.5 rounded-md whitespace-nowrap shadow-lg border border-zinc-700 relative">
-                                        {generatingIdea ? "生成中..." : "没有创意？AI生成"}
+                                        {generatingIdea
+                                            ? "生成中..."
+                                            : selectedStyleKey
+                                                ? `AI生成${comicStyles.find(s => s.style_key === selectedStyleKey)?.name_zh}风格创意`
+                                                : "没有创意？AI随机生成"}
                                         {/* Arrow */}
                                         <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full">
                                             <div className="w-0 h-0 border-t-4 border-b-4 border-r-4 border-transparent border-r-zinc-700" />
@@ -399,6 +508,7 @@ export default function StoryPage() {
                                 isGeneratingIdea={generatingIdea}
                                 onStoryGenerated={handleStoryGenerated}
                                 onDraftChange={handleDraftChange}
+                                selectedStyleKey={selectedStyleKey}
                             />
                         </div>
                     </div>

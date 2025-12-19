@@ -316,6 +316,9 @@ model ComicStyle {
   // Phase 3: Reverse relation for characters using this style
   characters Character[]
 
+  // Reverse relation for stories using this style
+  stories    Story[]
+
   @@index([enabled, sort_order], map: "idx_comic_styles_enabled_sort")
   @@map("comic_styles")
 }
@@ -420,6 +423,7 @@ model Story {
   outline         Json // Story outline: { acts: [...], scenes: [...] }
   characters      Json? // DEPRECATED: Use story_characters relation instead
   template_id     String?  @db.Uuid
+  comic_style_id  String?  @db.Uuid // FK to ComicStyle for visual style
   status          String   @default("draft") // draft/completed
   is_sample       Boolean  @default(false) // Sample project for new users
   sample_category String?  // beginner/intermediate/advanced
@@ -432,8 +436,12 @@ model Story {
   // Phase 2: Real character relationship
   story_characters StoryCharacter[]
 
+  // Comic style relationship
+  comic_style ComicStyle? @relation(fields: [comic_style_id], references: [id], onDelete: SetNull)
+
   @@index([user_id, status], map: "idx_stories_user_status")
   @@index([is_sample], map: "idx_stories_sample")
+  @@index([comic_style_id], map: "idx_stories_comic_style")
   @@map("stories")
 }
 

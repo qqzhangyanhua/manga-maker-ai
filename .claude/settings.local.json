@@ -60,7 +60,8 @@
       "Bash(npx prisma --version)",
       "Bash(pnpm type-check:story:*)",
       "Bash(xargs:*)",
-      "Bash(grep -l \"export async function POST\\|export async function GET\\|export async function PATCH\\|export async function DELETE\" \"D:\\AI\\manga-maker-ai\\src\\app\\api\"/**/*.ts)"
+      "Bash(grep -l \"export async function POST\\|export async function GET\\|export async function PATCH\\|export async function DELETE\" \"D:\\AI\\manga-maker-ai\\src\\app\\api\"/**/*.ts)",
+      "Bash(npx prisma generate)"
     ],
     "deny": [],
     "ask": []

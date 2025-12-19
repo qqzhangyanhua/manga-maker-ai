@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { callChatCompletionStreamByType } from "@/lib/llm-provider";
 import { logInfo, logError } from "@/lib/api-logger";
+import { prisma } from "@/lib/db";
 
 const IDEA_GENERATION_SYSTEM_PROMPT = `你是一位富有创意的故事创作顾问。
 
@@ -72,13 +73,24 @@ export async function POST(req: Request) {
                     }
                 }
 
-                // Parse request body for optional theme hint
+                // Parse request body for optional theme hint and style
                 let themeHint = "";
+                let styleKey = "";
                 try {
                     const body = await req.json();
                     themeHint = body.themeHint || "";
+                    styleKey = body.styleKey || "";
                 } catch {
                     // Empty body is fine
+                }
+
+                // Query comic style if styleKey provided
+                let comicStyle: { prompt_prefix: string | null; name_zh: string } | null = null;
+                if (styleKey) {
+                    comicStyle = await prisma.comicStyle.findUnique({
+                        where: { style_key: styleKey },
+                        select: { prompt_prefix: true, name_zh: true },
+                    });
                 }
 
                 // Random theme selection if not provided
@@ -92,14 +104,24 @@ export async function POST(req: Request) {
 
                 const userPrompt = `请生成一个以"${selectedTheme}"为主题的故事创意。要确保创意新颖、引人入胜、适合视觉化呈现。`;
 
-                logInfo("Starting idea generation", { endpoint: "/api/story/generate-idea", userId: userId || "anonymous", theme: selectedTheme });
+                // Inject style prompt prefix if provided
+                const systemPrompt = comicStyle?.prompt_prefix
+                    ? `${comicStyle.prompt_prefix}\n\n${IDEA_GENERATION_SYSTEM_PROMPT}`
+                    : IDEA_GENERATION_SYSTEM_PROMPT;
+
+                logInfo("Starting idea generation", {
+                    endpoint: "/api/story/generate-idea",
+                    userId: userId || "anonymous",
+                    theme: selectedTheme,
+                    style: comicStyle?.name_zh || "随机"
+                });
 
                 // Call LLM with streaming
                 let accumulatedContent = "";
                 for await (const chunk of callChatCompletionStreamByType({
                     providerType: "story_generator",
                     messages: [
-                        { role: "system", content: IDEA_GENERATION_SYSTEM_PROMPT },
+                        { role: "system", content: systemPrompt },
                         { role: "user", content: userPrompt },
                     ],
                     temperature: 0.9,

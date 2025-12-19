@@ -107,17 +107,21 @@ ${JSON.stringify(outline, null, 2)}
       throw new Error("LLM返回的数据格式错误：缺少chapters数组");
     }
 
-    // Validate chapter structure
+    // Validate chapter structure and auto-assign chapter_order if missing
     const chapters = parsed.chapters as GeneratedChapter[];
-    for (const chapter of chapters) {
+    for (let i = 0; i < chapters.length; i++) {
+      const chapter = chapters[i];
+
       if (!chapter.title || typeof chapter.title !== "string") {
         throw new Error("章节缺少有效的标题");
       }
       if (!chapter.summary || typeof chapter.summary !== "string") {
         throw new Error(`章节"${chapter.title}"缺少梗概`);
       }
+
+      // Auto-assign chapter_order from array index if missing or invalid
       if (typeof chapter.chapter_order !== "number" || chapter.chapter_order < 1) {
-        throw new Error(`章节"${chapter.title}"的顺序号无效`);
+        chapter.chapter_order = i + 1;
       }
     }
 
@@ -181,17 +185,21 @@ ${JSON.stringify(outline, null, 2)}
       throw new Error("LLM返回的数据格式错误：缺少chapters数组");
     }
 
-    // Validate chapter structure
+    // Validate chapter structure and auto-assign chapter_order if missing
     const chapters = parsed.chapters as GeneratedChapter[];
-    for (const chapter of chapters) {
+    for (let i = 0; i < chapters.length; i++) {
+      const chapter = chapters[i];
+
       if (!chapter.title || typeof chapter.title !== "string") {
         throw new Error("章节缺少有效的标题");
       }
       if (!chapter.summary || typeof chapter.summary !== "string") {
         throw new Error(`章节"${chapter.title}"缺少梗概`);
       }
+
+      // Auto-assign chapter_order from array index if missing or invalid
       if (typeof chapter.chapter_order !== "number" || chapter.chapter_order < 1) {
-        throw new Error(`章节"${chapter.title}"的顺序号无效`);
+        chapter.chapter_order = i + 1;
       }
     }
 

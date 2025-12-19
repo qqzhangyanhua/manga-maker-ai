@@ -13,6 +13,7 @@ export interface StoryPremise {
     characterCount?: number;
     length?: StoryLength;
     templateId?: string;
+    stylePromptPrefix?: string;
 }
 
 export interface StoryCharacter {
@@ -270,7 +271,7 @@ export async function generateStoryOutlineStream(
     onChunk: (chunk: string) => void,
     userId?: string
 ): Promise<StoryOutline> {
-    const { premise: idea, genre, characterCount, length, templateId } = premise;
+    const { premise: idea, genre, characterCount, length, templateId, stylePromptPrefix } = premise;
 
     const userPrompt = `
 创意前提: ${idea}
@@ -283,12 +284,17 @@ ${templateId ? `- 使用模板ID: ${templateId}` : ""}
 
 请严格按照JSON格式输出完整的故事大纲。`;
 
+    // Inject style prompt prefix if provided
+    const systemPrompt = stylePromptPrefix
+        ? `${stylePromptPrefix}\n\n${STORY_GENERATION_SYSTEM_PROMPT}`
+        : STORY_GENERATION_SYSTEM_PROMPT;
+
     let accumulatedContent = "";
 
     for await (const chunk of callChatCompletionStreamByType({
         providerType: "story_generator",
         messages: [
-            { role: "system", content: STORY_GENERATION_SYSTEM_PROMPT },
+            { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
         temperature: 0.8,

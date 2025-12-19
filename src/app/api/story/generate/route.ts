@@ -69,6 +69,7 @@ export async function POST(req: Request) {
                     characterCount,
                     length,
                     templateId,
+                    styleKey,
                     saveToDb = true,
                 }: {
                     premise?: string;
@@ -76,6 +77,7 @@ export async function POST(req: Request) {
                     characterCount?: number;
                     length?: "short" | "medium" | "long";
                     templateId?: string;
+                    styleKey?: string;
                     saveToDb?: boolean;
                 } = body;
 
@@ -89,7 +91,19 @@ export async function POST(req: Request) {
                     return;
                 }
 
-                logInfo("Request validated", { endpoint: "/api/story/generate", userId, genre, length });
+                // Query comic style if styleKey provided
+                let comicStyle: { id: string; prompt_prefix: string | null } | null = null;
+                if (styleKey) {
+                    comicStyle = await prisma.comicStyle.findUnique({
+                        where: { style_key: styleKey },
+                        select: { id: true, prompt_prefix: true },
+                    });
+                    if (!comicStyle) {
+                        logInfo("Style not found", { endpoint: "/api/story/generate", userId, styleKey });
+                    }
+                }
+
+                logInfo("Request validated", { endpoint: "/api/story/generate", userId, genre, length, styleKey });
 
                 // Check quota
                 sendEvent(controller, {
@@ -128,7 +142,7 @@ export async function POST(req: Request) {
                     message: "AI 正在创作故事大纲...",
                 });
 
-                logInfo("Starting story generation", { endpoint: "/api/story/generate", userId, templateId });
+                logInfo("Starting story generation", { endpoint: "/api/story/generate", userId, templateId, styleKey });
 
                 let accumulatedChunks = "";
                 const outline = await generateStoryOutlineStream(
@@ -138,6 +152,7 @@ export async function POST(req: Request) {
                         characterCount,
                         length,
                         templateId,
+                        stylePromptPrefix: comicStyle?.prompt_prefix || undefined,
                     },
                     (chunk) => {
                         accumulatedChunks += chunk;
@@ -174,6 +189,7 @@ export async function POST(req: Request) {
                             outline: outline as any,
                             characters: outline.characters as any,
                             template_id: templateId || null,
+                            comic_style_id: comicStyle?.id || null,
                             status: "draft",
                         },
                     });

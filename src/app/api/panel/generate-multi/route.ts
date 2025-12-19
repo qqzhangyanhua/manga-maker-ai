@@ -16,11 +16,36 @@ interface RequestBody {
 }
 
 /**
+ * 中文镜头术语映射表
+ */
+const CAMERA_ANGLE_MAP: Record<string, string> = {
+  "俯视": "top-down view",
+  "仰视": "low-angle view",
+  "平视": "eye-level view",
+  "荷兰角": "dutch angle",
+};
+
+const SHOT_SIZE_MAP: Record<string, string> = {
+  "特写": "close-up",
+  "近景": "close shot",
+  "中景": "medium shot",
+  "全景": "full shot",
+  "远景": "long shot",
+};
+
+/**
+ * 转换中文镜头术语为英文
+ */
+function translateCameraTerm(term: string | null, map: Record<string, string>): string | null {
+  if (!term) return null;
+  return map[term] || term; // 如果已经是英文或未知术语，保持原样
+}
+
+/**
  * 获取合理的图片尺寸（基于分镜数量）
  */
 function getImageDimensions(count: number): { width: number; height: number } {
   // 根据分镜数量返回合理的画布尺寸
-  // AI 会在这个画布上自己决定如何排列分镜
   if (count <= 2) {
     return { width: 1024, height: 512 };  // 横向宽幅
   } else if (count <= 4) {
@@ -31,7 +56,30 @@ function getImageDimensions(count: number): { width: number; height: number } {
 }
 
 /**
- * 构建多格提示词（让 AI 自己决定布局）
+ * 获取明确的布局建议（根据分镜数量）
+ */
+function getLayoutHint(count: number): string {
+  if (count === 2) {
+    return "horizontal 2-panel layout";
+  } else if (count === 3) {
+    return "top-to-bottom 3-panel vertical progression";
+  } else if (count === 4) {
+    return "2x2 grid layout";
+  } else if (count === 5) {
+    return "mixed layout with larger top panel and 4 smaller bottom panels";
+  } else if (count === 6) {
+    return "3x2 grid layout or 2x3 grid layout";
+  }
+  return "appropriate multi-panel layout";
+}
+
+/**
+ * 构建优化的多格提示词
+ * 应用最佳实践：
+ * 1. 语言统一性 - 全英文术语
+ * 2. 角色一致性 - 全局角色定义
+ * 3. 布局控制 - 明确布局建议
+ * 4. 视觉隔离 - 强化边框描述
  */
 function buildMultiPanelPrompt(panels: Array<{
   panel_order: number;
@@ -43,7 +91,22 @@ function buildMultiPanelPrompt(panels: Array<{
   camera_angle: string | null;
   shot_size: string | null;
 }>, style?: string): string {
-  // 每个分镜的描述
+  // 1. 收集所有角色（用于全局定义）
+  const characters = new Set<string>();
+  panels.forEach(panel => {
+    if (panel.character_name) {
+      characters.add(panel.character_name);
+    }
+  });
+
+  // 2. 构建全局角色定义
+  let characterReference = "";
+  if (characters.size > 0) {
+    const characterList = Array.from(characters).join(", ");
+    characterReference = `[Character Reference] Main characters: ${characterList}. Maintain consistent appearance across all panels. `;
+  }
+
+  // 3. 构建每个分镜的描述（全英文）
   const panelDescriptions = panels.map((panel, index) => {
     const position = `Panel ${index + 1}`;
     const content = panel.visual_prompt || panel.prompt_used || panel.description || "empty panel";
@@ -60,22 +123,35 @@ function buildMultiPanelPrompt(panels: Array<{
       desc += `, emotion: ${panel.emotion}`;
     }
 
-    // 添加镜头角度
-    if (panel.camera_angle) {
-      desc += `, angle: ${panel.camera_angle}`;
+    // 添加镜头角度（转换为英文）
+    const angleEn = translateCameraTerm(panel.camera_angle, CAMERA_ANGLE_MAP);
+    if (angleEn) {
+      desc += `, angle: ${angleEn}`;
     }
 
-    // 添加景别
-    if (panel.shot_size) {
-      desc += `, shot: ${panel.shot_size}`;
+    // 添加景别（转换为英文）
+    const shotEn = translateCameraTerm(panel.shot_size, SHOT_SIZE_MAP);
+    if (shotEn) {
+      desc += `, shot: ${shotEn}`;
     }
 
     return desc;
   }).join("; ");
 
-  // 组合完整提示词 - 不指定布局，让 AI 自己决定
+  // 4. 获取明确的布局建议
+  const layoutHint = getLayoutHint(panels.length);
+
+  // 5. 构建风格描述
   const stylePrompt = style ? `Style: ${style}` : "Style: manga/comic style, black and white or toned";
-  return `Create a manga comic page with ${panels.length} panels arranged in the most appropriate layout. Panels content: ${panelDescriptions}. ${stylePrompt}, professional panel arrangement with clear panel borders, seamless composition, high quality, detailed artwork. You decide the best layout (grid, staggered, or asymmetric) based on the content and flow of the story.`;
+
+  // 6. 组合完整提示词
+  return [
+    characterReference,
+    `Create a manga comic page with ${panels.length} panels in ${layoutHint}.`,
+    `Panels content: ${panelDescriptions}.`,
+    `${stylePrompt}, professional panel arrangement, white gutters, distinct panel frames, clear panel borders, no bleeding between panels.`,
+    `Seamless composition, high quality, detailed artwork.`
+  ].join(" ").trim();
 }
 
 export async function POST(request: NextRequest) {
@@ -191,6 +267,7 @@ export async function POST(request: NextRequest) {
         width: dimensions.width,
         height: dimensions.height,
         referenceImageUrls: reference_image_urls,
+        options: { userId },
       });
 
       console.log(`[MultiPanelGenerate] 图片生成结果:`, {
