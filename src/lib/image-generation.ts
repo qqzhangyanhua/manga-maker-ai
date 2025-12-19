@@ -592,13 +592,15 @@ async function callComfyUIAPI(
  * @param providerType 提供商类型
  * @param referenceImageUrl 参考图URL（可选）
  * @param viewTypes 要生成的视图类型数组，默认生成全部三个视图
+ * @param userId 用户ID（可选，用于记录日志。注意：调用方应该已经扣除算力）
  * @returns 生成的视图图片（base64）和对应的提示词
  */
 export async function generateCharacterViews(
   characterDescription: string,
   providerType: string = "image_generation",
   referenceImageUrl?: string,
-  viewTypes: string[] = ['front', 'side', 'back']
+  viewTypes: string[] = ['front', 'side', 'back'],
+  userId?: string
 ): Promise<{
   views: Record<string, string>;
   prompts: Record<string, string>;
@@ -667,6 +669,7 @@ export async function generateCharacterViews(
   console.log('==================================\n');
 
   // 并行生成请求的视图
+  // 注意：如果调用方已经扣除算力，应该传递 skipCreditsCheck=true 避免重复扣除
   const generationPromises = requestedViews.map(viewType =>
     callImageGenerationByType({
       providerType,
@@ -677,6 +680,7 @@ export async function generateCharacterViews(
       steps: 25,
       cfg_scale: 7.5,
       referenceImageUrl,
+      options: userId ? { userId, skipCreditsCheck: true } : { skipCreditsCheck: true },
     }).then(result => ({ viewType, result }))
   );
 
@@ -699,12 +703,17 @@ export async function generateCharacterViews(
 
 /**
  * 生成三视图（保持向后兼容）
+ * @param characterDescription 角色描述
+ * @param providerType 提供商类型
+ * @param referenceImageUrl 参考图URL（可选）
+ * @param userId 用户ID（可选，用于记录日志。注意：调用方应该已经扣除算力）
  * @deprecated 建议使用 generateCharacterViews 以获得更灵活的控制
  */
 export async function generateThreeViews(
   characterDescription: string,
   providerType: string = "image_generation",
-  referenceImageUrl?: string
+  referenceImageUrl?: string,
+  userId?: string
 ): Promise<{
   front: string;
   side: string;
@@ -720,7 +729,8 @@ export async function generateThreeViews(
     characterDescription,
     providerType,
     referenceImageUrl,
-    ['front', 'side', 'back']
+    ['front', 'side', 'back'],
+    userId
   );
 
   // 转换返回格式以保持向后兼容

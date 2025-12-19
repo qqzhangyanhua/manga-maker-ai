@@ -172,7 +172,8 @@ export async function POST(req: Request) {
       optimizedDescription,
       imageProviderType,
       referenceImageUrl,
-      requestedViews
+      requestedViews,
+      userId
     );
 
     // Step 4: 确保 MinIO bucket 存在
