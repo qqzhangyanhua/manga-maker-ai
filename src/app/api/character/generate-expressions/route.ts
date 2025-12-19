@@ -14,6 +14,7 @@ import { base64ToBuffer } from "@/lib/image-generation";
 import { minioClient, MINIO_BUCKET, ensureBucketExists, getPublicUrl } from "@/lib/minio";
 import { assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
+import { findBestReferenceImage } from "@/lib/character-reference";
 
 const DEFAULT_IMAGE_PROVIDER_TYPE = "image_generation_expression";
 const DEFAULT_PROMPT_PROVIDER_TYPE = "storyboard";
@@ -49,11 +50,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "角色ID不能为空" }, { status: 400 });
     }
 
-    // Verify character ownership
+    // Verify character ownership and get character with views/expressions for reference
     const character = await prisma.character.findFirst({
       where: {
         id: character_id,
         user_id: payload.userId,
+      },
+      include: {
+        views: {
+          select: {
+            view_type: true,
+            image_url: true,
+          },
+        },
+        expressions: {
+          select: {
+            expression_type: true,
+            image_url: true,
+          },
+        },
       },
     });
 
@@ -148,12 +163,25 @@ export async function POST(req: Request) {
       console.warn("LLM 优化失败，使用原始描述:", error);
     }
 
-    console.log(`开始生成 ${expressionsToGenerate.length} 个表情，角色描述: ${optimizedDescription}`);
+    // Step 2: 智能查找参考图（使用通用函数）
+    const referenceImageUrl = findBestReferenceImage({
+      id: character.id,
+      name: character.name,
+      reference_image: character.reference_image,
+      base_image_url: character.base_image_url,
+      expressions: character.expressions,
+      views: character.views,
+    });
 
-    // Step 2: 确保 MinIO bucket 存在
+    console.log(`开始生成 ${expressionsToGenerate.length} 个表情，角色描述: ${optimizedDescription}`);
+    if (referenceImageUrl) {
+      console.log(`使用参考图: ${referenceImageUrl}`);
+    }
+
+    // Step 3: 确保 MinIO bucket 存在
     await ensureBucketExists();
 
-    // Step 3: 生成表情图片
+    // Step 4: 生成表情图片
     const expressions: Record<string, { image_url: string; prompt: string }> = {};
 
     for (const expType of expressionsToGenerate) {
@@ -164,7 +192,9 @@ export async function POST(req: Request) {
         const base64Image = await generateExpression(
           optimizedDescription,
           expType as ExpressionType,
-          imageProviderType
+          imageProviderType,
+          referenceImageUrl,
+          { userId: payload.userId }
         );
 
         // 转换为 Buffer

@@ -251,17 +251,9 @@ export default function ScriptDetailsPage() {
       return;
     }
 
-    // 检查当前章节是否已有分镜
-    const existingPanels = (data?.panels || []).filter(p => p.chapter_id === chapterId);
-
-    if (existingPanels.length > 0) {
-      // 有分镜，显示对话框让用户选择
-      setPendingChapterId(chapterId);
-      setGenerateDialogOpen(true);
-    } else {
-      // 没有分镜，直接生成
-      await executeGeneration(chapterId, "append");
-    }
+    // 无论是否有分镜，都显示对话框（对话框会根据现有分镜数量调整选项）
+    setPendingChapterId(chapterId);
+    setGenerateDialogOpen(true);
   }
 
   async function executeGeneration(

@@ -33,7 +33,11 @@ export function GeneratePanelsDialog({
   onOpenChange,
   onConfirm,
 }: GeneratePanelsDialogProps) {
-  const [mode, setMode] = useState<"overwrite" | "append">("append");
+  // 第一次生成时默认为 overwrite，已有分镜时默认为 append
+  const isFirstGeneration = existingPanelCount === 0;
+  const [mode, setMode] = useState<"overwrite" | "append">(
+    isFirstGeneration ? "overwrite" : "append"
+  );
   const [panelCount, setPanelCount] = useState<string>("8");
 
   const handleConfirm = () => {
@@ -51,38 +55,44 @@ export function GeneratePanelsDialog({
             AI生成分镜
           </DialogTitle>
           <DialogDescription>
-            当前章节已有 {existingPanelCount} 个分镜，请选择生成模式
+            {isFirstGeneration
+              ? "为当前章节生成分镜脚本"
+              : `当前章节已有 ${existingPanelCount} 个分镜，请选择生成模式`}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          <RadioGroup value={mode} onValueChange={(v) => setMode(v as "overwrite" | "append")}>
-            <div className="flex items-start space-x-3 space-y-0 rounded-md border p-4">
-              <RadioGroupItem value="append" id="append" />
-              <div className="flex-1">
-                <Label htmlFor="append" className="font-medium cursor-pointer">
-                  扩写模式（推荐）
-                </Label>
-                <p className="text-sm text-muted-foreground mt-1">
-                  在现有 {existingPanelCount} 个分镜基础上追加新分镜，保留已有内容
-                </p>
+          {/* 只有已有分镜时才显示模式选择 */}
+          {!isFirstGeneration && (
+            <RadioGroup value={mode} onValueChange={(v) => setMode(v as "overwrite" | "append")}>
+              <div className="flex items-start space-x-3 space-y-0 rounded-md border p-4">
+                <RadioGroupItem value="append" id="append" />
+                <div className="flex-1">
+                  <Label htmlFor="append" className="font-medium cursor-pointer">
+                    扩写模式（推荐）
+                  </Label>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    在现有 {existingPanelCount} 个分镜基础上追加新分镜，保留已有内容
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <div className="flex items-start space-x-3 space-y-0 rounded-md border p-4">
-              <RadioGroupItem value="overwrite" id="overwrite" />
-              <div className="flex-1">
-                <Label htmlFor="overwrite" className="font-medium cursor-pointer">
-                  覆盖模式
-                </Label>
-                <p className="text-sm text-muted-foreground mt-1">
-                  删除现有分镜，重新生成全部内容
-                </p>
+              <div className="flex items-start space-x-3 space-y-0 rounded-md border p-4">
+                <RadioGroupItem value="overwrite" id="overwrite" />
+                <div className="flex-1">
+                  <Label htmlFor="overwrite" className="font-medium cursor-pointer">
+                    覆盖模式
+                  </Label>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    删除现有分镜，重新生成全部内容
+                  </p>
+                </div>
               </div>
-            </div>
-          </RadioGroup>
+            </RadioGroup>
+          )}
 
-          {mode === "overwrite" && (
+          {/* 只有在非第一次生成且选择覆盖模式时显示警告 */}
+          {!isFirstGeneration && mode === "overwrite" && (
             <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
               <AlertCircle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
               <p className="text-sm text-destructive">
@@ -93,7 +103,11 @@ export function GeneratePanelsDialog({
 
           <div className="space-y-2">
             <Label htmlFor="panelCount">
-              {mode === "append" ? "追加分镜数量" : "生成分镜数量"}
+              {isFirstGeneration
+                ? "生成分镜数量"
+                : mode === "append"
+                  ? "追加分镜数量"
+                  : "生成分镜数量"}
             </Label>
             <Input
               id="panelCount"

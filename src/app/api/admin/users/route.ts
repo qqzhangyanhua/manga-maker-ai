@@ -37,6 +37,8 @@ export async function GET(request: NextRequest) {
         role: true,
         status: true,
         verified: true,
+        credits: true,
+        total_credits_used: true,
         created_at: true,
         updated_at: true,
       },

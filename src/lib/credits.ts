@@ -248,6 +248,28 @@ export async function getCreditTransactions(
 }
 
 /**
+ * 充值算力（管理员/支付系统调用）
+ */
+export async function rechargeCredits(params: {
+  userId: string;
+  amount: number;
+  description?: string;
+  refType?: string | null;
+  refId?: string | null;
+}): Promise<{ newBalance: number; added: number }> {
+  const { userId, amount, description, refType, refId } = params;
+
+  return addCredits({
+    userId,
+    amount,
+    action: "recharge",
+    description: description ?? `充值 ${amount} 算力`,
+    refType: (refType as CreditRefType) ?? undefined,
+    refId: refId ?? undefined,
+  });
+}
+
+/**
  * 管理员调整用户算力
  */
 export async function adminAdjustCredits(params: {

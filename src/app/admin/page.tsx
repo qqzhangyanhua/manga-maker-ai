@@ -17,6 +17,7 @@ import {
   GitBranch,
   ListTodo,
   Tags,
+  Receipt,
 } from "lucide-react";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { Button } from "@/components/ui/button";
@@ -193,6 +194,25 @@ const AdminHomePage = () => {
                   </p>
                 </div>
                 <Link href="/admin/users">
+                  <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    进入 &rarr;
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+              <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-lg font-bold group-hover:text-blue-500 transition-colors">
+                    <Receipt className="w-6 h-6 text-blue-500" />
+                    交易历史
+                  </div>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    算力流水。查看所有用户的充值、消费与交易记录。
+                  </p>
+                </div>
+                <Link href="/admin/transactions">
                   <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
                     进入 &rarr;
                   </Button>

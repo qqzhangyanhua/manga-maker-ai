@@ -9,6 +9,8 @@ export type User = {
   role: "user" | "admin";
   status: "active" | "banned";
   verified: boolean;
+  credits: number;
+  total_credits_used: number;
   created_at?: string;
   updated_at?: string;
 };

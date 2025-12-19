@@ -29,6 +29,9 @@ const AdminUsersPage = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
+  const [rechargingUser, setRechargingUser] = useState<User | null>(null);
+  const [rechargeAmount, setRechargeAmount] = useState<string>("");
+  const [recharging, setRecharging] = useState(false);
 
   const isAdmin = useMemo(() => (currentUser?.role || "user") === "admin", [currentUser]);
 
@@ -127,6 +130,42 @@ const AdminUsersPage = () => {
       setMessage((error as Error).message);
     } finally {
       setDeletingUser(null);
+    }
+  };
+
+  const handleRecharge = (user: User) => {
+    setRechargingUser(user);
+    setRechargeAmount("");
+    setMessage("");
+  };
+
+  const confirmRecharge = async () => {
+    if (!rechargingUser || !rechargeAmount) return;
+
+    const amount = parseInt(rechargeAmount, 10);
+    if (isNaN(amount) || amount <= 0) {
+      setMessage("请输入有效的充值金额（正整数）");
+      return;
+    }
+
+    setRecharging(true);
+    setMessage("");
+    try {
+      const res = await fetch(`/api/admin/users/${rechargingUser.id}/recharge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || "充值失败");
+      setMessage(data.message || "充值成功");
+      fetchUsers();
+      setRechargingUser(null);
+      setRechargeAmount("");
+    } catch (error) {
+      setMessage((error as Error).message);
+    } finally {
+      setRecharging(false);
     }
   };
 
@@ -275,6 +314,7 @@ const AdminUsersPage = () => {
                   <th className="px-3 py-2 text-left">角色</th>
                   <th className="px-3 py-2 text-left">状态</th>
                   <th className="px-3 py-2 text-left">验证</th>
+                  <th className="px-3 py-2 text-left">算力余额</th>
                   <th className="px-3 py-2 text-left">创建时间</th>
                   <th className="px-3 py-2 text-left">操作</th>
                 </tr>
@@ -282,13 +322,13 @@ const AdminUsersPage = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td className="px-3 py-3" colSpan={8}>
+                    <td className="px-3 py-3" colSpan={9}>
                       正在加载...
                     </td>
                   </tr>
                 ) : users.length === 0 ? (
                   <tr>
-                    <td className="px-3 py-3" colSpan={8}>
+                    <td className="px-3 py-3" colSpan={9}>
                       暂无用户。
                     </td>
                   </tr>
@@ -301,10 +341,14 @@ const AdminUsersPage = () => {
                       <td className="px-3 py-2">{u.role}</td>
                       <td className="px-3 py-2">{u.status}</td>
                       <td className="px-3 py-2">{u.verified ? "是" : "否"}</td>
+                      <td className="px-3 py-2 font-semibold text-primary">{u.credits}</td>
                       <td className="px-3 py-2">{u.created_at ? new Date(u.created_at).toLocaleString() : "-"}</td>
                       <td className="px-3 py-2 space-x-2">
                         <Button size="sm" variant="secondary" onClick={() => handleEdit(u)}>
                           编辑
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => handleRecharge(u)}>
+                          充值
                         </Button>
                         <Button size="sm" variant="destructive" onClick={() => handleDelete(u)}>
                           删除
@@ -337,6 +381,48 @@ const AdminUsersPage = () => {
               <AlertDialogCancel>取消</AlertDialogCancel>
               <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                 删除
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* 充值对话框 */}
+        <AlertDialog open={!!rechargingUser} onOpenChange={(open) => !open && setRechargingUser(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>给用户充值算力</AlertDialogTitle>
+              <AlertDialogDescription>
+                {rechargingUser && (
+                  <div className="space-y-4">
+                    <div className="text-sm">
+                      <p>用户邮箱：<strong>{rechargingUser.email}</strong></p>
+                      <p>当前算力余额：<strong className="text-primary">{rechargingUser.credits}</strong></p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="recharge-amount">充值金额（正整数）</Label>
+                      <Input
+                        id="recharge-amount"
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={rechargeAmount}
+                        onChange={(e) => setRechargeAmount(e.target.value)}
+                        placeholder="请输入充值金额"
+                        disabled={recharging}
+                      />
+                    </div>
+                  </div>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={recharging}>取消</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmRecharge}
+                disabled={recharging || !rechargeAmount}
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                {recharging ? "充值中..." : "确认充值"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

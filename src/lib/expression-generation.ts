@@ -3,7 +3,7 @@
  * 为角色生成 9 种表情矩阵
  */
 
-import { callImageGenerationByType } from "./image-generation";
+import { callImageGenerationByType, type ImageGenerationOptions } from "./image-generation";
 import {
   EXPRESSION_TYPES,
   EXPRESSION_LABELS,
@@ -16,16 +16,20 @@ export { EXPRESSION_TYPES, EXPRESSION_LABELS, type ExpressionType };
 
 /**
  * 生成单个表情
- * 
+ *
  * @param characterDescription 角色描述
  * @param expressionType 表情类型
  * @param providerType Provider 类型（默认 "image_generation"）
+ * @param referenceImageUrl 可选的参考图URL
+ * @param options 图片生成选项（包含 userId）
  * @returns base64 编码的图片
  */
 export async function generateExpression(
   characterDescription: string,
   expressionType: ExpressionType,
-  providerType: string = "image_generation"
+  providerType: string = "image_generation",
+  referenceImageUrl?: string,
+  options?: ImageGenerationOptions
 ): Promise<string> {
   // 构建表情提示词 - 参考专业角色表情设计
   const expressionPrompt = EXPRESSION_PROMPTS[expressionType];
@@ -42,6 +46,8 @@ export async function generateExpression(
     height: 512, // 方形，适合表情
     steps: 25,
     cfg_scale: 7.5,
+    referenceImageUrl, // 传递参考图
+    options, // 传递选项（包含 userId）
   });
 
   if (!result.success || result.images.length === 0) {
@@ -55,19 +61,23 @@ export async function generateExpression(
 
 /**
  * 批量生成所有表情
- * 
+ *
  * @param characterDescription 角色描述
  * @param providerType Provider 类型
+ * @param referenceImageUrl 可选的参考图URL
+ * @param options 图片生成选项（包含 userId）
  * @returns 所有表情的 base64 图片
  */
 export async function generateAllExpressions(
   characterDescription: string,
-  providerType: string = "image_generation"
+  providerType: string = "image_generation",
+  referenceImageUrl?: string,
+  options?: ImageGenerationOptions
 ): Promise<Record<ExpressionType, string>> {
   // 并行生成所有表情
   const results = await Promise.all(
     EXPRESSION_TYPES.map((expType) =>
-      generateExpression(characterDescription, expType, providerType)
+      generateExpression(characterDescription, expType, providerType, referenceImageUrl, options)
     )
   );
 
@@ -82,21 +92,25 @@ export async function generateAllExpressions(
 
 /**
  * 生成指定的多个表情
- * 
+ *
  * @param characterDescription 角色描述
  * @param expressionTypes 要生成的表情类型数组
  * @param providerType Provider 类型
+ * @param referenceImageUrl 可选的参考图URL
+ * @param options 图片生成选项（包含 userId）
  * @returns 指定表情的 base64 图片
  */
 export async function generateMultipleExpressions(
   characterDescription: string,
   expressionTypes: ExpressionType[],
-  providerType: string = "image_generation"
+  providerType: string = "image_generation",
+  referenceImageUrl?: string,
+  options?: ImageGenerationOptions
 ): Promise<Record<ExpressionType, string>> {
   // 并行生成指定表情
   const results = await Promise.all(
     expressionTypes.map((expType) =>
-      generateExpression(characterDescription, expType, providerType)
+      generateExpression(characterDescription, expType, providerType, referenceImageUrl, options)
     )
   );
 
