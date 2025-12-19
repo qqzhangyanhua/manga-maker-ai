@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
+import { ArrowLeft, Workflow as WorkflowIcon, RotateCcw, XCircle, RefreshCw } from "lucide-react";
 import { useAdminList } from "@/hooks/admin";
 import {
   AdminPagination,
@@ -26,7 +28,6 @@ import {
 } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RotateCcw, XCircle, RefreshCw, Workflow as WorkflowIcon } from "lucide-react";
 import type { Workflow, WorkflowWithUser, WorkflowFilter } from "./types";
 import {
   WORKFLOW_TYPES,
@@ -100,201 +101,217 @@ export default function WorkflowsPage() {
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">工作流管理</h1>
-        <p className="text-muted-foreground mt-1">
-          监控和管理自动化工作流任务
-        </p>
-      </div>
+    <div className="min-h-screen halftone-pattern">
+      <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+        <div className="relative">
+          <div className="absolute -left-4 -top-4 w-20 h-20 bg-purple-400 rounded-full blur-3xl opacity-20 animate-pulse" />
+          <h1 className="text-5xl font-bold mb-4 flex items-center gap-3 comic-title relative z-10">
+            <WorkflowIcon className="w-12 h-12 text-primary drop-shadow-md" />
+            工作流管理
+          </h1>
+          <p className="text-xl text-muted-foreground font-medium pl-2 border-l-4 border-primary/50">
+            监控和管理自动化工作流任务
+          </p>
+          <div className="absolute top-0 right-0 z-20 flex gap-2">
+            <Link href="/admin">
+              <Button variant="outline" size="sm" className="bg-background">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                返回后台
+              </Button>
+            </Link>
+          </div>
+        </div>
 
-      {/* 过滤栏 */}
-      <div className="grid gap-4 md:grid-cols-4 p-4 bg-muted/30 rounded-lg">
-        <div className="space-y-2">
-          <Label htmlFor="userId" className="text-xs">用户</Label>
-          <Select
-            value={filter.userId || "all"}
-            onValueChange={(value) => setFilter({ ...filter, userId: value === "all" ? undefined : value })}
-            disabled={loading}
-          >
-            <SelectTrigger id="userId" className="h-9">
-              <SelectValue placeholder="全部用户" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部用户</SelectItem>
-              {allUsers.map((user) => (
-                <SelectItem key={user.id} value={user.id}>
-                  {user.name || user.email}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="p-5 comic-card bg-card space-y-6">
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="space-y-2">
+              <Label htmlFor="userId" className="text-xs">用户</Label>
+              <Select
+                value={filter.userId || "all"}
+                onValueChange={(value) => setFilter({ ...filter, userId: value === "all" ? undefined : value })}
+                disabled={loading}
+              >
+                <SelectTrigger id="userId" className="h-9">
+                  <SelectValue placeholder="全部用户" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部用户</SelectItem>
+                  {allUsers.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.name || user.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="type" className="text-xs">类型</Label>
+              <Select
+                value={filter.type || "all"}
+                onValueChange={(value) => setFilter({ ...filter, type: value === "all" ? undefined : value })}
+                disabled={loading}
+              >
+                <SelectTrigger id="type" className="h-9">
+                  <SelectValue placeholder="全部类型" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部类型</SelectItem>
+                  {WORKFLOW_TYPES.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="status" className="text-xs">状态</Label>
+              <Select
+                value={filter.status || "all"}
+                onValueChange={(value) => setFilter({ ...filter, status: value === "all" ? undefined : value })}
+                disabled={loading}
+              >
+                <SelectTrigger id="status" className="h-9">
+                  <SelectValue placeholder="全部状态" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部状态</SelectItem>
+                  {WORKFLOW_STATUS.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs invisible">操作</Label>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9"
+                onClick={() => setFilter({})}
+                disabled={loading}
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="type" className="text-xs">类型</Label>
-          <Select
-            value={filter.type || "all"}
-            onValueChange={(value) => setFilter({ ...filter, type: value === "all" ? undefined : value })}
-            disabled={loading}
-          >
-            <SelectTrigger id="type" className="h-9">
-              <SelectValue placeholder="全部类型" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部类型</SelectItem>
-              {WORKFLOW_TYPES.map((t) => (
-                <SelectItem key={t.value} value={t.value}>
-                  {t.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="status" className="text-xs">状态</Label>
-          <Select
-            value={filter.status || "all"}
-            onValueChange={(value) => setFilter({ ...filter, status: value === "all" ? undefined : value })}
-            disabled={loading}
-          >
-            <SelectTrigger id="status" className="h-9">
-              <SelectValue placeholder="全部状态" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部状态</SelectItem>
-              {WORKFLOW_STATUS.map((s) => (
-                <SelectItem key={s.value} value={s.value}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label className="text-xs invisible">操作</Label>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-9 w-9"
-            onClick={() => setFilter({})}
-            disabled={loading}
-          >
-            <RotateCcw className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
 
-      {/* 表格 */}
-      {loading ? (
-        <TableSkeleton />
-      ) : workflowsWithUser.length === 0 ? (
-        <AdminEmptyState
-          icon={<WorkflowIcon className="h-12 w-12" />}
-          title="暂无工作流"
-          description="当前筛选条件下没有找到任何工作流"
-        />
-      ) : (
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[100px]">类型</TableHead>
-                <TableHead className="w-[80px]">状态</TableHead>
-                <TableHead className="w-[100px]">当前步骤</TableHead>
-                <TableHead className="w-[150px]">进度</TableHead>
-                <TableHead className="w-[150px]">用户</TableHead>
-                <TableHead className="w-[150px]">创建时间</TableHead>
-                <TableHead className="w-[200px]">错误信息</TableHead>
-                <TableHead className="w-[100px]">操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {workflowsWithUser.map((workflow) => {
-                const statusStyle = getStatusStyle(workflow.status);
-                const canCancel = workflow.status === "pending" || workflow.status === "running";
-                const canRetry = workflow.status === "failed";
-
-                return (
-                  <TableRow key={workflow.id}>
-                    <TableCell>{getTypeLabel(workflow.type)}</TableCell>
-                    <TableCell>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusStyle.color}`}>
-                        {statusStyle.label}
-                      </span>
-                    </TableCell>
-                    <TableCell>{getStepLabel(workflow.current_step)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Progress value={workflow.progress} className="h-2 flex-1" />
-                        <span className="text-xs text-muted-foreground w-8">
-                          {workflow.progress}%
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm truncate">
-                        {workflow.user?.name || workflow.user?.email || "-"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      {new Date(workflow.created_at).toLocaleString("zh-CN")}
-                    </TableCell>
-                    <TableCell>
-                      {workflow.error ? (
-                        <span className="text-xs text-red-600 truncate block max-w-[190px]" title={workflow.error}>
-                          {workflow.error}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        {canCancel && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-orange-600"
-                            onClick={() => handleAction(workflow.id, "cancel")}
-                            disabled={actionLoading === workflow.id}
-                            title="取消"
-                          >
-                            <XCircle className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {canRetry && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-blue-600"
-                            onClick={() => handleAction(workflow.id, "retry")}
-                            disabled={actionLoading === workflow.id}
-                            title="重试"
-                          >
-                            <RefreshCw className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
+        <div className="p-5 comic-card bg-card overflow-hidden">
+          {loading ? (
+            <TableSkeleton />
+          ) : workflowsWithUser.length === 0 ? (
+            <AdminEmptyState
+              icon={<WorkflowIcon className="h-12 w-12" />}
+              title="暂无工作流"
+              description="当前筛选条件下没有找到任何工作流"
+            />
+          ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[100px]">类型</TableHead>
+                    <TableHead className="w-[80px]">状态</TableHead>
+                    <TableHead className="w-[100px]">当前步骤</TableHead>
+                    <TableHead className="w-[150px]">进度</TableHead>
+                    <TableHead className="w-[150px]">用户</TableHead>
+                    <TableHead className="w-[150px]">创建时间</TableHead>
+                    <TableHead className="w-[200px]">错误信息</TableHead>
+                    <TableHead className="w-[100px]">操作</TableHead>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+                </TableHeader>
+                <TableBody>
+                  {workflowsWithUser.map((workflow) => {
+                    const statusStyle = getStatusStyle(workflow.status);
+                    const canCancel = workflow.status === "pending" || workflow.status === "running";
+                    const canRetry = workflow.status === "failed";
 
-      {/* 分页 */}
-      {total > 0 && (
-        <AdminPagination
-          page={page}
-          pageSize={pageSize}
-          total={total}
-          totalPages={totalPages}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-        />
-      )}
+                    return (
+                      <TableRow key={workflow.id}>
+                        <TableCell>{getTypeLabel(workflow.type)}</TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusStyle.color}`}>
+                            {statusStyle.label}
+                          </span>
+                        </TableCell>
+                        <TableCell>{getStepLabel(workflow.current_step)}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Progress value={workflow.progress} className="h-2 flex-1" />
+                            <span className="text-xs text-muted-foreground w-8">
+                              {workflow.progress}%
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm truncate">
+                            {workflow.user?.name || workflow.user?.email || "-"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {new Date(workflow.created_at).toLocaleString("zh-CN")}
+                        </TableCell>
+                        <TableCell>
+                          {workflow.error ? (
+                            <span className="text-xs text-red-600 truncate block max-w-[190px]" title={workflow.error}>
+                              {workflow.error}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {canCancel && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-orange-600"
+                                onClick={() => handleAction(workflow.id, "cancel")}
+                                disabled={actionLoading === workflow.id}
+                                title="取消"
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {canRetry && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-blue-600"
+                                onClick={() => handleAction(workflow.id, "retry")}
+                                disabled={actionLoading === workflow.id}
+                                title="重试"
+                              >
+                                <RefreshCw className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          {/* 分页 */}
+          {total > 0 && (
+            <AdminPagination
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
+        </div>
+      </div>
     </div>
   );
 }

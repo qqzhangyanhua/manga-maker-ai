@@ -2,6 +2,8 @@
 
 import { useState, useMemo } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { ArrowLeft, FolderKanban, RotateCcw, Trash2, ImageIcon } from "lucide-react";
 import { useAdminList } from "@/hooks/admin";
 import {
   AdminPagination,
@@ -28,7 +30,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RotateCcw, Trash2, FolderKanban, ImageIcon } from "lucide-react";
 import type { Project, ProjectWithUser, ProjectFilter } from "./types";
 import { PROJECT_STATUS, getStatusStyle } from "./types";
 import type { UserBrief } from "@/types/admin";
@@ -102,205 +103,221 @@ export default function ProjectsPage() {
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">项目管理</h1>
-        <p className="text-muted-foreground mt-1">
-          查看和管理所有用户的漫画项目
-        </p>
-      </div>
+    <div className="min-h-screen halftone-pattern">
+      <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+        <div className="relative">
+          <div className="absolute -left-4 -top-4 w-20 h-20 bg-orange-400 rounded-full blur-3xl opacity-20 animate-pulse" />
+          <h1 className="text-5xl font-bold mb-4 flex items-center gap-3 comic-title relative z-10">
+            <FolderKanban className="w-12 h-12 text-primary drop-shadow-md" />
+            项目管理
+          </h1>
+          <p className="text-xl text-muted-foreground font-medium pl-2 border-l-4 border-primary/50">
+            查看和管理所有用户的漫画项目
+          </p>
+          <div className="absolute top-0 right-0 z-20 flex gap-2">
+            <Link href="/admin">
+              <Button variant="outline" size="sm" className="bg-background">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                返回后台
+              </Button>
+            </Link>
+          </div>
+        </div>
 
-      {/* 过滤栏 */}
-      <div className="grid gap-4 md:grid-cols-4 p-4 bg-muted/30 rounded-lg">
-        <div className="space-y-2">
-          <Label htmlFor="keyword" className="text-xs">关键词</Label>
-          <Input
-            id="keyword"
-            placeholder="搜索标题或描述"
-            value={filter.keyword || ""}
-            onChange={(e) => setFilter({ ...filter, keyword: e.target.value || undefined })}
-            disabled={loading}
-            className="h-9"
-          />
+        <div className="p-5 comic-card bg-card space-y-6">
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="space-y-2">
+              <Label htmlFor="keyword" className="text-xs">关键词</Label>
+              <Input
+                id="keyword"
+                placeholder="搜索标题或描述"
+                value={filter.keyword || ""}
+                onChange={(e) => setFilter({ ...filter, keyword: e.target.value || undefined })}
+                disabled={loading}
+                className="h-9"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="userId" className="text-xs">用户</Label>
+              <Select
+                value={filter.userId || "all"}
+                onValueChange={(value) => setFilter({ ...filter, userId: value === "all" ? undefined : value })}
+                disabled={loading}
+              >
+                <SelectTrigger id="userId" className="h-9">
+                  <SelectValue placeholder="全部用户" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部用户</SelectItem>
+                  {allUsers.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.name || user.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="status" className="text-xs">状态</Label>
+              <Select
+                value={filter.status || "all"}
+                onValueChange={(value) => setFilter({ ...filter, status: value === "all" ? undefined : value })}
+                disabled={loading}
+              >
+                <SelectTrigger id="status" className="h-9">
+                  <SelectValue placeholder="全部状态" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部状态</SelectItem>
+                  {PROJECT_STATUS.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs invisible">操作</Label>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9"
+                onClick={() => setFilter({})}
+                disabled={loading}
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="userId" className="text-xs">用户</Label>
-          <Select
-            value={filter.userId || "all"}
-            onValueChange={(value) => setFilter({ ...filter, userId: value === "all" ? undefined : value })}
-            disabled={loading}
-          >
-            <SelectTrigger id="userId" className="h-9">
-              <SelectValue placeholder="全部用户" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部用户</SelectItem>
-              {allUsers.map((user) => (
-                <SelectItem key={user.id} value={user.id}>
-                  {user.name || user.email}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="status" className="text-xs">状态</Label>
-          <Select
-            value={filter.status || "all"}
-            onValueChange={(value) => setFilter({ ...filter, status: value === "all" ? undefined : value })}
-            disabled={loading}
-          >
-            <SelectTrigger id="status" className="h-9">
-              <SelectValue placeholder="全部状态" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部状态</SelectItem>
-              {PROJECT_STATUS.map((s) => (
-                <SelectItem key={s.value} value={s.value}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label className="text-xs invisible">操作</Label>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-9 w-9"
-            onClick={() => setFilter({})}
-            disabled={loading}
-          >
-            <RotateCcw className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
 
-      {/* 表格 */}
-      {loading ? (
-        <TableSkeleton />
-      ) : projectsWithUser.length === 0 ? (
-        <AdminEmptyState
-          icon={<FolderKanban className="h-12 w-12" />}
-          title="暂无项目"
-          description="当前筛选条件下没有找到任何项目"
-        />
-      ) : (
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[80px]">封面</TableHead>
-                <TableHead>标题</TableHead>
-                <TableHead className="w-[100px]">风格</TableHead>
-                <TableHead className="w-[80px]">状态</TableHead>
-                <TableHead className="w-[150px]">用户</TableHead>
-                <TableHead className="w-[80px]">面板数</TableHead>
-                <TableHead className="w-[150px]">创建时间</TableHead>
-                <TableHead className="w-[80px]">操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {projectsWithUser.map((project) => {
-                const statusStyle = getStatusStyle(project.status);
-                return (
-                  <TableRow key={project.id}>
-                    <TableCell>
-                      <div className="w-12 h-12 rounded overflow-hidden bg-muted">
-                        {project.cover_image ? (
-                          <Image
-                            src={project.cover_image}
-                            alt={project.title}
-                            width={48}
-                            height={48}
-                            className="object-cover w-full h-full"
-                            unoptimized
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{project.title}</div>
-                        {project.description && (
-                          <div className="text-xs text-muted-foreground truncate max-w-[200px]">
-                            {project.description}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>{project.style || "-"}</TableCell>
-                    <TableCell>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusStyle.color}`}>
-                        {statusStyle.label}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm truncate">
-                        {project.user?.name || project.user?.email || "-"}
-                      </span>
-                    </TableCell>
-                    <TableCell>{project._count?.panels || 0}</TableCell>
-                    <TableCell className="text-xs">
-                      {new Date(project.created_at).toLocaleDateString("zh-CN")}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive"
-                        onClick={() => {
-                          setDeletingProject(project);
-                          setDeleteDialogOpen(true);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
+        <div className="p-5 comic-card bg-card overflow-hidden">
+          {loading ? (
+            <TableSkeleton />
+          ) : projectsWithUser.length === 0 ? (
+            <AdminEmptyState
+              icon={<FolderKanban className="h-12 w-12" />}
+              title="暂无项目"
+              description="当前筛选条件下没有找到任何项目"
+            />
+          ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[80px]">封面</TableHead>
+                    <TableHead>标题</TableHead>
+                    <TableHead className="w-[100px]">风格</TableHead>
+                    <TableHead className="w-[80px]">状态</TableHead>
+                    <TableHead className="w-[150px]">用户</TableHead>
+                    <TableHead className="w-[80px]">面板数</TableHead>
+                    <TableHead className="w-[150px]">创建时间</TableHead>
+                    <TableHead className="w-[80px]">操作</TableHead>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                  {projectsWithUser.map((project) => {
+                    const statusStyle = getStatusStyle(project.status);
+                    return (
+                      <TableRow key={project.id}>
+                        <TableCell>
+                          <div className="w-12 h-12 rounded overflow-hidden bg-muted">
+                            {project.cover_image ? (
+                              <Image
+                                src={project.cover_image}
+                                alt={project.title}
+                                width={48}
+                                height={48}
+                                className="object-cover w-full h-full"
+                                unoptimized
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{project.title}</div>
+                            {project.description && (
+                              <div className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                {project.description}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>{project.style || "-"}</TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusStyle.color}`}>
+                            {statusStyle.label}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm truncate">
+                            {project.user?.name || project.user?.email || "-"}
+                          </span>
+                        </TableCell>
+                        <TableCell>{project._count?.panels || 0}</TableCell>
+                        <TableCell className="text-xs">
+                          {new Date(project.created_at).toLocaleDateString("zh-CN")}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => {
+                              setDeletingProject(project);
+                              setDeleteDialogOpen(true);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          {/* 分页 */}
+          {total > 0 && (
+            <AdminPagination
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
         </div>
-      )}
 
-      {/* 分页 */}
-      {total > 0 && (
-        <AdminPagination
-          page={page}
-          pageSize={pageSize}
-          total={total}
-          totalPages={totalPages}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
+        {/* 删除确认 */}
+        <AdminDeleteDialog
+          open={deleteDialogOpen}
+          title="删除确认"
+          description={
+            <>
+              确定要删除项目 <strong>{deletingProject?.title}</strong> 吗？
+              {deletingProject?._count?.panels ? (
+                <span className="text-orange-600 block mt-2">
+                  警告：该项目包含 {deletingProject._count.panels} 个面板，将一并删除。
+                </span>
+              ) : null}
+              <span className="block mt-2">此操作不可撤销。</span>
+            </>
+          }
+          loading={deleting}
+          onOpenChange={setDeleteDialogOpen}
+          onConfirm={handleDelete}
         />
-      )}
-
-      {/* 删除确认 */}
-      <AdminDeleteDialog
-        open={deleteDialogOpen}
-        title="删除确认"
-        description={
-          <>
-            确定要删除项目 <strong>{deletingProject?.title}</strong> 吗？
-            {deletingProject?._count?.panels ? (
-              <span className="text-orange-600 block mt-2">
-                警告：该项目包含 {deletingProject._count.panels} 个面板，将一并删除。
-              </span>
-            ) : null}
-            <span className="block mt-2">此操作不可撤销。</span>
-          </>
-        }
-        loading={deleting}
-        onOpenChange={setDeleteDialogOpen}
-        onConfirm={handleDelete}
-      />
+      </div>
     </div>
   );
 }

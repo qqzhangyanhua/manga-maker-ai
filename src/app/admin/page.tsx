@@ -99,7 +99,7 @@ const AdminHomePage = () => {
                 </div>
                 <Link href="/admin/llm-providers">
                   <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                    进入 ->
+                    进入 &rarr;
                   </Button>
                 </Link>
               </div>
@@ -118,7 +118,7 @@ const AdminHomePage = () => {
                 </div>
                 <Link href="/admin/comic-styles">
                   <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                    进入 ->
+                    进入 &rarr;
                   </Button>
                 </Link>
               </div>
@@ -137,7 +137,7 @@ const AdminHomePage = () => {
                 </div>
                 <Link href="/admin/story-templates">
                   <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                    进入 ->
+                    进入 &rarr;
                   </Button>
                 </Link>
               </div>
@@ -156,7 +156,7 @@ const AdminHomePage = () => {
                 </div>
                 <Link href="/admin/panel-templates">
                   <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                    进入 ->
+                    进入 &rarr;
                   </Button>
                 </Link>
               </div>
@@ -175,7 +175,7 @@ const AdminHomePage = () => {
                 </div>
                 <Link href="/admin/characters">
                   <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                    进入 ->
+                    进入 &rarr;
                   </Button>
                 </Link>
               </div>
@@ -194,7 +194,7 @@ const AdminHomePage = () => {
                 </div>
                 <Link href="/admin/users">
                   <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                    进入 ->
+                    进入 &rarr;
                   </Button>
                 </Link>
               </div>
@@ -213,7 +213,7 @@ const AdminHomePage = () => {
                 </div>
                 <Link href="/admin/usage">
                   <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                    进入 ->
+                    进入 &rarr;
                   </Button>
                 </Link>
               </div>
@@ -241,7 +241,7 @@ const AdminHomePage = () => {
                 </div>
                 <Link href="/admin/generation-logs">
                   <Button size="sm" className="bg-purple-500 hover:bg-purple-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                    进入 ->
+                    进入 &rarr;
                   </Button>
                 </Link>
               </div>
@@ -260,7 +260,7 @@ const AdminHomePage = () => {
                 </div>
                 <Link href="/admin/generated-images">
                   <Button size="sm" className="bg-purple-500 hover:bg-purple-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                    进入 ->
+                    进入 &rarr;
                   </Button>
                 </Link>
               </div>
@@ -279,7 +279,7 @@ const AdminHomePage = () => {
                 </div>
                 <Link href="/admin/workflows">
                   <Button size="sm" className="bg-purple-500 hover:bg-purple-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                    进入 ->
+                    进入 &rarr;
                   </Button>
                 </Link>
               </div>
@@ -298,7 +298,7 @@ const AdminHomePage = () => {
                 </div>
                 <Link href="/admin/generation-tasks">
                   <Button size="sm" className="bg-purple-500 hover:bg-purple-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                    进入 ->
+                    进入 &rarr;
                   </Button>
                 </Link>
               </div>
@@ -326,7 +326,7 @@ const AdminHomePage = () => {
                 </div>
                 <Link href="/admin/scenes">
                   <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                    进入 ->
+                    进入 &rarr;
                   </Button>
                 </Link>
               </div>
@@ -345,7 +345,7 @@ const AdminHomePage = () => {
                 </div>
                 <Link href="/admin/stories">
                   <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                    进入 ->
+                    进入 &rarr;
                   </Button>
                 </Link>
               </div>
@@ -364,7 +364,7 @@ const AdminHomePage = () => {
                 </div>
                 <Link href="/admin/projects">
                   <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                    进入 ->
+                    进入 &rarr;
                   </Button>
                 </Link>
               </div>
@@ -383,7 +383,7 @@ const AdminHomePage = () => {
                 </div>
                 <Link href="/admin/tags">
                   <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                    进入 ->
+                    进入 &rarr;
                   </Button>
                 </Link>
               </div>

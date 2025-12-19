@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
+import Link from "next/link";
+import { ArrowLeft, Image as ImageIcon } from "lucide-react";
 import { useAdminList } from "@/hooks/admin";
 import { AdminPagination, AdminDeleteDialog } from "@/components/admin";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { ImageFilterBar, ImageGrid, ImageDetailDialog } from "./components";
 import type {
@@ -177,84 +180,96 @@ export default function GeneratedImagesPage() {
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      {/* 页面标题 */}
-      <div>
-        <h1 className="text-2xl font-bold">生成图片</h1>
-        <p className="text-muted-foreground mt-1">
-          查看和管理所有用户生成的图片
-        </p>
-      </div>
+    <div className="min-h-screen halftone-pattern">
+      <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+        <div className="relative">
+          <div className="absolute -left-4 -top-4 w-20 h-20 bg-purple-400 rounded-full blur-3xl opacity-20 animate-pulse" />
+          <h1 className="text-5xl font-bold mb-4 flex items-center gap-3 comic-title relative z-10">
+            <ImageIcon className="w-12 h-12 text-primary drop-shadow-md" />
+            生成图片
+          </h1>
+          <p className="text-xl text-muted-foreground font-medium pl-2 border-l-4 border-primary/50">
+            查看和管理所有用户生成的图片
+          </p>
+          <div className="absolute top-0 right-0 z-20 flex gap-2">
+            <Link href="/admin">
+              <Button variant="outline" size="sm" className="bg-background">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                返回后台
+              </Button>
+            </Link>
+          </div>
+        </div>
 
-      {/* 过滤栏 */}
-      <ImageFilterBar
-        filter={filter}
-        onFilterChange={setFilter}
-        users={allUsers}
-        loading={loading}
-        selectedCount={selectedIds.size}
-        onBatchDelete={() => setBatchDeleteDialogOpen(true)}
-      />
+        <div className="p-5 comic-card bg-card space-y-6">
+          <ImageFilterBar
+            filter={filter}
+            onFilterChange={setFilter}
+            users={allUsers}
+            loading={loading}
+            selectedCount={selectedIds.size}
+            onBatchDelete={() => setBatchDeleteDialogOpen(true)}
+          />
 
-      {/* 图片网格 */}
-      <ImageGrid
-        images={imagesWithUser}
-        loading={loading}
-        selectedIds={selectedIds}
-        onToggleSelect={handleToggleSelect}
-        onSelectAll={handleSelectAll}
-        onDeselectAll={handleDeselectAll}
-        onViewDetail={handleViewDetail}
-        onDelete={handleOpenDelete}
-      />
+          <ImageGrid
+            images={imagesWithUser}
+            loading={loading}
+            selectedIds={selectedIds}
+            onToggleSelect={handleToggleSelect}
+            onSelectAll={handleSelectAll}
+            onDeselectAll={handleDeselectAll}
+            onViewDetail={handleViewDetail}
+            onDelete={handleOpenDelete}
+          />
 
-      {/* 分页 */}
-      {total > 0 && (
-        <AdminPagination
-          page={page}
-          pageSize={pageSize}
-          total={total}
-          totalPages={totalPages}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
+          {total > 0 && (
+            <AdminPagination
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
+        </div>
+
+        {/* 详情对话框 */}
+        <ImageDetailDialog
+          open={detailDialogOpen}
+          image={selectedImage}
+          onOpenChange={setDetailDialogOpen}
+          onDelete={handleDeleteFromDetail}
         />
-      )}
 
-      {/* 详情对话框 */}
-      <ImageDetailDialog
-        open={detailDialogOpen}
-        image={selectedImage}
-        onOpenChange={setDetailDialogOpen}
-        onDelete={handleDeleteFromDetail}
-      />
+        {/* 单个删除确认 */}
+        <AdminDeleteDialog
+          open={deleteDialogOpen}
+          title="删除确认"
+          description={
+            <>
+              确定要删除这张图片吗？此操作不可撤销。
+            </>
+          }
+          loading={deleting}
+          onOpenChange={setDeleteDialogOpen}
+          onConfirm={handleConfirmDelete}
+        />
 
-      {/* 单个删除确认 */}
-      <AdminDeleteDialog
-        open={deleteDialogOpen}
-        title="删除确认"
-        description={
-          <>
-            确定要删除这张图片吗？此操作不可撤销。
-          </>
-        }
-        loading={deleting}
-        onOpenChange={setDeleteDialogOpen}
-        onConfirm={handleConfirmDelete}
-      />
-
-      {/* 批量删除确认 */}
-      <AdminDeleteDialog
-        open={batchDeleteDialogOpen}
-        title="批量删除确认"
-        description={
-          <>
-            确定要删除选中的 <strong>{selectedIds.size}</strong> 张图片吗？此操作不可撤销。
-          </>
-        }
-        loading={deleting}
-        onOpenChange={setBatchDeleteDialogOpen}
-        onConfirm={handleConfirmBatchDelete}
-      />
+        {/* 批量删除确认 */}
+        <AdminDeleteDialog
+          open={batchDeleteDialogOpen}
+          title="批量删除确认"
+          description={
+            <>
+              确定要删除选中的 <strong>{selectedIds.size}</strong> 张图片吗？此操作不可撤销。
+            </>
+          }
+          loading={deleting}
+          onOpenChange={setBatchDeleteDialogOpen}
+          onConfirm={handleConfirmBatchDelete}
+        />
+      </div>
     </div>
   );
 }

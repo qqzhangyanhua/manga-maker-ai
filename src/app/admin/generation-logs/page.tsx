@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
+import { ArrowLeft, FileClock, RefreshCw } from "lucide-react";
 import { useAdminList } from "@/hooks/admin";
 import { AdminPagination } from "@/components/admin";
+import { Button } from "@/components/ui/button";
 import { LogFilterBar, LogTable, LogDetailDialog } from "./components";
 import type {
   GenerationLog,
@@ -38,6 +41,7 @@ export default function GenerationLogsPage() {
     setPage,
     setPageSize,
     extra,
+    refetch,
   } = useAdminList<GenerationLog, GenerationLogFilter>({
     endpoint: "/api/admin/generation-logs",
     initialFilter: {},
@@ -63,48 +67,69 @@ export default function GenerationLogsPage() {
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      {/* 页面标题 */}
-      <div>
-        <h1 className="text-2xl font-bold">生成日志</h1>
-        <p className="text-muted-foreground mt-1">
-          查看和监控所有 AI 生成调用的日志记录
-        </p>
-      </div>
+    <div className="min-h-screen halftone-pattern">
+      <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+        <div className="relative">
+          <div className="absolute -left-4 -top-4 w-20 h-20 bg-purple-400 rounded-full blur-3xl opacity-20 animate-pulse" />
+          <h1 className="text-5xl font-bold mb-4 flex items-center gap-3 comic-title relative z-10">
+            <FileClock className="w-12 h-12 text-primary drop-shadow-md" />
+            生成日志
+          </h1>
+          <p className="text-xl text-muted-foreground font-medium pl-2 border-l-4 border-primary/50">
+            查看和监控所有 AI 生成调用的日志记录
+          </p>
+          <div className="absolute top-0 right-0 z-20 flex gap-2">
+            <Link href="/admin">
+              <Button variant="outline" size="sm" className="bg-background">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                返回后台
+              </Button>
+            </Link>
+          </div>
+        </div>
 
-      {/* 过滤栏 */}
-      <LogFilterBar
-        filter={filter}
-        onFilterChange={setFilter}
-        users={allUsers}
-        loading={loading}
-      />
+        <div className="p-5 comic-card bg-card space-y-6">
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={() => refetch()} disabled={loading}>
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+              刷新列表
+            </Button>
+          </div>
 
-      {/* 日志表格 */}
-      <LogTable
-        logs={logsWithUser}
-        loading={loading}
-        onViewDetail={handleViewDetail}
-      />
+          <LogFilterBar
+            filter={filter}
+            onFilterChange={setFilter}
+            users={allUsers}
+            loading={loading}
+          />
 
-      {/* 分页 */}
-      {total > 0 && (
-        <AdminPagination
-          page={page}
-          pageSize={pageSize}
-          total={total}
-          totalPages={totalPages}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
+          <div className="border border-border rounded-lg overflow-hidden">
+            <LogTable
+              logs={logsWithUser}
+              loading={loading}
+              onViewDetail={handleViewDetail}
+            />
+          </div>
+
+          {total > 0 && (
+            <AdminPagination
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
+        </div>
+
+        {/* 详情对话框 */}
+        <LogDetailDialog
+          open={detailDialogOpen}
+          log={selectedLog}
+          onOpenChange={setDetailDialogOpen}
         />
-      )}
-
-      {/* 详情对话框 */}
-      <LogDetailDialog
-        open={detailDialogOpen}
-        log={selectedLog}
-        onOpenChange={setDetailDialogOpen}
-      />
+      </div>
     </div>
   );
 }

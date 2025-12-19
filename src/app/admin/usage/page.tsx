@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, RefreshCw, User, CalendarClock, List, Filter, Download, BarChart3 } from "lucide-react";
+import { ArrowLeft, RefreshCw, User, CalendarClock, List, Filter, Download, BarChart3, Activity } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -22,12 +22,6 @@ const AdminUsagePage = () => {
   const [logs, setLogs] = useState<GenerationLog[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-
-  const usageChartData = usageStats.reduce<Record<string, { count: number; date: string }>>((acc, item) => {
-    const key = `${item.action}-${item.date}`;
-    acc[key] = { count: item.count, date: item.date };
-    return acc;
-  }, {});
 
   const fetchData = async () => {
     setLoading(true);
@@ -68,136 +62,144 @@ const AdminUsagePage = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
-        <div className="flex items-center justify-between">
-          <Link
-            href="/admin"
-            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            返回后台
-          </Link>
-          <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
-            <RefreshCw className={cn("w-4 h-4 mr-1", loading && "animate-spin")} />
-            刷新
-          </Button>
-        </div>
-
-        <div>
-          <h1 className="text-2xl font-semibold">用量与生成日志</h1>
-          <p className="text-muted-foreground text-sm">
+    <div className="min-h-screen halftone-pattern">
+      <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+        <div className="relative">
+          <div className="absolute -left-4 -top-4 w-20 h-20 bg-blue-400 rounded-full blur-3xl opacity-20 animate-pulse" />
+          <h1 className="text-5xl font-bold mb-4 flex items-center gap-3 comic-title relative z-10">
+            <Activity className="w-12 h-12 text-primary drop-shadow-md" />
+            用量与日志
+          </h1>
+          <p className="text-xl text-muted-foreground font-medium pl-2 border-l-4 border-primary/50">
             按用户和时间窗口查看配额消耗与生成记录，便于排查异常与成本控制。
           </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 p-4 border border-border rounded-lg bg-card">
-          <div className="space-y-2">
-            <Label className="flex items-center gap-1">
-              <User className="w-4 h-4" />
-              用户 ID（可选）
-            </Label>
-            <Input
-              placeholder="过滤指定用户"
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="flex items-center gap-1">
-              <CalendarClock className="w-4 h-4" />
-              查看天数
-            </Label>
-            <Input
-              type="number"
-              min={1}
-              max={30}
-              value={days}
-              onChange={(e) => setDays(Number(e.target.value))}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="flex items-center gap-1">
-              <List className="w-4 h-4" />
-              日志条数
-            </Label>
-            <Input
-              type="number"
-              min={10}
-              max={200}
-              value={limit}
-              onChange={(e) => setLimit(Number(e.target.value))}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="flex items-center gap-1">
-              <CalendarClock className="w-4 h-4" />
-              起始日期（可选）
-            </Label>
-            <Input
-              type="date"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="flex items-center gap-1">
-              <CalendarClock className="w-4 h-4" />
-              结束日期（可选）
-            </Label>
-            <Input
-              type="date"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="flex items-center gap-1">
-              <Filter className="w-4 h-4" />
-              动作
-            </Label>
-            <select
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={action}
-              onChange={(e) => setAction(e.target.value)}
-            >
-              <option value="all">全部</option>
-              <option value="storyboard_generation">分镜生成</option>
-              <option value="image_generation">图像生成</option>
-              <option value="llm_chat">聊天/LLM</option>
-            </select>
-          </div>
-          <div className="space-y-2">
-            <Label className="flex items-center gap-1">
-              <Filter className="w-4 h-4" />
-              状态（日志）
-            </Label>
-            <select
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-            >
-              <option value="all">全部</option>
-              <option value="success">成功</option>
-              <option value="failed">失败</option>
-            </select>
+          <div className="absolute top-0 right-0 z-20 flex gap-2">
+            <Link href="/admin">
+              <Button variant="outline" size="sm" className="bg-background">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                返回后台
+              </Button>
+            </Link>
           </div>
         </div>
 
-        <div className="flex gap-3">
-          <Button onClick={fetchData} disabled={loading}>
-            查询
-          </Button>
-          <Button variant="secondary" onClick={() => exportCsv(usageStats, logs)} disabled={loading || (usageStats.length === 0 && logs.length === 0)}>
-            <Download className="w-4 h-4 mr-2" />
-            导出 CSV
-          </Button>
+        <div className="p-5 comic-card bg-card space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1">
+                <User className="w-4 h-4" />
+                用户 ID（可选）
+              </Label>
+              <Input
+                placeholder="过滤指定用户"
+                value={userId}
+                onChange={(e) => setUserId(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1">
+                <CalendarClock className="w-4 h-4" />
+                查看天数
+              </Label>
+              <Input
+                type="number"
+                min={1}
+                max={30}
+                value={days}
+                onChange={(e) => setDays(Number(e.target.value))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1">
+                <List className="w-4 h-4" />
+                日志条数
+              </Label>
+              <Input
+                type="number"
+                min={10}
+                max={200}
+                value={limit}
+                onChange={(e) => setLimit(Number(e.target.value))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1">
+                <CalendarClock className="w-4 h-4" />
+                起始日期（可选）
+              </Label>
+              <Input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1">
+                <CalendarClock className="w-4 h-4" />
+                结束日期（可选）
+              </Label>
+              <Input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1">
+                <Filter className="w-4 h-4" />
+                动作
+              </Label>
+              <select
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={action}
+                onChange={(e) => setAction(e.target.value)}
+              >
+                <option value="all">全部</option>
+                <option value="storyboard_generation">分镜生成</option>
+                <option value="image_generation">图像生成</option>
+                <option value="llm_chat">聊天/LLM</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1">
+                <Filter className="w-4 h-4" />
+                状态（日志）
+              </Label>
+              <select
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+              >
+                <option value="all">全部</option>
+                <option value="success">成功</option>
+                <option value="failed">失败</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <Button
+              onClick={fetchData}
+              disabled={loading}
+              className="bg-blue-500 hover:bg-blue-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+            >
+              查詢
+            </Button>
+            <Button variant="secondary" onClick={() => exportCsv(usageStats, logs)} disabled={loading || (usageStats.length === 0 && logs.length === 0)}>
+              <Download className="w-4 h-4 mr-2" />
+              导出 CSV
+            </Button>
+            <Button variant="outline" size="sm" onClick={fetchData} disabled={loading} className="ml-auto">
+              <RefreshCw className={cn("w-4 h-4 mr-1", loading && "animate-spin")} />
+              刷新
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="border border-border rounded-lg bg-card">
-            <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-              <div className="font-medium">日用量统计</div>
+          <div className="p-5 comic-card bg-card">
+            <div className="pb-3 border-b border-border flex items-center justify-between">
+              <div className="font-bold text-lg">日用量统计</div>
               <span className="text-xs text-muted-foreground">最近 {days} 天</span>
             </div>
             <div className="p-4 border-b border-border">
@@ -254,9 +256,9 @@ const AdminUsagePage = () => {
             </div>
           </div>
 
-          <div className="border border-border rounded-lg bg-card">
-            <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-              <div className="font-medium">生成日志</div>
+          <div className="p-5 comic-card bg-card">
+            <div className="pb-3 border-b border-border flex items-center justify-between">
+              <div className="font-bold text-lg">生成日志</div>
               <span className="text-xs text-muted-foreground">最多 {limit} 条</span>
             </div>
             <div className="max-h-[420px] overflow-y-auto divide-y divide-border">
