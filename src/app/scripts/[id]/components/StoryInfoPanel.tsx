@@ -10,9 +10,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Edit, Loader2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Edit, Loader2, Upload, X, Image as ImageIcon } from "lucide-react";
 import { SaveIndicator } from "@/components/ui/save-indicator";
 import { useAutoSave } from "@/hooks/useAutoSave";
+import { useComicStyles } from "../hooks/useComicStyles";
+import { useState, useRef } from "react";
 import type { Story } from "../types/script-editor.types";
 
 interface StoryInfoPanelProps {
@@ -21,13 +30,15 @@ interface StoryInfoPanelProps {
   storyForm: {
     title: string;
     premise: string;
+    comic_style_id?: string | null;
+    style_reference_image?: string | null;
   };
   saving: boolean;
   onEditModeToggle: () => void;
   onCancel: () => void;
   onSave: () => void;
-  onFormChange: (field: "title" | "premise", value: string) => void;
-  onAutoSave?: (data: { title: string; premise: string }) => Promise<void>; // New prop for auto-save
+  onFormChange: (field: "title" | "premise" | "comic_style_id" | "style_reference_image", value: string | null) => void;
+  onAutoSave?: (data: { title: string; premise: string; comic_style_id?: string | null; style_reference_image?: string | null }) => Promise<void>; // New prop for auto-save
 }
 
 export function StoryInfoPanel({
@@ -41,6 +52,13 @@ export function StoryInfoPanel({
   onFormChange,
   onAutoSave,
 }: StoryInfoPanelProps) {
+  // Comic styles hook
+  const { data: comicStyles = [], isLoading: stylesLoading } = useComicStyles();
+
+  // Local state for image upload
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Auto-save hook (only active in edit mode)
   const autoSave = useAutoSave({
     data: storyForm,
@@ -52,6 +70,78 @@ export function StoryInfoPanel({
     delay: 3000,
     enabled: editMode && !!onAutoSave,
   });
+
+  // Handle image upload
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      alert("请上传图片文件");
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert("图片大小不能超过10MB");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      // Convert to base64
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        try {
+          const base64String = reader.result as string;
+          const base64Data = base64String.split(",")[1];
+
+          // Upload via API
+          const response = await fetch("/api/story/upload-style-ref", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              base64Data,
+              filename: `style-ref-${Date.now()}.png`,
+            }),
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || "上传失败");
+          }
+
+          const data = await response.json();
+
+          // Update form
+          onFormChange("style_reference_image", data.url);
+        } catch (uploadError) {
+          console.error("Image upload failed:", uploadError);
+          alert(uploadError instanceof Error ? uploadError.message : "图片上传失败");
+        } finally {
+          setUploading(false);
+        }
+      };
+      reader.onerror = () => {
+        alert("读取文件失败");
+        setUploading(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("File read error:", error);
+      alert("读取文件失败");
+      setUploading(false);
+    }
+  };
+
+  // Remove reference image
+  const handleRemoveImage = () => {
+    onFormChange("style_reference_image", null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   // Determine save status for indicator
   const saveStatus = autoSave.isSaving
@@ -103,6 +193,109 @@ export function StoryInfoPanel({
               <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                 {story.premise}
               </p>
+            )}
+          </div>
+
+          {/* 漫画风格选择 */}
+          <div className="space-y-2">
+            <Label>漫画风格</Label>
+            {editMode ? (
+              <Select
+                value={storyForm.comic_style_id || ""}
+                onValueChange={(value) => onFormChange("comic_style_id", value || null)}
+                disabled={stylesLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="选择漫画风格（可选）" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">无</SelectItem>
+                  {comicStyles.map((style) => (
+                    <SelectItem key={style.id} value={style.id}>
+                      {style.name_zh} ({style.name_en})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {story.comic_style ? `${story.comic_style.name_zh} (${story.comic_style.name_en})` : "未设置"}
+              </p>
+            )}
+          </div>
+
+          {/* 风格参考图 */}
+          <div className="space-y-2">
+            <Label>风格参考图（优先级最高）</Label>
+            <p className="text-xs text-muted-foreground">
+              上传参考图片以提取艺术风格，系统将仅学习图片的风格特征，不包含人物信息
+            </p>
+            {editMode ? (
+              <div className="space-y-2">
+                {storyForm.style_reference_image ? (
+                  <div className="relative w-full h-32 border rounded-md overflow-hidden bg-muted">
+                    <img
+                      src={storyForm.style_reference_image}
+                      alt="Style reference"
+                      className="w-full h-full object-cover"
+                    />
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2"
+                      onClick={handleRemoveImage}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImageUpload}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="w-full"
+                    >
+                      {uploading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          上传中...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4 mr-2" />
+                          上传参考图
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                {story.style_reference_image ? (
+                  <div className="w-full h-32 border rounded-md overflow-hidden bg-muted">
+                    <img
+                      src={story.style_reference_image}
+                      alt="Style reference"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <ImageIcon className="w-4 h-4" />
+                    <span>未上传</span>
+                  </div>
+                )}
+              </>
             )}
           </div>
 

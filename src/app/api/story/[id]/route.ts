@@ -35,6 +35,15 @@ export async function GET(
                     select: { id: true },
                     take: 1,
                     orderBy: { updated_at: 'desc' }
+                },
+                comic_style: {
+                    select: {
+                        id: true,
+                        style_key: true,
+                        name_zh: true,
+                        name_en: true,
+                        prompt_prefix: true,
+                    }
                 }
             }
         });
@@ -52,7 +61,7 @@ export async function GET(
             ? story.projects[0].id
             : null;
 
-        // Remove projects from story object
+        // Remove projects from story object but keep comic_style
         const { projects, ...storyData } = story;
 
         return NextResponse.json({
@@ -106,7 +115,7 @@ export async function PATCH(
 
         // Update story
         const body = await req.json();
-        const { title, premise, genre, outline, characters, status } = body;
+        const { title, premise, genre, outline, characters, status, comic_style_id, style_reference_image } = body;
 
         const updated = await prisma.story.update({
             where: { id },
@@ -117,6 +126,8 @@ export async function PATCH(
                 ...(outline && { outline }),
                 ...(characters !== undefined && { characters }),
                 ...(status && { status }),
+                ...(comic_style_id !== undefined && { comic_style_id }),
+                ...(style_reference_image !== undefined && { style_reference_image }),
                 updated_at: new Date(),
             },
         });

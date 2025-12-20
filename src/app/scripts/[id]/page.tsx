@@ -119,6 +119,8 @@ export default function ScriptDetailsPage() {
     uiActions.setStoryForm({
       title: data.story.title,
       premise: data.story.premise || "",
+      comic_style_id: data.story.comic_style_id || null,
+      style_reference_image: data.story.style_reference_image || null,
     });
   }, [
     data?.story,

@@ -101,6 +101,12 @@ export async function POST(
                 user_id: true,
                 title: true,
                 genre: true,
+                style_reference_image: true,
+                comic_style: {
+                  select: {
+                    prompt_prefix: true,
+                  },
+                },
               },
             },
           },
@@ -234,6 +240,10 @@ export async function POST(
             storyTitle: chapter.story.title,
             genre: chapter.story.genre,
             panelCount: panel_count,
+            styleConfig: {
+              style_reference_image: chapter.story.style_reference_image,
+              comic_style_prompt: chapter.story.comic_style?.prompt_prefix || null,
+            },
           },
           (chunk) => {
             // 累积内容

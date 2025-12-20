@@ -424,6 +424,7 @@ model Story {
   characters      Json? // DEPRECATED: Use story_characters relation instead
   template_id     String?  @db.Uuid
   comic_style_id  String?  @db.Uuid // FK to ComicStyle for visual style
+  style_reference_image String? // Reference image URL for extracting visual style (highest priority)
   status          String   @default("draft") // draft/completed
   is_sample       Boolean  @default(false) // Sample project for new users
   sample_category String?  // beginner/intermediate/advanced

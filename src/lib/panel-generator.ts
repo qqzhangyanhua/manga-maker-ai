@@ -10,6 +10,10 @@ export interface PanelGenerationParams {
   storyTitle: string;
   genre: string;
   panelCount?: number;
+  styleConfig?: {
+    comic_style_prompt?: string | null; // From ComicStyle.prompt_prefix
+    style_reference_image?: string | null; // Reference image URL
+  };
 }
 
 export interface GeneratedPanel {
@@ -133,7 +137,20 @@ export async function generatePanelsFromChapter(
   params: PanelGenerationParams,
   userId?: string
 ): Promise<GeneratedPanel[]> {
-  const { chapterTitle, chapterSummary, storyTitle, genre, panelCount } = params;
+  const { chapterTitle, chapterSummary, storyTitle, genre, panelCount, styleConfig } = params;
+
+  // Build style instruction
+  let styleInstruction = "";
+  if (styleConfig?.style_reference_image) {
+    styleInstruction = `\n\n【重要】故事风格要求：
+- 参考图片URL：${styleConfig.style_reference_image}
+- 请在 visual_prompt 中强调从参考图片提取的风格特征（色调、笔触、光影、氛围等）
+- 注意：仅提取风格，不包含参考图中的具体人物或对象`;
+  } else if (styleConfig?.comic_style_prompt) {
+    styleInstruction = `\n\n【重要】故事风格要求：
+- 风格描述：${styleConfig.comic_style_prompt}
+- 请在 visual_prompt 中融合此风格特征`;
+  }
 
   const userPrompt = `
 故事标题：${storyTitle}
@@ -143,7 +160,7 @@ export async function generatePanelsFromChapter(
 章节梗概：
 ${chapterSummary}
 
-要求生成分镜数量：${panelCount || "根据内容决定（建议8-15个分镜）"}
+要求生成分镜数量：${panelCount || "根据内容决定（建议8-15个分镜）"}${styleInstruction}
 
 请根据以上信息，生成详细的分镜脚本。确保每个分镜都有清晰的视觉描述和构图设计。
 `.trim();
@@ -209,7 +226,20 @@ export async function generatePanelsFromChapterStream(
   onChunk: (chunk: string) => void,
   userId?: string
 ): Promise<GeneratedPanel[]> {
-  const { chapterTitle, chapterSummary, storyTitle, genre, panelCount } = params;
+  const { chapterTitle, chapterSummary, storyTitle, genre, panelCount, styleConfig } = params;
+
+  // Build style instruction
+  let styleInstruction = "";
+  if (styleConfig?.style_reference_image) {
+    styleInstruction = `\n\n【重要】故事风格要求：
+- 参考图片URL：${styleConfig.style_reference_image}
+- 请在 visual_prompt 中强调从参考图片提取的风格特征（色调、笔触、光影、氛围等）
+- 注意：仅提取风格，不包含参考图中的具体人物或对象`;
+  } else if (styleConfig?.comic_style_prompt) {
+    styleInstruction = `\n\n【重要】故事风格要求：
+- 风格描述：${styleConfig.comic_style_prompt}
+- 请在 visual_prompt 中融合此风格特征`;
+  }
 
   const userPrompt = `
 故事标题：${storyTitle}
@@ -219,7 +249,7 @@ export async function generatePanelsFromChapterStream(
 章节梗概：
 ${chapterSummary}
 
-要求生成分镜数量：${panelCount || "根据内容决定（建议8-15个分镜）"}
+要求生成分镜数量：${panelCount || "根据内容决定（建议8-15个分镜）"}${styleInstruction}
 
 请根据以上信息，生成详细的分镜脚本。确保每个分镜都有清晰的视觉描述和构图设计。
 `.trim();

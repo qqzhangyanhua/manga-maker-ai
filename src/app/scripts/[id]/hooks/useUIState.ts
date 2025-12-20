@@ -4,15 +4,12 @@
  */
 
 import { useReducer, useCallback, useMemo } from 'react';
-import type { Panel } from '../types/script-editor.types';
+import type { Panel, StoryFormData } from '../types/script-editor.types';
 
 // UI 状态类型定义
 export interface UIState {
   editMode: boolean;
-  storyForm: {
-    title: string;
-    premise: string;
-  };
+  storyForm: StoryFormData;
   editingPanel: Partial<Panel> | null;
   isDialogOpen: boolean;
   deletingPanelId: string | null;
@@ -21,8 +18,8 @@ export interface UIState {
 // UI 操作类型定义
 export type UIAction =
   | { type: 'SET_EDIT_MODE'; payload: boolean }
-  | { type: 'UPDATE_STORY_FORM'; payload: Partial<UIState['storyForm']> }
-  | { type: 'SET_STORY_FORM'; payload: UIState['storyForm'] }
+  | { type: 'UPDATE_STORY_FORM'; payload: Partial<StoryFormData> }
+  | { type: 'SET_STORY_FORM'; payload: StoryFormData }
   | { type: 'SET_EDITING_PANEL'; payload: Partial<Panel> | null }
   | { type: 'SET_DIALOG_OPEN'; payload: boolean }
   | { type: 'SET_DELETING_PANEL'; payload: string | null }
@@ -38,6 +35,8 @@ const initialState: UIState = {
   storyForm: {
     title: '',
     premise: '',
+    comic_style_id: null,
+    style_reference_image: null,
   },
   editingPanel: null,
   isDialogOpen: false,
@@ -134,11 +133,11 @@ export function useUIState() {
       dispatch({ type: 'SET_EDIT_MODE', payload: editMode });
     },
 
-    updateStoryForm: (updates: Partial<UIState['storyForm']>) => {
+    updateStoryForm: (updates: Partial<StoryFormData>) => {
       dispatch({ type: 'UPDATE_STORY_FORM', payload: updates });
     },
 
-    setStoryForm: (form: UIState['storyForm']) => {
+    setStoryForm: (form: StoryFormData) => {
       dispatch({ type: 'SET_STORY_FORM', payload: form });
     },
 

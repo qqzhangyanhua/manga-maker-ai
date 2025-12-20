@@ -14,6 +14,17 @@ export interface StoryCharacter {
 }
 
 /**
+ * 漫画风格接口（从数据库返回）
+ */
+export interface ComicStyle {
+  id: string;
+  style_key: string;
+  name_zh: string;
+  name_en: string;
+  prompt_prefix?: string;
+}
+
+/**
  * 故事接口
  */
 export interface Story {
@@ -24,6 +35,9 @@ export interface Story {
   status: string;
   outline: Record<string, unknown>;
   characters: StoryCharacter[];
+  comic_style_id?: string | null; // 选择的漫画风格ID
+  style_reference_image?: string | null; // 参考图URL（优先级最高）
+  comic_style?: ComicStyle | null; // 关联的风格对象
   created_at: string;
   updated_at: string;
   _syncing?: boolean; // 乐观更新同步标记
@@ -146,6 +160,8 @@ export interface TaskStatusResponse {
 export interface StoryFormData {
   title: string;
   premise: string;
+  comic_style_id?: string | null;
+  style_reference_image?: string | null;
 }
 
 /**
