@@ -3,6 +3,11 @@
  */
 
 import { callChatCompletionByType, callChatCompletionStreamByType } from "./llm-provider";
+import {
+  loadChapterContext,
+  formatChapterContextForPrompt,
+  type ChapterContext,
+} from "./chapter-context-loader";
 
 export interface PanelGenerationParams {
   chapterTitle: string;
@@ -14,6 +19,8 @@ export interface PanelGenerationParams {
     comic_style_prompt?: string | null; // From ComicStyle.prompt_prefix
     style_reference_image?: string | null; // Reference image URL
   };
+  // Phase 4: Enhanced context for long-form storytelling
+  chapterId?: string; // If provided, load intelligent context
 }
 
 export interface GeneratedPanel {
@@ -226,7 +233,7 @@ export async function generatePanelsFromChapterStream(
   onChunk: (chunk: string) => void,
   userId?: string
 ): Promise<GeneratedPanel[]> {
-  const { chapterTitle, chapterSummary, storyTitle, genre, panelCount, styleConfig } = params;
+  const { chapterTitle, chapterSummary, storyTitle, genre, panelCount, styleConfig, chapterId } = params;
 
   // Build style instruction
   let styleInstruction = "";
@@ -241,17 +248,53 @@ export async function generatePanelsFromChapterStream(
 - 请在 visual_prompt 中融合此风格特征`;
   }
 
-  const userPrompt = `
+  // Phase 4: Load intelligent context if chapterId is provided
+  let contextPrompt: string;
+  if (chapterId) {
+    try {
+      const context = await loadChapterContext(chapterId, {
+        recentChaptersCount: 10,
+        includeFirstChapter: true,
+        includeKeyChapters: true,
+        includeCharacterStates: true,
+      });
+
+      contextPrompt = formatChapterContextForPrompt(context);
+    } catch (error) {
+      console.error("Failed to load chapter context, falling back to basic mode:", error);
+      // Fallback to basic mode
+      contextPrompt = `
 故事标题：${storyTitle}
 故事类型：${genre}
 章节标题：${chapterTitle}
 
 章节梗概：
-${chapterSummary}
+${chapterSummary}`;
+    }
+  } else {
+    // Legacy mode: use basic context
+    contextPrompt = `
+故事标题：${storyTitle}
+故事类型：${genre}
+章节标题：${chapterTitle}
+
+章节梗概：
+${chapterSummary}`;
+  }
+
+  const userPrompt = `
+${contextPrompt}
 
 要求生成分镜数量：${panelCount || "根据内容决定（建议8-15个分镜）"}${styleInstruction}
 
 请根据以上信息，生成详细的分镜脚本。确保每个分镜都有清晰的视觉描述和构图设计。
+
+${chapterId ? `
+【重要提示】
+1. 生成分镜时要保持与前面章节的连贯性
+2. 尊重角色当前状态（如受伤的角色不能突然健步如飞）
+3. 如果有伏笔或悬念，注意呼应
+4. 注意角色关系的变化和情感延续` : ""}
 `.trim();
 
   let accumulatedContent = "";

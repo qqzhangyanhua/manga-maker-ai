@@ -201,15 +201,15 @@ export function StoryInfoPanel({
             <Label>漫画风格</Label>
             {editMode ? (
               <Select
-                value={storyForm.comic_style_id || ""}
-                onValueChange={(value) => onFormChange("comic_style_id", value || null)}
+                value={storyForm.comic_style_id || "none"}
+                onValueChange={(value) => onFormChange("comic_style_id", value === "none" ? null : value)}
                 disabled={stylesLoading}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="选择漫画风格（可选）" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">无</SelectItem>
+                  <SelectItem value="none">无</SelectItem>
                   {comicStyles.map((style) => (
                     <SelectItem key={style.id} value={style.id}>
                       {style.name_zh} ({style.name_en})

@@ -1,29 +1,14 @@
 /**
  * Chapter List Component - Left sidebar showing story chapters
+ * Phase 4: Enhanced with content management and character state tracking
  */
 
 "use client";
 
 import { useState } from "react";
-import { Plus, Loader2, Sparkles, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Plus, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import {
   useChapters,
@@ -33,6 +18,14 @@ import {
   useGenerateChapters,
 } from "../hooks/useChapterData";
 import type { Chapter } from "../types/script-editor.types";
+import { ChapterItem } from "./ChapterItem";
+import {
+  CreateChapterDialog,
+  EditChapterDialog,
+  KeyChapterDialog,
+  DeleteConfirmDialog,
+  OverwriteConfirmDialog,
+} from "./ChapterDialogs";
 
 interface ChapterListProps {
   storyId: string;
@@ -50,12 +43,148 @@ export function ChapterList({
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingChapter, setEditingChapter] = useState<Chapter | null>(null);
   const [formData, setFormData] = useState({ title: "", summary: "" });
+  const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
+  const [expandingContent, setExpandingContent] = useState<string | null>(null);
+  const [analyzingStates, setAnalyzingStates] = useState<string | null>(null);
+  const [togglingKeyChapter, setTogglingKeyChapter] = useState<string | null>(null);
+
+  // Dialog states for confirmations
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [chapterToDelete, setChapterToDelete] = useState<Chapter | null>(null);
+  const [overwriteConfirmOpen, setOverwriteConfirmOpen] = useState(false);
+  const [keyChapterDialogOpen, setKeyChapterDialogOpen] = useState(false);
+  const [keyChapterReason, setKeyChapterReason] = useState("");
+  const [chapterToMarkAsKey, setChapterToMarkAsKey] = useState<Chapter | null>(null);
 
   const { data: chapters = [], isLoading } = useChapters(storyId);
   const createChapter = useCreateChapter(storyId);
   const updateChapter = useUpdateChapter(editingChapter?.id || "");
   const deleteChapter = useDeleteChapter();
   const generateChapters = useGenerateChapters(storyId);
+
+  function toggleChapterExpansion(chapterId: string) {
+    const newExpanded = new Set(expandedChapters);
+    if (newExpanded.has(chapterId)) {
+      newExpanded.delete(chapterId);
+    } else {
+      newExpanded.add(chapterId);
+    }
+    setExpandedChapters(newExpanded);
+  }
+
+  async function handleExpandContent(chapter: Chapter) {
+    setExpandingContent(chapter.id);
+    try {
+      const response = await fetch(`/api/chapter/${chapter.id}/expand-content`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "auto" }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "生成失败");
+      }
+
+      toast({
+        title: "内容已生成",
+        description: `生成了 ${data.contentLength} 字详细内容${data.creditsUsed ? `，消耗 ${data.creditsUsed} 算力` : ""}`,
+      });
+
+      window.location.reload();
+    } catch (error) {
+      toast({
+        title: "生成失败",
+        description: error instanceof Error ? error.message : "未知错误",
+        variant: "destructive",
+      });
+    } finally {
+      setExpandingContent(null);
+    }
+  }
+
+  async function handleAnalyzeCharacterStates(chapter: Chapter) {
+    if (!chapter.content) {
+      toast({
+        title: "无法分析",
+        description: "请先生成章节详细内容",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setAnalyzingStates(chapter.id);
+    try {
+      const response = await fetch(`/api/chapter/${chapter.id}/analyze-character-states`, {
+        method: "POST",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "分析失败");
+      }
+
+      toast({
+        title: "分析完成",
+        description: data.message || "角色状态已更新",
+      });
+
+      toggleChapterExpansion(chapter.id);
+    } catch (error) {
+      toast({
+        title: "分析失败",
+        description: error instanceof Error ? error.message : "未知错误",
+        variant: "destructive",
+      });
+    } finally {
+      setAnalyzingStates(null);
+    }
+  }
+
+  async function handleToggleKeyChapter(chapter: Chapter) {
+    if (!chapter.is_key_chapter) {
+      setChapterToMarkAsKey(chapter);
+      setKeyChapterReason("");
+      setKeyChapterDialogOpen(true);
+    } else {
+      await confirmToggleKeyChapter(chapter, null);
+    }
+  }
+
+  async function confirmToggleKeyChapter(chapter: Chapter, reason: string | null) {
+    setTogglingKeyChapter(chapter.id);
+    try {
+      const response = await fetch(`/api/chapter/${chapter.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          is_key_chapter: !chapter.is_key_chapter,
+          key_chapter_reason: !chapter.is_key_chapter ? reason : null,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "操作失败");
+      }
+
+      toast({
+        title: chapter.is_key_chapter ? "已取消关键标记" : "已标记为关键章节",
+      });
+
+      window.location.reload();
+    } catch (error) {
+      toast({
+        title: "操作失败",
+        description: error instanceof Error ? error.message : "未知错误",
+        variant: "destructive",
+      });
+    } finally {
+      setTogglingKeyChapter(null);
+    }
+  }
 
   function handleCreate() {
     if (!formData.title.trim()) {
@@ -109,21 +238,26 @@ export function ChapterList({
   }
 
   function handleDelete(chapter: Chapter) {
-    if (!confirm(`确定要删除章节"${chapter.title}"吗？此操作将同时删除该章节下的所有分镜。`)) {
-      return;
-    }
+    setChapterToDelete(chapter);
+    setDeleteConfirmOpen(true);
+  }
+
+  function confirmDelete() {
+    if (!chapterToDelete) return;
 
     deleteChapter.mutate(
-      { chapterId: chapter.id, storyId },
+      { chapterId: chapterToDelete.id, storyId },
       {
         onSuccess: () => {
           toast({ title: "章节已删除" });
-          if (currentChapterId === chapter.id) {
-            const remainingChapters = chapters.filter((c) => c.id !== chapter.id);
+          if (currentChapterId === chapterToDelete.id) {
+            const remainingChapters = chapters.filter((c) => c.id !== chapterToDelete.id);
             if (remainingChapters.length > 0) {
               onChapterSelect(remainingChapters[0].id);
             }
           }
+          setDeleteConfirmOpen(false);
+          setChapterToDelete(null);
         },
         onError: (error) => {
           toast({
@@ -138,11 +272,13 @@ export function ChapterList({
 
   function handleGenerateChapters() {
     if (chapters.length > 0) {
-      if (!confirm("当前已有章节，是否覆盖？")) {
-        return;
-      }
+      setOverwriteConfirmOpen(true);
+    } else {
+      confirmGenerateChapters();
     }
+  }
 
+  function confirmGenerateChapters() {
     generateChapters.mutate(
       { overwrite: chapters.length > 0 },
       {
@@ -154,6 +290,7 @@ export function ChapterList({
           if (newChapters.length > 0) {
             onChapterSelect(newChapters[0].id);
           }
+          setOverwriteConfirmOpen(false);
         },
         onError: (error) => {
           toast({
@@ -192,6 +329,7 @@ export function ChapterList({
               size="sm"
               onClick={handleGenerateChapters}
               disabled={generateChapters.isPending}
+              title="AI生成章节结构"
             >
               {generateChapters.isPending ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -203,6 +341,7 @@ export function ChapterList({
               variant="outline"
               size="sm"
               onClick={() => setIsCreateDialogOpen(true)}
+              title="手动创建章节"
             >
               <Plus className="w-4 h-4" />
             </Button>
@@ -210,14 +349,12 @@ export function ChapterList({
         </CardHeader>
         <CardContent className="space-y-2">
           {generateChapters.isPending ? (
-            // Skeleton loading state with shimmer animation
             <div className="space-y-2">
               {[...Array(4)].map((_, i) => (
                 <div
                   key={i}
                   className="relative overflow-hidden rounded-lg border bg-zinc-800/30 h-16 animate-pulse"
                 >
-                  {/* Shimmer effect */}
                   <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-zinc-700/20 to-transparent animate-shimmer" />
                 </div>
               ))}
@@ -229,134 +366,70 @@ export function ChapterList({
             </div>
           ) : (
             chapters.map((chapter) => (
-              <div
+              <ChapterItem
                 key={chapter.id}
-                className={`
-                  group flex items-center gap-2 p-3 rounded-lg border cursor-pointer
-                  transition-colors hover:bg-accent
-                  ${currentChapterId === chapter.id ? "bg-accent border-primary" : ""}
-                `}
-                onClick={() => onChapterSelect(chapter.id)}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{chapter.title}</div>
-                  {chapter.summary && (
-                    <div className="text-xs text-muted-foreground truncate mt-1">
-                      {chapter.summary.slice(0, 60)}...
-                    </div>
-                  )}
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="opacity-0 group-hover:opacity-100"
-                    >
-                      <MoreVertical className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleEdit(chapter)}>
-                      <Pencil className="w-4 h-4 mr-2" />
-                      编辑
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleDelete(chapter)}
-                      className="text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      删除
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+                chapter={chapter}
+                isSelected={currentChapterId === chapter.id}
+                isExpanded={expandedChapters.has(chapter.id)}
+                expandingContent={expandingContent}
+                analyzingStates={analyzingStates}
+                togglingKeyChapter={togglingKeyChapter}
+                onSelect={() => onChapterSelect(chapter.id)}
+                onToggleExpansion={() => toggleChapterExpansion(chapter.id)}
+                onExpandContent={() => handleExpandContent(chapter)}
+                onAnalyzeStates={() => handleAnalyzeCharacterStates(chapter)}
+                onToggleKeyChapter={() => handleToggleKeyChapter(chapter)}
+                onEdit={() => handleEdit(chapter)}
+                onDelete={() => handleDelete(chapter)}
+              />
             ))
           )}
         </CardContent>
       </Card>
 
-      {/* Create Chapter Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>创建章节</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="title">章节标题</Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="例如：第一章：相遇"
-              />
-            </div>
-            <div>
-              <Label htmlFor="summary">章节梗概（可选）</Label>
-              <Textarea
-                id="summary"
-                value={formData.summary}
-                onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
-                placeholder="简要描述本章内容..."
-                rows={4}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-              取消
-            </Button>
-            <Button onClick={handleCreate} disabled={createChapter.isPending}>
-              {createChapter.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                "创建"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CreateChapterDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        formData={formData}
+        onFormChange={setFormData}
+        onConfirm={handleCreate}
+        isPending={createChapter.isPending}
+      />
 
-      {/* Edit Chapter Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>编辑章节</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="edit-title">章节标题</Label>
-              <Input
-                id="edit-title"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-summary">章节梗概</Label>
-              <Textarea
-                id="edit-summary"
-                value={formData.summary}
-                onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
-                rows={4}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              取消
-            </Button>
-            <Button onClick={handleUpdate} disabled={updateChapter.isPending}>
-              {updateChapter.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                "保存"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <EditChapterDialog
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        formData={formData}
+        onFormChange={setFormData}
+        onConfirm={handleUpdate}
+        isPending={updateChapter.isPending}
+      />
+
+      <KeyChapterDialog
+        open={keyChapterDialogOpen}
+        onOpenChange={setKeyChapterDialogOpen}
+        reason={keyChapterReason}
+        onReasonChange={setKeyChapterReason}
+        onConfirm={() => {
+          if (chapterToMarkAsKey) {
+            confirmToggleKeyChapter(chapterToMarkAsKey, keyChapterReason);
+            setKeyChapterDialogOpen(false);
+          }
+        }}
+      />
+
+      <DeleteConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        chapter={chapterToDelete}
+        onConfirm={confirmDelete}
+      />
+
+      <OverwriteConfirmDialog
+        open={overwriteConfirmOpen}
+        onOpenChange={setOverwriteConfirmOpen}
+        onConfirm={confirmGenerateChapters}
+      />
     </>
   );
 }

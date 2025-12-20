@@ -52,6 +52,10 @@ export interface Chapter {
   title: string;
   summary: string | null;
   chapter_order: number;
+  // Phase 4: Enhanced chapter content
+  content: string | null; // Detailed content (2000-5000 words)
+  is_key_chapter: boolean; // Mark as key chapter
+  key_chapter_reason: string | null; // Why this is a key chapter
   created_at: string;
   updated_at: string;
   _syncing?: boolean; // 乐观更新同步标记

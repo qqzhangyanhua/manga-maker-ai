@@ -47,7 +47,7 @@ export function BatchGenerationDialog({
   selectedPanelIds,
   onGenerate
 }: BatchGenerationDialogProps) {
-  const [style, setStyle] = useState<string>("");
+  const [style, setStyle] = useState<string>("default");
   const [quality, setQuality] = useState<"standard" | "high">("standard");
   const [failureMode, setFailureMode] = useState<"skip" | "stop">("skip");
   const [isLoading, setIsLoading] = useState(false);
@@ -65,14 +65,14 @@ export function BatchGenerationDialog({
         projectId,
         panelIds: selectedPanelIds,
         settings: {
-          style: style || undefined,
+          style: style === "default" ? undefined : style,
           quality,
           failureMode
         }
       });
 
       // Reset form
-      setStyle("");
+      setStyle("default");
       setQuality("standard");
       setFailureMode("skip");
       onOpenChange(false);
@@ -102,7 +102,7 @@ export function BatchGenerationDialog({
                 <SelectValue placeholder="使用项目默认风格" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">使用项目默认风格</SelectItem>
+                <SelectItem value="default">使用项目默认风格</SelectItem>
                 <SelectItem value="manga">日式漫画</SelectItem>
                 <SelectItem value="american">美式漫画</SelectItem>
                 <SelectItem value="webtoon">韩国网络漫画</SelectItem>

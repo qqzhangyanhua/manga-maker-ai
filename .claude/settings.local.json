@@ -10,8 +10,6 @@
       "Bash(timeout:*)",
       "Bash(ping:*)",
       "Bash(pnpm test:*)",
-      "Bash(ls \"D:\\AI\\manga-maker-ai\\src\\lib\"\" | grep -E \"test)",
-      "Bash(spec \")",
       "Bash(npx vitest:*)",
       "Bash(pnpm dev)",
       "Bash(pnpm build)",
@@ -61,7 +59,8 @@
       "Bash(pnpm type-check:story:*)",
       "Bash(xargs:*)",
       "Bash(grep -l \"export async function POST\\|export async function GET\\|export async function PATCH\\|export async function DELETE\" \"D:\\AI\\manga-maker-ai\\src\\app\\api\"/**/*.ts)",
-      "Bash(npx prisma generate)"
+      "Bash(npx prisma generate)",
+      "Bash(node apply-migration.js:*)"
     ],
     "deny": [],
     "ask": []

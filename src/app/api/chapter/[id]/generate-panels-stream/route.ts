@@ -236,7 +236,7 @@ export async function POST(
         const generatedPanels = await generatePanelsFromChapterStream(
           {
             chapterTitle: chapter.title,
-            chapterSummary: chapter.summary,
+            chapterSummary: chapter.summary || "",
             storyTitle: chapter.story.title,
             genre: chapter.story.genre,
             panelCount: panel_count,
@@ -244,6 +244,8 @@ export async function POST(
               style_reference_image: chapter.story.style_reference_image,
               comic_style_prompt: chapter.story.comic_style?.prompt_prefix || null,
             },
+            // Phase 4: Pass chapterId for enhanced context loading
+            chapterId: chapterId,
           },
           (chunk) => {
             // 累积内容

@@ -95,9 +95,10 @@ model Character {
   outfits     CharacterOutfit[]
 
   // Phase 2: New relations
-  story_characters StoryCharacter[]
-  panels           Panel[]
-  comic_style      ComicStyle? @relation(fields: [comic_style_id], references: [id], onDelete: SetNull)
+  story_characters      StoryCharacter[]
+  panels                Panel[]
+  chapter_character_states ChapterCharacterState[] // Phase 4: Character state tracking
+  comic_style           ComicStyle? @relation(fields: [comic_style_id], references: [id], onDelete: SetNull)
 
   @@index([user_id, training_status], map: "idx_characters_user_status")
   @@index([comic_style_id], map: "idx_characters_comic_style")
@@ -453,13 +454,21 @@ model Chapter {
   title         String // Chapter title (e.g., "第一章：相遇")
   summary       String?  @db.Text // Chapter summary for AI panel generation
   chapter_order Int // Display order in story
+
+  // Phase 4: Enhanced chapter content for long-form storytelling
+  content            String?  @db.Text // Detailed chapter content (2000-5000 words) for context
+  is_key_chapter     Boolean  @default(false) // Mark as key chapter for context loading
+  key_chapter_reason String?  @db.Text // Why this chapter is key (e.g., "character death", "major plot twist")
+
   created_at    DateTime @default(now()) @db.Timestamptz(6)
   updated_at    DateTime @default(now()) @db.Timestamptz(6)
 
-  story  Story   @relation(fields: [story_id], references: [id], onDelete: Cascade)
-  panels Panel[]
+  story             Story                   @relation(fields: [story_id], references: [id], onDelete: Cascade)
+  panels            Panel[]
+  character_states  ChapterCharacterState[] // Character states at end of chapter
 
   @@index([story_id, chapter_order], map: "idx_chapters_story_order")
+  @@index([story_id, is_key_chapter], map: "idx_chapters_key")
   @@map("chapters")
 }
 
@@ -670,4 +679,31 @@ model CreditTransaction {
   @@index([user_id, created_at], map: "idx_credit_transactions_user_time")
   @@index([action], map: "idx_credit_transactions_action")
   @@map("credit_transactions")
+}
+
+// ============================================================
+// Phase 4: Chapter Character State Tracking
+// ============================================================
+
+// ChapterCharacterState - Track character state at the end of each chapter
+model ChapterCharacterState {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chapter_id           String   @db.Uuid
+  character_id         String   @db.Uuid
+  location             String?  @db.Text // Character location at chapter end
+  physical_condition   String?  @db.Text // Physical state (e.g., "injured right arm", "exhausted")
+  mental_state         String?  @db.Text // Mental/emotional state
+  key_items            String[] @default([]) // Key items character possesses
+  relationship_changes Json?    // Changes in relationships: { characterId: "description" }
+  notes                String?  @db.Text // Additional notes
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime @default(now()) @db.Timestamptz(6)
+
+  chapter   Chapter   @relation(fields: [chapter_id], references: [id], onDelete: Cascade)
+  character Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
+
+  @@unique([chapter_id, character_id], map: "unique_chapter_character_state")
+  @@index([chapter_id], map: "idx_chapter_character_states_chapter")
+  @@index([character_id], map: "idx_chapter_character_states_character")
+  @@map("chapter_character_states")
 }
