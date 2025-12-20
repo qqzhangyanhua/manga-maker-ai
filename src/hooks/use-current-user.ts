@@ -5,11 +5,14 @@ import { useQuery } from "@tanstack/react-query";
 export type CurrentUser = {
   id: number;
   email: string;
-  name?: string | null;
-  verified: boolean;
-  role?: string | null;
-  status?: string | null;
-  created_at?: string;
+  name: string | null;
+  image: string | null;
+  verified: boolean | null;
+  role: string | null;
+  status: string | null;
+  credits: number;
+  total_credits_used: number;
+  created_at: string;
 };
 
 export const useCurrentUser = () =>

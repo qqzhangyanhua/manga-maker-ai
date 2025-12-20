@@ -171,6 +171,9 @@ ${outlineText ? `<story_outline>${outlineText}</story_outline>` : ""}
           height: 768,
           steps: 25,
           cfg_scale: 7.5,
+          options: {
+            userId: payload.userId,
+          },
         });
 
         if (imageResult.success && imageResult.images.length > 0) {

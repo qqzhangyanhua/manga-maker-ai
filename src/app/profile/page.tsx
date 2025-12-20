@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -30,15 +30,17 @@ import { TransactionsDialog } from "./components/TransactionsDialog";
 import { RechargeDialog } from "./components/RechargeDialog";
 import type { UserInfo } from "./types";
 import { cn } from "@/lib/utils";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [user, setUser] = useState<UserInfo | null>(null);
-  const [loading, setLoading] = useState(true);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [transactionsOpen, setTransactionsOpen] = useState(false);
   const [rechargeOpen, setRechargeOpen] = useState(false);
+
+  // Use React Query hook for user data
+  const { data: user, isLoading, error, refetch } = useCurrentUser();
 
   // Spotlight effect state
   const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
@@ -65,28 +67,6 @@ export default function ProfilePage() {
     setMousePosition(null);
   }, []);
 
-  useEffect(() => {
-    fetchUserInfo();
-  }, []);
-
-  const fetchUserInfo = async () => {
-    try {
-      const response = await fetch("/api/auth/me");
-      const result = await response.json();
-
-      if (result.success) {
-        setUser(result.data.user);
-      } else {
-        // Not logged in, redirect to home
-        router.push("/");
-      }
-    } catch (error) {
-      console.error("Failed to fetch user info:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
@@ -96,7 +76,13 @@ export default function ProfilePage() {
     }
   };
 
-  if (loading) {
+  // Redirect to home if not logged in
+  if (error) {
+    router.push("/");
+    return null;
+  }
+
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-[#0f0f13]">
         <Navbar />
@@ -535,9 +521,8 @@ export default function ProfilePage() {
             open={editProfileOpen}
             onOpenChange={setEditProfileOpen}
             user={user}
-            onSuccess={(updatedUser) => {
-              setUser(updatedUser);
-              fetchUserInfo();
+            onSuccess={() => {
+              refetch();
             }}
           />
           <ChangePasswordDialog

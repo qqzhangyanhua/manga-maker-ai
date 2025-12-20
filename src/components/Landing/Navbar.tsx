@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { CommandPalette } from "./CommandPalette";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 interface NavbarProps {
   className?: string;
@@ -152,27 +153,11 @@ export function Navbar({ className }: NavbarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [userCredits, setUserCredits] = useState<number | null>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const dropdownTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch user credits and role
-  useEffect(() => {
-    const fetchUserInfo = async () => {
-      try {
-        const response = await fetch("/api/auth/me");
-        const result = await response.json();
-        if (result.success && result.data.user) {
-          setUserCredits(result.data.user.credits);
-          setUserRole(result.data.user.role);
-        }
-      } catch (error) {
-        // User not logged in or error, ignore
-      }
-    };
-    fetchUserInfo();
-  }, []);
+  // Use React Query hook for user data
+  const { data: user } = useCurrentUser();
 
   // Handle scroll effect
   useEffect(() => {
@@ -240,9 +225,6 @@ export function Navbar({ className }: NavbarProps) {
       });
 
       if (response.ok) {
-        // Clear user state
-        setUserCredits(null);
-        setUserRole(null);
         // Redirect to home page
         router.push("/");
         router.refresh();
@@ -378,7 +360,7 @@ export function Navbar({ className }: NavbarProps) {
 
                       <div className="space-y-3">
                         {workspaceMenuItems
-                          .filter((category) => !category.adminOnly || userRole === "admin")
+                          .filter((category) => !category.adminOnly || user?.role === "admin")
                           .map((category) => (
                           <div key={category.category}>
                             {/* Category Header */}
@@ -441,14 +423,14 @@ export function Navbar({ className }: NavbarProps) {
             {/* Right: User Status Pill + Mobile Menu Button */}
             <div className="flex items-center gap-4">
               {/* User Status Pill - Desktop (Logged in) */}
-              {userCredits !== null && (
+              {user && (
                 <div className="hidden lg:block">
-                  <UserStatusPill credits={userCredits} onLogout={handleLogout} />
+                  <UserStatusPill credits={user.credits} onLogout={handleLogout} />
                 </div>
               )}
 
               {/* Login/Register Buttons - Desktop (Not logged in) */}
-              {userCredits === null && (
+              {!user && (
                 <div className="hidden lg:flex items-center gap-2">
                   <Link href="/auth/login">
                     <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white">
@@ -484,8 +466,8 @@ export function Navbar({ className }: NavbarProps) {
       <MobileMenu
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
-        userCredits={userCredits}
-        userRole={userRole}
+        userCredits={user?.credits ?? null}
+        userRole={user?.role ?? null}
         onOpenCommandPalette={() => setCommandPaletteOpen(true)}
         onLogout={handleLogout}
       />
@@ -494,7 +476,7 @@ export function Navbar({ className }: NavbarProps) {
       <CommandPalette
         open={commandPaletteOpen}
         onOpenChange={setCommandPaletteOpen}
-        userRole={userRole}
+        userRole={user?.role ?? null}
       />
     </>
   );
