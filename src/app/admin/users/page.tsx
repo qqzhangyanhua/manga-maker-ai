@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { useAdminList } from "@/hooks/admin/use-admin-list";
+import { useAdminMutations } from "@/hooks/admin/use-admin-mutations";
+import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog,
@@ -21,38 +25,72 @@ import { UserCog } from "lucide-react";
 import { User, UserForm, emptyForm } from "./types";
 
 const AdminUsersPage = () => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { data: currentUser, isLoading: userLoading, error: userError } = useCurrentUser();
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
+
+  // Form state
   const [form, setForm] = useState<UserForm>(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [message, setMessage] = useState("");
+
+  // Dialog state
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
   const [rechargingUser, setRechargingUser] = useState<User | null>(null);
   const [rechargeAmount, setRechargeAmount] = useState<string>("");
-  const [recharging, setRecharging] = useState(false);
 
   const isAdmin = useMemo(() => (currentUser?.role || "user") === "admin", [currentUser]);
 
-  const fetchUsers = async () => {
-    setLoading(true);
-    setMessage("");
-    try {
-      const res = await fetch("/api/admin/users", { cache: "no-store" });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || "获取用户列表失败");
-      setUsers(data.data.users as User[]);
-    } catch (error) {
-      setMessage((error as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Fetch users list using React Query
+  const {
+    items: users,
+    loading,
+    refetch,
+  } = useAdminList<User, Record<string, never>>({
+    endpoint: "/api/admin/users",
+    autoFetch: isAdmin,
+  });
 
-  useEffect(() => {
-    if (isAdmin) fetchUsers();
-  }, [isAdmin]);
+  // CRUD mutations
+  const { create, update, remove } = useAdminMutations<User, UserForm>({
+    endpoint: "/api/admin/users",
+    queryKey: ["admin-list", "/api/admin/users"],
+    resourceName: "用户",
+  });
+
+  // Recharge mutation
+  const rechargeMutation = useMutation({
+    mutationFn: async ({ userId, amount }: { userId: number; amount: number }) => {
+      const response = await fetch(`/api/admin/users/${userId}/recharge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount }),
+      });
+
+      const result = await response.json().catch(() => ({ message: "充值失败" }));
+
+      if (!response.ok) {
+        throw new Error(result.message || "充值失败");
+      }
+
+      return result;
+    },
+    onSuccess: () => {
+      toast({
+        title: "充值成功",
+        description: "算力已充值",
+      });
+      queryClient.invalidateQueries({ queryKey: ["admin-list", "/api/admin/users"] });
+      setRechargingUser(null);
+      setRechargeAmount("");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "充值失败",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const resetForm = () => {
     setForm(emptyForm);
@@ -61,42 +99,45 @@ const AdminUsersPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
-    setMessage("");
 
-    try {
-      const payload: any = { ...form };
-      if (editingId) {
-        // 编辑时不允许修改邮箱；仅在需要时提交密码
-        delete payload.email;
-        if (!payload.password) delete payload.password;
-        const res = await fetch(`/api/admin/users/${editingId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.message || "更新失败");
-      } else {
-        if (!payload.password) {
-          throw new Error("创建用户时密码必填");
-        }
-        const res = await fetch("/api/admin/users", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.message || "创建失败");
+    if (editingId) {
+      // Update existing user
+      const payload: Partial<UserForm> = {
+        name: form.name,
+        role: form.role,
+        status: form.status,
+        verified: form.verified,
+      };
+
+      // Only include password if provided
+      if (form.password) {
+        payload.password = form.password;
       }
 
-      setMessage("保存成功");
-      resetForm();
-      fetchUsers();
-    } catch (error) {
-      setMessage((error as Error).message);
-    } finally {
-      setSaving(false);
+      update.mutate(
+        { id: editingId, data: payload },
+        {
+          onSuccess: () => {
+            resetForm();
+          },
+        }
+      );
+    } else {
+      // Create new user
+      if (!form.password) {
+        toast({
+          title: "验证失败",
+          description: "创建用户时密码必填",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      create.mutate(form, {
+        onSuccess: () => {
+          resetForm();
+        },
+      });
     }
   };
 
@@ -110,63 +151,40 @@ const AdminUsersPage = () => {
       status: user.status,
       verified: user.verified,
     });
-    setMessage("");
   };
 
   const handleDelete = (user: User) => {
     setDeletingUser(user);
   };
 
-  const confirmDelete = async () => {
+  const confirmDelete = () => {
     if (!deletingUser) return;
-    setMessage("");
-    try {
-      const res = await fetch(`/api/admin/users/${deletingUser.id}`, { method: "DELETE" });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || "删除失败");
-      setMessage("删除成功");
-      fetchUsers();
-    } catch (error) {
-      setMessage((error as Error).message);
-    } finally {
-      setDeletingUser(null);
-    }
+    remove.mutate(deletingUser.id, {
+      onSuccess: () => {
+        setDeletingUser(null);
+      },
+    });
   };
 
   const handleRecharge = (user: User) => {
     setRechargingUser(user);
     setRechargeAmount("");
-    setMessage("");
   };
 
-  const confirmRecharge = async () => {
+  const confirmRecharge = () => {
     if (!rechargingUser || !rechargeAmount) return;
 
     const amount = parseInt(rechargeAmount, 10);
     if (isNaN(amount) || amount <= 0) {
-      setMessage("请输入有效的充值金额（正整数）");
+      toast({
+        title: "验证失败",
+        description: "请输入有效的充值金额（正整数）",
+        variant: "destructive",
+      });
       return;
     }
 
-    setRecharging(true);
-    setMessage("");
-    try {
-      const res = await fetch(`/api/admin/users/${rechargingUser.id}/recharge`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || "充值失败");
-      setMessage(data.message || "充值成功");
-      fetchUsers();
-      setRechargingUser(null);
-      setRechargeAmount("");
-    } catch (error) {
-      setMessage((error as Error).message);
-    } finally {
-      setRecharging(false);
-    }
+    rechargeMutation.mutate({ userId: rechargingUser.id, amount });
   };
 
   if (userLoading) {
@@ -196,6 +214,8 @@ const AdminUsersPage = () => {
     );
   }
 
+  const isSaving = create.isPending || update.isPending;
+
   return (
     <div className="min-h-screen halftone-pattern">
       <div className="max-w-6xl mx-auto px-4 py-10 space-y-8">
@@ -209,12 +229,6 @@ const AdminUsersPage = () => {
             手动新增用户（免验证码）、编辑、封禁或删除用户。
           </p>
         </div>
-
-        {message && (
-          <div className="p-3 rounded-md bg-muted text-sm text-foreground border border-border">
-            {message}
-          </div>
-        )}
 
         <div className="p-5 comic-card bg-card">
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -289,10 +303,10 @@ const AdminUsersPage = () => {
             <div className="flex gap-3">
               <Button
                 type="submit"
-                disabled={saving}
+                disabled={isSaving}
                 className="bg-blue-500 hover:bg-blue-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
               >
-                {saving ? "保存中..." : editingId ? "更新用户" : "新增用户"}
+                {isSaving ? "保存中..." : editingId ? "更新用户" : "新增用户"}
               </Button>
               {editingId && (
                 <Button type="button" variant="secondary" onClick={resetForm}>
@@ -378,9 +392,13 @@ const AdminUsersPage = () => {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>取消</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                删除
+              <AlertDialogCancel disabled={remove.isPending}>取消</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                disabled={remove.isPending}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {remove.isPending ? "删除中..." : "删除"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -395,8 +413,12 @@ const AdminUsersPage = () => {
                 {rechargingUser && (
                   <div className="space-y-4">
                     <div className="text-sm">
-                      <p>用户邮箱：<strong>{rechargingUser.email}</strong></p>
-                      <p>当前算力余额：<strong className="text-primary">{rechargingUser.credits}</strong></p>
+                      <p>
+                        用户邮箱：<strong>{rechargingUser.email}</strong>
+                      </p>
+                      <p>
+                        当前算力余额：<strong className="text-primary">{rechargingUser.credits}</strong>
+                      </p>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="recharge-amount">充值金额（正整数）</Label>
@@ -408,7 +430,7 @@ const AdminUsersPage = () => {
                         value={rechargeAmount}
                         onChange={(e) => setRechargeAmount(e.target.value)}
                         placeholder="请输入充值金额"
-                        disabled={recharging}
+                        disabled={rechargeMutation.isPending}
                       />
                     </div>
                   </div>
@@ -416,13 +438,13 @@ const AdminUsersPage = () => {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={recharging}>取消</AlertDialogCancel>
+              <AlertDialogCancel disabled={rechargeMutation.isPending}>取消</AlertDialogCancel>
               <AlertDialogAction
                 onClick={confirmRecharge}
-                disabled={recharging || !rechargeAmount}
+                disabled={rechargeMutation.isPending || !rechargeAmount}
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
-                {recharging ? "充值中..." : "确认充值"}
+                {rechargeMutation.isPending ? "充值中..." : "确认充值"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import { useComicStyleForm } from "./hooks/useComicStyleForm";
 const ComicStylesAdminPage = () => {
   const { data: currentUser, isLoading: userLoading } = useCurrentUser();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const isAdmin = (currentUser?.role || "user") === "admin";
 
   const [deletingStyle, setDeletingStyle] = useState<ComicStyle | null>(null);
@@ -48,33 +50,37 @@ const ComicStylesAdminPage = () => {
     triggerFileInput,
   } = useComicStyleForm(styles.length, fetchStyles);
 
-  useEffect(() => {
-    if (isAdmin) {
-      fetchStyles();
-    }
-  }, [isAdmin, fetchStyles]);
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (styleId: string) => {
+      const res = await fetch(`/api/admin/comic-styles/${styleId}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ message: "删除失败" }));
+        throw new Error(data.message || "删除失败");
+      }
+
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "删除成功" });
+      queryClient.invalidateQueries({ queryKey: ["admin-comic-styles"] });
+      setDeletingStyle(null);
+    },
+    onError: () => {
+      toast({ title: "删除失败", variant: "destructive" });
+    },
+  });
 
   const handleDelete = (style: ComicStyle) => {
     setDeletingStyle(style);
   };
 
-  const confirmDelete = async () => {
+  const confirmDelete = () => {
     if (!deletingStyle) return;
-
-    try {
-      const res = await fetch(`/api/admin/comic-styles/${deletingStyle.id}`, {
-        method: "DELETE",
-      });
-
-      if (!res.ok) throw new Error("删除失败");
-
-      toast({ title: "删除成功" });
-      fetchStyles();
-    } catch (error) {
-      toast({ title: "删除失败", variant: "destructive" });
-    } finally {
-      setDeletingStyle(null);
-    }
+    deleteMutation.mutate(deletingStyle.id);
   };
 
   if (userLoading) {
@@ -413,12 +419,13 @@ const ComicStylesAdminPage = () => {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>取消</AlertDialogCancel>
+              <AlertDialogCancel disabled={deleteMutation.isPending}>取消</AlertDialogCancel>
               <AlertDialogAction
                 onClick={confirmDelete}
+                disabled={deleteMutation.isPending}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
-                删除
+                {deleteMutation.isPending ? "删除中..." : "删除"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

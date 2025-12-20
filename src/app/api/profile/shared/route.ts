@@ -4,6 +4,9 @@ import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import type { UserSharedItem } from "@/lib/gallery-types";
 
+// 强制动态渲染（使用 cookies）
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/profile/shared - 获取当前用户的分享列表
  * 需要认证

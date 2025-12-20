@@ -1,6 +1,9 @@
 import { useState, useRef, ChangeEvent } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { ComicStyle, ComicStyleFormData } from "../types";
+
+const COMIC_STYLES_QUERY_KEY = ["admin-comic-styles"];
 
 const getEmptyForm = (stylesLength: number): ComicStyleFormData => ({
   style_key: "",
@@ -17,11 +20,48 @@ const getEmptyForm = (stylesLength: number): ComicStyleFormData => ({
 export const useComicStyleForm = (stylesLength: number, onSuccess: () => void) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingStyle, setEditingStyle] = useState<ComicStyle | null>(null);
-  const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState<ComicStyleFormData>(getEmptyForm(stylesLength));
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Submit mutation
+  const submitMutation = useMutation({
+    mutationFn: async ({
+      formData,
+      styleId,
+    }: {
+      formData: ComicStyleFormData;
+      styleId?: string;
+    }) => {
+      const url = styleId
+        ? `/api/admin/comic-styles/${styleId}`
+        : "/api/admin/comic-styles";
+
+      const res = await fetch(url, {
+        method: styleId ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: "操作失败" }));
+        throw new Error(error.error || "操作失败");
+      }
+
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      toast({ title: variables.styleId ? "更新成功" : "创建成功" });
+      queryClient.invalidateQueries({ queryKey: COMIC_STYLES_QUERY_KEY });
+      setDialogOpen(false);
+      onSuccess();
+    },
+    onError: (error: Error) => {
+      toast({ title: error.message, variant: "destructive" });
+    },
+  });
 
   const handleOpenDialog = (style?: ComicStyle) => {
     if (style) {
@@ -44,38 +84,16 @@ export const useComicStyleForm = (stylesLength: number, onSuccess: () => void) =
     setDialogOpen(true);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!form.style_key || !form.name_zh || !form.name_en || !form.image_url) {
       toast({ title: "请填写所有必填项", variant: "destructive" });
       return;
     }
 
-    try {
-      setSubmitting(true);
-      const url = editingStyle
-        ? `/api/admin/comic-styles/${editingStyle.id}`
-        : "/api/admin/comic-styles";
-
-      const res = await fetch(url, {
-        method: editingStyle ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "操作失败");
-      }
-
-      toast({ title: editingStyle ? "更新成功" : "创建成功" });
-      setDialogOpen(false);
-      onSuccess();
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "操作失败";
-      toast({ title: message, variant: "destructive" });
-    } finally {
-      setSubmitting(false);
-    }
+    submitMutation.mutate({
+      formData: form,
+      styleId: editingStyle?.id,
+    });
   };
 
   const handleFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -136,7 +154,7 @@ export const useComicStyleForm = (stylesLength: number, onSuccess: () => void) =
     editingStyle,
     form,
     setForm,
-    submitting,
+    submitting: submitMutation.isPending,
     uploading,
     fileInputRef,
     handleOpenDialog,

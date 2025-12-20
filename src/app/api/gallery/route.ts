@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import type { GalleryListResponse } from "@/lib/gallery-types";
 
+// 强制动态渲染（使用 request.url）
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/gallery - 获取公开画廊列表
  * 公开接口，无需认证

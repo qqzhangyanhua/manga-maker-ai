@@ -3,6 +3,9 @@ import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { getTaskStatus } from "@/lib/unified-image-generation";
 
+// 强制动态渲染（使用 cookies）
+export const dynamic = "force-dynamic";
+
 // GET /api/panel/generate-image/status - 查询图片生成任务状态
 export async function GET(req: Request) {
   try {

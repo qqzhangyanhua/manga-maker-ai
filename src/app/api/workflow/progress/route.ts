@@ -26,6 +26,9 @@ interface WorkflowProgressResponse {
   };
 }
 
+// 强制动态渲染（使用 cookies）
+export const dynamic = "force-dynamic";
+
 export async function GET(): Promise<NextResponse<WorkflowProgressResponse | { error: string }>> {
   try {
     const cookieStore = await cookies();

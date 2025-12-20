@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
 import { Character, CharacterFormData, emptyForm } from "../types";
 
@@ -52,8 +53,44 @@ export const useCharacterForm = (onSuccess: () => void) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Character | null>(null);
   const [form, setForm] = useState<CharacterFormData>({ ...emptyForm });
-  const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Submit mutation
+  const submitMutation = useMutation({
+    mutationFn: async ({
+      payload,
+      characterId,
+    }: {
+      payload: Record<string, unknown>;
+      characterId?: string;
+    }) => {
+      const url = characterId ? `/api/admin/characters/${characterId}` : "/api/admin/characters";
+      const res = await fetch(url, {
+        method: characterId ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "保存失败");
+      }
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      toast({ title: variables.characterId ? "更新成功" : "创建成功" });
+      queryClient.invalidateQueries({ queryKey: ["admin-list", "/api/admin/characters"] });
+      setDialogOpen(false);
+      onSuccess();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "操作失败",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const resetForm = () => {
     setForm({ ...emptyForm });
@@ -82,7 +119,7 @@ export const useCharacterForm = (onSuccess: () => void) => {
     setDialogOpen(true);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!form.name.trim()) {
       toast({ title: "角色名称不能为空", variant: "destructive" });
       return;
@@ -97,30 +134,10 @@ export const useCharacterForm = (onSuccess: () => void) => {
       delete payload.user_id;
     }
 
-    try {
-      setSubmitting(true);
-      const url = editing ? `/api/admin/characters/${editing.id}` : "/api/admin/characters";
-      const res = await fetch(url, {
-        method: editing ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || "保存失败");
-      }
-      toast({ title: editing ? "更新成功" : "创建成功" });
-      setDialogOpen(false);
-      onSuccess();
-    } catch (error) {
-      toast({
-        title: "操作失败",
-        description: error instanceof Error ? error.message : "请稍后重试",
-        variant: "destructive",
-      });
-    } finally {
-      setSubmitting(false);
-    }
+    submitMutation.mutate({
+      payload,
+      characterId: editing?.id,
+    });
   };
 
   return {
@@ -129,7 +146,7 @@ export const useCharacterForm = (onSuccess: () => void) => {
     editing,
     form,
     setForm,
-    submitting,
+    submitting: submitMutation.isPending,
     resetForm,
     openCreateDialog,
     openEditDialog,

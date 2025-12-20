@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,13 +21,7 @@ export function TransactionsDialog({ open, onOpenChange }: TransactionsDialogPro
   const [page, setPage] = useState(0);
   const pageSize = 20;
 
-  useEffect(() => {
-    if (open) {
-      fetchTransactions();
-    }
-  }, [open, page]);
-
-  const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -48,7 +42,13 @@ export function TransactionsDialog({ open, onOpenChange }: TransactionsDialogPro
     } finally {
       setLoading(false);
     }
-  };
+  }, [page]);
+
+  useEffect(() => {
+    if (open) {
+      fetchTransactions();
+    }
+  }, [open, fetchTransactions]);
 
   const getActionBadge = (action: string) => {
     switch (action) {

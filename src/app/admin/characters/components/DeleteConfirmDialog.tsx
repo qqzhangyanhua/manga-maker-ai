@@ -12,6 +12,7 @@ import { DeleteConfirmDialogProps } from "../types";
 
 export const DeleteConfirmDialog = ({
   character,
+  deleting = false,
   onOpenChange,
   onConfirm,
 }: DeleteConfirmDialogProps) => {
@@ -31,12 +32,13 @@ export const DeleteConfirmDialog = ({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>取消</AlertDialogCancel>
+          <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
+            disabled={deleting}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
-            删除
+            {deleting ? "删除中..." : "删除"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

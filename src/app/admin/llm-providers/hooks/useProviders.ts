@@ -1,83 +1,85 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import type { Provider, ProviderForm } from "../types";
 
+const PROVIDERS_QUERY_KEY = ["admin-llm-providers"];
+
 export const useProviders = () => {
-  const [providers, setProviders] = useState<Provider[]>([]);
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const fetchProvidersRef = useRef(async () => {
-    setLoading(true);
-    try {
+  // Fetch providers using React Query
+  const {
+    data: providers = [],
+    isLoading: loading,
+    refetch: fetchProviders,
+  } = useQuery({
+    queryKey: PROVIDERS_QUERY_KEY,
+    queryFn: async (): Promise<Provider[]> => {
       const res = await fetch("/api/llm-providers", { cache: "no-store" });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
+        const data = await res.json().catch(() => ({ message: "获取列表失败" }));
         throw new Error(data.message || "获取列表失败");
       }
       const data = await res.json();
-      setProviders(data.data.providers as Provider[]);
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "获取失败",
-        description: (error as Error).message,
-      });
-    } finally {
-      setLoading(false);
-    }
+      return data.data.providers as Provider[];
+    },
+    staleTime: 30 * 1000, // 30 seconds cache
+    retry: 1,
   });
 
-  const fetchProviders = useCallback(async () => {
-    await fetchProvidersRef.current();
-  }, []);
+  // Save provider mutation
+  const saveProviderMutation = useMutation({
+    mutationFn: async ({
+      form,
+      editingId,
+    }: {
+      form: ProviderForm;
+      editingId: number | null;
+    }): Promise<boolean> => {
+      const payload = {
+        ...form,
+        priority: Number(form.priority) || 1,
+      };
 
-  const saveProvider = useCallback(async (form: ProviderForm, editingId: number | null) => {
-    setSaving(true);
-
-    const payload = {
-      ...form,
-      priority: Number(form.priority) || 1,
-    };
-
-    try {
       const res = await fetch(
         editingId ? `/api/llm-providers/${editingId}` : "/api/llm-providers",
         {
           method: editingId ? "PUT" : "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
-        },
+        }
       );
 
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json().catch(() => ({ message: "保存失败" }));
       if (!res.ok) {
         const errorMsg = data.message || data.error || `保存失败 (${res.status})`;
-        console.error("保存失败:", data);
         throw new Error(errorMsg);
       }
 
+      return true;
+    },
+    onSuccess: (_, variables) => {
       toast({
         title: "保存成功",
-        description: editingId ? "配置已更新" : "配置已创建",
+        description: variables.editingId ? "配置已更新" : "配置已创建",
       });
-      await fetchProvidersRef.current();
-      return true;
-    } catch (error) {
+      queryClient.invalidateQueries({ queryKey: PROVIDERS_QUERY_KEY });
+    },
+    onError: (error: Error) => {
       toast({
         variant: "destructive",
         title: "保存失败",
-        description: (error as Error).message,
+        description: error.message,
       });
-      return false;
-    } finally {
-      setSaving(false);
-    }
-  }, [toast]);
+    },
+  });
 
-  const copyProvider = useCallback(async (provider: Provider) => {
-    try {
+  // Copy provider mutation
+  const copyProviderMutation = useMutation({
+    mutationFn: async (provider: Provider) => {
       const payload = {
         provider_type: provider.provider_type,
         provider_name: provider.provider_name,
@@ -96,45 +98,80 @@ export const useProviders = () => {
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json().catch(() => ({ message: "复制失败" }));
       if (!res.ok) {
         throw new Error(data.message || "复制失败");
       }
-
+    },
+    onSuccess: () => {
       toast({
         title: "复制成功",
         description: "新配置已创建（默认禁用）",
       });
-      await fetchProvidersRef.current();
-    } catch (error) {
+      queryClient.invalidateQueries({ queryKey: PROVIDERS_QUERY_KEY });
+    },
+    onError: (error: Error) => {
       toast({
         variant: "destructive",
         title: "复制失败",
-        description: (error as Error).message,
+        description: error.message,
       });
-    }
-  }, [toast]);
+    },
+  });
 
-  const deleteProvider = useCallback(async (id: number) => {
-    try {
+  // Delete provider mutation
+  const deleteProviderMutation = useMutation({
+    mutationFn: async (id: number) => {
       const res = await fetch(`/api/llm-providers/${id}`, { method: "DELETE" });
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json().catch(() => ({ message: "删除失败" }));
       if (!res.ok) {
         throw new Error(data.message || "删除失败");
       }
+    },
+    onSuccess: () => {
       toast({
         title: "删除成功",
         description: "配置已删除",
       });
-      await fetchProvidersRef.current();
-    } catch (error) {
+      queryClient.invalidateQueries({ queryKey: PROVIDERS_QUERY_KEY });
+    },
+    onError: (error: Error) => {
       toast({
         variant: "destructive",
         title: "删除失败",
-        description: (error as Error).message,
+        description: error.message,
       });
-    }
-  }, [toast]);
+    },
+  });
+
+  const saveProvider = useCallback(
+    async (form: ProviderForm, editingId: number | null): Promise<boolean> => {
+      setSaving(true);
+      try {
+        await saveProviderMutation.mutateAsync({ form, editingId });
+        return true;
+      } catch (error) {
+        return false;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [saveProviderMutation]
+  );
+
+  const copyProvider = useCallback(
+    async (provider: Provider) => {
+      await copyProviderMutation.mutateAsync(provider);
+    },
+    [copyProviderMutation]
+  );
+
+  const deleteProvider = useCallback(
+    async (id: number) => {
+      await deleteProviderMutation.mutateAsync(id);
+    },
+    [deleteProviderMutation]
+  );
 
   return {
     providers,
@@ -146,14 +183,3 @@ export const useProviders = () => {
     deleteProvider,
   };
 };
-
-
-
-
-
-
-
-
-
-
-

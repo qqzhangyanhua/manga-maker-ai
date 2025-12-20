@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, RefreshCw, ArrowLeft, Users } from "lucide-react";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useToast } from "@/components/ui/use-toast";
@@ -18,6 +19,7 @@ import { PaginationControls } from "./components/PaginationControls";
 const AdminCharactersPage = () => {
   const { data: currentUser, isLoading: userLoading, error: userError } = useCurrentUser();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const isAdmin = useMemo(() => (currentUser?.role || "user") === "admin", [currentUser]);
 
   const [filters, setFilters] = useState<Filters>({ keyword: "", userId: "", status: "all" });
@@ -32,6 +34,8 @@ const AdminCharactersPage = () => {
     total,
     currentPage,
     fetchCharacters,
+    setFilter,
+    setPage: setQueryPage,
   } = useCharacterList(filters, page, pageSize);
 
   const {
@@ -47,48 +51,52 @@ const AdminCharactersPage = () => {
     handleSubmit,
   } = useCharacterForm(() => fetchCharacters());
 
-  useEffect(() => {
-    if (isAdmin) fetchCharacters();
-  }, [isAdmin, fetchCharacters]);
-
-  const handleSearch = () => {
-    const nextPage = 1;
-    setPage(nextPage);
-    fetchCharacters(nextPage, pageSize);
-  };
-
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const handlePageChange = (nextPage: number) => {
-    if (nextPage < 1 || nextPage > totalPages) return;
-    setPage(nextPage);
-    fetchCharacters(nextPage, pageSize);
-  };
-
-  const handleDelete = (character: Character) => {
-    setDeletingCharacter(character);
-  };
-
-  const confirmDelete = async () => {
-    if (!deletingCharacter) return;
-    try {
-      const res = await fetch(`/api/admin/characters/${deletingCharacter.id}`, {
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (characterId: string) => {
+      const res = await fetch(`/api/admin/characters/${characterId}`, {
         method: "DELETE",
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data.success === false) {
         throw new Error(data.message || "删除失败");
       }
+      return data;
+    },
+    onSuccess: () => {
       toast({ title: "删除成功" });
-      fetchCharacters();
-    } catch (error) {
+      queryClient.invalidateQueries({ queryKey: ["admin-list", "/api/admin/characters"] });
+      setDeletingCharacter(null);
+    },
+    onError: (error: Error) => {
       toast({
         title: "删除失败",
-        description: error instanceof Error ? error.message : "请稍后重试",
+        description: error.message,
         variant: "destructive",
       });
-    } finally {
-      setDeletingCharacter(null);
-    }
+    },
+  });
+
+  const handleSearch = () => {
+    setPage(1); // Reset page state to 1
+    setQueryPage(1); // Update query page
+    setFilter(filters); // Apply filters to query
+  };
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const handlePageChange = (nextPage: number) => {
+    if (nextPage < 1 || nextPage > totalPages) return;
+    setPage(nextPage);
+    setQueryPage(nextPage);
+  };
+
+  const handleDelete = (character: Character) => {
+    setDeletingCharacter(character);
+  };
+
+  const confirmDelete = () => {
+    if (!deletingCharacter) return;
+    deleteMutation.mutate(deletingCharacter.id);
   };
 
   if (userLoading) {
@@ -182,6 +190,7 @@ const AdminCharactersPage = () => {
 
       <DeleteConfirmDialog
         character={deletingCharacter}
+        deleting={deleteMutation.isPending}
         onOpenChange={(open) => !open && setDeletingCharacter(null)}
         onConfirm={confirmDelete}
       />

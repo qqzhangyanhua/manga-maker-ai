@@ -4,6 +4,8 @@ import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { getUserCreditsInfo, getCreditTransactions } from "@/lib/credits";
 
 export const runtime = "nodejs";
+// 强制动态渲染（使用 cookies）
+export const dynamic = "force-dynamic";
 
 /**
  * GET /api/credits

@@ -20,10 +20,10 @@ export type UserMeta = {
   name: string | null;
 };
 
-export type Filters = {
-  keyword: string;
-  userId: string;
-  status: "all" | Character["training_status"];
+export type Filters = Record<string, unknown> & {
+  keyword?: string;
+  userId?: string;
+  status?: "all" | Character["training_status"];
 };
 
 export type CharacterFormData = {
@@ -72,6 +72,7 @@ export type CharacterFormDialogProps = {
 
 export type DeleteConfirmDialogProps = {
   character: Character | null;
+  deleting?: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
 };

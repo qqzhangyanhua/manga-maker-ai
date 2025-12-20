@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import type { PaginatedData } from "@/types/admin";
 
@@ -47,13 +48,15 @@ export interface UseAdminListReturn<T, F extends Record<string, unknown>> {
   /** 设置每页数量（会重置到第一页） */
   setPageSize: (pageSize: number) => void;
   /** 重新加载数据 */
-  refetch: () => Promise<void>;
+  refetch: () => void;
   /** 额外数据（如 userMap） */
   extra: Record<string, unknown>;
+  /** 错误信息 */
+  error: Error | null;
 }
 
 /**
- * 管理后台通用列表查询 Hook
+ * 管理后台通用列表查询 Hook（基于 React Query）
  *
  * 提供分页、过滤、加载状态管理的完整解决方案
  *
@@ -93,24 +96,21 @@ export function useAdminList<T, F extends Record<string, unknown> = Record<strin
 }: UseAdminListOptions<F>): UseAdminListReturn<T, F> {
   const { toast } = useToast();
 
-  const [items, setItems] = useState<T[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(initialPage);
+  // Local state for pagination and filtering
+  const [page, setPageState] = useState(initialPage);
   const [pageSize, setPageSizeState] = useState(initialPageSize);
-  const [totalPages, setTotalPages] = useState(0);
   const [filter, setFilterState] = useState<F>(initialFilter);
-  const [extra, setExtra] = useState<Record<string, unknown>>({});
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      // 构建查询参数
+  // Use React Query for data fetching
+  const query = useQuery({
+    queryKey: ["admin-list", endpoint, filter, page, pageSize],
+    queryFn: async () => {
+      // Build query parameters
       const params = new URLSearchParams();
       params.set("page", page.toString());
       params.set("limit", pageSize.toString());
 
-      // 添加过滤条件
+      // Add filter conditions
       Object.entries(filter).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== "" && value !== "all") {
           params.set(key, String(value));
@@ -121,73 +121,73 @@ export function useAdminList<T, F extends Record<string, unknown> = Record<strin
         cache: "no-store",
       });
 
-      const result = await response.json();
-
       if (!response.ok) {
+        const result = await response.json().catch(() => ({ message: "获取数据失败" }));
         throw new Error(result.message || "获取数据失败");
       }
 
-      if (result.success && result.data) {
-        const data = result.data as PaginatedData<T> & Record<string, unknown>;
-        setItems((data[itemsKey] as T[]) || data.items || []);
-        setTotal(data.total || 0);
-        setTotalPages(data.totalPages || Math.ceil((data.total || 0) / pageSize));
+      const result = await response.json();
 
-        // 提取额外数据（如 userMap）
-        const extraData: Record<string, unknown> = {};
-        Object.keys(data).forEach((key) => {
-          if (!["items", itemsKey, "total", "page", "pageSize", "totalPages"].includes(key)) {
-            extraData[key] = data[key];
-          }
-        });
-        setExtra(extraData);
+      if (!result.success || !result.data) {
+        throw new Error("响应格式错误");
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "获取数据失败";
-      toast({
-        title: "错误",
-        description: message,
-        variant: "destructive",
-      });
-      setItems([]);
-      setTotal(0);
-      setTotalPages(0);
-    } finally {
-      setLoading(false);
-    }
-  }, [endpoint, page, pageSize, filter, itemsKey, toast]);
 
-  // 设置过滤条件时重置到第一页
-  const setFilter = useCallback((newFilter: F | ((prev: F) => F)) => {
+      return result.data as PaginatedData<T> & Record<string, unknown>;
+    },
+    enabled: autoFetch,
+    staleTime: 30 * 1000, // 30 seconds cache
+    retry: 1,
+  });
+
+  // Show error toast when query fails
+  if (query.error) {
+    toast({
+      title: "错误",
+      description: query.error.message,
+      variant: "destructive",
+    });
+  }
+
+  // Extract items from response
+  const items = query.data ? ((query.data[itemsKey] as T[]) || query.data.items || []) : [];
+  const total = query.data?.total || 0;
+  const totalPages = query.data?.totalPages || Math.ceil(total / pageSize);
+
+  // Extract extra data (e.g., userMap)
+  const extra: Record<string, unknown> = {};
+  if (query.data) {
+    Object.keys(query.data).forEach((key) => {
+      if (!["items", itemsKey, "total", "page", "pageSize", "totalPages"].includes(key)) {
+        extra[key] = query.data[key];
+      }
+    });
+  }
+
+  // Set filter and reset to page 1
+  const setFilter = (newFilter: F | ((prev: F) => F)) => {
     setFilterState(newFilter);
-    setPage(1);
-  }, []);
+    setPageState(1);
+  };
 
-  // 设置每页数量时重置到第一页
-  const setPageSize = useCallback((newPageSize: number) => {
+  // Set page size and reset to page 1
+  const setPageSize = (newPageSize: number) => {
     setPageSizeState(newPageSize);
-    setPage(1);
-  }, []);
-
-  // 自动加载
-  useEffect(() => {
-    if (autoFetch) {
-      fetchData();
-    }
-  }, [autoFetch, fetchData]);
+    setPageState(1);
+  };
 
   return {
     items,
-    loading,
+    loading: query.isLoading,
     total,
     page,
     pageSize,
     totalPages,
     filter,
     setFilter,
-    setPage,
+    setPage: setPageState,
     setPageSize,
-    refetch: fetchData,
+    refetch: query.refetch,
     extra,
+    error: query.error,
   };
 }

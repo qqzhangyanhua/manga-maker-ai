@@ -680,7 +680,7 @@ export async function generateCharacterViews(
       steps: 25,
       cfg_scale: 7.5,
       referenceImageUrl,
-      options: userId ? { userId, skipCreditsCheck: true } : { skipCreditsCheck: true },
+      options: { skipCreditsCheck: true }, // 调用方已扣除算力，跳过重复扣除
     }).then(result => ({ viewType, result }))
   );
 
