@@ -56,17 +56,51 @@ function getImageDimensions(count: number): { width: number; height: number } {
 }
 
 /**
- * 构建优化的多格提示词
- * 应用最佳实践：
- * 1. 语言统一性 - 全英文术语
- * 2. 角色一致性 - 全局角色定义
- * 3. 布局控制 - AI 从预定义模式中选择最优布局
- * 4. 满版出血 - 使用印刷术语强制铺满画布
- * 5. Negative Prompt - 明确排除白边和边距
+ * 获取场景的视觉重要性描述
+ */
+function getSceneVisualWeight(
+  panel: {
+    shot_size: string | null;
+    camera_angle: string | null;
+  },
+  isFirst: boolean
+): string {
+  // 第一个场景默认作为主导性的大场景
+  if (isFirst) {
+    return "A large aerial view";
+  }
+
+  // 根据景别判断场景大小
+  const shotSize = panel.shot_size;
+  if (shotSize === "特写" || shotSize === "close-up") {
+    return "A closer emotional moment";
+  } else if (shotSize === "远景" || shotSize === "long shot") {
+    return "A wide panoramic view";
+  } else if (shotSize === "全景" || shotSize === "full shot") {
+    return "A full scene showing";
+  } else if (shotSize === "中景" || shotSize === "medium shot") {
+    return "A medium view of";
+  } else {
+    // 默认中等视角
+    return "A visual area showing";
+  }
+}
+
+/**
+ * 构建优化的多格提示词 - 电影化拼贴画理念
+ * 核心原则：
+ * 1. 连续电影插图 - 不是漫画页面，是单一连续的电影化插图
+ * 2. 视觉区域 - 通过光照、透视、深度、构图自然分隔，而非框架
+ * 3. 场景共存 - 多个故事时刻共存于一个画面场景中
+ * 4. 大小不一 - 有些大而主导，有些小而嵌入环境
+ * 5. 触及边缘 - 所有视觉区域触及图像边缘
+ * 6. 无缝连接 - 通过统一氛围无缝连接
+ * 7. 边界裁剪 - 被图像边界自然裁剪
  *
  * @returns { positive: string, negative: string } 正向和负向提示词
  */
-function buildMultiPanelPrompt(panels: Array<{
+function buildMultiPanelPrompt(
+  panels: Array<{
   panel_order: number;
   description: string;
   visual_prompt: string | null;
@@ -75,7 +109,12 @@ function buildMultiPanelPrompt(panels: Array<{
   emotion: string | null;
   camera_angle: string | null;
   shot_size: string | null;
-}>, style?: string): { positive: string; negative: string } {
+}>,
+  options?: {
+    style?: string;
+    referenceImageCount?: number;
+  }
+): { positive: string; negative: string } {
   // 1. 收集所有角色（用于全局定义）
   const characters = new Set<string>();
   panels.forEach(panel => {
@@ -88,73 +127,173 @@ function buildMultiPanelPrompt(panels: Array<{
   let characterReference = "";
   if (characters.size > 0) {
     const characterList = Array.from(characters).join(", ");
-    characterReference = `Characters: ${characterList}, consistent appearance. `;
+    characterReference = `Characters: ${characterList}, consistent appearance.`;
   }
 
-  // 3. 构建每个分镜的描述（全英文）
-  const panelDescriptions = panels.map((panel, index) => {
-    const position = `Panel ${index + 1}`;
-    const content = panel.visual_prompt || panel.prompt_used || panel.description || "empty panel";
+  // 3. 参考图提示
+  const referenceHint =
+    (options?.referenceImageCount ?? 0) > 0
+      ? "Use reference images for character consistency."
+      : "";
 
-    let desc = `[${position}]: ${content}`;
+  // 4. 提取场景的主导氛围（从第一个场景）
+  const firstPanel = panels[0];
+  const firstDesc = firstPanel.visual_prompt || firstPanel.prompt_used || firstPanel.description || "";
 
-    // 添加角色信息
-    if (panel.character_name) {
-      desc += `, character: ${panel.character_name}`;
-    }
+  // 尝试识别氛围关键词
+  let atmosphere = "Unified atmosphere";
+  if (firstDesc.toLowerCase().includes("night") || firstDesc.toLowerCase().includes("夜")) {
+    atmosphere = "Nighttime atmosphere";
+  } else if (firstDesc.toLowerCase().includes("day") || firstDesc.toLowerCase().includes("日")) {
+    atmosphere = "Daytime atmosphere";
+  } else if (firstDesc.toLowerCase().includes("sunset") || firstDesc.toLowerCase().includes("黄昏")) {
+    atmosphere = "Sunset atmosphere";
+  } else if (firstDesc.toLowerCase().includes("rain") || firstDesc.toLowerCase().includes("雨")) {
+    atmosphere = "Rainy atmosphere";
+  }
 
-    // 添加情绪
-    if (panel.emotion) {
-      desc += `, emotion: ${panel.emotion}`;
-    }
+  // 5. 构建每个场景的描述
+  const sceneDescriptions = panels.map((panel, index) => {
+    const visualWeight = getSceneVisualWeight(panel, index === 0);
+    const content = panel.visual_prompt || panel.prompt_used || panel.description || "scene";
 
-    // 添加镜头角度（转换为英文）
+    const parts: string[] = [];
+
+    // 镜头角度和景别
     const angleEn = translateCameraTerm(panel.camera_angle, CAMERA_ANGLE_MAP);
-    if (angleEn) {
-      desc += `, angle: ${angleEn}`;
-    }
-
-    // 添加景别（转换为英文）
     const shotEn = translateCameraTerm(panel.shot_size, SHOT_SIZE_MAP);
-    if (shotEn) {
-      desc += `, shot: ${shotEn}`;
+
+    // 内容描述
+    parts.push(content);
+
+    // 角色和情绪
+    if (panel.character_name) {
+      let charDesc = panel.character_name;
+      if (panel.emotion) {
+        charDesc += ` with ${panel.emotion} expression`;
+      }
+      parts.push(charDesc);
     }
 
-    return desc;
-  }).join("; ");
+    // 添加镜头信息作为补充（如果有）
+    if (angleEn || shotEn) {
+      const cameraInfo = [shotEn, angleEn].filter(Boolean).join(", ");
+      parts.push(`(${cameraInfo})`);
+    }
 
-  // 4. 构建风格描述
-  const baseStyle = style || "manga/comic style, black and white or toned";
+    return `– ${visualWeight} of ${parts.join(", ")}.`;
+  }).join("\n");
 
-  // 5. 组合正向提示词 - 简洁明确，让AI自己决定最佳布局
+  // 6. 构建风格描述
+  const baseStyle = options?.style?.trim() || "Hand-painted anime cinematic illustration, atmospheric lighting, moody, high detail";
+
+  // 7. 组合正向提示词 - 电影化拼贴画理念
   const positive = [
+    // === 图像本质 ===
+    "A single continuous cinematic illustration.",
+    "The entire image is filled edge to edge with artwork.",
+    "",
+    // === 明确不是什么 ===
+    "This is NOT a comic page.",
+    "This is NOT a printed page.",
+    "There is no paper background.",
+    "",
+    // === 图像类型 ===
+    "The image is a cinematic storyboard collage,",
+    "where multiple story moments coexist in one painted scene.",
+    "",
+    // === 视觉分隔方式 ===
+    "Different scenes appear as naturally separated visual areas",
+    "through lighting, perspective, depth, and composition,",
+    "not through frames or panel borders.",
+    "",
+    // === 场景大小关系 ===
+    "Some scenes are large and dominant,",
+    "others are smaller and embedded into the environment.",
+    "All visual areas touch the image edges.",
+    "",
+    // === 统一氛围 ===
+    `${atmosphere} connects all scenes seamlessly.`,
+    "",
+    // === 角色和参考 ===
+    referenceHint,
     characterReference,
-    `Manga comic page with ${panels.length} panels.`,
-    `Arrange panels naturally based on narrative flow and content emphasis.`,
-    `Content: ${panelDescriptions}.`,
-    `Style: ${baseStyle}.`,
-    `IMPORTANT: Full bleed print layout - panels must fill 100% of canvas edge-to-edge, no outer borders, no page margins, thin panel dividers only (1-2px).`,
-    `Professional manga composition.`
-  ].join(" ").trim();
+    "",
+    // === 场景内容 ===
+    "Scenes included:",
+    sceneDescriptions,
+    "",
+    // === 边界裁剪特性 ===
+    "Objects, buildings, and characters are cut off by the image boundaries.",
+    "No empty space anywhere.",
+    "No white background.",
+    "",
+    // === 风格 ===
+    `Style:\n${baseStyle}.`
+  ].filter(Boolean).join("\n").trim();
 
-  // 6. 负向提示词 - 明确排除白边和边距
+  // 8. 负向提示词 - 强化排除漫画页面概念
   const negative = [
+    // 页面和印刷概念
+    "comic page",
+    "manga page",
+    "printed page",
+    "book page",
+    "page layout",
+    "paper background",
+    "paper texture",
+    "printed material",
+
+    // 框架和边框
+    "panel frames",
+    "panel borders",
+    "frame borders",
+    "black borders",
     "white borders",
-    "page margins",
-    "outer margins",
-    "whitespace around panels",
-    "padding around image",
+    "panel dividers",
+    "separation lines",
+    "dividing lines",
+    "border lines",
+
+    // 网格布局
+    "grid layout",
+    "comic grid",
+    "manga grid",
+    "regular grid",
+    "aligned panels",
+    "equal panels",
+    "symmetrical panels",
+
+    // 空白和边距
+    "white background",
+    "empty background",
+    "white space",
+    "whitespace",
     "empty space",
-    "page frame",
-    "border frame",
-    "margin space",
-    "outer padding",
-    "canvas margins",
-    "page border",
-    "wide gutters",
-    "large spacing between panels",
-    "floating panels",
-    "panels not touching edges"
+    "blank space",
+    "margins",
+    "padding",
+    "gutters",
+
+    // 3D/物理效果
+    "photograph",
+    "photo",
+    "scanned",
+    "book binding",
+    "desk",
+    "table",
+    "hands holding",
+    "3d rendering",
+
+    // 质量问题
+    "blurry",
+    "low quality",
+    "pixelated",
+    "watermark",
+    "signature",
+    "text",
+    "speech bubbles",
+    "text boxes"
   ].join(", ");
 
   return { positive, negative };
@@ -261,7 +400,10 @@ export async function POST(request: NextRequest) {
     const dimensions = getImageDimensions(panels.length);
 
     // 构建多格提示词（返回正向和负向提示词）
-    const { positive: multiPrompt, negative: negativePrompt } = buildMultiPanelPrompt(panels, style);
+    const { positive: multiPrompt, negative: negativePrompt } = buildMultiPanelPrompt(panels, {
+      style,
+      referenceImageCount: reference_image_urls.length,
+    });
 
     console.log(`[MultiPanelGenerate] 生成 ${panels.length} 格图片:`, {
       dimensions: `${dimensions.width}x${dimensions.height}`,
@@ -342,6 +484,7 @@ export async function POST(request: NextRequest) {
           source_type: "panel",
           source_id: project.id,
           style: `multi-panel-${panels.length}`,
+          // @ts-ignore: Prisma client type update might be delayed
           chapter_id: chapterId,
           panel_ids: panel_ids,
         },
