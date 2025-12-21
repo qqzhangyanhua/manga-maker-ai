@@ -130,7 +130,7 @@ export async function GET(
       });
     }
 
-    // Get all panels from these projects
+    // Get all panels from these projects (include chapter info)
     const panels = await prisma.panel.findMany({
       where: {
         project_id: { in: projectIds },
@@ -143,12 +143,20 @@ export async function GET(
         created_at: true,
         panel_order: true,
         description: true,
+        chapter_id: true,
+        chapter: {
+          select: {
+            id: true,
+            title: true,
+            chapter_order: true,
+          },
+        },
       },
       orderBy: { created_at: "desc" },
     });
     console.log(`[Story Images] Found ${panels.length} panels with images`);
 
-    // Also get images from generated_images table
+    // Also get images from generated_images table with chapter and panel info
     const generatedImages = await prisma.generatedImage.findMany({
       where: {
         user_id: payload.userId,
@@ -159,6 +167,30 @@ export async function GET(
     });
     console.log(`[Story Images] Found ${generatedImages.length} images in generated_images table`);
 
+    // Get chapter info for images with chapter_id
+    const chapterIds = generatedImages
+      .map(img => img.chapter_id)
+      .filter((id): id is string => id !== null);
+    
+    const chapters = await prisma.chapter.findMany({
+      where: { id: { in: chapterIds } },
+      select: { id: true, title: true, chapter_order: true },
+    });
+    
+    const chapterMap = new Map(chapters.map(ch => [ch.id, ch]));
+
+    // Get panel info for images with panel_ids
+    const allPanelIds = generatedImages
+      .flatMap(img => img.panel_ids || [])
+      .filter((id): id is string => id !== null && id !== "");
+    
+    const panelDetails = await prisma.panel.findMany({
+      where: { id: { in: allPanelIds } },
+      select: { id: true, panel_order: true, description: true },
+    });
+    
+    const panelMap = new Map(panelDetails.map(p => [p.id, p]));
+
     // Combine both sources into a unified format
     type UnifiedImage = {
       id: string;
@@ -168,6 +200,16 @@ export async function GET(
       source_type: string | null;
       source_id: string | null;
       created_at: string;
+      chapter_info?: {
+        id: string;
+        title: string;
+        chapter_order: number;
+      } | null;
+      panel_info?: Array<{
+        id: string;
+        panel_order: number;
+        description: string;
+      }> | null;
     };
 
     const allImages: UnifiedImage[] = [
@@ -180,17 +222,40 @@ export async function GET(
         source_type: "panel" as const,
         source_id: panel.id,
         created_at: panel.created_at.toISOString(),
+        chapter_info: panel.chapter ? {
+          id: panel.chapter.id,
+          title: panel.chapter.title,
+          chapter_order: panel.chapter.chapter_order,
+        } : null,
+        panel_info: [{
+          id: panel.id,
+          panel_order: panel.panel_order,
+          description: panel.description,
+        }],
       })),
       // From generated_images table
-      ...generatedImages.map(img => ({
-        id: img.id,
-        image_url: img.image_url,
-        prompt: img.prompt,
-        style: img.style,
-        source_type: img.source_type,
-        source_id: img.source_id,
-        created_at: img.created_at.toISOString(),
-      })),
+      ...generatedImages.map(img => {
+        const chapterInfo = img.chapter_id ? chapterMap.get(img.chapter_id) : null;
+        const panelInfo = (img.panel_ids || [])
+          .map(pid => panelMap.get(pid))
+          .filter((p): p is NonNullable<typeof p> => p !== undefined);
+        
+        return {
+          id: img.id,
+          image_url: img.image_url,
+          prompt: img.prompt,
+          style: img.style,
+          source_type: img.source_type,
+          source_id: img.source_id,
+          created_at: img.created_at.toISOString(),
+          chapter_info: chapterInfo ? {
+            id: chapterInfo.id,
+            title: chapterInfo.title,
+            chapter_order: chapterInfo.chapter_order,
+          } : null,
+          panel_info: panelInfo.length > 0 ? panelInfo : null,
+        };
+      }),
     ];
 
     // Sort by created_at desc

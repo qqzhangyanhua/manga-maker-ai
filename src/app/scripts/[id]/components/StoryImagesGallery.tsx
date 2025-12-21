@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
-import { Image as ImageIcon, Loader2, ChevronLeft, ChevronRight, X, Edit } from "lucide-react";
+import { Image as ImageIcon, Loader2, ChevronLeft, ChevronRight, X, Edit, BookOpen, Film } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { ImageEditDialog } from "./ImageEditDialog";
 import { useToast } from "@/hooks/use-toast";
 
@@ -14,6 +15,16 @@ type GeneratedImage = {
   source_type: string | null;
   source_id: string | null;
   created_at: string;
+  chapter_info?: {
+    id: string;
+    title: string;
+    chapter_order: number;
+  } | null;
+  panel_info?: Array<{
+    id: string;
+    panel_order: number;
+    description: string;
+  }> | null;
 };
 
 type Pagination = {
@@ -172,6 +183,25 @@ export function StoryImagesGallery({ storyId, projectId }: StoryImagesGalleryPro
                 alt={img.prompt}
                 className="w-full h-full object-cover"
               />
+              
+              {/* 章节和分镜标签 - 始终显示 */}
+              <div className="absolute top-2 left-2 flex flex-col gap-1">
+                {img.chapter_info && (
+                  <Badge variant="secondary" className="bg-blue-500/90 text-white text-xs">
+                    <BookOpen className="w-3 h-3 mr-1" />
+                    第{img.chapter_info.chapter_order}章
+                  </Badge>
+                )}
+                {img.panel_info && img.panel_info.length > 0 && (
+                  <Badge variant="secondary" className="bg-purple-500/90 text-white text-xs">
+                    <Film className="w-3 h-3 mr-1" />
+                    {img.panel_info.length > 1 
+                      ? `${img.panel_info.length}镜` 
+                      : `第${img.panel_info[0].panel_order}镜`}
+                  </Badge>
+                )}
+              </div>
+
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors">
                 <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Button
@@ -237,7 +267,42 @@ export function StoryImagesGallery({ storyId, projectId }: StoryImagesGalleryPro
                   className="w-full h-full object-contain"
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-3">
+                {/* 章节和分镜信息 */}
+                {(selectedImage.chapter_info || selectedImage.panel_info) && (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedImage.chapter_info && (
+                      <Badge variant="secondary" className="bg-blue-500/20 text-blue-700 dark:text-blue-300">
+                        <BookOpen className="w-3 h-3 mr-1" />
+                        {selectedImage.chapter_info.title}
+                      </Badge>
+                    )}
+                    {selectedImage.panel_info && selectedImage.panel_info.length > 0 && (
+                      <Badge variant="secondary" className="bg-purple-500/20 text-purple-700 dark:text-purple-300">
+                        <Film className="w-3 h-3 mr-1" />
+                        {selectedImage.panel_info.length > 1 
+                          ? `包含 ${selectedImage.panel_info.length} 个分镜` 
+                          : `分镜 #${selectedImage.panel_info[0].panel_order}`}
+                      </Badge>
+                    )}
+                  </div>
+                )}
+
+                {/* 分镜详情（多镜时显示） */}
+                {selectedImage.panel_info && selectedImage.panel_info.length > 1 && (
+                  <div className="border rounded-lg p-3 bg-muted/30">
+                    <div className="text-sm font-medium mb-2">包含的分镜：</div>
+                    <div className="space-y-1 text-sm text-muted-foreground">
+                      {selectedImage.panel_info.map((panel) => (
+                        <div key={panel.id} className="flex items-start gap-2">
+                          <span className="font-medium text-foreground">#{panel.panel_order}</span>
+                          <span className="line-clamp-1">{panel.description}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   {selectedImage.style && (
                     <span className="px-2 py-1 bg-muted rounded">{selectedImage.style}</span>

@@ -106,6 +106,11 @@ export interface Panel {
   scene_id?: string; // FK to Scene
   // Chapter grouping (optional, for story-based projects)
   chapter_id?: string; // FK to Chapter
+  chapter?: {
+    id: string;
+    title: string;
+    chapter_order: number;
+  }; // Chapter relation (populated when included)
   // Phase 3: Layout grouping (2镜/4镜/6镜)
   layout_hint?: string | null; // "group_start_2" | "group_start_4" | "group_start_6" | "group_member" | null
   // Gallery sharing fields

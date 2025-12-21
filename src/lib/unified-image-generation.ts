@@ -171,6 +171,7 @@ class ImageGenerationQueue {
             seed: task.seed,
             // Phase 2: Pass multiple reference images
             referenceImageUrls: task.referenceImages,
+            options: { userId: task.userId },
         });
 
         // Update progress

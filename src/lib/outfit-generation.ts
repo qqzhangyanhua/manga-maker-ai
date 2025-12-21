@@ -8,7 +8,7 @@
  * 3. 避免过多修饰词和画质词，让模型专注于参考图
  */
 
-import { callImageGenerationByType } from "./image-generation";
+import { callImageGenerationByType, type ImageGenerationOptions } from "./image-generation";
 
 // 服装类型映射
 export const OUTFIT_TYPES = {
@@ -43,6 +43,7 @@ const OUTFIT_PROMPTS: Record<OutfitType, string> = {
  * @param outfitDescription 服装的具体描述（可选）
  * @param providerType Provider 类型（默认 image_generation）
  * @param referenceImageUrl 参考角色图片 URL（强烈建议提供）
+ * @param options 图片生成选项（包含 userId）
  * @returns base64 编码的图片
  */
 export async function generateOutfit(
@@ -51,6 +52,7 @@ export async function generateOutfit(
   outfitDescription?: string,
   providerType: string = "image_generation",
   referenceImageUrl?: string,
+  options?: ImageGenerationOptions
 ): Promise<string> {
   const outfitPrompt = OUTFIT_PROMPTS[outfitType];
   
@@ -114,6 +116,7 @@ export async function generateOutfit(
     steps: 25,
     cfg_scale: 7.5,
     referenceImageUrl, // 传递参考图URL，将被转换为base64发送给模型
+    options,
   });
 
   if (!result.success || result.images.length === 0) {

@@ -146,6 +146,7 @@ export async function POST(req: Request) {
         height: 768, // 3:4 比例，适合人物
         steps: 25,
         cfg_scale: 7.5,
+        options: { userId },
       })
         .then((result) => {
           if (result.success && result.images.length > 0) {

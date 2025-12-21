@@ -276,9 +276,15 @@ model GeneratedImage {
   source_id         String? @db.Uuid
   character_id      String?  @db.Uuid
   generation_params Json? // Store model, steps, cfg, etc.
+  
+  // For serialized comic/manga generation tracking
+  chapter_id        String? @db.Uuid // FK to Chapter (for multi-panel/serialized images)
+  panel_ids         String[] // Array of panel IDs (for multi-panel images)
+  
   created_at        DateTime @default(now()) @db.Timestamptz(6)
 
   @@index([user_id, created_at], map: "idx_generated_images_user_time")
+  @@index([chapter_id], map: "idx_generated_images_chapter")
   @@map("generated_images")
 }
 

@@ -245,7 +245,8 @@ export async function POST(req: Request) {
         outfit_type as OutfitType,
         promptModifier || undefined,  // 使用简化后的服装描述
         imageProviderType,
-        finalReferenceImageUrl
+        finalReferenceImageUrl,
+        { userId }
       );
 
       console.log(`图片生成成功，Base64 长度: ${base64Image.length}\n`);

@@ -757,13 +757,15 @@ export async function generateThreeViews(
  * @param poseDescription 姿势描述（如"思考姿势，一只手托着下巴"）
  * @param providerType 图片生成模型类型
  * @param referenceImageUrl 可选的参考图URL
+ * @param options 图片生成选项（包含 userId）
  * @returns 生成的图片（base64）和使用的提示词
  */
 export async function generatePoseVariant(
   characterDescription: string,
   poseDescription: string,
   providerType: string = "image_generation",
-  referenceImageUrl?: string
+  referenceImageUrl?: string,
+  options?: ImageGenerationOptions
 ): Promise<{
   image: string;
   prompt: string;
@@ -831,6 +833,7 @@ export async function generatePoseVariant(
     steps: 25,
     cfg_scale: 7.5,
     referenceImageUrl,
+    options,
   });
 
   if (!result.success || !result.images || result.images.length === 0) {

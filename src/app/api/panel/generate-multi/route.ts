@@ -56,30 +56,15 @@ function getImageDimensions(count: number): { width: number; height: number } {
 }
 
 /**
- * 获取明确的布局建议（根据分镜数量）
- */
-function getLayoutHint(count: number): string {
-  if (count === 2) {
-    return "horizontal 2-panel layout";
-  } else if (count === 3) {
-    return "top-to-bottom 3-panel vertical progression";
-  } else if (count === 4) {
-    return "2x2 grid layout";
-  } else if (count === 5) {
-    return "mixed layout with larger top panel and 4 smaller bottom panels";
-  } else if (count === 6) {
-    return "3x2 grid layout or 2x3 grid layout";
-  }
-  return "appropriate multi-panel layout";
-}
-
-/**
  * 构建优化的多格提示词
  * 应用最佳实践：
  * 1. 语言统一性 - 全英文术语
  * 2. 角色一致性 - 全局角色定义
- * 3. 布局控制 - 明确布局建议
- * 4. 视觉隔离 - 强化边框描述
+ * 3. 布局控制 - AI 从预定义模式中选择最优布局
+ * 4. 满版出血 - 使用印刷术语强制铺满画布
+ * 5. Negative Prompt - 明确排除白边和边距
+ *
+ * @returns { positive: string, negative: string } 正向和负向提示词
  */
 function buildMultiPanelPrompt(panels: Array<{
   panel_order: number;
@@ -90,7 +75,7 @@ function buildMultiPanelPrompt(panels: Array<{
   emotion: string | null;
   camera_angle: string | null;
   shot_size: string | null;
-}>, style?: string): string {
+}>, style?: string): { positive: string; negative: string } {
   // 1. 收集所有角色（用于全局定义）
   const characters = new Set<string>();
   panels.forEach(panel => {
@@ -103,7 +88,7 @@ function buildMultiPanelPrompt(panels: Array<{
   let characterReference = "";
   if (characters.size > 0) {
     const characterList = Array.from(characters).join(", ");
-    characterReference = `[Character Reference] Main characters: ${characterList}. Maintain consistent appearance across all panels. `;
+    characterReference = `Characters: ${characterList}, consistent appearance. `;
   }
 
   // 3. 构建每个分镜的描述（全英文）
@@ -138,20 +123,41 @@ function buildMultiPanelPrompt(panels: Array<{
     return desc;
   }).join("; ");
 
-  // 4. 获取明确的布局建议
-  const layoutHint = getLayoutHint(panels.length);
+  // 4. 构建风格描述
+  const baseStyle = style || "manga/comic style, black and white or toned";
 
-  // 5. 构建风格描述
-  const stylePrompt = style ? `Style: ${style}` : "Style: manga/comic style, black and white or toned";
-
-  // 6. 组合完整提示词
-  return [
+  // 5. 组合正向提示词 - 简洁明确，让AI自己决定最佳布局
+  const positive = [
     characterReference,
-    `Create a manga comic page with ${panels.length} panels in ${layoutHint}.`,
-    `Panels content: ${panelDescriptions}.`,
-    `${stylePrompt}, professional panel arrangement, white gutters, distinct panel frames, clear panel borders, no bleeding between panels.`,
-    `Seamless composition, high quality, detailed artwork.`
+    `Manga comic page with ${panels.length} panels.`,
+    `Arrange panels naturally based on narrative flow and content emphasis.`,
+    `Content: ${panelDescriptions}.`,
+    `Style: ${baseStyle}.`,
+    `IMPORTANT: Full bleed print layout - panels must fill 100% of canvas edge-to-edge, no outer borders, no page margins, thin panel dividers only (1-2px).`,
+    `Professional manga composition.`
   ].join(" ").trim();
+
+  // 6. 负向提示词 - 明确排除白边和边距
+  const negative = [
+    "white borders",
+    "page margins",
+    "outer margins",
+    "whitespace around panels",
+    "padding around image",
+    "empty space",
+    "page frame",
+    "border frame",
+    "margin space",
+    "outer padding",
+    "canvas margins",
+    "page border",
+    "wide gutters",
+    "large spacing between panels",
+    "floating panels",
+    "panels not touching edges"
+  ].join(", ");
+
+  return { positive, negative };
 }
 
 export async function POST(request: NextRequest) {
@@ -183,7 +189,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 查询分镜数据
+    // 查询分镜数据（包含章节信息）
     const panels = await prisma.panel.findMany({
       where: {
         id: { in: panel_ids },
@@ -193,6 +199,13 @@ export async function POST(request: NextRequest) {
       },
       include: {
         project: true,
+        chapter: {
+          select: {
+            id: true,
+            title: true,
+            chapter_order: true,
+          },
+        },
       },
     });
 
@@ -247,12 +260,13 @@ export async function POST(request: NextRequest) {
     // 获取图片尺寸
     const dimensions = getImageDimensions(panels.length);
 
-    // 构建多格提示词（AI 自己决定布局）
-    const multiPrompt = buildMultiPanelPrompt(panels, style);
+    // 构建多格提示词（返回正向和负向提示词）
+    const { positive: multiPrompt, negative: negativePrompt } = buildMultiPanelPrompt(panels, style);
 
     console.log(`[MultiPanelGenerate] 生成 ${panels.length} 格图片:`, {
       dimensions: `${dimensions.width}x${dimensions.height}`,
-      prompt: multiPrompt.substring(0, 200) + "...",
+      positive: multiPrompt.substring(0, 150) + "...",
+      negative: negativePrompt,
       referenceImageCount: reference_image_urls.length,
     });
 
@@ -264,6 +278,7 @@ export async function POST(request: NextRequest) {
       const result = await callImageGenerationByType({
         providerType: "image_generation",
         prompt: multiPrompt,
+        negative_prompt: negativePrompt,
         width: dimensions.width,
         height: dimensions.height,
         referenceImageUrls: reference_image_urls,
@@ -308,6 +323,16 @@ export async function POST(request: NextRequest) {
       imageUrl = getPublicUrl(objectName);
       console.log(`[MultiPanelGenerate] 图片上传成功: ${imageUrl}`);
 
+      // 获取章节信息（从第一个分镜）
+      const chapterId = panels[0].chapter_id || null;
+      const chapterInfo = panels[0].chapter;
+      
+      console.log(`[MultiPanelGenerate] 章节信息:`, {
+        chapterId,
+        chapterTitle: chapterInfo?.title,
+        chapterOrder: chapterInfo?.chapter_order,
+      });
+
       // 保存到 GeneratedImage 表
       await prisma.generatedImage.create({
         data: {
@@ -317,8 +342,12 @@ export async function POST(request: NextRequest) {
           source_type: "panel",
           source_id: project.id,
           style: `multi-panel-${panels.length}`,
+          chapter_id: chapterId,
+          panel_ids: panel_ids,
         },
       });
+
+      console.log(`[MultiPanelGenerate] 已保存图片记录，包含章节 ID: ${chapterId}`);
 
       // 记录生成日志
       await recordGenerationLog({

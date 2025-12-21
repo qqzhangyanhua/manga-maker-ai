@@ -154,6 +154,7 @@ export async function POST(req: Request) {
         height: 768, // 3:4 aspect ratio for character portrait
         steps: 28,
         cfg_scale: 7.5,
+        options: { userId },
       });
 
       if (!result.success || !result.images || result.images.length === 0) {

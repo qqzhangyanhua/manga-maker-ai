@@ -170,7 +170,8 @@ export async function POST(req: Request) {
       optimizedDescription,
       pose_description,
       imageProviderType,
-      referenceImageUrl
+      referenceImageUrl,
+      { userId }
     );
 
     if (!base64Image) {

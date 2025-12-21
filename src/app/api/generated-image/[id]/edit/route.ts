@@ -81,6 +81,7 @@ export async function POST(
           width: 1024,
           height: 768,
           referenceImageUrls: [originalImage.image_url],
+          options: { userId },
         });
 
         if (!result.success || !result.images || result.images.length === 0) {
@@ -185,6 +186,7 @@ export async function POST(
               width: 1024,
               height: 768,
               referenceImageUrls: [originalImage.image_url],
+              options: { userId },
             });
 
             if (result.success && result.images && result.images.length > 0) {
@@ -257,6 +259,7 @@ export async function POST(
           width: 1024,
           height: 768,
           referenceImageUrls: [originalImage.image_url],
+          options: { userId },
         });
 
         if (!result.success || !result.images || result.images.length === 0) {

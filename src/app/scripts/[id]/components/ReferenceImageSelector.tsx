@@ -134,7 +134,20 @@ export function ReferenceImageSelector({
 
       const data = await response.json();
       const character = data.character || data; // 兼容两种返回格式
-      const views: ReferenceImage[] = (character.views || [])
+      const views: ReferenceImage[] = [];
+
+      // 添加基础参考图
+      if (character.base_image_url) {
+        views.push({
+          id: `base-${characterId}`,
+          url: character.base_image_url,
+          label: "基础参考图",
+          source: "view",
+        });
+      }
+
+      // 添加三视图
+      const threeViews = (character.views || [])
         .filter((v: { image_url: string | null }) => v.image_url)
         .map((v: { id: string; image_url: string; view_type: string }) => ({
           id: `view-${v.id}`,
@@ -142,6 +155,8 @@ export function ReferenceImageSelector({
           label: `${v.view_type}视图`,
           source: "view",
         }));
+
+      views.push(...threeViews);
 
       setCharacterViews(views);
       setSelectedCharacterId(characterId);

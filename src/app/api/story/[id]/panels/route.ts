@@ -57,10 +57,19 @@ export async function GET(
 
         const projectId = story.projects[0].id;
 
-        // Get panels for the project
+        // Get panels for the project (include chapter info)
         const panels = await prisma.panel.findMany({
             where: { project_id: projectId },
             orderBy: { panel_order: 'asc' },
+            include: {
+                chapter: {
+                    select: {
+                        id: true,
+                        title: true,
+                        chapter_order: true,
+                    },
+                },
+            },
         });
 
         return NextResponse.json({

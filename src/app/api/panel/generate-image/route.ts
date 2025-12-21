@@ -179,6 +179,7 @@ export async function POST(req: Request) {
         width: 1024,
         height: 768,
         referenceImageUrls: referenceImages,
+        options: { userId },
       });
 
       console.log(`📊 图片生成结果:`, { success: result.success, images: result.images?.length });

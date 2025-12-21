@@ -4,6 +4,7 @@
 
 "use client";
 
+import { useState } from "react";
 import {
   Loader2,
   MoreVertical,
@@ -63,6 +64,8 @@ export function ChapterItem({
   onEdit,
   onDelete,
 }: ChapterItemProps) {
+  const [isContentExpanded, setIsContentExpanded] = useState(false);
+
   return (
     <Collapsible open={isExpanded} onOpenChange={onToggleExpansion}>
       <div
@@ -194,8 +197,20 @@ export function ChapterItem({
           <div className="px-3 pb-3 pt-0 space-y-2 text-xs border-t">
             {chapter.content && (
               <div className="p-2 bg-muted rounded text-muted-foreground">
-                <div className="font-medium mb-1">详细内容预览:</div>
-                <div className="line-clamp-3">{chapter.content}</div>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="font-medium">详细内容预览:</div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs"
+                    onClick={() => setIsContentExpanded(!isContentExpanded)}
+                  >
+                    {isContentExpanded ? "收起" : "展开"}
+                  </Button>
+                </div>
+                <div className={isContentExpanded ? "" : "line-clamp-3"}>
+                  {chapter.content}
+                </div>
               </div>
             )}
             {chapter.is_key_chapter && chapter.key_chapter_reason && (

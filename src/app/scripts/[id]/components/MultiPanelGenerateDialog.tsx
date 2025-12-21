@@ -23,9 +23,10 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Sparkles, CheckCircle2, AlertCircle, Image as ImageIcon, X, Palette } from "lucide-react";
+import { Loader2, Sparkles, CheckCircle2, AlertCircle, Image as ImageIcon, X, Palette, BookOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ReferenceImageSelector } from "./ReferenceImageSelector";
+import { useComicStyles } from "../hooks/useComicStyles";
 import type { Panel } from "../types/script-editor.types";
 
 interface ReferenceImage {
@@ -34,16 +35,6 @@ interface ReferenceImage {
   label: string;
   source: string;
 }
-
-const STYLE_OPTIONS = [
-  { id: "manga_bw", label: "日漫黑白 (Manga B&W)", value: "Japanese Manga style, black and white, high contrast, screentones" },
-  { id: "manga_color", label: "日漫彩色 (Manga Color)", value: "Japanese Manga style, full color, vibrant" },
-  { id: "webtoon", label: "韩漫 (Webtoon)", value: "Webtoon style, vertical scrolling format aesthetics, digital color, clean lines" },
-  { id: "american", label: "美漫 (American Comic)", value: "American Comic Book style, bold lines, dynamic coloring, western comics" },
-  { id: "sketch", label: "素描 (Sketch)", value: "Rough sketch style, pencil lines, loose, artistic" },
-  { id: "realistic", label: "写实 (Realistic)", value: "Realistic style, detailed shading, cinematic lighting" },
-  { id: "watercolor", label: "水彩 (Watercolor)", value: "Watercolor style, soft edges, artistic, painterly" },
-];
 
 interface MultiPanelGenerateDialogProps {
   open: boolean;
@@ -61,9 +52,10 @@ export function MultiPanelGenerateDialog({
   onSuccess,
 }: MultiPanelGenerateDialogProps) {
   const { toast } = useToast();
+  const { data: comicStyles = [], isLoading: stylesLoading } = useComicStyles();
   const [selectedPanelIds, setSelectedPanelIds] = useState<string[]>([]);
   const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
-  const [selectedStyle, setSelectedStyle] = useState<string>("");
+  const [selectedStyle, setSelectedStyle] = useState<string>("default");
   const [referenceSelectorOpen, setReferenceSelectorOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -75,6 +67,14 @@ export function MultiPanelGenerateDialog({
     .map((id) => panels.find((p) => p.id === id))
     .filter((p): p is Panel => p !== undefined)
     .sort((a, b) => a.panel_order - b.panel_order);
+
+  // 获取章节信息（从第一个分镜，假设所有分镜都属于同一章节）
+  const chapterInfo = selectedPanels.length > 0 && selectedPanels[0].chapter 
+    ? {
+        title: selectedPanels[0].chapter.title,
+        order: selectedPanels[0].chapter.chapter_order,
+      }
+    : null;
 
   // 计算布局信息
   const count = selectedPanels.length;
@@ -92,7 +92,7 @@ export function MultiPanelGenerateDialog({
     if (open) {
       setSelectedPanelIds([]);
       setReferenceImages([]);
-      setSelectedStyle("");
+      setSelectedStyle("default");
       setIsGenerating(false);
       setProgress(0);
       setGeneratedImageUrl(null);
@@ -149,13 +149,14 @@ export function MultiPanelGenerateDialog({
 
     try {
       // 调用多镜生成 API
+      const selectedComicStyle = comicStyles.find(s => s.id === selectedStyle);
       const response = await fetch("/api/panel/generate-multi", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           panel_ids: selectedPanelIds,
           reference_image_urls: referenceImages.map(img => img.url),
-          style: selectedStyle ? STYLE_OPTIONS.find(s => s.id === selectedStyle)?.value : undefined,
+          style: selectedComicStyle?.prompt_prefix || undefined,
         }),
       });
 
@@ -199,36 +200,55 @@ export function MultiPanelGenerateDialog({
           </DialogTitle>
           <DialogDescription>
             选择 2-6 个分镜，AI 将一次性生成包含多格的图片
+            {chapterInfo && (
+              <span className="block mt-1 text-primary font-medium">
+                📖 {chapterInfo.title}
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* 选择提示 */}
-          <div className="flex items-center justify-between px-4 py-2 bg-muted/50 rounded-lg">
-            <span className="text-sm">
-              已选中 <strong>{count}</strong> 个分镜
-              {canGenerate && ` - 将生成 ${layoutDesc}`}
-            </span>
-            <Button variant="ghost" size="sm" onClick={toggleAll}>
-              {selectedPanelIds.length === panels.length ? "取消全选" : "全选"}
-            </Button>
+          {/* 章节和选择提示 */}
+          <div className="space-y-2">
+            {chapterInfo && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <BookOpen className="w-4 h-4 text-blue-500" />
+                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                  第 {chapterInfo.order} 章：{chapterInfo.title}
+                </span>
+              </div>
+            )}
+            <div className="flex items-center justify-between px-4 py-2 bg-muted/50 rounded-lg">
+              <span className="text-sm">
+                已选中 <strong>{count}</strong> 个分镜
+                {canGenerate && ` - 将生成 ${layoutDesc}`}
+              </span>
+              <Button variant="ghost" size="sm" onClick={toggleAll}>
+                {selectedPanelIds.length === panels.length ? "取消全选" : "全选"}
+              </Button>
+            </div>
           </div>
 
           {/* 风格选择 */}
           <div className="space-y-2">
             <label className="text-sm font-medium">生成风格 (可选)</label>
-            <Select value={selectedStyle} onValueChange={setSelectedStyle}>
+            <Select value={selectedStyle} onValueChange={setSelectedStyle} disabled={stylesLoading}>
               <SelectTrigger className="w-full">
                 <div className="flex items-center gap-2">
                   <Palette className="w-4 h-4 text-muted-foreground" />
-                  <SelectValue placeholder="选择生成风格 (默认 AI 自动决定)" />
+                  {stylesLoading ? (
+                    <span>加载风格中...</span>
+                  ) : (
+                    <SelectValue placeholder="选择生成风格 (默认 AI 自动决定)" />
+                  )}
                 </div>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="default">默认 (AI 自动决定)</SelectItem>
-                {STYLE_OPTIONS.map((style) => (
+                {comicStyles.map((style) => (
                   <SelectItem key={style.id} value={style.id}>
-                    {style.label}
+                    {style.name_zh}
                   </SelectItem>
                 ))}
               </SelectContent>
