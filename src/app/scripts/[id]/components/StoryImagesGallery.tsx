@@ -254,7 +254,7 @@ export function StoryImagesGallery({ storyId, projectId }: StoryImagesGalleryPro
 
       {/* Image Detail Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>图片详情</DialogTitle>
           </DialogHeader>

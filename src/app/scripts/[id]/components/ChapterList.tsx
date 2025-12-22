@@ -19,6 +19,7 @@ import {
 } from "../hooks/useChapterData";
 import type { Chapter } from "../types/script-editor.types";
 import { ChapterItem } from "./ChapterItem";
+import { ChapterWorkflowGuide } from "./ChapterWorkflowGuide";
 import {
   CreateChapterDialog,
   EditChapterDialog,
@@ -365,24 +366,32 @@ export function ChapterList({
               <p className="mt-2">点击 AI 按钮自动生成章节结构</p>
             </div>
           ) : (
-            chapters.map((chapter) => (
-              <ChapterItem
-                key={chapter.id}
-                chapter={chapter}
-                isSelected={currentChapterId === chapter.id}
-                isExpanded={expandedChapters.has(chapter.id)}
-                expandingContent={expandingContent}
-                analyzingStates={analyzingStates}
-                togglingKeyChapter={togglingKeyChapter}
-                onSelect={() => onChapterSelect(chapter.id)}
-                onToggleExpansion={() => toggleChapterExpansion(chapter.id)}
-                onExpandContent={() => handleExpandContent(chapter)}
+            <>
+              {/* Workflow guide */}
+              <ChapterWorkflowGuide chapters={chapters} />
+
+              {/* Chapter list */}
+              <div className="space-y-2 mt-4">
+                {chapters.map((chapter) => (
+                  <ChapterItem
+                    key={chapter.id}
+                    chapter={chapter}
+                    isSelected={currentChapterId === chapter.id}
+                    isExpanded={expandedChapters.has(chapter.id)}
+                    expandingContent={expandingContent}
+                    analyzingStates={analyzingStates}
+                    togglingKeyChapter={togglingKeyChapter}
+                    onSelect={() => onChapterSelect(chapter.id)}
+                    onToggleExpansion={() => toggleChapterExpansion(chapter.id)}
+                    onExpandContent={() => handleExpandContent(chapter)}
                 onAnalyzeStates={() => handleAnalyzeCharacterStates(chapter)}
                 onToggleKeyChapter={() => handleToggleKeyChapter(chapter)}
                 onEdit={() => handleEdit(chapter)}
                 onDelete={() => handleDelete(chapter)}
               />
-            ))
+            ))}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

@@ -56,9 +56,30 @@ export interface Chapter {
   content: string | null; // Detailed content (2000-5000 words)
   is_key_chapter: boolean; // Mark as key chapter
   key_chapter_reason: string | null; // Why this is a key chapter
+  character_states?: ChapterCharacterState[]; // Character states at end of chapter
   created_at: string;
   updated_at: string;
   _syncing?: boolean; // 乐观更新同步标记
+}
+
+/**
+ * 章节角色状态
+ */
+export interface ChapterCharacterState {
+  id: string;
+  chapter_id: string;
+  character_id: string;
+  location: string | null;
+  physical_condition: string | null;
+  mental_state: string | null;
+  key_items: string[];
+  relationship_changes: Record<string, string> | null;
+  character: {
+    id: string;
+    name: string;
+  };
+  created_at: string;
+  updated_at: string;
 }
 
 /**

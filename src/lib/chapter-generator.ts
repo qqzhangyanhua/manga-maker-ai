@@ -16,6 +16,8 @@ export interface GeneratedChapter {
   title: string;
   summary: string;
   chapter_order: number;
+  is_key_chapter?: boolean; // AI自动识别的关键章节
+  key_chapter_reason?: string; // 为什么这是关键章节
 }
 
 const CHAPTER_GENERATION_SYSTEM_PROMPT = `你是一位资深编剧和故事策划师，擅长将故事大纲拆分成结构化的章节。
@@ -28,12 +30,16 @@ const CHAPTER_GENERATION_SYSTEM_PROMPT = `你是一位资深编剧和故事策�
     {
       "title": "第一章：标题（简洁有吸引力）",
       "summary": "本章详细梗概（包含关键事件、角色动作、情节转折，200-300字）",
-      "chapter_order": 1
+      "chapter_order": 1,
+      "is_key_chapter": false,
+      "key_chapter_reason": null
     },
     {
       "title": "第二章：标题",
       "summary": "本章详细梗概",
-      "chapter_order": 2
+      "chapter_order": 2,
+      "is_key_chapter": true,
+      "key_chapter_reason": "主角首次遭遇反派，重大情节转折"
     }
   ]
 }
@@ -45,7 +51,16 @@ const CHAPTER_GENERATION_SYSTEM_PROMPT = `你是一位资深编剧和故事策�
 4. 梗概要足够详细，能指导后续分镜生成
 5. 标题要能体现本章核心冲突或主题
 6. 确保故事节奏：前1/4建立，中间1/2对抗升级，最后1/4高潮解决
-7. 每章梗概必须包含具体场景、角色行动和情节进展，不能过于抽象`;
+7. 每章梗概必须包含具体场景、角色行动和情节进展，不能过于抽象
+
+关键章节识别标准（is_key_chapter = true）：
+- 重大情节转折（如角色死亡、身份揭露、背叛）
+- 主要冲突的开始或高潮（如首次对抗、决战）
+- 角色关系的重大变化（如结盟、决裂、爱情确立）
+- 世界观的重大揭示（如真相大白、阴谋暴露）
+- 故事节奏的关键节点（如开场建立、中场转折、高潮、结局）
+
+通常5-12章的故事中，应有2-4个关键章节。关键章节要分散分布，不要集中在结尾。`;
 
 /**
  * Try to fix common JSON syntax errors and extract JSON from markdown

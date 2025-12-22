@@ -119,7 +119,9 @@ export async function POST(
             story_id: storyId,
             title: chapter.title,
             summary: chapter.summary,
-            chapter_order: chapter.chapter_order
+            chapter_order: chapter.chapter_order,
+            is_key_chapter: chapter.is_key_chapter || false,
+            key_chapter_reason: chapter.key_chapter_reason || null
           }
         })
       )
