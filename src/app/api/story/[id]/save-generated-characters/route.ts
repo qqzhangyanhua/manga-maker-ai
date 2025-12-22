@@ -13,6 +13,7 @@ interface SaveCharacterInput {
   base_prompt: string;
   role: CharacterRole;
   image_base64: string;
+  comic_style_id?: string;
 }
 
 /**
@@ -91,6 +92,7 @@ export async function POST(
           base_prompt: charInput.base_prompt,
           tags: [],
           training_status: "pending",
+          comic_style_id: charInput.comic_style_id || story.comic_style_id || null,
         },
       });
 

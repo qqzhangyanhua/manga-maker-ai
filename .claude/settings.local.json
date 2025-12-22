@@ -60,7 +60,8 @@
       "Bash(xargs:*)",
       "Bash(grep -l \"export async function POST\\|export async function GET\\|export async function PATCH\\|export async function DELETE\" \"D:\\AI\\manga-maker-ai\\src\\app\\api\"/**/*.ts)",
       "Bash(npx prisma generate)",
-      "Bash(node apply-migration.js:*)"
+      "Bash(node apply-migration.js:*)",
+      "mcp______zhi"
     ],
     "deny": [],
     "ask": []

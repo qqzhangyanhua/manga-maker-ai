@@ -95,10 +95,34 @@ export async function POST(
 
     // Parse request body
     const body = await req.json();
-    const { count = 3 } = body as { count?: number };
+    const { count = 3, comic_style_id } = body as { count?: number; comic_style_id?: string };
 
     // Validate count
     const characterCount = Math.min(Math.max(count, 1), 5);
+
+    // Get comic style if specified
+    let comicStylePrompt: string | null = null;
+    if (comic_style_id) {
+      const comicStyle = await prisma.comicStyle.findUnique({
+        where: { id: comic_style_id },
+        select: { prompt_prefix: true, name_zh: true },
+      });
+      if (comicStyle && comicStyle.prompt_prefix) {
+        comicStylePrompt = comicStyle.prompt_prefix;
+        console.log(`[generate-characters] Using comic style: ${comicStyle.name_zh}`);
+      }
+    }
+    // Fallback to story's comic style if not specified
+    else if (story.comic_style_id) {
+      const storyComicStyle = await prisma.comicStyle.findUnique({
+        where: { id: story.comic_style_id },
+        select: { prompt_prefix: true, name_zh: true },
+      });
+      if (storyComicStyle && storyComicStyle.prompt_prefix) {
+        comicStylePrompt = storyComicStyle.prompt_prefix;
+        console.log(`[generate-characters] Using story's comic style: ${storyComicStyle.name_zh}`);
+      }
+    }
 
     // Build user message
     const outlineText = story.outline
@@ -160,7 +184,7 @@ ${outlineText ? `<story_outline>${outlineText}</story_outline>` : ""}
     console.log(`[generate-characters] Generating ${characterDataList.length} character images...`);
 
     const imagePromises = characterDataList.map(async (charData) => {
-      const imagePrompt = buildImagePrompt(charData.appearance, story.genre || "");
+      const imagePrompt = buildImagePrompt(charData.appearance, story.genre || "", comicStylePrompt);
 
       try {
         const imageResult = await callImageGenerationByType({
@@ -238,7 +262,7 @@ ${outlineText ? `<story_outline>${outlineText}</story_outline>` : ""}
 /**
  * Build optimized image prompt for character generation
  */
-function buildImagePrompt(appearance: string, genre: string): string {
+function buildImagePrompt(appearance: string, genre: string, comicStylePrompt: string | null): string {
   // Genre-specific style modifiers
   const genreStyles: Record<string, string> = {
     suspense: "dark atmosphere, dramatic lighting, noir style",
@@ -251,5 +275,9 @@ function buildImagePrompt(appearance: string, genre: string): string {
 
   const genreStyle = genreStyles[genre] || "";
 
-  return `${appearance}, character portrait, manga style, anime art, detailed face, high quality illustration, professional character design, clean background, ${genreStyle}`.trim();
+  // Combine appearance, manga style, genre style, and comic style
+  const basePrompt = `${appearance}, character portrait, manga style, anime art, detailed face, high quality illustration, professional character design, clean background`;
+  const styleModifiers = [genreStyle, comicStylePrompt].filter(Boolean).join(", ");
+
+  return styleModifiers ? `${basePrompt}, ${styleModifiers}`.trim() : basePrompt;
 }

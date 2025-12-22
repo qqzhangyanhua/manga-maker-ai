@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Sparkles, Loader2, RefreshCw, Save, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +12,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { GeneratedCharacterCard } from "./GeneratedCharacterCard";
 import {
@@ -19,6 +27,16 @@ import {
   useSaveGeneratedCharacters,
 } from "@/app/scripts/[id]/hooks/useGenerateStoryCharacters";
 import type { DialogStage, GeneratedCharacter, StoryContext } from "./types";
+
+interface ComicStyle {
+  id: string;
+  style_key: string;
+  name_zh: string;
+  name_en: string;
+  image_url: string | null;
+  tag_color: string | null;
+  prompt_prefix: string | null;
+}
 
 interface AICharacterGeneratorDialogProps {
   open: boolean;
@@ -44,8 +62,30 @@ export function AICharacterGeneratorDialog({
   );
   const [error, setError] = useState<string | null>(null);
 
+  // Comic styles state
+  const [comicStyles, setComicStyles] = useState<ComicStyle[]>([]);
+  const [selectedStyleId, setSelectedStyleId] = useState<string>("__auto__");
+  const [loadingStyles, setLoadingStyles] = useState(true);
+
   const generateMutation = useGenerateStoryCharacters(storyId);
   const saveMutation = useSaveGeneratedCharacters(storyId);
+
+  // Load comic styles when dialog opens
+  useEffect(() => {
+    if (open) {
+      setLoadingStyles(true);
+      fetch("/api/comic-styles")
+        .then(res => res.json())
+        .then(data => {
+          setComicStyles(data.data || []);
+          setLoadingStyles(false);
+        })
+        .catch(err => {
+          console.error("Failed to load comic styles:", err);
+          setLoadingStyles(false);
+        });
+    }
+  }, [open]);
 
   // Reset state when dialog closes
   const handleOpenChange = useCallback(
@@ -69,7 +109,10 @@ export function AICharacterGeneratorDialog({
     setError(null);
 
     try {
-      const result = await generateMutation.mutateAsync({ count: 3 });
+      const result = await generateMutation.mutateAsync({
+        count: 3,
+        comic_style_id: selectedStyleId === "__auto__" ? undefined : selectedStyleId
+      });
       setGeneratedCharacters(result.generated_characters);
       setStoryContext(result.story_context);
       // Default select all
@@ -81,7 +124,7 @@ export function AICharacterGeneratorDialog({
       setError(err instanceof Error ? err.message : "生成角色失败");
       setStage("idle");
     }
-  }, [generateMutation]);
+  }, [generateMutation, selectedStyleId]);
 
   // Save selected characters
   const handleSave = useCallback(async () => {
@@ -93,6 +136,7 @@ export function AICharacterGeneratorDialog({
         base_prompt: char.optimized_prompt,
         role: char.role,
         image_base64: char.image_base64,
+        comic_style_id: selectedStyleId === "__auto__" ? undefined : selectedStyleId,
       }));
 
     if (toSave.length === 0) {
@@ -122,6 +166,7 @@ export function AICharacterGeneratorDialog({
   }, [
     generatedCharacters,
     selectedIndices,
+    selectedStyleId,
     saveMutation,
     toast,
     onComplete,
@@ -164,20 +209,50 @@ export function AICharacterGeneratorDialog({
 
         {/* Stage: Idle */}
         {stage === "idle" && (
-          <div className="py-8 text-center space-y-4">
-            <div className="w-16 h-16 mx-auto rounded-full bg-muted flex items-center justify-center">
-              <Sparkles className="w-8 h-8 text-muted-foreground" />
+          <div className="py-8 space-y-6">
+            <div className="text-center space-y-4">
+              <div className="w-16 h-16 mx-auto rounded-full bg-muted flex items-center justify-center">
+                <Sparkles className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <div>
+                <h3 className="font-medium">准备生成角色</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  AI 将根据故事背景生成 3 个适合的角色
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-medium">准备生成角色</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                AI 将根据故事背景生成 3 个适合的角色
+
+            {/* Comic Style Selector */}
+            <div className="max-w-md mx-auto space-y-2">
+              <Label htmlFor="comic-style">选择漫画风格（可选）</Label>
+              <Select
+                value={selectedStyleId}
+                onValueChange={setSelectedStyleId}
+                disabled={loadingStyles}
+              >
+                <SelectTrigger id="comic-style">
+                  <SelectValue placeholder={loadingStyles ? "加载风格中..." : "使用故事默认风格"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__auto__">使用故事默认风格</SelectItem>
+                  {comicStyles.map((style) => (
+                    <SelectItem key={style.id} value={style.id}>
+                      {style.name_zh}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                选择特定风格会让角色形象更符合该风格特征
               </p>
             </div>
-            <Button onClick={handleGenerate} className="mt-4">
-              <Sparkles className="w-4 h-4 mr-2" />
-              开始生成
-            </Button>
+
+            <div className="text-center">
+              <Button onClick={handleGenerate} disabled={loadingStyles}>
+                <Sparkles className="w-4 h-4 mr-2" />
+                开始生成
+              </Button>
+            </div>
           </div>
         )}
 

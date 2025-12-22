@@ -1,22 +1,17 @@
 "use client";
 
-import { useEffect, useCallback, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { format } from "date-fns";
-import { ArrowLeft, Loader2 } from "lucide-react";
 import { Navbar } from "@/components/Landing";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { StoryInfoPanel } from "./components/StoryInfoPanel";
-import { ChapterList } from "./components/ChapterList";
-import { PanelListView } from "./components/PanelListView";
+import { StoryHeader } from "./components/StoryHeader";
+import { LeftSidebar } from "./components/LeftSidebar";
+import { PanelTab } from "./components/PanelTab";
 import { StoryDetailsSkeleton } from "./components/StoryDetailsSkeleton";
 import { StoryImagesGallery } from "./components/StoryImagesGallery";
-import type { Story, Panel } from "./types/script-editor.types";
 import { useUpdateStory } from "./hooks/useStoryData";
 import { useStoryDataOptimized } from "./hooks/useStoryDataOptimized";
 import { useCharacterAssets } from "./hooks/useCharacterAssets";
@@ -26,89 +21,41 @@ import {
   useRemoveStoryCharacter,
   useUpdateStoryCharacterRole,
 } from "./hooks/useStoryCharacters";
-import { useGeneratePanelsForChapter } from "./hooks/useChapterData";
 import { useUIState } from "./hooks/useUIState";
-import { formatErrorForToast, isRetryableError } from "./utils/errorHandling";
-import { StoryCharacterList } from "@/components/StoryCharacter/StoryCharacterList";
+import { formatErrorForToast } from "./utils/errorHandling";
 import type { CharacterRole } from "@/components/StoryCharacter/types";
 import { useStreamingGeneration } from "./hooks/useStreamingGeneration";
 import { GenerationProgress } from "./components/GenerationProgress";
 import { GeneratePanelsDialog } from "./components/GeneratePanelsDialog";
+import { useStoryOperation } from "./hooks/useStoryOperations";
 
 export default function ScriptDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
   const storyId = params.id as string;
+  const { execute } = useStoryOperation();
 
-  // 当前章节状态
+  // Dialog states
   const [currentChapterId, setCurrentChapterId] = useState<string | null>(null);
-
-  // AI生成分镜对话框状态
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
   const [pendingChapterId, setPendingChapterId] = useState<string | null>(null);
 
-  // Spotlight effect state
-  const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
-  const [isHovering, setIsHovering] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  // Data fetching hooks
+  const { data, isLoading, isPanelsLoading, error, refetchPanels } = useStoryDataOptimized(storyId);
+  const { data: characterAssets = [], isLoading: isCharactersLoading, refetch: refetchCharacters } = useCharacterAssets();
+  const { data: storyCharacters = [], isLoading: isStoryCharactersLoading, refetch: refetchStoryCharacters } = useStoryCharacters(storyId);
 
-  // Mouse tracking for spotlight effect
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!containerRef.current) return;
-
-    const rect = containerRef.current.getBoundingClientRect();
-    setMousePosition({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    });
-  }, []);
-
-  const handleMouseEnter = useCallback(() => {
-    setIsHovering(true);
-  }, []);
-
-  const handleMouseLeave = useCallback(() => {
-    setIsHovering(false);
-    setMousePosition(null);
-  }, []);
-
-  // React Query hooks for data management - 使用优化版渐进式加载
-  const {
-    data,
-    isLoading,
-    isPanelsLoading,
-    error,
-    hasStory,
-    refetchPanels,
-  } = useStoryDataOptimized(storyId);
-  const {
-    data: characterAssets = [],
-    isLoading: isCharactersLoading,
-    refetch: refetchCharacters,
-  } = useCharacterAssets();
-
-  // Story characters hooks
-  const {
-    data: storyCharacters = [],
-    isLoading: isStoryCharactersLoading,
-    refetch: refetchStoryCharacters,
-  } = useStoryCharacters(storyId);
+  // Mutation hooks
+  const updateStory = useUpdateStory(storyId);
   const addStoryCharacter = useAddStoryCharacter(storyId);
   const removeStoryCharacter = useRemoveStoryCharacter(storyId);
   const updateStoryCharacterRole = useUpdateStoryCharacterRole(storyId);
 
-  const updateStory = useUpdateStory(storyId);
-
-  // 为章节生成分镜（旧版，保留作为后备）
-  const generatePanelsForChapter = useGeneratePanelsForChapter(
-    currentChapterId || ""
-  );
-
-  // 流式生成 hook
+  // Streaming generation
   const { progress, isGenerating, generate, cancel, reset } = useStreamingGeneration();
 
-  // Unified UI state management
+  // UI state
   const { state: uiState, actions: uiActions } = useUIState();
 
   // Sync form with fetched data
@@ -128,7 +75,7 @@ export default function ScriptDetailsPage() {
     uiState.editMode,
   ]);
 
-  // Handle errors with detailed messages
+  // Error handling
   useEffect(() => {
     if (error) {
       const errorInfo = formatErrorForToast(error);
@@ -140,33 +87,16 @@ export default function ScriptDetailsPage() {
     }
   }, [error, toast]);
 
+  // Event handlers using unified error handling
   async function handleUpdateStory() {
-    try {
-      await updateStory.mutateAsync(uiState.storyForm);
-      uiActions.setEditMode(false);
-      toast({
-        title: "剧本已保存",
-        description: "所有修改已同步到服务器"
-      });
-    } catch (error) {
-      const errorInfo = formatErrorForToast(error);
-      const canRetry = isRetryableError(error);
-
-      toast({
-        title: errorInfo.title,
-        description: errorInfo.description,
-        variant: "destructive",
-        action: canRetry ? (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleUpdateStory()}
-          >
-            重试
-          </Button>
-        ) : undefined
-      });
-    }
+    const operation = await execute(
+      async () => {
+        await updateStory.mutateAsync(uiState.storyForm);
+        uiActions.setEditMode(false);
+      },
+      { successMessage: "剧本已保存" }
+    );
+    await operation();
   }
 
   async function handleImageGenerated(_panelId: string, _imageUrl: string) {
@@ -175,85 +105,55 @@ export default function ScriptDetailsPage() {
   }
 
   async function handleDeletePanel(panelId: string): Promise<void> {
-    try {
-      const response = await fetch(`/api/panel/${panelId}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "删除分镜失败");
-      }
-
-      toast({ title: "分镜已删除" });
-      await refetchPanels?.();
-    } catch (error) {
-      const errorInfo = formatErrorForToast(error);
-      toast({
-        title: errorInfo.title,
-        description: errorInfo.description,
-        variant: "destructive",
-      });
-    }
+    const operation = await execute(
+      async () => {
+        const response = await fetch(`/api/panel/${panelId}`, { method: "DELETE" });
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || "删除分镜失败");
+        }
+        await refetchPanels?.();
+      },
+      { successMessage: "分镜已删除" }
+    );
+    await operation();
   }
 
-  // Story character handlers
-  async function handleAddCharacter(
-    characterId: string,
-    role: CharacterRole
-  ): Promise<void> {
-    try {
-      await addStoryCharacter.mutateAsync({ characterId, role });
-      toast({ title: "角色已添加到故事" });
-    } catch (error) {
-      const errorInfo = formatErrorForToast(error);
-      toast({
-        title: errorInfo.title,
-        description: errorInfo.description,
-        variant: "destructive",
-      });
-    }
+  async function handleAddCharacter(characterId: string, role: CharacterRole): Promise<void> {
+    const operation = await execute(
+      async () => {
+        await addStoryCharacter.mutateAsync({ characterId, role });
+      },
+      { successMessage: "角色已添加到故事" }
+    );
+    await operation();
   }
 
   async function handleRemoveCharacter(characterId: string): Promise<void> {
-    try {
-      await removeStoryCharacter.mutateAsync(characterId);
-      toast({ title: "角色已从故事移除" });
-    } catch (error) {
-      const errorInfo = formatErrorForToast(error);
-      toast({
-        title: errorInfo.title,
-        description: errorInfo.description,
-        variant: "destructive",
-      });
-    }
+    const operation = await execute(
+      async () => {
+        await removeStoryCharacter.mutateAsync(characterId);
+      },
+      { successMessage: "角色已从故事移除" }
+    );
+    await operation();
   }
 
-  async function handleCharacterRoleChange(
-    characterId: string,
-    role: CharacterRole
-  ): Promise<void> {
-    try {
-      await updateStoryCharacterRole.mutateAsync({ characterId, role });
-      toast({ title: "角色类型已更新" });
-    } catch (error) {
-      const errorInfo = formatErrorForToast(error);
-      toast({
-        title: errorInfo.title,
-        description: errorInfo.description,
-        variant: "destructive",
-      });
-    }
+  async function handleCharacterRoleChange(characterId: string, role: CharacterRole): Promise<void> {
+    const operation = await execute(
+      async () => {
+        await updateStoryCharacterRole.mutateAsync({ characterId, role });
+      },
+      { successMessage: "角色类型已更新" }
+    );
+    await operation();
   }
 
-  // AI生成分镜（章节级别）- 使用流式 SSE 版本
   async function handleGeneratePanelsForChapter(chapterId: string): Promise<void> {
     if (!data?.story) {
       toast({ title: "故事不存在", variant: "destructive" });
       return;
     }
-
-    // 无论是否有分镜，都显示对话框（对话框会根据现有分镜数量调整选项）
     setPendingChapterId(chapterId);
     setGenerateDialogOpen(true);
   }
@@ -271,7 +171,7 @@ export default function ScriptDetailsPage() {
     try {
       let projectId = data.projectId;
 
-      // 如果 Story 还没有关联 Project，先创建一个
+      // Create project if not exists
       if (!projectId) {
         const createProjectRes = await fetch("/api/project", {
           method: "POST",
@@ -291,12 +191,10 @@ export default function ScriptDetailsPage() {
 
         const createProjectData = await createProjectRes.json();
         projectId = createProjectData.project.id;
-
-        // 刷新页面数据以获取新的 projectId
         await refetchPanels?.();
       }
 
-      // 使用流式生成
+      // Generate panels with streaming
       await generate({
         chapterId,
         projectId: projectId,
@@ -304,7 +202,6 @@ export default function ScriptDetailsPage() {
         panelCount,
       });
 
-      // 生成完成后提示并刷新
       toast({
         title: "分镜生成完成",
         description: mode === "overwrite"
@@ -312,9 +209,8 @@ export default function ScriptDetailsPage() {
           : "AI 已成功追加新的分镜脚本",
       });
       await refetchPanels?.();
-      reset(); // 重置进度状态
+      reset();
     } catch (error) {
-      // 只在非取消错误时显示 toast（取消错误已经在 hook 中处理）
       if (error instanceof Error && error.name !== "AbortError") {
         const errorInfo = formatErrorForToast(error);
         toast({
@@ -355,150 +251,78 @@ export default function ScriptDetailsPage() {
         <Navbar />
 
         <main className="pt-16">
-          {/* 装饰性光晕 */}
+          {/* Decorative glows */}
           <div className="fixed top-20 left-1/4 w-96 h-96 bg-orange-500/5 blur-3xl rounded-full pointer-events-none" />
           <div className="fixed bottom-20 right-1/4 w-96 h-96 bg-purple-500/3 blur-3xl rounded-full pointer-events-none" />
 
-          <div
-            ref={containerRef}
-            className="relative px-4 py-12"
-            onMouseMove={handleMouseMove}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
-          >
-            {/* Global Spotlight Overlay */}
-            <div
-              className={cn(
-                "pointer-events-none absolute inset-0 z-30 transition-opacity duration-500",
-                isHovering ? "opacity-100" : "opacity-0"
-              )}
-              style={{
-                background: mousePosition
-                  ? `radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(249, 115, 22, 0.08), transparent 40%)`
-                  : "none",
-              }}
-            />
-
+          <div className="relative px-4 py-12">
             <div className="max-w-7xl mx-auto relative space-y-8">
-              {/* Header */}
-              <div className="flex items-center gap-4">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => router.push("/scripts")}
-                  className="text-zinc-400 hover:text-orange-500 hover:bg-zinc-800/50"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </Button>
-                <div>
-                  <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500 bg-clip-text text-transparent">
-                    {data.story.title}
-                  </h1>
-                  <div className="flex items-center gap-2 text-sm text-zinc-400 mt-2">
-                    <Badge
-                      variant="secondary"
-                      className="bg-orange-500/20 text-orange-400 border border-orange-500/30"
-                    >
-                      {data.story.genre}
-                    </Badge>
-                    <span>
-                      更新于: {format(new Date(data.story.updated_at), "yyyy-MM-dd HH:mm")}
-                    </span>
-                  </div>
+              <StoryHeader story={data.story} onBack={() => router.push("/scripts")} />
+
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                <LeftSidebar
+                  story={data.story}
+                  editMode={uiState.editMode}
+                  storyForm={uiState.storyForm}
+                  saving={updateStory.isPending}
+                  onEditModeToggle={() => uiActions.setEditMode(true)}
+                  onCancel={() => uiActions.setEditMode(false)}
+                  onSave={handleUpdateStory}
+                  onAutoSave={async (formData) => {
+                    await updateStory.mutateAsync(formData);
+                  }}
+                  onFormChange={(field, value) =>
+                    uiActions.updateStoryForm({ [field]: value })
+                  }
+                  storyId={storyId}
+                  currentChapterId={currentChapterId}
+                  onChapterSelect={setCurrentChapterId}
+                  storyCharacters={storyCharacters}
+                  onAddCharacter={handleAddCharacter}
+                  onRemoveCharacter={handleRemoveCharacter}
+                  onCharacterRoleChange={handleCharacterRoleChange}
+                  isStoryCharactersLoading={isStoryCharactersLoading}
+                  onRefreshStoryCharacters={() => refetchStoryCharacters()}
+                />
+
+                <div className="lg:col-span-3">
+                  <Tabs defaultValue="panels" className="w-full">
+                    <TabsList className="mb-4">
+                      <TabsTrigger value="panels">分镜列表</TabsTrigger>
+                      <TabsTrigger value="gallery">生成图库</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="panels">
+                      <PanelTab
+                        panels={data?.panels || []}
+                        projectId={data?.projectId || null}
+                        storyId={storyId}
+                        currentChapterId={currentChapterId}
+                        characters={characterAssets}
+                        charactersLoading={isCharactersLoading}
+                        onCharactersRefresh={() => { refetchCharacters(); }}
+                        onGeneratePanelsForChapter={handleGeneratePanelsForChapter}
+                        isGeneratingPanels={isGenerating}
+                        streamingPanels={progress.generatedPanels || []}
+                        onDeletePanel={handleDeletePanel}
+                        onImageGenerated={handleImageGenerated}
+                        onRefresh={() => refetchPanels?.()}
+                        onError={(msg) =>
+                          toast({ title: "错误", description: msg, variant: "destructive" })
+                        }
+                        isPanelsLoading={isPanelsLoading}
+                      />
+                    </TabsContent>
+
+                    <TabsContent value="gallery">
+                      <StoryImagesGallery storyId={storyId} projectId={data?.projectId} />
+                    </TabsContent>
+                  </Tabs>
                 </div>
               </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Left: Story Info, Characters & Chapters */}
-          <div className="lg:col-span-1 space-y-6">
-            <StoryInfoPanel
-              story={data.story}
-              editMode={uiState.editMode}
-              storyForm={uiState.storyForm}
-              saving={updateStory.isPending}
-              onEditModeToggle={() => uiActions.setEditMode(true)}
-              onCancel={() => uiActions.setEditMode(false)}
-              onSave={handleUpdateStory}
-              onAutoSave={async (formData) => {
-                // Auto-save using React Query mutation
-                await updateStory.mutateAsync(formData);
-              }}
-              onFormChange={(field, value) =>
-                uiActions.updateStoryForm({ [field]: value })
-              }
-            />
-
-            {/* Chapter List */}
-            <ChapterList
-              storyId={storyId}
-              currentChapterId={currentChapterId}
-              onChapterSelect={setCurrentChapterId}
-            />
-
-            {/* Story Characters from Library */}
-            <StoryCharacterList
-              storyId={storyId}
-              characters={storyCharacters}
-              onAdd={handleAddCharacter}
-              onRemove={handleRemoveCharacter}
-              onRoleChange={handleCharacterRoleChange}
-              isLoading={isStoryCharactersLoading}
-              onRefresh={() => refetchStoryCharacters()}
-            />
-          </div>
-
-          {/* Right: Panels & Images Gallery */}
-          <div className="lg:col-span-3">
-            <Tabs defaultValue="panels" className="w-full">
-              <TabsList className="mb-4">
-                <TabsTrigger value="panels">分镜列表</TabsTrigger>
-                <TabsTrigger value="gallery">生成图库</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="panels">
-                {isPanelsLoading ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        <span className="text-sm text-muted-foreground">加载分镜列表中...</span>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <PanelListView
-                    panels={data?.panels || []}
-                    projectId={data?.projectId || null}
-                    storyId={storyId}
-                    currentChapterId={currentChapterId}
-                    onGeneratePanelsForChapter={handleGeneratePanelsForChapter}
-                    isGeneratingPanels={isGenerating}
-                    streamingPanels={progress.generatedPanels || []}
-                    characters={characterAssets}
-                    charactersLoading={isCharactersLoading}
-                    onCharactersRefresh={() => { refetchCharacters(); }}
-                    onPanelsChange={() => { }}
-                    onDeletePanel={handleDeletePanel}
-                    onImageGenerated={handleImageGenerated}
-                    onRefresh={() => refetchPanels?.()}
-                    onError={(msg) =>
-                      toast({ title: "错误", description: msg, variant: "destructive" })
-                    }
-                  />
-                )}
-              </TabsContent>
-
-              <TabsContent value="gallery">
-                <StoryImagesGallery storyId={storyId} projectId={data?.projectId} />
-              </TabsContent>
-            </Tabs>
-          </div>
-        </div>
-
-              {/* Streaming Generation Progress */}
               <GenerationProgress progress={progress} onCancel={cancel} />
 
-              {/* AI生成分镜对话框 */}
               <GeneratePanelsDialog
                 open={generateDialogOpen}
                 existingPanelCount={

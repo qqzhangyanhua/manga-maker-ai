@@ -41,6 +41,7 @@ export interface SaveCharacterInput {
   base_prompt: string;
   role: CharacterRole;
   image_base64: string;
+  comic_style_id?: string;
 }
 
 /**
@@ -64,7 +65,7 @@ export function useGenerateStoryCharacters(storyId: string) {
   return useMutation<
     GenerateCharactersResult,
     Error,
-    { count?: number; styleHints?: string }
+    { count?: number; styleHints?: string; comic_style_id?: string }
   >({
     mutationFn: async (params) => {
       const response = await fetch(`/api/story/${storyId}/generate-characters`, {
@@ -73,6 +74,7 @@ export function useGenerateStoryCharacters(storyId: string) {
         body: JSON.stringify({
           count: params.count ?? 3,
           style_hints: params.styleHints,
+          comic_style_id: params.comic_style_id,
         }),
       });
 
