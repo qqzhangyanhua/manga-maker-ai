@@ -512,6 +512,19 @@ async function callOpenAIImageAPI(
     console.log('\n========== 处理图片数据 ==========');
     const processedImages: string[] = [];
 
+    // 获取代理配置
+    const proxyUrl = process.env.HTTP_PROXY || process.env.HTTPS_PROXY;
+    const fetchOptions: RequestInit = {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; MangaMakerAI/1.0)',
+      },
+    };
+
+    // 如果有代理配置，记录日志
+    if (proxyUrl) {
+      console.log(`使用代理: ${proxyUrl}`);
+    }
+
     for (let i = 0; i < images.length; i++) {
       const imageData = images[i];
 
@@ -521,9 +534,29 @@ async function callOpenAIImageAPI(
         console.log(`下载图片 #${i + 1}: ${imageUrl.substring(0, 80)}...`);
 
         try {
-          const response = await fetch(imageUrl);
+          // 使用动态导入来支持代理
+          const response = await (async () => {
+            if (proxyUrl) {
+              // 使用undici的fetch with dispatcher
+              try {
+                const { ProxyAgent, fetch: undiciFetch } = await import('undici');
+                const dispatcher = new ProxyAgent(proxyUrl);
+                return await undiciFetch(imageUrl, {
+                  ...fetchOptions,
+                  dispatcher,
+                });
+              } catch (importError) {
+                console.warn('无法加载undici ProxyAgent，尝试使用原生fetch');
+                return await fetch(imageUrl, fetchOptions);
+              }
+            } else {
+              // 不使用代理
+              return await fetch(imageUrl, fetchOptions);
+            }
+          })();
+
           if (!response.ok) {
-            throw new Error(`下载失败: ${response.status} ${response.statusText}`);
+            throw new Error(`HTTP ${response.status} ${response.statusText}`);
           }
 
           const arrayBuffer = await response.arrayBuffer();
@@ -533,11 +566,29 @@ async function callOpenAIImageAPI(
           processedImages.push(base64);
           console.log(`✓ 图片 #${i + 1} 下载成功，大小: ${(buffer.length / 1024).toFixed(2)} KB`);
         } catch (downloadError) {
-          console.error(`✗ 图片 #${i + 1} 下载失败:`, downloadError);
+          console.error(`✗ 图片 #${i + 1} 下载失败:`);
+          console.error(`  URL: ${imageUrl}`);
+          console.error(`  错误类型: ${downloadError instanceof Error ? downloadError.constructor.name : typeof downloadError}`);
+          console.error(`  错误信息: ${downloadError instanceof Error ? downloadError.message : String(downloadError)}`);
+
+          // 提供更详细的错误信息
+          let errorMessage = '图片URL无法访问';
+          if (downloadError instanceof Error) {
+            if (downloadError.message.includes('fetch failed') || downloadError.message.includes('ENOTFOUND')) {
+              errorMessage = proxyUrl
+                ? `图片URL无法访问（已配置代理: ${proxyUrl}）: ${imageUrl.substring(0, 100)}。请检查：1) 代理是否正常工作 2) 网络连接 3) URL是否有效`
+                : `图片URL无法访问: ${imageUrl.substring(0, 100)}。可能原因：1) 需要配置代理（在.env中设置HTTP_PROXY） 2) 网络问题 3) URL已过期`;
+            } else if (downloadError.message.includes('HTTP')) {
+              errorMessage = `图片下载失败: ${downloadError.message}`;
+            } else {
+              errorMessage = `图片下载失败: ${downloadError.message}`;
+            }
+          }
+
           return {
             success: false,
             images: [],
-            error: `下载图片失败: ${downloadError instanceof Error ? downloadError.message : '未知错误'}`,
+            error: errorMessage,
           };
         }
       } else {
