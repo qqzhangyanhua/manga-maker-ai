@@ -141,7 +141,7 @@ prisma/
 - `Scene` - Background/environment assets with `scene_type`, tags, prompt
 
 **Story & Project:**
-- `Story` - Story outline with genre, premise, outline JSON
+- `Story` - Story outline with genre, premise, outline JSON, `suggested_characters` JSONB (AI-analyzed character suggestions for two-step generation)
 - `StoryCharacter` - Many-to-many Story ↔ Character with `role`, `character_arc`
 - `Chapter` - Story chapters with `chapter_order`, summary
 - `Project` - Comic projects linked to Story (optional)
@@ -327,6 +327,7 @@ All transactions are logged in `credit_transactions` table.
 - `GET /api/character/[id]` - Get character details
 - `PATCH /api/character/[id]` - Update character
 - `DELETE /api/character/[id]` - Delete character
+- `POST /api/character/[id]/regenerate-image` - Regenerate character image (fast mode or custom variation)
 - `POST /api/character/generate-views` - Generate three-view images
 - `POST /api/character/generate-expressions` - Generate expression matrix
 - `POST /api/character/generate-similar` - Generate similar character variations
@@ -349,6 +350,13 @@ All transactions are logged in `credit_transactions` table.
 - `GET /api/story/[id]/characters` - Get story characters
 - `DELETE /api/story/[id]/characters/[characterId]` - Remove character from story
 - `PATCH /api/story/[id]/characters/[characterId]` - Update character role/arc
+- `POST /api/story/[id]/analyze-characters` - **Two-Step Generation: Step 1** - Analyze story and return suggested character list (text only, ~5-10 credits)
+- `POST /api/story/[id]/batch-generate-images` - **Two-Step Generation: Step 2** - Batch generate images for selected suggested characters (~30 credits per image)
+- `POST /api/story/[id]/generate-character-image` - Generate image for single suggested character (~30 credits)
+- `GET /api/story/[id]/suggested-characters` - Get suggested characters list
+- `PATCH /api/story/[id]/suggested-characters` - Update or delete suggested character (before image generation)
+- `POST /api/story/[id]/generate-characters` - **[DEPRECATED]** One-step character generation (use two-step flow instead)
+- `POST /api/story/[id]/save-generated-characters` - Save generated characters to library
 - `GET /api/chapter/[id]` - Get chapter details
 - `POST /api/chapter/[id]/generate-panels` - Generate panels for chapter
 - `POST /api/chapter/[id]/generate-panels-stream` - Generate panels with streaming
@@ -492,6 +500,35 @@ export async function POST(req: Request) {
 2. `POST /api/character/generate-views` - Generate three-view images
 3. `POST /api/character/generate-expressions` - Generate expression matrix
 4. Character status: `pending` → `training` → `ready` | `failed`
+
+### AI Character Generation (Two-Step Flow)
+**Recommended approach for cost-effective character generation:**
+
+1. **Step 1: Analyze Characters** (~5-10 credits)
+   - `POST /api/story/[id]/analyze-characters` - LLM analyzes story and returns suggested character list
+   - Response includes: name, role, description (Chinese), appearance (English for image generation)
+   - Data stored in `Story.suggested_characters` JSONB field
+   - Users can review and select which characters to generate
+
+2. **Step 2: Generate Selected Characters** (~30 credits per image)
+   - **Batch**: `POST /api/story/[id]/batch-generate-images` - Generate images for multiple characters (max 5 at once)
+   - **Single**: `POST /api/story/[id]/generate-character-image` - Generate image for one character
+   - Auto-creates Character + default outfit + StoryCharacter associations
+   - Uploads images to MinIO storage
+   - Updates `suggested_characters` status (generated=true)
+
+3. **Optional: Manage Suggested Characters**
+   - `GET /api/story/[id]/suggested-characters` - Get suggested characters list
+   - `PATCH /api/story/[id]/suggested-characters` - Update or delete suggested character (before image generation)
+   - Supports actions: `update` (modify character details) or `delete` (remove from list)
+
+4. **Optional: Regenerate Images**
+   - `POST /api/character/[id]/regenerate-image` - Regenerate character image
+   - Supports two modes:
+     - `fast`: Uses original base_prompt
+     - `variation`: Applies custom variation prompt
+
+**Note:** The old one-step flow (`POST /api/story/[id]/generate-characters`) is deprecated but still available for backward compatibility.
 
 ### Story to Comic
 1. `POST /api/story/generate` - Generate story outline

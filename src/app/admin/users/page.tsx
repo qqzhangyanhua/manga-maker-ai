@@ -48,6 +48,7 @@ const AdminUsersPage = () => {
   } = useAdminList<User, Record<string, never>>({
     endpoint: "/api/admin/users",
     autoFetch: isAdmin,
+    itemsKey: "users",
   });
 
   // CRUD mutations

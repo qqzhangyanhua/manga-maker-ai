@@ -432,6 +432,7 @@ model Story {
   template_id     String?  @db.Uuid
   comic_style_id  String?  @db.Uuid // FK to ComicStyle for visual style
   style_reference_image String? // Reference image URL for extracting visual style (highest priority)
+  suggested_characters Json? // AI分析的建议角色列表（第一步分析结果）
   status          String   @default("draft") // draft/completed
   is_sample       Boolean  @default(false) // Sample project for new users
   sample_category String?  // beginner/intermediate/advanced

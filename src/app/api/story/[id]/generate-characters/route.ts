@@ -1,3 +1,11 @@
+/**
+ * @deprecated 推荐使用两步流程以节省算力：
+ * 1. POST /api/story/[id]/analyze-characters - 分析角色列表（仅文本）
+ * 2. POST /api/story/[id]/batch-generate-images - 为选中角色生成图片
+ *
+ * 该接口保留用于向后兼容，但不推荐新代码使用。
+ */
+
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";

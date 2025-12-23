@@ -110,6 +110,7 @@ export function StoryCharacterList({
               storyCharacter={sc}
               onRoleChange={onRoleChange}
               onRemove={onRemove}
+              onRefresh={onRefresh}
             />
           ))}
         </div>
