@@ -514,10 +514,8 @@ async function callOpenAIImageAPI(
 
     // 获取代理配置
     const proxyUrl = process.env.HTTP_PROXY || process.env.HTTPS_PROXY;
-    const fetchOptions: RequestInit = {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; MangaMakerAI/1.0)',
-      },
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (compatible; MangaMakerAI/1.0)',
     };
 
     // 如果有代理配置，记录日志
@@ -542,16 +540,16 @@ async function callOpenAIImageAPI(
                 const { ProxyAgent, fetch: undiciFetch } = await import('undici');
                 const dispatcher = new ProxyAgent(proxyUrl);
                 return await undiciFetch(imageUrl, {
-                  ...fetchOptions,
+                  headers,
                   dispatcher,
                 });
               } catch (importError) {
                 console.warn('无法加载undici ProxyAgent，尝试使用原生fetch');
-                return await fetch(imageUrl, fetchOptions);
+                return await fetch(imageUrl, { headers });
               }
             } else {
               // 不使用代理
-              return await fetch(imageUrl, fetchOptions);
+              return await fetch(imageUrl, { headers });
             }
           })();
 

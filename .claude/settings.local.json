@@ -64,7 +64,8 @@
       "mcp______zhi",
       "Bash(taskkill:*)",
       "Bash(powershell -Command \"Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force\")",
-      "Bash(powershell -Command \"Get-Process node | Stop-Process -Force\")"
+      "Bash(powershell -Command \"Get-Process node | Stop-Process -Force\")",
+      "Bash(pnpm run type-check:*)"
     ],
     "deny": [],
     "ask": []
