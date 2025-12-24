@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { format } from "date-fns";
-import { Image as ImageIcon, Loader2, ChevronLeft, ChevronRight, X, Edit, BookOpen, Film } from "lucide-react";
+import { Image as ImageIcon, Loader2, ChevronLeft, ChevronRight, X, Edit, BookOpen, Film, EyeOff, Eye, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +48,32 @@ export function StoryImagesGallery({ storyId, projectId }: StoryImagesGalleryPro
   const [selectedImage, setSelectedImage] = useState<GeneratedImage | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [hideTags, setHideTags] = useState(false);
+  const [sortMode, setSortMode] = useState<'none' | 'chapter' | 'panel'>('none');
+
+  const sortedImages = useMemo(() => {
+    if (sortMode === 'none') return images;
+
+    return [...images].sort((a, b) => {
+      if (sortMode === 'chapter') {
+        const aChapter = a.chapter_info?.chapter_order ?? Infinity;
+        const bChapter = b.chapter_info?.chapter_order ?? Infinity;
+        return aChapter - bChapter;
+      }
+
+      if (sortMode === 'panel') {
+        const aChapter = a.chapter_info?.chapter_order ?? Infinity;
+        const bChapter = b.chapter_info?.chapter_order ?? Infinity;
+        if (aChapter !== bChapter) return aChapter - bChapter;
+
+        const aPanel = a.panel_info?.[0]?.panel_order ?? Infinity;
+        const bPanel = b.panel_info?.[0]?.panel_order ?? Infinity;
+        return aPanel - bPanel;
+      }
+
+      return 0;
+    });
+  }, [images, sortMode]);
 
   useEffect(() => {
     if (projectId) {
@@ -171,8 +197,34 @@ export function StoryImagesGallery({ storyId, projectId }: StoryImagesGalleryPro
   return (
     <>
       <div className="space-y-4">
+        <div className="flex gap-2 mb-4">
+          <Button
+            variant={hideTags ? "default" : "outline"}
+            size="sm"
+            onClick={() => setHideTags(!hideTags)}
+          >
+            {hideTags ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
+            {hideTags ? "显示标签" : "隐藏标签"}
+          </Button>
+          <Button
+            variant={sortMode === 'chapter' ? "default" : "outline"}
+            size="sm"
+            onClick={() => setSortMode(sortMode === 'chapter' ? 'none' : 'chapter')}
+          >
+            <BookOpen className="w-4 h-4 mr-2" />
+            章节排序
+          </Button>
+          <Button
+            variant={sortMode === 'panel' ? "default" : "outline"}
+            size="sm"
+            onClick={() => setSortMode(sortMode === 'panel' ? 'none' : 'panel')}
+          >
+            <Film className="w-4 h-4 mr-2" />
+            镜头排序
+          </Button>
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {images.map((img) => (
+          {sortedImages.map((img) => (
             <div
               key={img.id}
               className="group relative aspect-[3/4] bg-muted rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all"
@@ -184,23 +236,25 @@ export function StoryImagesGallery({ storyId, projectId }: StoryImagesGalleryPro
                 className="w-full h-full object-cover"
               />
               
-              {/* 章节和分镜标签 - 始终显示 */}
-              <div className="absolute top-2 left-2 flex flex-col gap-1">
-                {img.chapter_info && (
-                  <Badge variant="secondary" className="bg-blue-500/90 text-white text-xs">
-                    <BookOpen className="w-3 h-3 mr-1" />
-                    第{img.chapter_info.chapter_order}章
-                  </Badge>
-                )}
-                {img.panel_info && img.panel_info.length > 0 && (
-                  <Badge variant="secondary" className="bg-purple-500/90 text-white text-xs">
-                    <Film className="w-3 h-3 mr-1" />
-                    {img.panel_info.length > 1 
-                      ? `${img.panel_info.length}镜` 
-                      : `第${img.panel_info[0].panel_order}镜`}
-                  </Badge>
-                )}
-              </div>
+              {/* 章节和分镜标签 */}
+              {!hideTags && (
+                <div className="absolute top-2 left-2 flex flex-col gap-1">
+                  {img.chapter_info && (
+                    <Badge variant="secondary" className="bg-blue-500/90 text-white text-xs">
+                      <BookOpen className="w-3 h-3 mr-1" />
+                      第{img.chapter_info.chapter_order}章
+                    </Badge>
+                  )}
+                  {img.panel_info && img.panel_info.length > 0 && (
+                    <Badge variant="secondary" className="bg-purple-500/90 text-white text-xs">
+                      <Film className="w-3 h-3 mr-1" />
+                      {img.panel_info.length > 1
+                        ? `${img.panel_info.length}镜`
+                        : `第${img.panel_info[0].panel_order}镜`}
+                    </Badge>
+                  )}
+                </div>
+              )}
 
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors">
                 <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
