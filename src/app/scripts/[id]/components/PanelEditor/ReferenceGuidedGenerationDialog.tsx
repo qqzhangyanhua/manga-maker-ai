@@ -373,44 +373,6 @@ export function ReferenceGuidedGenerationDialog({
           </div>
 
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label>角色锁定</Label>
-              <div className="flex items-center gap-2">
-                <Button size="sm" variant="outline" onClick={() => setIsCreateDialogOpen(true)}>
-                  <UserPlus className="w-4 h-4 mr-1" />
-                  创建角色
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={!selectedCharacter || isUploadingView}
-                    >
-                      <UploadCloud className="w-4 h-4 mr-1" />
-                      补充三视图
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-40">
-                    {(Object.keys(VIEW_LABELS) as ViewType[]).map((view) => (
-                      <DropdownMenuItem
-                        key={view}
-                        onClick={() => openUploadDialog(view)}
-                        disabled={!selectedCharacter}
-                      >
-                        {VIEW_LABELS[view]}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
-            <CharacterReferencePicker
-              characters={characterList}
-              selectedId={selectedCharacterId}
-              onSelect={(char) => setSelectedCharacterId(char?.id || null)}
-            />
-
             {/* 参考图片选择 */}
             <div className="space-y-2 pt-3 border-t">
               <div className="flex items-center justify-between">

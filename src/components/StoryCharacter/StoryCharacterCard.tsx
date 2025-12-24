@@ -23,6 +23,7 @@ interface StoryCharacterCardProps {
   onRemove: (characterId: string) => Promise<void>;
   onRefresh?: () => void;
   isDragging?: boolean;
+  onImageClick?: (imageUrl: string) => void;
 }
 
 export function StoryCharacterCard({
@@ -31,6 +32,7 @@ export function StoryCharacterCard({
   onRemove,
   onRefresh,
   isDragging,
+  onImageClick,
 }: StoryCharacterCardProps) {
   const { toast } = useToast();
   const [isUpdating, setIsUpdating] = useState(false);
@@ -147,7 +149,15 @@ export function StoryCharacterCard({
         </div>
 
         {/* Character avatar */}
-        <div className="relative w-10 h-10 rounded-full overflow-hidden bg-muted flex-shrink-0">
+        <div
+          className={`relative w-10 h-10 rounded-full overflow-hidden bg-muted flex-shrink-0 ${hasImage ? 'cursor-pointer hover:ring-2 hover:ring-primary transition-all' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (hasImage && onImageClick) {
+              onImageClick(imageUrl);
+            }
+          }}
+        >
           {hasImage ? (
             <Image
               src={imageUrl}

@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Users, Plus, Loader2, Sparkles } from "lucide-react";
+import { Users, Plus, Loader2, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { StoryCharacterCard } from "./StoryCharacterCard";
 import { CharacterSelector } from "./CharacterSelector";
 import { AICharacterGeneratorDialog } from "@/components/AICharacterGenerator";
 import type { StoryCharacterWithDetails, CharacterRole } from "./types";
+import Image from "next/image";
 
 interface StoryCharacterListProps {
   storyId: string;
@@ -30,6 +32,7 @@ export function StoryCharacterList({
   const [showSelector, setShowSelector] = useState(false);
   const [showAIGenerator, setShowAIGenerator] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // Get IDs of characters already in story
   const existingCharacterIds = characters.map((sc) => sc.character_id);
@@ -111,6 +114,7 @@ export function StoryCharacterList({
               onRoleChange={onRoleChange}
               onRemove={onRemove}
               onRefresh={onRefresh}
+              onImageClick={setPreviewImage}
             />
           ))}
         </div>
@@ -134,6 +138,22 @@ export function StoryCharacterList({
           onRefresh?.();
         }}
       />
+
+      {/* Image preview dialog */}
+      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
+        <DialogContent className="max-w-3xl">
+          <div className="relative w-full aspect-square">
+            {previewImage && (
+              <Image
+                src={previewImage}
+                alt="角色预览"
+                fill
+                className="object-contain"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
