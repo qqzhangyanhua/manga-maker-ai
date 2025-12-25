@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Navbar } from "@/components/Landing";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,8 @@ import { useStreamingGeneration } from "./hooks/useStreamingGeneration";
 import { GenerationProgress } from "./components/GenerationProgress";
 import { GeneratePanelsDialog } from "./components/GeneratePanelsDialog";
 import { useStoryOperation } from "./hooks/useStoryOperations";
+import { SerialChapterList } from "@/components/SerialChapterList";
+import { CreateChapterDialog } from "@/components/CreateChapterDialog";
 
 export default function ScriptDetailsPage() {
   const params = useParams();
@@ -40,10 +42,14 @@ export default function ScriptDetailsPage() {
   const [currentChapterId, setCurrentChapterId] = useState<string | null>(null);
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
   const [pendingChapterId, setPendingChapterId] = useState<string | null>(null);
+  const [createChapterDialogOpen, setCreateChapterDialogOpen] = useState(false);
+  const [generateNextChapterDialogOpen, setGenerateNextChapterDialogOpen] = useState(false);
 
   // Data fetching hooks
-  const { data, isLoading, isPanelsLoading, error, refetchPanels } = useStoryDataOptimized(storyId);
+  const { data, isLoading, isPanelsLoading, error, refetchPanels, refetchStory } = useStoryDataOptimized(storyId);
   const { data: characterAssets = [], isLoading: isCharactersLoading, refetch: refetchCharacters } = useCharacterAssets();
+  const refreshStoryData = useCallback(async () => {`r`n    await Promise.all([refetchStory(), refetchPanels()]);`r`n  }, [refetchStory, refetchPanels]);
+  
   const { data: storyCharacters = [], isLoading: isStoryCharactersLoading, refetch: refetchStoryCharacters } = useStoryCharacters(storyId);
 
   // Mutation hooks
@@ -60,7 +66,7 @@ export default function ScriptDetailsPage() {
 
   // Sync form with fetched data
   useEffect(() => {
-    // 避免覆盖用户正在编辑的内容，仅在进入页面或后端数据变更时同步
+    // 閬垮厤瑕嗙洊鐢ㄦ埛姝ｅ湪缂栬緫鐨勫唴瀹癸紝浠呭湪杩涘叆椤甸潰鎴栧悗绔暟鎹彉鏇存椂鍚屾
     if (!data?.story || uiState.editMode) return;
 
     uiActions.setStoryForm({
@@ -94,14 +100,14 @@ export default function ScriptDetailsPage() {
         await updateStory.mutateAsync(uiState.storyForm);
         uiActions.setEditMode(false);
       },
-      { successMessage: "剧本已保存" }
+      { successMessage: "鍓ф湰宸蹭繚瀛? }
     );
     await operation();
   }
 
   async function handleImageGenerated(_panelId: string, _imageUrl: string) {
     await refetchPanels?.();
-    toast({ title: "图片生成成功" });
+    toast({ title: "鍥剧墖鐢熸垚鎴愬姛" });
   }
 
   async function handleDeletePanel(panelId: string): Promise<void> {
@@ -110,11 +116,11 @@ export default function ScriptDetailsPage() {
         const response = await fetch(`/api/panel/${panelId}`, { method: "DELETE" });
         if (!response.ok) {
           const data = await response.json();
-          throw new Error(data.error || "删除分镜失败");
+          throw new Error(data.error || "鍒犻櫎鍒嗛暅澶辫触");
         }
         await refetchPanels?.();
       },
-      { successMessage: "分镜已删除" }
+      { successMessage: "鍒嗛暅宸插垹闄? }
     );
     await operation();
   }
@@ -124,7 +130,7 @@ export default function ScriptDetailsPage() {
       async () => {
         await addStoryCharacter.mutateAsync({ characterId, role });
       },
-      { successMessage: "角色已添加到故事" }
+      { successMessage: "瑙掕壊宸叉坊鍔犲埌鏁呬簨" }
     );
     await operation();
   }
@@ -134,7 +140,7 @@ export default function ScriptDetailsPage() {
       async () => {
         await removeStoryCharacter.mutateAsync(characterId);
       },
-      { successMessage: "角色已从故事移除" }
+      { successMessage: "瑙掕壊宸蹭粠鏁呬簨绉婚櫎" }
     );
     await operation();
   }
@@ -144,14 +150,14 @@ export default function ScriptDetailsPage() {
       async () => {
         await updateStoryCharacterRole.mutateAsync({ characterId, role });
       },
-      { successMessage: "角色类型已更新" }
+      { successMessage: "瑙掕壊绫诲瀷宸叉洿鏂? }
     );
     await operation();
   }
 
   async function handleGeneratePanelsForChapter(chapterId: string): Promise<void> {
     if (!data?.story) {
-      toast({ title: "故事不存在", variant: "destructive" });
+      toast({ title: "鏁呬簨涓嶅瓨鍦?, variant: "destructive" });
       return;
     }
     setPendingChapterId(chapterId);
@@ -164,7 +170,7 @@ export default function ScriptDetailsPage() {
     panelCount?: number
   ): Promise<void> {
     if (!data?.story) {
-      toast({ title: "故事不存在", variant: "destructive" });
+      toast({ title: "鏁呬簨涓嶅瓨鍦?, variant: "destructive" });
       return;
     }
 
@@ -178,7 +184,7 @@ export default function ScriptDetailsPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             title: data.story.title,
-            description: data.story.premise || "AI生成的漫画项目",
+            description: data.story.premise || "AI鐢熸垚鐨勬极鐢婚」鐩?,
             story_id: storyId,
             status: "in_progress",
           }),
@@ -186,7 +192,7 @@ export default function ScriptDetailsPage() {
 
         if (!createProjectRes.ok) {
           const error = await createProjectRes.json();
-          throw new Error(error.error || "创建项目失败");
+          throw new Error(error.error || "鍒涘缓椤圭洰澶辫触");
         }
 
         const createProjectData = await createProjectRes.json();
@@ -203,10 +209,10 @@ export default function ScriptDetailsPage() {
       });
 
       toast({
-        title: "分镜生成完成",
+        title: "鍒嗛暅鐢熸垚瀹屾垚",
         description: mode === "overwrite"
-          ? "AI 已成功重新生成分镜脚本"
-          : "AI 已成功追加新的分镜脚本",
+          ? "AI 宸叉垚鍔熼噸鏂扮敓鎴愬垎闀滆剼鏈?
+          : "AI 宸叉垚鍔熻拷鍔犳柊鐨勫垎闀滆剼鏈?,
       });
       await refetchPanels?.();
       reset();
@@ -232,12 +238,12 @@ export default function ScriptDetailsPage() {
         <Navbar />
         <main className="pt-16">
           <div className="container py-12 text-center">
-            <h1 className="text-2xl font-bold text-white mb-4">未找到剧本</h1>
+            <h1 className="text-2xl font-bold text-white mb-4">鏈壘鍒板墽鏈?/h1>
             <Button
               className="bg-orange-500 hover:bg-orange-600 text-white border-0"
               onClick={() => router.push("/scripts")}
             >
-              返回列表
+              杩斿洖鍒楄〃
             </Button>
           </div>
         </main>
@@ -288,8 +294,9 @@ export default function ScriptDetailsPage() {
                 <div className="lg:col-span-3">
                   <Tabs defaultValue="panels" className="w-full">
                     <TabsList className="mb-4">
-                      <TabsTrigger value="panels">分镜列表</TabsTrigger>
-                      <TabsTrigger value="gallery">生成图库</TabsTrigger>
+                      <TabsTrigger value="panels">鍒嗛暅鍒楄〃</TabsTrigger>
+                      <TabsTrigger value="gallery">鐢熸垚鍥惧簱</TabsTrigger>
+                      <TabsTrigger value="serial">杩炶浇绠＄悊</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="panels">
@@ -298,6 +305,11 @@ export default function ScriptDetailsPage() {
                         projectId={data?.projectId || null}
                         storyId={storyId}
                         currentChapterId={currentChapterId}
+                        currentChapterTitle={
+                          currentChapterId
+                            ? data.chapters?.find((ch) => ch.id === currentChapterId)?.title
+                            : null
+                        }
                         characters={characterAssets}
                         charactersLoading={isCharactersLoading}
                         onCharactersRefresh={() => { refetchCharacters(); }}
@@ -306,16 +318,39 @@ export default function ScriptDetailsPage() {
                         streamingPanels={progress.generatedPanels || []}
                         onDeletePanel={handleDeletePanel}
                         onImageGenerated={handleImageGenerated}
-                        onRefresh={() => refetchPanels?.()}
+                        onRefresh={refreshStoryData}
                         onError={(msg) =>
-                          toast({ title: "错误", description: msg, variant: "destructive" })
+                          toast({ title: "閿欒", description: msg, variant: "destructive" })
                         }
+                        onClearChapterFilter={() => setCurrentChapterId(null)}
                         isPanelsLoading={isPanelsLoading}
                       />
                     </TabsContent>
 
                     <TabsContent value="gallery">
                       <StoryImagesGallery storyId={storyId} projectId={data?.projectId} />
+                    </TabsContent>
+
+                    <TabsContent value="serial">
+                      <SerialChapterList
+                        storyId={storyId}
+                        chapters={data.chapters || []}
+                        panels={data.panels || []}
+                        onRefresh={refreshStoryData}
+                        onCreateChapter={() => setCreateChapterDialogOpen(true)}
+                        onGenerateNext={() => setGenerateNextChapterDialogOpen(true)}
+                        onGeneratePanels={(chapterId) => {
+                          setCurrentChapterId(chapterId);
+                          handleGeneratePanelsForChapter(chapterId);
+                        }}
+                        onViewPanels={(chapterId) => {
+                          setCurrentChapterId(chapterId);
+                          // 鍒囨崲鍒板垎闀滃垪琛?Tab
+                          const tabsList = document.querySelector('[role="tablist"]');
+                          const panelsTab = tabsList?.querySelector('[value="panels"]') as HTMLElement;
+                          panelsTab?.click();
+                        }}
+                      />
                     </TabsContent>
                   </Tabs>
                 </div>
@@ -337,6 +372,30 @@ export default function ScriptDetailsPage() {
                   }
                 }}
               />
+
+              <CreateChapterDialog
+                open={createChapterDialogOpen}
+                onOpenChange={setCreateChapterDialogOpen}
+                storyId={storyId}
+                nextChapterOrder={
+                  (data.chapters || []).length > 0
+                    ? Math.max(...(data.chapters || []).map(ch => ch.chapter_order)) + 1
+                    : 1
+                }
+                onSuccess={() => { void refreshStoryData(); }}
+              />
+
+              <CreateChapterDialog
+                open={generateNextChapterDialogOpen}
+                onOpenChange={setGenerateNextChapterDialogOpen}
+                storyId={storyId}
+                nextChapterOrder={
+                  (data.chapters || []).length > 0
+                    ? Math.max(...(data.chapters || []).map(ch => ch.chapter_order)) + 1
+                    : 1
+                }
+                onSuccess={() => { void refreshStoryData(); }}
+              />
             </div>
           </div>
         </main>
@@ -344,3 +403,11 @@ export default function ScriptDetailsPage() {
     </ErrorBoundary>
   );
 }
+
+
+
+
+
+
+
+

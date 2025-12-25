@@ -1,4 +1,4 @@
-generator client {
+﻿generator client {
   provider = "prisma-client-js"
 }
 
@@ -23,8 +23,8 @@ model User {
   status            String?   @default("active")
 
   // Credits system
-  credits            Int @default(2000) // 当前算力余额
-  total_credits_used Int @default(0)    // 累计消耗算力
+  credits            Int @default(2000) // 褰撳墠绠楀姏浣欓
+  total_credits_used Int @default(0)    // 绱娑堣€楃畻鍔?
 
   // Phase 1 relations
   panelTemplates       PanelTemplate[]
@@ -57,8 +57,8 @@ model LlmProvider {
   api_key       String   @default("")
   priority      Int      @default(1)
   enabled       Boolean  @default(true)
-  desc          String?  // 描述这个配置是用来干嘛的
-  credits_cost  Int      @default(0) // 每次调用消耗的算力，0=不消耗
+  desc          String?  // 鎻忚堪杩欎釜閰嶇疆鏄敤鏉ュ共鍢涚殑
+  credits_cost  Int      @default(0) // 姣忔璋冪敤娑堣€楃殑绠楀姏锛?=涓嶆秷鑰?
   created_at    DateTime @default(now()) @db.Timestamptz(6)
   updated_at    DateTime @default(now()) @db.Timestamptz(6)
 
@@ -197,13 +197,13 @@ model Panel {
   script_segment_id String? // Link to script segment
   script_start      Int? // Text start position
   script_end        Int? // Text end position
-  camera_angle      String? // 俯视/仰视/平视/荷兰角
-  shot_size         String? // 特写/近景/中景/全景/远景
+  camera_angle      String? // 淇/浠拌/骞宠/鑽峰叞瑙?
+  shot_size         String? // 鐗瑰啓/杩戞櫙/涓櫙/鍏ㄦ櫙/杩滄櫙
 
   // Camera movement parameters
   camera_movement   String? // static | push_in | pull_out | pan_left | pan_right | tilt_up | tilt_down | dolly | zoom
   movement_speed    String? // slow | medium | fast | sudden
-  movement_direction String? // 补充描述（如：diagonal_up_right）
+  movement_direction String? // 琛ュ厖鎻忚堪锛堝锛歞iagonal_up_right锛?
 
   sketch_image_url  String? // Sketch preview URL
   visual_prompt     String? // Editable visual description
@@ -217,8 +217,8 @@ model Panel {
   // Chapter grouping (optional, for story-based projects)
   chapter_id String? @db.Uuid // FK to Chapter
 
-  // Phase 3: Layout grouping for multi-panel layouts (2镜/4镜/6镜)
-  // null = independent panel (1镜)
+  // Phase 3: Layout grouping for multi-panel layouts (2闀?4闀?6闀?
+  // null = independent panel (1闀?
   // "group_start_2" = start of 2-panel layout group
   // "group_start_4" = start of 4-panel layout group
   // "group_start_6" = start of 6-panel layout group
@@ -226,10 +226,10 @@ model Panel {
   layout_hint String?
 
   // Gallery sharing fields
-  is_shared   Boolean   @default(false) // 是否分享到画廊
-  shared_at   DateTime? @db.Timestamptz(6) // 分享时间
-  view_count  Int       @default(0) // 浏览次数
-  show_prompt Boolean   @default(true) // 是否公开 prompt
+  is_shared   Boolean   @default(false) // 鏄惁鍒嗕韩鍒扮敾寤?
+  shared_at   DateTime? @db.Timestamptz(6) // 鍒嗕韩鏃堕棿
+  view_count  Int       @default(0) // 娴忚娆℃暟
+  show_prompt Boolean   @default(true) // 鏄惁鍏紑 prompt
 
   created_at DateTime @default(now()) @db.Timestamptz(6)
 
@@ -308,7 +308,7 @@ model CharacterRelationship {
 model ComicStyle {
   id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   style_key     String   @unique // manga, american, webtoon, etc.
-  name_zh       String // 日式漫画
+  name_zh       String // 鏃ュ紡婕敾
   name_en       String // MANGA
   image_url     String // Preview image URL
   tag_color     String   @default("bg-primary text-background") // Tailwind classes
@@ -405,7 +405,7 @@ model Scene {
 // Story Template - Predefined story structures and templates
 model StoryTemplate {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name        String // Template name (e.g., "三幕剧结构", "英雄之旅")
+  name        String // Template name (e.g., "涓夊箷鍓х粨鏋?, "鑻遍泟涔嬫梾")
   category    String // suspense/romance/adventure/scifi/daily/fantasy
   description String?  @db.Text
   structure   Json // Story structure: { acts: [...], plot_points: [...] }
@@ -432,10 +432,15 @@ model Story {
   template_id     String?  @db.Uuid
   comic_style_id  String?  @db.Uuid // FK to ComicStyle for visual style
   style_reference_image String? // Reference image URL for extracting visual style (highest priority)
-  suggested_characters Json? // AI分析的建议角色列表（第一步分析结果）
+  suggested_characters Json? // AI鍒嗘瀽鐨勫缓璁鑹插垪琛紙绗竴姝ュ垎鏋愮粨鏋滐級
   status          String   @default("draft") // draft/completed
   is_sample       Boolean  @default(false) // Sample project for new users
   sample_category String?  // beginner/intermediate/advanced
+
+  // 杩炶浇妯″紡鏀寔
+  is_serialized   Boolean  @default(true) // 鏄惁涓鸿繛杞戒綔鍝侊紙榛樿鍚敤锛?
+  serial_status   String?  @default("ongoing") // ongoing/completed/hiatus - 杩炶浇鐘舵€?
+
   created_at      DateTime @default(now()) @db.Timestamptz(6)
   updated_at      DateTime @default(now()) @db.Timestamptz(6)
 
@@ -451,6 +456,7 @@ model Story {
   @@index([user_id, status], map: "idx_stories_user_status")
   @@index([is_sample], map: "idx_stories_sample")
   @@index([comic_style_id], map: "idx_stories_comic_style")
+  @@index([is_serialized, serial_status], map: "idx_stories_serialized")
   @@map("stories")
 }
 
@@ -458,7 +464,7 @@ model Story {
 model Chapter {
   id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   story_id      String   @db.Uuid
-  title         String // Chapter title (e.g., "第一章：相遇")
+  title         String // Chapter title (e.g., "绗竴绔狅細鐩搁亣")
   summary       String?  @db.Text // Chapter summary for AI panel generation
   chapter_order Int // Display order in story
 
@@ -466,6 +472,10 @@ model Chapter {
   content            String?  @db.Text // Detailed chapter content (2000-5000 words) for context
   is_key_chapter     Boolean  @default(false) // Mark as key chapter for context loading
   key_chapter_reason String?  @db.Text // Why this chapter is key (e.g., "character death", "major plot twist")
+
+  // 杩炶浇妯″紡鏀寔
+  publish_status String   @default("draft") // draft/published/archived - 绔犺妭鍙戝竷鐘舵€?
+  published_at   DateTime? @db.Timestamptz(6) // 鍙戝竷鏃堕棿
 
   created_at    DateTime @default(now()) @db.Timestamptz(6)
   updated_at    DateTime @default(now()) @db.Timestamptz(6)
@@ -476,6 +486,7 @@ model Chapter {
 
   @@index([story_id, chapter_order], map: "idx_chapters_story_order")
   @@index([story_id, is_key_chapter], map: "idx_chapters_key")
+  @@index([story_id, publish_status], map: "idx_chapters_publish_status")
   @@map("chapters")
 }
 
@@ -667,18 +678,18 @@ model Tagging {
 }
 
 // ============================================================
-// Credit Transaction - 算力交易记录
+// Credit Transaction - 绠楀姏浜ゆ槗璁板綍
 // ============================================================
 
 model CreditTransaction {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   user_id     String   @db.Uuid
-  amount      Int      // 正数=充值/赠送，负数=消耗
-  balance     Int      // 变动后余额
+  amount      Int      // 姝ｆ暟=鍏呭€?璧犻€侊紝璐熸暟=娑堣€?
+  balance     Int      // 鍙樺姩鍚庝綑棰?
   action      String   // register/consume/recharge/admin_adjust/refund
-  description String?  // 描述
-  ref_type    String?  // 关联类型: generation_log/order/admin
-  ref_id      String?  @db.Uuid // 关联ID
+  description String?  // 鎻忚堪
+  ref_type    String?  // 鍏宠仈绫诲瀷: generation_log/order/admin
+  ref_id      String?  @db.Uuid // 鍏宠仈ID
   created_at  DateTime @default(now()) @db.Timestamptz(6)
 
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
@@ -714,3 +725,5 @@ model ChapterCharacterState {
   @@index([character_id], map: "idx_chapter_character_states_character")
   @@map("chapter_character_states")
 }
+
+

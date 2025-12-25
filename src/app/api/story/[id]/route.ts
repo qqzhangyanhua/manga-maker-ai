@@ -44,6 +44,18 @@ export async function GET(
                         name_en: true,
                         prompt_prefix: true,
                     }
+                },
+                chapters: {
+                    select: {
+                        id: true,
+                        title: true,
+                        summary: true,
+                        chapter_order: true,
+                        publish_status: true,
+                        published_at: true,
+                        created_at: true,
+                    },
+                    orderBy: { chapter_order: 'asc' }
                 }
             }
         });
@@ -61,13 +73,14 @@ export async function GET(
             ? story.projects[0].id
             : null;
 
-        // Remove projects from story object but keep comic_style
-        const { projects, ...storyData } = story;
+        // Remove projects from story object but keep comic_style and chapters
+        const { projects, chapters, ...storyData } = story;
 
         return NextResponse.json({
             success: true,
             story: storyData,
             projectId,
+            chapters: chapters || [],
         });
     } catch (error) {
         console.error("Get story error:", error);

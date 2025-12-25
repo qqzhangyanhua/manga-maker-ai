@@ -47,6 +47,7 @@ interface PanelListViewProps {
   projectId: string | null;
   storyId?: string; // 故事 ID
   currentChapterId?: string | null; // 当前章节 ID（用于过滤分镜）
+  currentChapterTitle?: string | null; // 当前章节标题
   onGeneratePanelsForChapter?: (chapterId: string) => void; // AI生成分镜回调
   isGeneratingPanels?: boolean; // AI生成分镜的 loading 状态
   streamingPanels?: Panel[]; // 流式生成中的临时分镜（还未保存到数据库）
@@ -60,6 +61,7 @@ interface PanelListViewProps {
   onError: (message: string) => void;
   onImageGenerated?: (panelId: string, imageUrl: string) => void;
   onRefresh?: () => void; // New callback to trigger data refresh
+  onClearChapterFilter?: () => void; // 清除章节筛选
 }
 
 export function PanelListView({
@@ -67,6 +69,7 @@ export function PanelListView({
   projectId,
   storyId,
   currentChapterId,
+  currentChapterTitle,
   onGeneratePanelsForChapter,
   isGeneratingPanels = false,
   streamingPanels = [],
@@ -80,6 +83,7 @@ export function PanelListView({
   onError,
   onImageGenerated,
   onRefresh,
+  onClearChapterFilter,
 }: PanelListViewProps) {
   const { toast } = useToast();
 
@@ -240,10 +244,33 @@ export function PanelListView({
     <div className="space-y-6">
       {/* 标题栏 */}
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold flex items-center gap-2">
-          <ImageIcon className="w-5 h-5" />
-          分镜列表 ({filteredPanels.length})
-        </h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <ImageIcon className="w-5 h-5" />
+            分镜列表 ({filteredPanels.length})
+          </h2>
+          {/* 章节筛选提示 */}
+          {currentChapterId && (
+            <div className="flex items-center gap-2">
+              <div className="h-6 w-px bg-gray-700" />
+              <div className="flex items-center gap-2 px-3 py-1 bg-blue-500/10 border border-blue-500/30 rounded-md">
+                <span className="text-sm text-blue-400">
+                  {currentChapterTitle || "当前章节"}
+                </span>
+                {onClearChapterFilter && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onClearChapterFilter}
+                    className="h-5 px-2 text-xs text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
+                  >
+                    查看全部
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
         <div className="flex gap-2">
           {/* AI生成分镜按钮（章节级别） */}
           {currentChapterId && onGeneratePanelsForChapter && (

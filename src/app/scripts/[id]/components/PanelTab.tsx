@@ -9,6 +9,7 @@ type PanelTabProps = {
   projectId: string | null;
   storyId: string;
   currentChapterId: string | null;
+  currentChapterTitle?: string | null;
 
   // Characters
   characters: CharacterReference[];
@@ -23,6 +24,7 @@ type PanelTabProps = {
   onImageGenerated: (panelId: string, imageUrl: string) => Promise<void>;
   onRefresh: () => void;
   onError: (message: string) => void;
+  onClearChapterFilter?: () => void;
 
   // Loading State
   isPanelsLoading: boolean;
@@ -37,6 +39,7 @@ export function PanelTab({
   projectId,
   storyId,
   currentChapterId,
+  currentChapterTitle,
   characters,
   charactersLoading,
   onCharactersRefresh,
@@ -47,6 +50,7 @@ export function PanelTab({
   onImageGenerated,
   onRefresh,
   onError,
+  onClearChapterFilter,
   isPanelsLoading,
 }: PanelTabProps) {
   if (isPanelsLoading) {
@@ -68,6 +72,7 @@ export function PanelTab({
       projectId={projectId}
       storyId={storyId}
       currentChapterId={currentChapterId}
+      currentChapterTitle={currentChapterTitle}
       onGeneratePanelsForChapter={onGeneratePanelsForChapter}
       isGeneratingPanels={isGeneratingPanels}
       streamingPanels={streamingPanels}
@@ -79,6 +84,7 @@ export function PanelTab({
       onImageGenerated={onImageGenerated}
       onRefresh={onRefresh}
       onError={onError}
+      onClearChapterFilter={onClearChapterFilter}
     />
   );
 }

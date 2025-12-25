@@ -38,6 +38,9 @@ export interface Story {
   comic_style_id?: string | null; // 选择的漫画风格ID
   style_reference_image?: string | null; // 参考图URL（优先级最高）
   comic_style?: ComicStyle | null; // 关联的风格对象
+  // 连载模式支持
+  is_serialized?: boolean; // 是否为连载作品
+  serial_status?: string | null; // ongoing/completed/hiatus - 连载状态
   created_at: string;
   updated_at: string;
   _syncing?: boolean; // 乐观更新同步标记
@@ -57,6 +60,9 @@ export interface Chapter {
   is_key_chapter: boolean; // Mark as key chapter
   key_chapter_reason: string | null; // Why this is a key chapter
   character_states?: ChapterCharacterState[]; // Character states at end of chapter
+  // 连载模式支持
+  publish_status?: string; // draft/published/archived - 章节发布状态
+  published_at?: string | null; // 发布时间
   created_at: string;
   updated_at: string;
   _syncing?: boolean; // 乐观更新同步标记

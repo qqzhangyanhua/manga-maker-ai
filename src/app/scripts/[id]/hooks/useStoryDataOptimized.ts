@@ -1,14 +1,25 @@
-/**
- * 优化版的故事数据加载 Hook
- * 实现渐进式加载:优先加载故事信息,延迟加载分镜列表
+﻿/**
+ * 浼樺寲鐗堢殑鏁呬簨鏁版嵁鍔犺浇 Hook
+ * 瀹炵幇娓愯繘寮忓姞杞?浼樺厛鍔犺浇鏁呬簨淇℃伅,寤惰繜鍔犺浇鍒嗛暅鍒楄〃
  */
 
 import { useQuery } from '@tanstack/react-query';
 import type { Story, Panel } from '../types/script-editor.types';
 
+interface Chapter {
+  id: string;
+  title: string;
+  summary: string | null;
+  chapter_order: number;
+  publish_status: string;
+  published_at: string | null;
+  created_at: string;
+}
+
 interface StoryBasicData {
   story: Story;
   projectId: string | null;
+  chapters: Chapter[];
 }
 
 interface PanelsData {
@@ -17,32 +28,33 @@ interface PanelsData {
 }
 
 /**
- * 第一阶段:加载故事基本信息(最快)
+ * 绗竴闃舵:鍔犺浇鏁呬簨鍩烘湰淇℃伅(鏈€蹇?
  */
 export function useStoryBasicData(storyId: string) {
   return useQuery<StoryBasicData>({
     queryKey: ['story-basic', storyId],
     queryFn: async () => {
       const response = await fetch(`/api/story/${storyId}`);
-      
+
       if (!response.ok) {
         throw new Error('Failed to load story');
       }
 
       const data = await response.json();
-      
+
       return {
         story: data.story,
         projectId: data.projectId || null,
+        chapters: data.chapters || [],
       };
     },
-    staleTime: 5 * 60 * 1000, // 5分钟缓存
-    gcTime: 10 * 60 * 1000, // 10分钟垃圾回收
+    staleTime: 5 * 60 * 1000, // 5鍒嗛挓缂撳瓨
+    gcTime: 10 * 60 * 1000, // 10鍒嗛挓鍨冨溇鍥炴敹
   });
 }
 
 /**
- * 第二阶段:加载分镜列表(延迟加载)
+ * 绗簩闃舵:鍔犺浇鍒嗛暅鍒楄〃(寤惰繜鍔犺浇)
  */
 export function useStoryPanels(storyId: string, enabled = true) {
   return useQuery<PanelsData>({
@@ -51,7 +63,7 @@ export function useStoryPanels(storyId: string, enabled = true) {
       const response = await fetch(`/api/story/${storyId}/panels`);
       
       if (!response.ok) {
-        // 抛出错误,由上层统一提示,避免静默失败
+        // 鎶涘嚭閿欒,鐢变笂灞傜粺涓€鎻愮ず,閬垮厤闈欓粯澶辫触
         throw new Error('Failed to load panels');
       }
 
@@ -62,41 +74,44 @@ export function useStoryPanels(storyId: string, enabled = true) {
         projectId: data.projectId || null,
       };
     },
-    enabled, // 可控制是否开始加载
-    staleTime: 2 * 60 * 1000, // 2分钟缓存
+    enabled, // 鍙帶鍒舵槸鍚﹀紑濮嬪姞杞?
+    staleTime: 2 * 60 * 1000, // 2鍒嗛挓缂撳瓨
     gcTime: 5 * 60 * 1000,
   });
 }
 
 /**
- * 组合 Hook:提供完整的数据访问接口
+ * 缁勫悎 Hook:鎻愪緵瀹屾暣鐨勬暟鎹闂帴鍙?
  */
 export function useStoryDataOptimized(storyId: string) {
-  // 优先加载故事信息
-  const { 
-    data: basicData, 
-    isLoading: isStoryLoading, 
-    error: storyError 
+  // 浼樺厛鍔犺浇鏁呬簨淇℃伅
+  const {
+    data: basicData,
+    isLoading: isStoryLoading,
+    error: storyError,
+    refetch: refetchStory
   } = useStoryBasicData(storyId);
 
-  // 延迟加载分镜列表
-  const { 
-    data: panelsData, 
+  // 寤惰繜鍔犺浇鍒嗛暅鍒楄〃
+  const {
+    data: panelsData,
     isLoading: isPanelsLoading,
     error: panelsError,
     refetch: refetchPanels,
   } = useStoryPanels(storyId, !!basicData);
 
-  // 合并数据
+  // 鍚堝苟鏁版嵁
   const story = basicData?.story;
   const panels = panelsData?.panels || [];
   const projectId = panelsData?.projectId || basicData?.projectId || null;
+  const chapters = basicData?.chapters || [];
 
   return {
     data: story ? {
       story,
       panels,
       projectId,
+      chapters,
     } : undefined,
     isLoading: isStoryLoading,
     isPanelsLoading,
@@ -106,3 +121,5 @@ export function useStoryDataOptimized(storyId: string) {
     refetchPanels,
   };
 }
+
+
