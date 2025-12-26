@@ -8,7 +8,7 @@ interface CharacterListResponse {
 /**
  * 获取角色资产列表，供分镜生图时锁脸选择
  */
-export function useCharacterAssets() {
+export function useCharacterAssets(options?: { enabled?: boolean }) {
   return useQuery<CharacterReference[]>({
     queryKey: ["character-assets"],
     queryFn: async () => {
@@ -22,6 +22,7 @@ export function useCharacterAssets() {
 
       return data.characters || [];
     },
+    enabled: options?.enabled ?? true,
     staleTime: 2 * 60 * 1000,
     gcTime: 5 * 60 * 1000,
   });

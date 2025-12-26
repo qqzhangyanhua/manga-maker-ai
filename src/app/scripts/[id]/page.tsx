@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Navbar } from "@/components/Landing";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -34,6 +35,7 @@ import { CreateChapterDialog } from "@/components/CreateChapterDialog";
 export default function ScriptDetailsPage() {
   const params = useParams();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const storyId = params.id as string;
   const { execute } = useStoryOperation();
@@ -42,13 +44,21 @@ export default function ScriptDetailsPage() {
   const [currentChapterId, setCurrentChapterId] = useState<string | null>(null);
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
   const [pendingChapterId, setPendingChapterId] = useState<string | null>(null);
-  const [createChapterDialogOpen, setCreateChapterDialogOpen] = useState(false);
-  const [generateNextChapterDialogOpen, setGenerateNextChapterDialogOpen] = useState(false);
+  const [chapterDialogState, setChapterDialogState] = useState<{
+    open: boolean;
+    mode: 'create' | 'generate-next';
+    nextOrder: number;
+  }>({ open: false, mode: 'create', nextOrder: 1 });
+  const [activeTab, setActiveTab] = useState("panels");
 
   // Data fetching hooks
-  const { data, isLoading, isPanelsLoading, error, refetchPanels, refetchStory } = useStoryDataOptimized(storyId);
-  const { data: characterAssets = [], isLoading: isCharactersLoading, refetch: refetchCharacters } = useCharacterAssets();
-  const { data: storyCharacters = [], isLoading: isStoryCharactersLoading, refetch: refetchStoryCharacters } = useStoryCharacters(storyId);
+  const { data, isLoading, isPanelsLoading, error, refetchPanels, refetchStory, hasStory } = useStoryDataOptimized(storyId);
+
+  // 等核心数据加载完成后再加载次要数据（请求优先级控制）
+  const enabled = hasStory && !isLoading;
+
+  const { data: characterAssets = [], isLoading: isCharactersLoading, refetch: refetchCharacters } = useCharacterAssets({ enabled });
+  const { data: storyCharacters = [], isLoading: isStoryCharactersLoading, refetch: refetchStoryCharacters } = useStoryCharacters(storyId, { enabled });
   const refreshStoryData = useCallback(async () => {
     await Promise.all([refetchStory(), refetchPanels()]);
   }, [refetchStory, refetchPanels]);
@@ -105,8 +115,20 @@ export default function ScriptDetailsPage() {
     );
   }
 
-  async function handleImageGenerated(_panelId: string, _imageUrl: string) {
-    await refetchPanels?.();
+  async function handleImageGenerated(panelId: string, imageUrl: string) {
+    // 局部更新缓存，避免全量刷新
+    queryClient.setQueriesData(
+      { queryKey: ['story-panels', storyId] },
+      (old: { panels: Array<{ id: string; generated_image?: string }> } | undefined) => {
+        if (!old) return old;
+        return {
+          ...old,
+          panels: old.panels.map(p =>
+            p.id === panelId ? { ...p, generated_image: imageUrl } : p
+          ),
+        };
+      }
+    );
     toast({ title: "图片生成成功" });
   }
 
@@ -282,7 +304,7 @@ export default function ScriptDetailsPage() {
                 />
 
                 <div className="lg:col-span-3">
-                  <Tabs defaultValue="panels" className="w-full">
+                  <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <TabsList className="mb-4">
                       <TabsTrigger value="panels">分镜列表</TabsTrigger>
                       <TabsTrigger value="gallery">生成图库</TabsTrigger>
@@ -326,18 +348,25 @@ export default function ScriptDetailsPage() {
                         chapters={data.chapters || []}
                         panels={data.panels || []}
                         onRefresh={refreshStoryData}
-                        onCreateChapter={() => setCreateChapterDialogOpen(true)}
-                        onGenerateNext={() => setGenerateNextChapterDialogOpen(true)}
+                        onCreateChapter={() => {
+                          const nextOrder = (data.chapters || []).length > 0
+                            ? Math.max(...(data.chapters || []).map(ch => ch.chapter_order)) + 1
+                            : 1;
+                          setChapterDialogState({ open: true, mode: 'create', nextOrder });
+                        }}
+                        onGenerateNext={() => {
+                          const nextOrder = (data.chapters || []).length > 0
+                            ? Math.max(...(data.chapters || []).map(ch => ch.chapter_order)) + 1
+                            : 1;
+                          setChapterDialogState({ open: true, mode: 'generate-next', nextOrder });
+                        }}
                         onGeneratePanels={(chapterId) => {
                           setCurrentChapterId(chapterId);
                           handleGeneratePanelsForChapter(chapterId);
                         }}
                         onViewPanels={(chapterId) => {
                           setCurrentChapterId(chapterId);
-                          // 切换到分镜列表 Tab
-                          const tabsList = document.querySelector('[role="tablist"]');
-                          const panelsTab = tabsList?.querySelector('[value="panels"]') as HTMLElement;
-                          panelsTab?.click();
+                          setActiveTab("panels");
                         }}
                       />
                     </TabsContent>
@@ -363,26 +392,14 @@ export default function ScriptDetailsPage() {
               />
 
               <CreateChapterDialog
-                open={createChapterDialogOpen}
-                onOpenChange={setCreateChapterDialogOpen}
+                open={chapterDialogState.open}
+                onOpenChange={(open) => {
+                  if (!open) {
+                    setChapterDialogState({ open: false, mode: 'create', nextOrder: 1 });
+                  }
+                }}
                 storyId={storyId}
-                nextChapterOrder={
-                  (data.chapters || []).length > 0
-                    ? Math.max(...(data.chapters || []).map(ch => ch.chapter_order)) + 1
-                    : 1
-                }
-                onSuccess={() => { void refreshStoryData(); }}
-              />
-
-              <CreateChapterDialog
-                open={generateNextChapterDialogOpen}
-                onOpenChange={setGenerateNextChapterDialogOpen}
-                storyId={storyId}
-                nextChapterOrder={
-                  (data.chapters || []).length > 0
-                    ? Math.max(...(data.chapters || []).map(ch => ch.chapter_order)) + 1
-                    : 1
-                }
+                nextChapterOrder={chapterDialogState.nextOrder}
                 onSuccess={() => { void refreshStoryData(); }}
               />
             </div>

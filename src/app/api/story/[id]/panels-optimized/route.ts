@@ -114,7 +114,6 @@ export async function GET(
           outfit_id: true,
           scene_id: true,
           created_at: true,
-          updated_at: true,
           // 关联章节信息
           chapter: {
             select: {

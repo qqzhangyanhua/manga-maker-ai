@@ -12,7 +12,7 @@ import type {
 /**
  * 获取故事角色列表
  */
-export function useStoryCharacters(storyId: string) {
+export function useStoryCharacters(storyId: string, options?: { enabled?: boolean }) {
   return useQuery<StoryCharacterWithDetails[]>({
     queryKey: ["story-characters", storyId],
     queryFn: async () => {
@@ -25,6 +25,7 @@ export function useStoryCharacters(storyId: string) {
 
       return data.characters || [];
     },
+    enabled: options?.enabled ?? true,
     staleTime: 2 * 60 * 1000,
     gcTime: 5 * 60 * 1000,
   });

@@ -30,7 +30,7 @@ export interface AuthContext {
 
 /**
  * 带身份验证的 API 处理器
- * 
+ *
  * @example
  * export async function GET(req: Request) {
  *   return withAuth(async ({ userId }) => {
@@ -40,7 +40,7 @@ export interface AuthContext {
  * }
  */
 export async function withAuth<T = unknown>(
-  handler: (context: AuthContext, req: Request) => Promise<T>
+  handler: (context: AuthContext) => Promise<T>
 ): Promise<NextResponse> {
   try {
     // 验证身份
@@ -57,7 +57,7 @@ export async function withAuth<T = unknown>(
     }
 
     // 执行处理器
-    const result = await handler({ userId: payload.userId }, req);
+    const result = await handler({ userId: payload.userId });
 
     // 返回成功响应
     return NextResponse.json({

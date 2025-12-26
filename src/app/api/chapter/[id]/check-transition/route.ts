@@ -89,7 +89,7 @@ export async function POST(
         where: { chapter_id: previousChapter.id },
         orderBy: { panel_order: "asc" },
         select: {
-          scene_description: true,
+          description: true,
           dialogue: true,
           panel_order: true,
         },
@@ -98,7 +98,7 @@ export async function POST(
         where: { chapter_id: chapterId },
         orderBy: { panel_order: "asc" },
         select: {
-          scene_description: true,
+          description: true,
           dialogue: true,
           panel_order: true,
         },
@@ -120,7 +120,7 @@ export async function POST(
       .slice(-3)
       .map(
         (p, i) =>
-          `分镜 ${p.panel_order}: ${p.scene_description}\n对白: ${p.dialogue || "无"}`
+          `分镜 ${p.panel_order}: ${p.description}\n对白: ${p.dialogue || "无"}`
       )
       .join("\n\n");
 
@@ -128,7 +128,7 @@ export async function POST(
       .slice(0, 3)
       .map(
         (p, i) =>
-          `分镜 ${p.panel_order}: ${p.scene_description}\n对白: ${p.dialogue || "无"}`
+          `分镜 ${p.panel_order}: ${p.description}\n对白: ${p.dialogue || "无"}`
       )
       .join("\n\n");
 
