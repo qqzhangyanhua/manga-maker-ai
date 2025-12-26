@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { withAuth } from "@/lib/api-helpers";
 
 /**
  * GET /api/story/[id]
@@ -11,21 +10,8 @@ export async function GET(
     req: Request,
     { params }: { params: { id: string } }
 ) {
-    try {
+    return withAuth(async ({ userId }) => {
         const { id } = params;
-
-        // Verify authentication
-        const cookieStore = await cookies();
-        const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
-
-        if (!token) {
-            return NextResponse.json({ error: "未登录" }, { status: 401 });
-        }
-
-        const payload = verifyAuthToken(token);
-        if (!payload?.userId) {
-            return NextResponse.json({ error: "无效的token" }, { status: 401 });
-        }
 
         // Get story
         const story = await prisma.story.findUnique({
@@ -61,11 +47,13 @@ export async function GET(
         });
 
         if (!story) {
-            return NextResponse.json({ error: "故事不存在" }, { status: 404 });
+            throw new Error("故事不存在");
         }
 
-        if (story.user_id !== payload.userId) {
-            return NextResponse.json({ error: "无权访问" }, { status: 403 });
+        if (story.user_id !== userId) {
+            const error = new Error("无权访问") as any;
+            error.status = 403;
+            throw error;
         }
 
         // Extract projectId if exists
@@ -76,17 +64,12 @@ export async function GET(
         // Remove projects from story object but keep comic_style and chapters
         const { projects, chapters, ...storyData } = story;
 
-        return NextResponse.json({
-            success: true,
+        return {
             story: storyData,
             projectId,
             chapters: chapters || [],
-        });
-    } catch (error) {
-        console.error("Get story error:", error);
-        const message = error instanceof Error ? error.message : "未知错误";
-        return NextResponse.json({ error: message }, { status: 500 });
-    }
+        };
+    });
 }
 
 /**
@@ -97,21 +80,8 @@ export async function PATCH(
     req: Request,
     { params }: { params: { id: string } }
 ) {
-    try {
+    return withAuth(async ({ userId }) => {
         const { id } = params;
-
-        // Verify authentication
-        const cookieStore = await cookies();
-        const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
-
-        if (!token) {
-            return NextResponse.json({ error: "未登录" }, { status: 401 });
-        }
-
-        const payload = verifyAuthToken(token);
-        if (!payload?.userId) {
-            return NextResponse.json({ error: "无效的token" }, { status: 401 });
-        }
 
         // Get story
         const story = await prisma.story.findUnique({
@@ -119,11 +89,13 @@ export async function PATCH(
         });
 
         if (!story) {
-            return NextResponse.json({ error: "故事不存在" }, { status: 404 });
+            throw new Error("故事不存在");
         }
 
-        if (story.user_id !== payload.userId) {
-            return NextResponse.json({ error: "无权修改" }, { status: 403 });
+        if (story.user_id !== userId) {
+            const error = new Error("无权修改") as any;
+            error.status = 403;
+            throw error;
         }
 
         // Update story
@@ -145,16 +117,11 @@ export async function PATCH(
             },
         });
 
-        return NextResponse.json({
-            success: true,
+        return {
             story: updated,
             message: "故事更新成功",
-        });
-    } catch (error) {
-        console.error("Update story error:", error);
-        const message = error instanceof Error ? error.message : "未知错误";
-        return NextResponse.json({ error: message }, { status: 500 });
-    }
+        };
+    });
 }
 
 /**
@@ -165,21 +132,8 @@ export async function DELETE(
     req: Request,
     { params }: { params: { id: string } }
 ) {
-    try {
+    return withAuth(async ({ userId }) => {
         const { id } = params;
-
-        // Verify authentication
-        const cookieStore = await cookies();
-        const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
-
-        if (!token) {
-            return NextResponse.json({ error: "未登录" }, { status: 401 });
-        }
-
-        const payload = verifyAuthToken(token);
-        if (!payload?.userId) {
-            return NextResponse.json({ error: "无效的token" }, { status: 401 });
-        }
 
         // Get story
         const story = await prisma.story.findUnique({
@@ -187,11 +141,13 @@ export async function DELETE(
         });
 
         if (!story) {
-            return NextResponse.json({ error: "故事不存在" }, { status: 404 });
+            throw new Error("故事不存在");
         }
 
-        if (story.user_id !== payload.userId) {
-            return NextResponse.json({ error: "无权删除" }, { status: 403 });
+        if (story.user_id !== userId) {
+            const error = new Error("无权删除") as any;
+            error.status = 403;
+            throw error;
         }
 
         // Delete story
@@ -199,13 +155,8 @@ export async function DELETE(
             where: { id },
         });
 
-        return NextResponse.json({
-            success: true,
+        return {
             message: "故事删除成功",
-        });
-    } catch (error) {
-        console.error("Delete story error:", error);
-        const message = error instanceof Error ? error.message : "未知错误";
-        return NextResponse.json({ error: message }, { status: 500 });
-    }
+        };
+    });
 }

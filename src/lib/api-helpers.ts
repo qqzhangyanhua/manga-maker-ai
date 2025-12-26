@@ -77,7 +77,7 @@ export function handleApiError(error: unknown): NextResponse {
 
   if (error instanceof ApiError) {
     return NextResponse.json(
-      { 
+      {
         error: error.message,
         code: error.code,
       },
@@ -86,9 +86,11 @@ export function handleApiError(error: unknown): NextResponse {
   }
 
   if (error instanceof Error) {
+    // 支持带 status 属性的 Error 对象
+    const status = (error as any).status || 500;
     return NextResponse.json(
       { error: error.message },
-      { status: 500 }
+      { status }
     );
   }
 
