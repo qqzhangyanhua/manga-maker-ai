@@ -1,7 +1,5 @@
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { withAuth } from "@/lib/api-helpers";
 
 /**
  * GET /api/story/[id]/panels
@@ -11,23 +9,9 @@ export async function GET(
     req: Request,
     { params }: { params: { id: string } }
 ) {
-    try {
+    return withAuth(async ({ userId }) => {
         const { id } = params;
 
-        // Verify authentication
-        const cookieStore = await cookies();
-        const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
-
-        if (!token) {
-            return NextResponse.json({ error: "未登录" }, { status: 401 });
-        }
-
-        const payload = verifyAuthToken(token);
-        if (!payload?.userId) {
-            return NextResponse.json({ error: "无效的token" }, { status: 401 });
-        }
-
-        // Verify story access and get associated project(s)
         const story = await prisma.story.findUnique({
             where: { id },
             include: {
@@ -40,24 +24,25 @@ export async function GET(
         });
 
         if (!story) {
-            return NextResponse.json({ error: "故事不存在" }, { status: 404 });
+            const error = new Error("故事不存在") as any;
+            error.status = 404;
+            throw error;
         }
 
-        if (story.user_id !== payload.userId) {
-            return NextResponse.json({ error: "无权访问" }, { status: 403 });
+        if (story.user_id !== userId) {
+            const error = new Error("无权访问") as any;
+            error.status = 403;
+            throw error;
         }
 
-        // If no project associated, return empty list
         if (!story.projects || story.projects.length === 0) {
-            return NextResponse.json({
-                success: true,
+            return {
                 panels: [],
-            });
+            };
         }
 
         const projectId = story.projects[0].id;
 
-        // Get panels for the project (include chapter info)
         const panels = await prisma.panel.findMany({
             where: { project_id: projectId },
             orderBy: { panel_order: 'asc' },
@@ -72,16 +57,9 @@ export async function GET(
             },
         });
 
-        return NextResponse.json({
-            success: true,
+        return {
             panels,
-            projectId, // Return projectId so frontend knows where to add new panels
-        });
-    } catch (error) {
-        console.error("Get story panels error:", error);
-        return NextResponse.json(
-            { error: "获取分镜列表失败" },
-            { status: 500 }
-        );
-    }
+            projectId,
+        };
+    });
 }

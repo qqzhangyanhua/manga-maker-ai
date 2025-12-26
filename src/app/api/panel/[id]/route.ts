@@ -1,26 +1,12 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { withAuth } from "@/lib/api-helpers";
 
 export async function GET(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  try {
-    // 验证用户身份
-    const cookieStore = await cookies();
-    const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: "未登录" }, { status: 401 });
-    }
-
-    const payload = verifyAuthToken(token);
-    if (!payload?.userId) {
-      return NextResponse.json({ error: "无效的token" }, { status: 401 });
-    }
-
+  return withAuth(async ({ userId }) => {
     const panelId = params.id;
 
     // 获取 panel
@@ -30,39 +16,24 @@ export async function GET(
     });
 
     if (!panel) {
-      return NextResponse.json({ error: "分镜不存在" }, { status: 404 });
+      throw new Error("分镜不存在");
     }
 
-    if (panel.project.user_id !== payload.userId) {
-      return NextResponse.json({ error: "无权限访问此分镜" }, { status: 403 });
+    if (panel.project.user_id !== userId) {
+      const error = new Error("无权限访问此分镜") as any;
+      error.status = 403;
+      throw error;
     }
 
-    return NextResponse.json(panel);
-  } catch (error) {
-    console.error("Get panel error:", error);
-    const message = error instanceof Error ? error.message : "未知错误";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+    return panel;
+  });
 }
 
 export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  try {
-    // 验证用户身份
-    const cookieStore = await cookies();
-    const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: "未登录" }, { status: 401 });
-    }
-
-    const payload = verifyAuthToken(token);
-    if (!payload?.userId) {
-      return NextResponse.json({ error: "无效的token" }, { status: 401 });
-    }
-
+  return withAuth(async ({ userId }) => {
     const panelId = params.id;
 
     // 检查 panel 是否存在且属于当前用户
@@ -72,11 +43,13 @@ export async function PATCH(
     });
 
     if (!existingPanel) {
-      return NextResponse.json({ error: "分镜不存在" }, { status: 404 });
+      throw new Error("分镜不存在");
     }
 
-    if (existingPanel.project.user_id !== payload.userId) {
-      return NextResponse.json({ error: "无权限修改此分镜" }, { status: 403 });
+    if (existingPanel.project.user_id !== userId) {
+      const error = new Error("无权限修改此分镜") as any;
+      error.status = 403;
+      throw error;
     }
 
     const body = await req.json();
@@ -122,36 +95,18 @@ export async function PATCH(
       },
     });
 
-    return NextResponse.json({
-      success: true,
+    return {
       panel: updatedPanel,
       message: "分镜已更新",
-    });
-  } catch (error) {
-    console.error("Update panel error:", error);
-    const message = error instanceof Error ? error.message : "未知错误";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+    };
+  });
 }
 
 export async function DELETE(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  try {
-    // 验证用户身份
-    const cookieStore = await cookies();
-    const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: "未登录" }, { status: 401 });
-    }
-
-    const payload = verifyAuthToken(token);
-    if (!payload?.userId) {
-      return NextResponse.json({ error: "无效的token" }, { status: 401 });
-    }
-
+  return withAuth(async ({ userId }) => {
     const panelId = params.id;
 
     // 检查 panel 是否存在且属于当前用户
@@ -161,11 +116,13 @@ export async function DELETE(
     });
 
     if (!existingPanel) {
-      return NextResponse.json({ error: "分镜不存在" }, { status: 404 });
+      throw new Error("分镜不存在");
     }
 
-    if (existingPanel.project.user_id !== payload.userId) {
-      return NextResponse.json({ error: "无权限删除此分镜" }, { status: 403 });
+    if (existingPanel.project.user_id !== userId) {
+      const error = new Error("无权限删除此分镜") as any;
+      error.status = 403;
+      throw error;
     }
 
     // 删除 panel
@@ -181,13 +138,8 @@ export async function DELETE(
       AND panel_order > ${existingPanel.panel_order}
     `;
 
-    return NextResponse.json({
-      success: true,
+    return {
       message: "分镜已删除",
-    });
-  } catch (error) {
-    console.error("Delete panel error:", error);
-    const message = error instanceof Error ? error.message : "未知错误";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+    };
+  });
 }

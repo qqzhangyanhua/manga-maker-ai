@@ -1,7 +1,5 @@
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { withAuth } from "@/lib/api-helpers";
 
 /**
  * GET /api/story/[id]/chapters
@@ -11,36 +9,26 @@ export async function GET(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: "未登录" }, { status: 401 });
-    }
-
-    const payload = verifyAuthToken(token);
-    if (!payload?.userId) {
-      return NextResponse.json({ error: "无效的token" }, { status: 401 });
-    }
-
+  return withAuth(async ({ userId }) => {
     const { id: storyId } = await context.params;
 
-    // 验证故事所有权
     const story = await prisma.story.findUnique({
       where: { id: storyId },
       select: { user_id: true }
     });
 
     if (!story) {
-      return NextResponse.json({ error: "故事不存在" }, { status: 404 });
+      const error = new Error("故事不存在") as any;
+      error.status = 404;
+      throw error;
     }
 
-    if (story.user_id !== payload.userId) {
-      return NextResponse.json({ error: "无权访问此故事" }, { status: 403 });
+    if (story.user_id !== userId) {
+      const error = new Error("无权访问此故事") as any;
+      error.status = 403;
+      throw error;
     }
 
-    // 获取章节列表（按顺序排序）
     const chapters = await prisma.chapter.findMany({
       where: { story_id: storyId },
       orderBy: { chapter_order: "asc" },
@@ -51,20 +39,13 @@ export async function GET(
       }
     });
 
-    // 转换为前端格式
     const chaptersWithCount = chapters.map((chapter) => ({
       ...chapter,
       panelCount: chapter._count.panels
     }));
 
-    return NextResponse.json({ chapters: chaptersWithCount });
-  } catch (error) {
-    console.error("获取章节列表失败:", error);
-    return NextResponse.json(
-      { error: "获取章节列表失败" },
-      { status: 500 }
-    );
-  }
+    return { chapters: chaptersWithCount };
+  });
 }
 
 /**
@@ -75,42 +56,34 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: "未登录" }, { status: 401 });
-    }
-
-    const payload = verifyAuthToken(token);
-    if (!payload?.userId) {
-      return NextResponse.json({ error: "无效的token" }, { status: 401 });
-    }
-
+  return withAuth(async ({ userId }) => {
     const { id: storyId } = await context.params;
     const body = await request.json();
     const { title, summary } = body;
 
     if (!title || typeof title !== "string") {
-      return NextResponse.json({ error: "章节标题不能为空" }, { status: 400 });
+      const error = new Error("章节标题不能为空") as any;
+      error.status = 400;
+      throw error;
     }
 
-    // 验证故事所有权
     const story = await prisma.story.findUnique({
       where: { id: storyId },
       select: { user_id: true }
     });
 
     if (!story) {
-      return NextResponse.json({ error: "故事不存在" }, { status: 404 });
+      const error = new Error("故事不存在") as any;
+      error.status = 404;
+      throw error;
     }
 
-    if (story.user_id !== payload.userId) {
-      return NextResponse.json({ error: "无权访问此故事" }, { status: 403 });
+    if (story.user_id !== userId) {
+      const error = new Error("无权访问此故事") as any;
+      error.status = 403;
+      throw error;
     }
 
-    // 获取当前最大的 chapter_order
     const lastChapter = await prisma.chapter.findFirst({
       where: { story_id: storyId },
       orderBy: { chapter_order: "desc" },
@@ -119,7 +92,6 @@ export async function POST(
 
     const newChapterOrder = (lastChapter?.chapter_order ?? 0) + 1;
 
-    // 创建章节
     const chapter = await prisma.chapter.create({
       data: {
         story_id: storyId,
@@ -129,12 +101,6 @@ export async function POST(
       }
     });
 
-    return NextResponse.json({ chapter }, { status: 201 });
-  } catch (error) {
-    console.error("创建章节失败:", error);
-    return NextResponse.json(
-      { error: "创建章节失败" },
-      { status: 500 }
-    );
-  }
+    return { chapter };
+  });
 }

@@ -1,26 +1,13 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { withAuth } from "@/lib/api-helpers";
 
 // GET /api/project/[id] - 获取单个项目详情
 export async function GET(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: "未登录" }, { status: 401 });
-    }
-
-    const payload = verifyAuthToken(token);
-    if (!payload?.userId) {
-      return NextResponse.json({ error: "无效的token" }, { status: 401 });
-    }
-
+  return withAuth(async ({ userId }) => {
     const project = await prisma.project.findUnique({
       where: { id: params.id },
       include: {
@@ -32,18 +19,17 @@ export async function GET(
     });
 
     if (!project) {
-      return NextResponse.json({ error: "项目不存在" }, { status: 404 });
+      throw new Error("项目不存在");
     }
 
-    if (project.user_id !== payload.userId) {
-      return NextResponse.json({ error: "无权限访问" }, { status: 403 });
+    if (project.user_id !== userId) {
+      const error = new Error("无权限访问") as any;
+      error.status = 403;
+      throw error;
     }
 
-    return NextResponse.json({ project });
-  } catch (error) {
-    console.error("Get project error:", error);
-    return NextResponse.json({ error: "获取项目失败" }, { status: 500 });
-  }
+    return { project };
+  });
 }
 
 // PATCH /api/project/[id] - 更新项目信息
@@ -51,29 +37,19 @@ export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: "未登录" }, { status: 401 });
-    }
-
-    const payload = verifyAuthToken(token);
-    if (!payload?.userId) {
-      return NextResponse.json({ error: "无效的token" }, { status: 401 });
-    }
-
+  return withAuth(async ({ userId }) => {
     const project = await prisma.project.findUnique({
       where: { id: params.id },
     });
 
     if (!project) {
-      return NextResponse.json({ error: "项目不存在" }, { status: 404 });
+      throw new Error("项目不存在");
     }
 
-    if (project.user_id !== payload.userId) {
-      return NextResponse.json({ error: "无权限" }, { status: 403 });
+    if (project.user_id !== userId) {
+      const error = new Error("无权限") as any;
+      error.status = 403;
+      throw error;
     }
 
     const body = await req.json();
@@ -97,9 +73,6 @@ export async function PATCH(
       },
     });
 
-    return NextResponse.json({ project: updatedProject });
-  } catch (error) {
-    console.error("Update project error:", error);
-    return NextResponse.json({ error: "更新项目失败" }, { status: 500 });
-  }
+    return { project: updatedProject };
+  });
 }

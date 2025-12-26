@@ -1,7 +1,5 @@
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { withAuth } from "@/lib/api-helpers";
 import type { CharacterRole } from "@/types/phase2.types";
 
 const VALID_ROLES: CharacterRole[] = ["protagonist", "antagonist", "supporting", "minor"];
@@ -14,36 +12,25 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string; characterId: string }> }
 ) {
-  try {
+  return withAuth(async ({ userId }) => {
     const { id: storyId, characterId } = await params;
 
-    // Verify authentication
-    const cookieStore = await cookies();
-    const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: "未登录" }, { status: 401 });
-    }
-
-    const payload = verifyAuthToken(token);
-    if (!payload?.userId) {
-      return NextResponse.json({ error: "无效的token" }, { status: 401 });
-    }
-
-    // Get story and verify ownership
     const story = await prisma.story.findUnique({
       where: { id: storyId },
     });
 
     if (!story) {
-      return NextResponse.json({ error: "故事不存在" }, { status: 404 });
+      const error = new Error("故事不存在") as any;
+      error.status = 404;
+      throw error;
     }
 
-    if (story.user_id !== payload.userId) {
-      return NextResponse.json({ error: "无权访问此故事" }, { status: 403 });
+    if (story.user_id !== userId) {
+      const error = new Error("无权访问此故事") as any;
+      error.status = 403;
+      throw error;
     }
 
-    // Find and delete the story-character link
     const storyCharacter = await prisma.storyCharacter.findUnique({
       where: {
         story_id_character_id: {
@@ -57,13 +44,11 @@ export async function DELETE(
     });
 
     if (!storyCharacter) {
-      return NextResponse.json(
-        { error: "该角色不在此故事中" },
-        { status: 404 }
-      );
+      const error = new Error("该角色不在此故事中") as any;
+      error.status = 404;
+      throw error;
     }
 
-    // Delete the link
     await prisma.storyCharacter.delete({
       where: {
         story_id_character_id: {
@@ -73,13 +58,11 @@ export async function DELETE(
       },
     });
 
-    // Reorder remaining characters
     const remaining = await prisma.storyCharacter.findMany({
       where: { story_id: storyId },
       orderBy: { display_order: "asc" },
     });
 
-    // Update display_order for remaining characters
     for (let i = 0; i < remaining.length; i++) {
       if (remaining[i].display_order !== i) {
         await prisma.storyCharacter.update({
@@ -89,15 +72,10 @@ export async function DELETE(
       }
     }
 
-    return NextResponse.json({
-      success: true,
+    return {
       message: `角色 "${storyCharacter.character.name}" 已从故事中移除`,
-    });
-  } catch (error) {
-    console.error("Remove story character error:", error);
-    const message = error instanceof Error ? error.message : "未知错误";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+    };
+  });
 }
 
 /**
@@ -108,36 +86,25 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string; characterId: string }> }
 ) {
-  try {
+  return withAuth(async ({ userId }) => {
     const { id: storyId, characterId } = await params;
 
-    // Verify authentication
-    const cookieStore = await cookies();
-    const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: "未登录" }, { status: 401 });
-    }
-
-    const payload = verifyAuthToken(token);
-    if (!payload?.userId) {
-      return NextResponse.json({ error: "无效的token" }, { status: 401 });
-    }
-
-    // Get story and verify ownership
     const story = await prisma.story.findUnique({
       where: { id: storyId },
     });
 
     if (!story) {
-      return NextResponse.json({ error: "故事不存在" }, { status: 404 });
+      const error = new Error("故事不存在") as any;
+      error.status = 404;
+      throw error;
     }
 
-    if (story.user_id !== payload.userId) {
-      return NextResponse.json({ error: "无权访问此故事" }, { status: 403 });
+    if (story.user_id !== userId) {
+      const error = new Error("无权访问此故事") as any;
+      error.status = 403;
+      throw error;
     }
 
-    // Find the story-character link
     const storyCharacter = await prisma.storyCharacter.findUnique({
       where: {
         story_id_character_id: {
@@ -148,13 +115,11 @@ export async function PATCH(
     });
 
     if (!storyCharacter) {
-      return NextResponse.json(
-        { error: "该角色不在此故事中" },
-        { status: 404 }
-      );
+      const error = new Error("该角色不在此故事中") as any;
+      error.status = 404;
+      throw error;
     }
 
-    // Parse request body
     const body = await req.json();
     const { role, character_arc, display_order } = body as {
       role?: string;
@@ -162,7 +127,6 @@ export async function PATCH(
       display_order?: number;
     };
 
-    // Build update data
     const updateData: {
       role?: string;
       character_arc?: string | null;
@@ -176,10 +140,9 @@ export async function PATCH(
       if (VALID_ROLES.includes(role as CharacterRole)) {
         updateData.role = role;
       } else {
-        return NextResponse.json(
-          { error: `无效的角色类型，必须是: ${VALID_ROLES.join(", ")}` },
-          { status: 400 }
-        );
+        const error = new Error(`无效的角色类型，必须是: ${VALID_ROLES.join(", ")}`) as any;
+        error.status = 400;
+        throw error;
       }
     }
 
@@ -191,7 +154,6 @@ export async function PATCH(
       updateData.display_order = display_order;
     }
 
-    // Update the story-character link
     const updated = await prisma.storyCharacter.update({
       where: {
         story_id_character_id: {
@@ -210,14 +172,9 @@ export async function PATCH(
       },
     });
 
-    return NextResponse.json({
-      success: true,
+    return {
       story_character: updated,
       message: "角色信息已更新",
-    });
-  } catch (error) {
-    console.error("Update story character error:", error);
-    const message = error instanceof Error ? error.message : "未知错误";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+    };
+  });
 }
