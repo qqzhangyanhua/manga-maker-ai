@@ -1,10 +1,10 @@
-﻿/**
- * 杩炶浇绔犺妭鍒楄〃缁勪欢锛堝寮虹増锛?
- * 鍔熻兘锛?
- * 1. 绔犺妭缂栬緫
- * 2. 鍙戝竷鍓嶆鏌?
- * 3. 鏅鸿兘鎺ㄨ崘涓嬩竴姝ユ搷浣?
- * 4. 鎵归噺鎿嶄綔
+/**
+ * 连载章节列表组件（增强版）
+ * 功能：
+ * 1. 章节编辑
+ * 2. 发布前检查
+ * 3. 智能推荐下一步操作
+ * 4. 批量操作
  */
 
 "use client";
@@ -82,7 +82,7 @@ export function SerialChapterList({
 }: SerialChapterListProps) {
   const { toast } = useToast();
 
-  // 鐘舵€佺鐞?
+  // 状态管理
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [selectedChapters, setSelectedChapters] = useState<Set<string>>(new Set());
   const [editingChapter, setEditingChapter] = useState<Chapter | null>(null);
@@ -98,7 +98,7 @@ export function SerialChapterList({
   const draftCount = chapters.filter((c) => c.publish_status === "draft").length;
   const isBatchMode = selectedChapters.size > 0;
 
-  // 璁＄畻绔犺妭缁熻
+  // 计算章节统计
   function getChapterStats(chapterId: string) {
     const chapterPanels = panels.filter((p) => p.chapter_id === chapterId);
     const panelCount = chapterPanels.length;
@@ -111,13 +111,13 @@ export function SerialChapterList({
     return { panelCount, generatedCount, progress, hasAllImages };
   }
 
-  // 鏅鸿兘鎺ㄨ崘锛氭牴鎹珷鑺傜姸鎬佽繑鍥炰富瑕佹搷浣?
+  // 智能推荐：根据章节状态返回主要操作
   function getRecommendedAction(chapter: Chapter) {
     const stats = getChapterStats(chapter.id);
 
     if (stats.panelCount === 0) {
       return {
-        label: "鐢熸垚鍒嗛暅",
+        label: "生成分镜",
         icon: Layers,
         color: "border-blue-500 text-blue-500 hover:bg-blue-500/10",
         onClick: () => onGeneratePanels(chapter.id),
@@ -126,7 +126,7 @@ export function SerialChapterList({
 
     if (!stats.hasAllImages) {
       return {
-        label: `鐢熸垚鍥剧墖 (${stats.generatedCount}/${stats.panelCount})`,
+        label: `生成图片 (${stats.generatedCount}/${stats.panelCount})`,
         icon: ImageIcon,
         color: "border-purple-500 text-purple-500 hover:bg-purple-500/10",
         onClick: () => onViewPanels(chapter.id),
@@ -135,7 +135,7 @@ export function SerialChapterList({
 
     if (chapter.publish_status === "draft") {
       return {
-        label: "鍙戝竷绔犺妭",
+        label: "发布章节",
         icon: Eye,
         color: "border-green-500 text-green-500 hover:bg-green-500/10",
         onClick: () => handlePublishWithCheck(chapter),
@@ -145,15 +145,15 @@ export function SerialChapterList({
     return null;
   }
 
-  // 鍙戝竷鍓嶆鏌?
+  // 发布前检查
   function handlePublishWithCheck(chapter: Chapter) {
     const stats = getChapterStats(chapter.id);
     const warnings: string[] = [];
 
     if (stats.panelCount === 0) {
       toast({
-        title: "鏃犳硶鍙戝竷",
-        description: "绔犺妭杩樻病鏈夌敓鎴愬垎闀滐紝璇峰厛鐢熸垚鍒嗛暅",
+        title: "无法发布",
+        description: "章节还没有生成分镜，请先生成分镜",
         variant: "destructive",
       });
       return;
@@ -161,7 +161,7 @@ export function SerialChapterList({
 
     if (!stats.hasAllImages) {
       warnings.push(
-        `鍒嗛暅鍥剧墖鏈叏閮ㄧ敓鎴?(${stats.generatedCount}/${stats.panelCount})`
+        `分镜图片未全部生成 (${stats.generatedCount}/${stats.panelCount})`
       );
     }
 
@@ -176,7 +176,7 @@ export function SerialChapterList({
     }
   }
 
-  // 鍙戝竷/鍙栨秷鍙戝竷
+  // 发布/取消发布
   async function handlePublish(chapterId: string, currentStatus: string) {
     setPublishingId(chapterId);
 
@@ -189,11 +189,11 @@ export function SerialChapterList({
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "鎿嶄綔澶辫触");
+        throw new Error(data.error || "操作失败");
       }
 
       toast({
-        title: currentStatus === "published" ? "宸插彇娑堝彂甯? : "鍙戝竷鎴愬姛",
+        title: currentStatus === "published" ? "已取消发布" : "发布成功",
         description: data.message,
       });
 
@@ -201,8 +201,8 @@ export function SerialChapterList({
     } catch (error) {
       console.error("Failed to toggle publish status:", error);
       toast({
-        title: "鎿嶄綔澶辫触",
-        description: error instanceof Error ? error.message : "鏈煡閿欒",
+        title: "操作失败",
+        description: error instanceof Error ? error.message : "未知错误",
         variant: "destructive",
       });
     } finally {
@@ -210,7 +210,7 @@ export function SerialChapterList({
     }
   }
 
-  // 鎵归噺閫夋嫨
+  // 批量选择
   function toggleChapterSelection(chapterId: string) {
     const newSelection = new Set(selectedChapters);
     if (newSelection.has(chapterId)) {
@@ -229,7 +229,7 @@ export function SerialChapterList({
     }
   }
 
-  // 鎵归噺鐢熸垚鍒嗛暅
+  // 批量生成分镜
   async function batchGeneratePanels() {
     const chaptersToGenerate = sortedChapters.filter(
       (c) => selectedChapters.has(c.id) && getChapterStats(c.id).panelCount === 0
@@ -237,8 +237,8 @@ export function SerialChapterList({
 
     if (chaptersToGenerate.length === 0) {
       toast({
-        title: "娌℃湁鍙敓鎴愮殑绔犺妭",
-        description: "鎵€閫夌珷鑺傞兘宸叉湁鍒嗛暅",
+        title: "没有可生成的章节",
+        description: "所选章节都已有分镜",
         variant: "destructive",
       });
       return;
@@ -246,15 +246,15 @@ export function SerialChapterList({
 
     setBatchOperating(true);
     toast({
-      title: "鎵归噺鐢熸垚鍒嗛暅",
-      description: `姝ｅ湪涓?${chaptersToGenerate.length} 涓珷鑺傜敓鎴愬垎闀?..`,
+      title: "批量生成分镜",
+      description: `正在为 ${chaptersToGenerate.length} 个章节生成分镜...`,
     });
 
-    // 閫愪釜鐢熸垚锛堥伩鍏嶅苟鍙戣繃澶氾級
+    // 逐个生成（避免并发过多）
     for (const chapter of chaptersToGenerate) {
       try {
         onGeneratePanels(chapter.id);
-        await new Promise((resolve) => setTimeout(resolve, 1000)); // 闂撮殧1绉?
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // 间隔1秒
       } catch (error) {
         console.error(`Failed to generate panels for ${chapter.id}:`, error);
       }
@@ -265,7 +265,7 @@ export function SerialChapterList({
     await Promise.resolve(onRefresh());
   }
 
-  // 鎵归噺鍙戝竷
+  // 批量发布
   async function batchPublish() {
     const chaptersToPublish = sortedChapters.filter(
       (c) => selectedChapters.has(c.id) && c.publish_status === "draft"
@@ -273,8 +273,8 @@ export function SerialChapterList({
 
     if (chaptersToPublish.length === 0) {
       toast({
-        title: "娌℃湁鍙彂甯冪殑绔犺妭",
-        description: "鎵€閫夌珷鑺傞兘宸插彂甯冩垨涓嶇鍚堝彂甯冩潯浠?,
+        title: "没有可发布的章节",
+        description: "所选章节都已发布或不符合发布条件",
         variant: "destructive",
       });
       return;
@@ -294,16 +294,16 @@ export function SerialChapterList({
     setBatchOperating(false);
     setSelectedChapters(new Set());
     toast({
-      title: "鎵归噺鍙戝竷瀹屾垚",
-      description: `鎴愬姛鍙戝竷 ${chaptersToPublish.length} 涓珷鑺俙,
+      title: "批量发布完成",
+      description: `成功发布 ${chaptersToPublish.length} 个章节`,
     });
   }
 
   function getStatusBadge(status: string) {
     const variants = {
-      draft: { label: "鑽夌", color: "bg-gray-500/20 text-gray-400 border-gray-500/30" },
-      published: { label: "宸插彂甯?, color: "bg-green-500/20 text-green-400 border-green-500/30" },
-      archived: { label: "宸插綊妗?, color: "bg-orange-500/20 text-orange-400 border-orange-500/30" },
+      draft: { label: "草稿", color: "bg-gray-500/20 text-gray-400 border-gray-500/30" },
+      published: { label: "已发布", color: "bg-green-500/20 text-green-400 border-green-500/30" },
+      archived: { label: "已归档", color: "bg-orange-500/20 text-orange-400 border-orange-500/30" },
     };
 
     const variant = variants[status as keyof typeof variants] || variants.draft;
@@ -323,11 +323,11 @@ export function SerialChapterList({
             <div>
               <CardTitle className="text-lg text-gray-100 flex items-center gap-2">
                 <BookOpen className="w-5 h-5" />
-                杩炶浇绔犺妭
+                连载章节
               </CardTitle>
               <p className="text-sm text-gray-400 mt-1">
-                宸插彂甯?{publishedCount} 绔?路 鑽夌 {draftCount} 绔?
-                {isBatchMode && ` 路 宸查€?${selectedChapters.size} 绔燻}
+                已发布 {publishedCount} 章 · 草稿 {draftCount} 章
+                {isBatchMode && ` · 已选 ${selectedChapters.size} 章`}
               </p>
             </div>
             <div className="flex gap-2">
@@ -345,7 +345,7 @@ export function SerialChapterList({
                     ) : (
                       <Layers className="w-4 h-4 mr-1" />
                     )}
-                    鎵归噺鐢熸垚鍒嗛暅
+                    批量生成分镜
                   </Button>
                   <Button
                     variant="outline"
@@ -359,7 +359,7 @@ export function SerialChapterList({
                     ) : (
                       <Eye className="w-4 h-4 mr-1" />
                     )}
-                    鎵归噺鍙戝竷
+                    批量发布
                   </Button>
                   <Button
                     variant="outline"
@@ -367,7 +367,7 @@ export function SerialChapterList({
                     onClick={() => setSelectedChapters(new Set())}
                     className="border-gray-700 hover:bg-gray-800"
                   >
-                    鍙栨秷
+                    取消
                   </Button>
                 </>
               ) : (
@@ -379,7 +379,7 @@ export function SerialChapterList({
                     className="border-orange-500 text-orange-500 hover:bg-orange-500/10"
                   >
                     <Sparkles className="w-4 h-4 mr-1" />
-                    AI 缁啓
+                    AI 续写
                   </Button>
                   <Button
                     variant="outline"
@@ -388,7 +388,7 @@ export function SerialChapterList({
                     className="border-gray-700 hover:bg-gray-800"
                   >
                     <Plus className="w-4 h-4 mr-1" />
-                    鍒涗綔涓嬩竴绔?
+                    创作下一章
                   </Button>
                 </>
               )}
@@ -398,15 +398,15 @@ export function SerialChapterList({
         <CardContent>
           {sortedChapters.length === 0 ? (
             <div className="text-center py-8 text-gray-400">
-              <p className="mb-4">杩樻病鏈夌珷鑺?/p>
+              <p className="mb-4">还没有章节</p>
               <Button variant="outline" onClick={onCreateChapter}>
                 <Plus className="w-4 h-4 mr-2" />
-                鍒涘缓绗竴绔?
+                创建第一章
               </Button>
             </div>
           ) : (
             <>
-              {/* 鎵归噺鎿嶄綔宸ュ叿鏍?*/}
+              {/* 批量操作工具栏 */}
               {sortedChapters.length > 1 && (
                 <div className="mb-3 flex items-center gap-2 px-3 py-2 bg-gray-800/50 rounded-md">
                   <Checkbox
@@ -415,18 +415,18 @@ export function SerialChapterList({
                     className="border-gray-600"
                   />
                   <span className="text-sm text-gray-400">
-                    {isBatchMode ? `宸查€?${selectedChapters.size} 绔燻 : "鍏ㄩ€?}
+                    {isBatchMode ? `已选 ${selectedChapters.size} 章` : "全选"}
                   </span>
                   {!isBatchMode && (
                     <span className="text-xs text-gray-500 ml-auto">
                       <CheckSquare className="w-3 h-3 inline mr-1" />
-                      鎻愮ず锛氬嬀閫夌珷鑺傚彲鎵归噺鎿嶄綔
+                      提示：勾选章节可批量操作
                     </span>
                   )}
                 </div>
               )}
 
-              {/* 绔犺妭鍒楄〃 */}
+              {/* 章节列表 */}
               <div className="space-y-3">
                 {sortedChapters.map((chapter) => {
                   const stats = getChapterStats(chapter.id);
@@ -443,7 +443,7 @@ export function SerialChapterList({
                       }`}
                     >
                       <div className="flex items-start gap-3 mb-3">
-                        {/* 澶嶉€夋 */}
+                        {/* 复选框 */}
                         {sortedChapters.length > 1 && (
                           <Checkbox
                             checked={isSelected}
@@ -452,7 +452,7 @@ export function SerialChapterList({
                           />
                         )}
 
-                        {/* 绔犺妭淇℃伅 */}
+                        {/* 章节信息 */}
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
                             <h4 className="font-semibold text-white">
@@ -468,7 +468,7 @@ export function SerialChapterList({
                           )}
 
                           <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
-                            <span>绗?{chapter.chapter_order} 绔?/span>
+                            <span>第 {chapter.chapter_order} 章</span>
                             {chapter.published_at && (
                               <span className="flex items-center gap-1">
                                 <Calendar className="w-3 h-3" />
@@ -477,17 +477,17 @@ export function SerialChapterList({
                             )}
                           </div>
 
-                          {/* 鍒嗛暅鍜屽浘鐗囩粺璁?*/}
+                          {/* 分镜和图片统计 */}
                           <div className="space-y-2">
                             <div className="flex items-center gap-4 text-sm">
                               <div className="flex items-center gap-1 text-gray-400">
                                 <Film className="w-4 h-4" />
-                                <span>{stats.panelCount} 涓垎闀?/span>
+                                <span>{stats.panelCount} 个分镜</span>
                               </div>
                               <div className="flex items-center gap-1 text-gray-400">
                                 <ImageIcon className="w-4 h-4" />
                                 <span>
-                                  {stats.generatedCount}/{stats.panelCount} 鍥剧墖
+                                  {stats.generatedCount}/{stats.panelCount} 图片
                                 </span>
                               </div>
                             </div>
@@ -495,7 +495,7 @@ export function SerialChapterList({
                             {stats.panelCount > 0 && (
                               <div className="space-y-1">
                                 <div className="flex items-center justify-between text-xs text-gray-500">
-                                  <span>鍥剧墖鐢熸垚杩涘害</span>
+                                  <span>图片生成进度</span>
                                   <span>{Math.round(stats.progress)}%</span>
                                 </div>
                                 <Progress value={stats.progress} className="h-1" />
@@ -505,9 +505,9 @@ export function SerialChapterList({
                         </div>
                       </div>
 
-                      {/* 鎿嶄綔鎸夐挳缁?*/}
+                      {/* 操作按钮组 */}
                       <div className="flex gap-2 flex-wrap">
-                        {/* 鏅鸿兘鎺ㄨ崘鐨勪富瑕佹搷浣?*/}
+                        {/* 智能推荐的主要操作 */}
                         {recommendedAction && (
                           <Button
                             size="sm"
@@ -520,7 +520,7 @@ export function SerialChapterList({
                           </Button>
                         )}
 
-                        {/* 鏌ョ湅鍒嗛暅 */}
+                        {/* 查看分镜 */}
                         {stats.panelCount > 0 && !recommendedAction && (
                           <Button
                             size="sm"
@@ -529,11 +529,11 @@ export function SerialChapterList({
                             className="border-gray-700 text-gray-300 hover:bg-gray-700"
                           >
                             <Film className="w-4 h-4 mr-1" />
-                            鏌ョ湅鍒嗛暅 ({stats.panelCount})
+                            查看分镜 ({stats.panelCount})
                           </Button>
                         )}
 
-                        {/* 缂栬緫鎸夐挳 */}
+                        {/* 编辑按钮 */}
                         <Button
                           size="sm"
                           variant="outline"
@@ -541,10 +541,10 @@ export function SerialChapterList({
                           className="border-gray-700 text-gray-400 hover:bg-gray-800"
                         >
                           <Edit2 className="w-4 h-4 mr-1" />
-                          缂栬緫
+                          编辑
                         </Button>
 
-                        {/* 鍙栨秷鍙戝竷 */}
+                        {/* 取消发布 */}
                         {chapter.publish_status === "published" && (
                           <Button
                             size="sm"
@@ -554,11 +554,11 @@ export function SerialChapterList({
                             className="border-gray-700 text-gray-400 hover:bg-gray-800"
                           >
                             {publishingId === chapter.id ? (
-                              "澶勭悊涓?.."
+                              "处理中..."
                             ) : (
                               <>
                                 <EyeOff className="w-4 h-4 mr-1" />
-                                鍙栨秷鍙戝竷
+                                取消发布
                               </>
                             )}
                           </Button>
@@ -573,7 +573,7 @@ export function SerialChapterList({
         </CardContent>
       </Card>
 
-      {/* 缂栬緫绔犺妭瀵硅瘽妗?*/}
+      {/* 编辑章节对话框 */}
       <EditChapterDialog
         open={!!editingChapter}
         onOpenChange={(open) => !open && setEditingChapter(null)}
@@ -581,7 +581,7 @@ export function SerialChapterList({
         onSuccess={() => { void onRefresh(); }}
       />
 
-      {/* 鍙戝竷妫€鏌ュ璇濇 */}
+      {/* 发布检查对话框 */}
       <AlertDialog
         open={publishCheckDialog.open}
         onOpenChange={(open) =>
@@ -590,19 +590,19 @@ export function SerialChapterList({
       >
         <AlertDialogContent className="bg-gray-900 border-gray-800">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-gray-100">鍙戝竷鎻愮ず</AlertDialogTitle>
+            <AlertDialogTitle className="text-gray-100">发布提示</AlertDialogTitle>
             <AlertDialogDescription className="text-gray-400">
-              璇ョ珷鑺傚瓨鍦ㄤ互涓嬮棶棰橈紝纭畾瑕佸彂甯冨悧锛?
+              该章节存在以下问题，确定要发布吗？
               <ul className="mt-3 space-y-1 text-yellow-400">
                 {publishCheckDialog.warnings.map((warning, idx) => (
-                  <li key={idx}>鈿狅笍 {warning}</li>
+                  <li key={idx}>⚠️ {warning}</li>
                 ))}
               </ul>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="border-gray-700 text-gray-400">
-              鍙栨秷
+              取消
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
@@ -616,7 +616,7 @@ export function SerialChapterList({
               }}
               className="bg-orange-500 hover:bg-orange-600 text-white"
             >
-              纭鍙戝竷
+              确认发布
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -624,7 +624,3 @@ export function SerialChapterList({
     </>
   );
 }
-
-
-
-

@@ -65,7 +65,14 @@
       "Bash(taskkill:*)",
       "Bash(powershell -Command \"Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force\")",
       "Bash(powershell -Command \"Get-Process node | Stop-Process -Force\")",
-      "Bash(pnpm run type-check:*)"
+      "Bash(pnpm run type-check:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(node fix-encoding.cjs:*)",
+      "Bash(node fix-all-encoding.cjs:*)",
+      "Bash(node fix-serial-chapter-list.cjs:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []
