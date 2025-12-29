@@ -117,7 +117,7 @@ async function testModule3CameraMovement() {
     shot_size: "全景",
     camera_movement: "push_in",
     movement_speed: "slow",
-    movement_direction: null,
+    movement_direction: undefined,
   };
 
   console.log("\n✓ GeneratedPanel 类型定义验证通过");

@@ -194,7 +194,7 @@ export function AICharacterGeneratorDialog({
             return {
               ...char,
               generated: true,
-              character_id: generated.character_id,
+              character_id: generated.character_id ?? null,
               image_url: generated.image_base64,
               optimized_prompt: generated.optimized_prompt,
             };

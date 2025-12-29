@@ -104,8 +104,8 @@ export async function POST(req: Request) {
         status: payload.status,
         image_url: payload.imageUrl ?? null,
         task_id: payload.taskId ?? null,
-        metadata: payload.metadata ?? null,
-        canvas_schema: payload.canvasSchema ?? null,
+        metadata: payload.metadata ?? undefined,
+        canvas_schema: payload.canvasSchema ?? undefined,
       },
     });
 

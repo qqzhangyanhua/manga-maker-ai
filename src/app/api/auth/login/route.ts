@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: "账号已被封禁或停用" }, { status: 403 });
     }
 
-    const isPasswordValid = await verifyHash(password, user.password_hash);
+    const isPasswordValid = await verifyHash(password, user.password_hash ?? "");
     if (!isPasswordValid) {
       return NextResponse.json({ success: false, message: "邮箱或密码错误" }, { status: 401 });
     }

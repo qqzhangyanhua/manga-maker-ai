@@ -10,7 +10,7 @@
  * Or: npx tsx scripts/migrate-phase2-data.ts
  */
 
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -57,7 +57,7 @@ async function migrateStoryCharacters(): Promise<void> {
 
   const stories = await prisma.story.findMany({
     where: {
-      characters: { not: null },
+      characters: { not: Prisma.DbNull },
     },
     select: {
       id: true,

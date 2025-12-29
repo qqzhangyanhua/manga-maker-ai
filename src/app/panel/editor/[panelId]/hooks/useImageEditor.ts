@@ -220,6 +220,7 @@ export function useImageEditor() {
     if (!dragState) return;
 
     function handlePointerMove(event: PointerEvent) {
+      if (!dragState) return;
       event.preventDefault();
       const dxPercent = dragState.boxWidth
         ? ((event.clientX - dragState.startX) / dragState.boxWidth) * 100

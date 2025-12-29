@@ -72,7 +72,14 @@
       "Bash(node fix-encoding.cjs:*)",
       "Bash(node fix-all-encoding.cjs:*)",
       "Bash(node fix-serial-chapter-list.cjs:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(if exist \"D:\\\\AI\\\\manga-maker-ai\\\\package-lock.json\" del \"D:\\\\AI\\\\manga-maker-ai\\\\package-lock.json\")",
+      "Bash(pnpm type-check)",
+      "Bash(for file in \"D:\\\\AI\\\\manga-maker-ai\\\\src\\\\components\\\\PoseLab\"/*.ts \"D:\\\\AI\\\\manga-maker-ai\\\\src\\\\components\\\\PoseLab\"/*.tsx)",
+      "Bash(done)",
+      "Bash(for file in src/components/Landing/Navbar/*.ts src/components/Landing/Navbar/*.tsx)",
+      "Bash(tree:*)",
+      "Bash(npm run type-check)"
     ],
     "deny": [],
     "ask": []

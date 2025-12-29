@@ -299,7 +299,7 @@ export default function ScriptDetailsPageOptimized() {
       // Generate panels with streaming
       await generate({
         chapterId,
-        projectId: projectId,
+        projectId: projectId as string,
         overwrite: mode === "overwrite",
         panelCount,
       });

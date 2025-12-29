@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -55,7 +55,7 @@ export function CharacterStateTimeline({ storyId }: CharacterStateTimelineProps)
   const [expandedCharacters, setExpandedCharacters] = useState<Set<string>>(new Set());
   const [stats, setStats] = useState<{ totalChapters: number; totalCharacters: number; statesExtracted: number } | null>(null);
 
-  async function loadCharacterStates() {
+  const loadCharacterStates = useCallback(async () => {
     setIsLoading(true);
 
     try {
@@ -83,11 +83,11 @@ export function CharacterStateTimeline({ storyId }: CharacterStateTimelineProps)
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [storyId, toast]);
 
   useEffect(() => {
     loadCharacterStates();
-  }, [storyId]);
+  }, [loadCharacterStates]);
 
   function toggleCharacter(characterId: string) {
     const newExpanded = new Set(expandedCharacters);

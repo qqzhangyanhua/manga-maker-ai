@@ -243,7 +243,7 @@ export async function POST(req: NextRequest) {
         progress: 0,
         current_panel_index: 0,
         settings: settings as any,
-        error_logs: null
+        error_logs: undefined
       }
     });
 

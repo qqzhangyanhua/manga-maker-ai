@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,7 @@ export function CharacterStatesViewer({ chapterId, chapterTitle }: CharacterStat
   const [extracting, setExtracting] = useState(false);
   const { toast } = useToast();
 
-  async function loadStates() {
+  const loadStates = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/chapter/${chapterId}/extract-states`);
@@ -60,7 +60,7 @@ export function CharacterStatesViewer({ chapterId, chapterTitle }: CharacterStat
     } finally {
       setLoading(false);
     }
-  }
+  }, [chapterId, toast]);
 
   async function handleExtractStates() {
     try {
@@ -98,7 +98,7 @@ export function CharacterStatesViewer({ chapterId, chapterTitle }: CharacterStat
 
   useEffect(() => {
     loadStates();
-  }, [chapterId]);
+  }, [loadStates]);
 
   if (loading) {
     return (

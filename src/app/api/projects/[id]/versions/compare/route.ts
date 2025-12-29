@@ -157,10 +157,10 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         'description', 'panel_type', 'importance', 'camera_angle',
         'shot_size', 'dialogue', 'character_name', 'emotion',
         'generated_image', 'prompt_used', 'panel_order'
-      ];
+      ] as const;
 
       fieldsToCompare.forEach(field => {
-        if (panelFrom[field] !== panelTo[field]) {
+        if ((panelFrom as any)[field] !== (panelTo as any)[field]) {
           changes.push(field);
         }
       });

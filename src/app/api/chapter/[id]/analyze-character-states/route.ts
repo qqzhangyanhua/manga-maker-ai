@@ -278,7 +278,7 @@ export async function POST(
           physical_condition: stateInput.physical_condition || null,
           mental_state: stateInput.mental_state || null,
           key_items: stateInput.key_items || [],
-          relationship_changes: stateInput.relationship_changes || null,
+          relationship_changes: stateInput.relationship_changes || undefined,
         },
         include: {
           character: {

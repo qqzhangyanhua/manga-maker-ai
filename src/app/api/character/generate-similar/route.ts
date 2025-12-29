@@ -10,7 +10,7 @@ import { recordGenerationLog } from "@/lib/generation-log";
 // POST /api/character/generate-similar - Generate similar character variations
 export async function POST(req: Request) {
   const startedAt = Date.now();
-  let userId: string | null = null;
+  let userId: string | undefined;
   let usageSnapshot: { count: number; limit: number } | null = null;
 
   try {
@@ -137,7 +137,11 @@ export async function POST(req: Request) {
       const prompt = index === 0 
         ? optimizedPrompt 
         : `${optimizedPrompt}, variation ${index + 1}`;
-      
+
+      if (!userId) {
+        throw new Error("User ID is required");
+      }
+
       return callImageGenerationByType({
         providerType: provider_type,
         prompt,
@@ -151,11 +155,11 @@ export async function POST(req: Request) {
         .then((result) => {
           if (result.success && result.images.length > 0) {
             return {
-              image_url: result.images[0], // 返回 base64 格式
+              image_url: result.images[0] ?? "", // 返回 base64 格式
               optimized_prompt: prompt,
             };
           }
-          throw new Error(result.error || "图片生成失败");
+          throw new Error(result.error ?? "图片生成失败");
         })
         .catch((error) => {
           console.error(`生成第 ${index + 1} 张图片失败:`, error);

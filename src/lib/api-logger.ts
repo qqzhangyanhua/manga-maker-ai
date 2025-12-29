@@ -2,7 +2,7 @@ type LogLevel = "INFO" | "WARN" | "ERROR";
 
 interface LogContext {
   userId?: string;
-  endpoint: string;
+  endpoint?: string;
   method?: string;
   [key: string]: unknown;
 }

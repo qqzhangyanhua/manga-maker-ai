@@ -23,7 +23,7 @@ model User {
   status            String?   @default("active")
 
   // Credits system
-  credits            Int @default(2000) // 褰撳墠绠楀姏浣欓
+  credits            Int @default(2000) // 当前算力余额
   total_credits_used Int @default(0)    // 绱娑堣€楃畻鍔?
 
   // Phase 1 relations
@@ -57,7 +57,7 @@ model LlmProvider {
   api_key       String   @default("")
   priority      Int      @default(1)
   enabled       Boolean  @default(true)
-  desc          String?  // 鎻忚堪杩欎釜閰嶇疆鏄敤鏉ュ共鍢涚殑
+  desc          String?  // 描述杩欎釜閰嶇疆鏄敤鏉ュ共鍢涚殑
   credits_cost  Int      @default(0) // 姣忔璋冪敤娑堣€楃殑绠楀姏锛?=涓嶆秷鑰?
   created_at    DateTime @default(now()) @db.Timestamptz(6)
   updated_at    DateTime @default(now()) @db.Timestamptz(6)
@@ -203,7 +203,7 @@ model Panel {
   // Camera movement parameters
   camera_movement   String? // static | push_in | pull_out | pan_left | pan_right | tilt_up | tilt_down | dolly | zoom
   movement_speed    String? // slow | medium | fast | sudden
-  movement_direction String? // 琛ュ厖鎻忚堪锛堝锛歞iagonal_up_right锛?
+  movement_direction String? // 琛ュ厖描述锛堝锛歞iagonal_up_right锛?
 
   sketch_image_url  String? // Sketch preview URL
   visual_prompt     String? // Editable visual description
@@ -678,16 +678,16 @@ model Tagging {
 }
 
 // ============================================================
-// Credit Transaction - 绠楀姏浜ゆ槗璁板綍
+// Credit Transaction - 算力交易记录
 // ============================================================
 
 model CreditTransaction {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   user_id     String   @db.Uuid
-  amount      Int      // 姝ｆ暟=鍏呭€?璧犻€侊紝璐熸暟=娑堣€?
+  amount      Int      // 正数=充值/赠送，负数=消耗
   balance     Int      // 鍙樺姩鍚庝綑棰?
   action      String   // register/consume/recharge/admin_adjust/refund
-  description String?  // 鎻忚堪
+  description String?  // 描述
   ref_type    String?  // 鍏宠仈绫诲瀷: generation_log/order/admin
   ref_id      String?  @db.Uuid // 鍏宠仈ID
   created_at  DateTime @default(now()) @db.Timestamptz(6)

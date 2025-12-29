@@ -43,8 +43,8 @@ export const CharacterFilterBar = ({
         <Label>训练状态</Label>
         <Select
           value={filters.status}
-          onValueChange={(val: Filters["status"]) =>
-            onFiltersChange({ ...filters, status: val })
+          onValueChange={(val) =>
+            onFiltersChange({ ...filters, status: val as Filters["status"] })
           }
         >
           <SelectTrigger>

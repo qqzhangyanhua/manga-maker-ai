@@ -90,9 +90,9 @@ export async function POST(req: Request) {
           strength,
           basePrompt: prompt,
           previousVersionId: versionId ?? null,
-          layoutSchema: canvasSchema ?? null,
+          layoutSchema: canvasSchema ?? undefined,
         },
-        canvas_schema: canvasSchema ?? null,
+        canvas_schema: canvasSchema ?? undefined,
       },
     });
 

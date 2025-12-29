@@ -29,11 +29,16 @@ export async function GET(request: NextRequest) {
     const action = searchParams.get("action") || undefined;
 
     // 获取交易记录
-    const result = await getCreditTransactions(payload.userId, {
+    const options: NonNullable<Parameters<typeof getCreditTransactions>[1]> = {
       limit: Math.min(limit, 100), // 最多返回100条
       offset: Math.max(offset, 0),
-      action: action as Parameters<typeof getCreditTransactions>[1]["action"],
-    });
+    };
+
+    if (action) {
+      options.action = action as NonNullable<Parameters<typeof getCreditTransactions>[1]>["action"];
+    }
+
+    const result = await getCreditTransactions(payload.userId, options);
 
     return NextResponse.json({
       success: true,

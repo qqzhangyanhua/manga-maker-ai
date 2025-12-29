@@ -118,7 +118,7 @@ export function BatchAssetBindingDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <CharacterAssetSelector
-              storyId={storyId}
+              storyId={storyId ?? ""}
               characterId={characterId}
               expressionType={expressionType}
               outfitId={outfitId}

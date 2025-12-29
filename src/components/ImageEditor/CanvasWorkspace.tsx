@@ -150,8 +150,9 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
       }
       const canvas = canvasRef.current;
       // Fabric v6 API change: enlivenObjects returns a Promise
-      fabric.util.enlivenObjects(objects).then((enlivened: fabric.FabricObject[]) => {
-        enlivened.forEach((obj) => canvas.add(obj));
+      fabric.util.enlivenObjects(objects).then((enlivened) => {
+        const typedObjects = enlivened as fabric.FabricObject[];
+        typedObjects.forEach((obj) => canvas.add(obj));
         canvas.renderAll();
       });
     }, [clearOverlays]);

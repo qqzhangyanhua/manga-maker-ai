@@ -87,7 +87,7 @@ export async function POST(
           title: `${sampleStory.title} (副本)`,
           premise: sampleStory.premise,
           genre: sampleStory.genre,
-          outline: sampleStory.outline,
+          outline: sampleStory.outline as any,
           status: "draft",
           is_sample: false,
           sample_category: null,

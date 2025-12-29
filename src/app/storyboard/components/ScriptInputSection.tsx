@@ -31,7 +31,7 @@ export function ScriptInputSection({
   onTemplateGenerate,
 }: ScriptInputSectionProps) {
   return (
-    <Tabs value={activeTab} onValueChange={onTabChange}>
+    <Tabs value={activeTab} onValueChange={(value) => onTabChange(value as TabValue)}>
       <TabsList className="grid grid-cols-2 w-full">
         <TabsTrigger value="freeform" className="flex items-center gap-1">
           <Wand2 className="w-4 h-4" />
@@ -54,10 +54,10 @@ export function ScriptInputSection({
             粘贴你的小说或剧本文本，AI 将自动分析并拆解为专业分镜。
           </p>
           <ScriptInput
-            key={initialScript}
+            key={initialScript ?? ""}
             onGenerate={onGenerate}
             isGenerating={isGenerating}
-            initialValue={initialScript}
+            initialValue={initialScript ?? undefined}
           />
         </div>
       </TabsContent>

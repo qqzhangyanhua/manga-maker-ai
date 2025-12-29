@@ -89,8 +89,12 @@ export const useImageOptimizer = ({
 
         toast({ title: "已提交 AI 优化", description: "可继续拖拽分格，完成后自动更新" });
 
+        if (!taskId) {
+          throw new Error("任务ID为空");
+        }
+
         const taskResult = await pollTaskStatus(taskId);
-        const optimizedImage = taskResult.imageUrl || currentImage;
+        const optimizedImage = taskResult.imageUrl ?? currentImage ?? "";
 
         const updatedVersion = await updateVersionRecord(versionFromApi.id, {
           status: "completed",

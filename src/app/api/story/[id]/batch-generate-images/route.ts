@@ -43,7 +43,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const startedAt = Date.now();
-  let userId: string | null = null;
+  let userId: string;
 
   try {
     const { id: storyId } = await params;
@@ -148,10 +148,10 @@ export async function POST(
           });
 
           if (!imageResult.success || !imageResult.images || imageResult.images.length === 0) {
-            throw new Error(imageResult.error || "图片生成失败");
+            throw new Error(imageResult.error ?? "图片生成失败");
           }
 
-          const image_base64 = imageResult.images[0];
+          const image_base64 = imageResult.images[0] ?? "";
           let character_id: string | null = null;
 
           // 如果 auto_save=true，保存到角色库
@@ -252,10 +252,10 @@ export async function POST(
         return {
           ...char,
           generated: true,
-          character_id: result.character_id,
+          character_id: result.character_id ?? null,
           generated_at: new Date().toISOString(),
           optimized_prompt: result.optimized_prompt,
-        };
+        } as SuggestedCharacter;
       }
       return char;
     });

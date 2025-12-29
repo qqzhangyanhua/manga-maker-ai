@@ -43,7 +43,7 @@ export function PanelCard({
 }: PanelCardProps) {
   const router = useRouter();
   const [previewOpen, setPreviewOpen] = useState(false);
-  const imageUrl = panel.generated_image || panel.image_url;
+  const imageUrl = (panel.generated_image || panel.image_url) ?? null;
 
   // 检查是否为流式生成中的临时分镜
   const isGenerating = (panel as Panel & { _isGenerating?: boolean })._isGenerating || false;
