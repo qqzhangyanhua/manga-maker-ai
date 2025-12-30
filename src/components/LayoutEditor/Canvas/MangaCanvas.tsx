@@ -86,7 +86,7 @@ export function MangaCanvas({
     canvas.setWidth(currentPage.width);
     canvas.setHeight(currentPage.height);
     canvas.renderAll();
-  }, [currentPage?.width, currentPage?.height]);
+  }, [currentPage]);
 
   // 更新缩放
   useEffect(() => {
@@ -144,7 +144,7 @@ export function MangaCanvas({
     }
 
     canvas.renderAll();
-  }, [showGrid, currentPage?.width, currentPage?.height]);
+  }, [showGrid, currentPage]);
 
   // 加载 Canvas 数据
   const loadCanvasData = useCallback((data: MangaCanvasData) => {
@@ -175,6 +175,8 @@ export function MangaCanvas({
     }
 
     canvas.renderAll();
+    // 仅在页面 ID 变化时重新加载，避免编辑时重复清空
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage?.id, loadCanvasData]);
 
   // 导出 Canvas 数据
