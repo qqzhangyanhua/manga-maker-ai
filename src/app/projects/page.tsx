@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
-import { ArrowLeft, BookOpen, Grid3X3, Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, BookOpen, Grid3X3, Loader2, Sparkles, LayoutPanelTop } from "lucide-react";
 import { Navbar } from "@/components/Landing";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -221,12 +221,13 @@ export default function ProjectListPage() {
                       <Link href={`/storyboard/editor/${project.id}`} className="flex-1">
                         <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white border-0 shadow-lg shadow-orange-500/20" size="sm">
                           <BookOpen className="w-4 h-4 mr-1" />
-                          进入编辑
+                          分镜编辑
                         </Button>
                       </Link>
-                      <Link href={`/api/project/${project.id}/export`} className="flex-1" target="_blank">
+                      <Link href={`/layout-editor/${project.id}`} className="flex-1">
                         <Button variant="outline" className="w-full border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-orange-500/50" size="sm">
-                          导出 JSON
+                          <LayoutPanelTop className="w-4 h-4 mr-1" />
+                          排版导出
                         </Button>
                       </Link>
                     </div>

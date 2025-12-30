@@ -79,7 +79,10 @@
       "Bash(done)",
       "Bash(for file in src/components/Landing/Navbar/*.ts src/components/Landing/Navbar/*.tsx)",
       "Bash(tree:*)",
-      "Bash(npm run type-check)"
+      "Bash(npm run type-check)",
+      "Bash(npx prisma validate)",
+      "Bash(pnpm list:*)",
+      "Bash(npx prisma migrate deploy:*)"
     ],
     "deny": [],
     "ask": []

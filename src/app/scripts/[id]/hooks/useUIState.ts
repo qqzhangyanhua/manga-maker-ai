@@ -3,16 +3,47 @@
  * 使用 useReducer 集中管理所有 UI 状态
  */
 
-import { useReducer, useCallback, useMemo } from 'react';
+import { useReducer, useMemo } from 'react';
 import type { Panel, StoryFormData } from '../types/script-editor.types';
+
+// Tab 类型常量
+export const TAB_VALUES = {
+  PANELS: 'panels',
+  GALLERY: 'gallery',
+  SERIAL: 'serial',
+} as const;
+
+export type TabValue = typeof TAB_VALUES[keyof typeof TAB_VALUES];
+
+// 生成分镜对话框状态
+export interface GenerateDialogState {
+  open: boolean;
+  pendingChapterId: string | null;
+}
+
+// 章节对话框状态
+export interface ChapterDialogState {
+  open: boolean;
+  mode: 'create' | 'generate-next';
+  nextOrder: number;
+}
 
 // UI 状态类型定义
 export interface UIState {
+  // 编辑模式
   editMode: boolean;
   storyForm: StoryFormData;
+
+  // 分镜编辑
   editingPanel: Partial<Panel> | null;
   isDialogOpen: boolean;
   deletingPanelId: string | null;
+
+  // 新增：页面级状态
+  currentChapterId: string | null;
+  activeTab: TabValue;
+  generateDialog: GenerateDialogState;
+  chapterDialog: ChapterDialogState;
 }
 
 // UI 操作类型定义
@@ -27,7 +58,14 @@ export type UIAction =
   | { type: 'OPEN_NEW_PANEL_DIALOG'; payload: string } // projectId
   | { type: 'OPEN_EDIT_PANEL_DIALOG'; payload: Panel }
   | { type: 'CLOSE_PANEL_DIALOG' }
-  | { type: 'UPDATE_PANEL_FIELD'; payload: { field: string; value: string } };
+  | { type: 'UPDATE_PANEL_FIELD'; payload: { field: string; value: string } }
+  // 新增：页面级操作
+  | { type: 'SET_CURRENT_CHAPTER'; payload: string | null }
+  | { type: 'SET_ACTIVE_TAB'; payload: TabValue }
+  | { type: 'OPEN_GENERATE_DIALOG'; payload: string } // chapterId
+  | { type: 'CLOSE_GENERATE_DIALOG' }
+  | { type: 'OPEN_CHAPTER_DIALOG'; payload: { mode: 'create' | 'generate-next'; nextOrder: number } }
+  | { type: 'CLOSE_CHAPTER_DIALOG' };
 
 // 初始状态
 const initialState: UIState = {
@@ -41,6 +79,11 @@ const initialState: UIState = {
   editingPanel: null,
   isDialogOpen: false,
   deletingPanelId: null,
+  // 新增：页面级状态初始值
+  currentChapterId: null,
+  activeTab: TAB_VALUES.PANELS,
+  generateDialog: { open: false, pendingChapterId: null },
+  chapterDialog: { open: false, mode: 'create', nextOrder: 1 },
 };
 
 // Reducer 函数
@@ -116,9 +159,60 @@ function uiReducer(state: UIState, action: UIAction): UIState {
           : null,
       };
 
+    // 新增：页面级操作处理
+    case 'SET_CURRENT_CHAPTER':
+      return { ...state, currentChapterId: action.payload };
+
+    case 'SET_ACTIVE_TAB':
+      return { ...state, activeTab: action.payload };
+
+    case 'OPEN_GENERATE_DIALOG':
+      return {
+        ...state,
+        generateDialog: { open: true, pendingChapterId: action.payload },
+      };
+
+    case 'CLOSE_GENERATE_DIALOG':
+      return {
+        ...state,
+        generateDialog: { open: false, pendingChapterId: null },
+      };
+
+    case 'OPEN_CHAPTER_DIALOG':
+      return {
+        ...state,
+        chapterDialog: { open: true, ...action.payload },
+      };
+
+    case 'CLOSE_CHAPTER_DIALOG':
+      return {
+        ...state,
+        chapterDialog: { open: false, mode: 'create', nextOrder: 1 },
+      };
+
     default:
       return state;
   }
+}
+
+// Actions 类型导出
+export interface UIActions {
+  setEditMode: (editMode: boolean) => void;
+  updateStoryForm: (updates: Partial<StoryFormData>) => void;
+  setStoryForm: (form: StoryFormData) => void;
+  openNewPanelDialog: (projectId: string) => void;
+  openEditPanelDialog: (panel: Panel) => void;
+  closePanelDialog: () => void;
+  updatePanelField: (field: string, value: string) => void;
+  setDeletingPanel: (panelId: string | null) => void;
+  resetForm: () => void;
+  // 新增：页面级 actions
+  setCurrentChapter: (chapterId: string | null) => void;
+  setActiveTab: (tab: TabValue) => void;
+  openGenerateDialog: (chapterId: string) => void;
+  closeGenerateDialog: () => void;
+  openChapterDialog: (mode: 'create' | 'generate-next', nextOrder: number) => void;
+  closeChapterDialog: () => void;
 }
 
 /**
@@ -128,7 +222,7 @@ export function useUIState() {
   const [state, dispatch] = useReducer(uiReducer, initialState);
 
   // 封装常用操作为便捷方法 - 使用 useMemo 确保 actions 对象引用稳定
-  const actions = useMemo(() => ({
+  const actions = useMemo<UIActions>(() => ({
     setEditMode: (editMode: boolean) => {
       dispatch({ type: 'SET_EDIT_MODE', payload: editMode });
     },
@@ -164,7 +258,32 @@ export function useUIState() {
     resetForm: () => {
       dispatch({ type: 'RESET_FORM' });
     },
-  }), [dispatch]);
+
+    // 新增：页面级 actions
+    setCurrentChapter: (chapterId: string | null) => {
+      dispatch({ type: 'SET_CURRENT_CHAPTER', payload: chapterId });
+    },
+
+    setActiveTab: (tab: TabValue) => {
+      dispatch({ type: 'SET_ACTIVE_TAB', payload: tab });
+    },
+
+    openGenerateDialog: (chapterId: string) => {
+      dispatch({ type: 'OPEN_GENERATE_DIALOG', payload: chapterId });
+    },
+
+    closeGenerateDialog: () => {
+      dispatch({ type: 'CLOSE_GENERATE_DIALOG' });
+    },
+
+    openChapterDialog: (mode: 'create' | 'generate-next', nextOrder: number) => {
+      dispatch({ type: 'OPEN_CHAPTER_DIALOG', payload: { mode, nextOrder } });
+    },
+
+    closeChapterDialog: () => {
+      dispatch({ type: 'CLOSE_CHAPTER_DIALOG' });
+    },
+  }), []);
 
   return { state, dispatch, actions };
 }

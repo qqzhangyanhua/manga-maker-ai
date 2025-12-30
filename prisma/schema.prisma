@@ -1,4 +1,4 @@
-﻿generator client {
+generator client {
   provider = "prisma-client-js"
 }
 
@@ -173,6 +173,10 @@ model Project {
   Story           Story?            @relation(fields: [story_id], references: [id])
   versions        ProjectVersion[] // Phase 1: Version control
   generationTasks GenerationTask[] // Phase 1: Batch generation
+
+  // Layout & Export Phase
+  comicPages      ComicPage[]
+  exportHistory   ExportHistory[]
 
   @@index([user_id, status], map: "idx_projects_user_status")
   @@index([story_id], map: "idx_projects_story")
@@ -724,6 +728,153 @@ model ChapterCharacterState {
   @@index([chapter_id], map: "idx_chapter_character_states_chapter")
   @@index([character_id], map: "idx_chapter_character_states_character")
   @@map("chapter_character_states")
+}
+
+// ============================================================
+// Comic Layout & Export Phase - 漫画排版与导出中心
+// ============================================================
+
+// 漫画页面 - 一个项目包含多个页面
+model ComicPage {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id    String   @db.Uuid
+  page_order    Int      // 页面顺序
+
+  // 页面规格
+  width         Int      @default(1080)
+  height        Int      @default(1920)
+  dpi           Int      @default(72)
+  preset_name   String?  // 规格名称：mobile_vertical, webtoon, manga_b5 等
+
+  // Canvas 数据 (Fabric.js JSON)
+  canvas_data   Json?    // Fabric.js 序列化数据
+  thumbnail_url String?  // 缩略图 URL
+
+  // 模板
+  template_id   String?  @db.Uuid
+
+  // 时间戳
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  project       Project        @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  template      LayoutTemplate? @relation(fields: [template_id], references: [id], onDelete: SetNull)
+
+  @@index([project_id, page_order], map: "idx_comic_pages_project_order")
+  @@index([template_id], map: "idx_comic_pages_template")
+  @@map("comic_pages")
+}
+
+// 页面布局模板
+model LayoutTemplate {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String   @db.VarChar(100)
+  category      String   // japanese, american, webtoon, free
+  description   String?  @db.Text
+
+  // 模板规格
+  width         Int      @default(1080)
+  height        Int      @default(1920)
+
+  // 插槽定义
+  panel_slots   Json     // PanelSlot[] - 定义 Panel 位置
+
+  // 元数据
+  thumbnail_url String?
+  is_system     Boolean  @default(false)  // 系统预设
+  user_id       String?  @db.Uuid         // 用户创建
+  use_count     Int      @default(0)
+  recommended   Boolean  @default(false)
+
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  pages         ComicPage[]
+
+  @@index([category, is_system], map: "idx_layout_templates_category")
+  @@index([user_id], map: "idx_layout_templates_user")
+  @@map("layout_templates")
+}
+
+// 气泡样式
+model BubbleStyle {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String   @db.VarChar(50)
+  type          String   // speech, thought, shout, whisper, narration, electronic
+
+  // 样式配置 (JSON)
+  style_config  Json     // BubbleStyleConfig
+
+  // 元数据
+  is_system     Boolean  @default(false)
+  user_id       String?  @db.Uuid
+  use_count     Int      @default(0)
+
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([type, is_system], map: "idx_bubble_styles_type")
+  @@index([user_id], map: "idx_bubble_styles_user")
+  @@map("bubble_styles")
+}
+
+// 特效素材库
+model EffectAsset {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String   @db.VarChar(100)
+  category      String   // speed_lines, screen_tone, emotion, environment, border
+
+  // 素材内容
+  asset_type    String   // svg, png, pattern
+  asset_url     String
+  thumbnail_url String?
+
+  // 可调参数定义
+  adjustable    Json?    // { opacity: true, color: true, scale: true }
+
+  // 元数据
+  is_system     Boolean  @default(false)
+  user_id       String?  @db.Uuid
+  tags          String[] @default([])
+  use_count     Int      @default(0)
+
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([category, is_system], map: "idx_effect_assets_category")
+  @@index([user_id], map: "idx_effect_assets_user")
+  @@map("effect_assets")
+}
+
+// 导出历史
+model ExportHistory {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id    String    @db.Uuid
+  user_id       String    @db.Uuid
+
+  // 导出配置
+  format        String    // png, jpg, pdf, zip
+  config        Json      // ExportConfig
+
+  // 导出结果
+  file_url      String?
+  file_size     Int?      // bytes
+  page_count    Int
+
+  // 状态
+  status        String    @default("pending") // pending, processing, completed, failed
+  progress      Int       @default(0)         // 0-100
+  error_message String?
+
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  completed_at  DateTime? @db.Timestamptz(6)
+
+  // Relations
+  project       Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@index([project_id], map: "idx_export_history_project")
+  @@index([user_id, created_at], map: "idx_export_history_user_time")
+  @@map("export_history")
 }
 
 

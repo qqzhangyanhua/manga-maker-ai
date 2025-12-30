@@ -420,6 +420,190 @@ const OFFICIAL_TEMPLATES = [
   },
 ];
 
+// Layout Templates for the Layout Editor
+const LAYOUT_TEMPLATES = [
+  // Japanese manga style
+  {
+    name: "日式-单格",
+    category: "japanese",
+    description: "单格全页面，适合封面或大场景",
+    width: 1080,
+    height: 1920,
+    panel_slots: [
+      { id: "slot-1", x: 2, y: 2, width: 96, height: 96 },
+    ],
+    is_system: true,
+    recommended: true,
+  },
+  {
+    name: "日式-两格竖",
+    category: "japanese",
+    description: "上下两格分布，适合对话或对比",
+    width: 1080,
+    height: 1920,
+    panel_slots: [
+      { id: "slot-1", x: 2, y: 2, width: 96, height: 47 },
+      { id: "slot-2", x: 2, y: 51, width: 96, height: 47 },
+    ],
+    is_system: true,
+    recommended: true,
+  },
+  {
+    name: "日式-三格竖",
+    category: "japanese",
+    description: "三格垂直分布，适合剧情推进",
+    width: 1080,
+    height: 1920,
+    panel_slots: [
+      { id: "slot-1", x: 2, y: 2, width: 96, height: 31 },
+      { id: "slot-2", x: 2, y: 35, width: 96, height: 31 },
+      { id: "slot-3", x: 2, y: 68, width: 96, height: 30 },
+    ],
+    is_system: true,
+    recommended: true,
+  },
+  {
+    name: "日式-四格经典",
+    category: "japanese",
+    description: "2x2 经典四格，适合搞笑漫画",
+    width: 1080,
+    height: 1920,
+    panel_slots: [
+      { id: "slot-1", x: 2, y: 2, width: 47, height: 47 },
+      { id: "slot-2", x: 51, y: 2, width: 47, height: 47 },
+      { id: "slot-3", x: 2, y: 51, width: 47, height: 47 },
+      { id: "slot-4", x: 51, y: 51, width: 47, height: 47 },
+    ],
+    is_system: true,
+    recommended: true,
+  },
+  {
+    name: "日式-五格对角",
+    category: "japanese",
+    description: "五格对角布局，适合动作场景",
+    width: 1080,
+    height: 1920,
+    panel_slots: [
+      { id: "slot-1", x: 2, y: 2, width: 60, height: 30 },
+      { id: "slot-2", x: 64, y: 2, width: 34, height: 30 },
+      { id: "slot-3", x: 2, y: 34, width: 96, height: 32 },
+      { id: "slot-4", x: 2, y: 68, width: 47, height: 30 },
+      { id: "slot-5", x: 51, y: 68, width: 47, height: 30 },
+    ],
+    is_system: true,
+    recommended: false,
+  },
+  {
+    name: "日式-六格均匀",
+    category: "japanese",
+    description: "2x3 六格均匀布局",
+    width: 1080,
+    height: 1920,
+    panel_slots: [
+      { id: "slot-1", x: 2, y: 2, width: 47, height: 31 },
+      { id: "slot-2", x: 51, y: 2, width: 47, height: 31 },
+      { id: "slot-3", x: 2, y: 35, width: 47, height: 31 },
+      { id: "slot-4", x: 51, y: 35, width: 47, height: 31 },
+      { id: "slot-5", x: 2, y: 68, width: 47, height: 30 },
+      { id: "slot-6", x: 51, y: 68, width: 47, height: 30 },
+    ],
+    is_system: true,
+    recommended: false,
+  },
+  // American comic style
+  {
+    name: "美式-横幅",
+    category: "american",
+    description: "横向宽幅布局，适合动作场景",
+    width: 2063,
+    height: 3131,
+    panel_slots: [
+      { id: "slot-1", x: 2, y: 2, width: 96, height: 30 },
+      { id: "slot-2", x: 2, y: 34, width: 96, height: 32 },
+      { id: "slot-3", x: 2, y: 68, width: 96, height: 30 },
+    ],
+    is_system: true,
+    recommended: true,
+  },
+  {
+    name: "美式-动态格",
+    category: "american",
+    description: "不规则动态布局，适合超级英雄",
+    width: 2063,
+    height: 3131,
+    panel_slots: [
+      { id: "slot-1", x: 2, y: 2, width: 96, height: 35 },
+      { id: "slot-2", x: 2, y: 39, width: 48, height: 28 },
+      { id: "slot-3", x: 52, y: 39, width: 46, height: 28 },
+      { id: "slot-4", x: 2, y: 69, width: 60, height: 29 },
+      { id: "slot-5", x: 64, y: 69, width: 34, height: 29 },
+    ],
+    is_system: true,
+    recommended: true,
+  },
+  // Webtoon style
+  {
+    name: "条漫-单格",
+    category: "webtoon",
+    description: "条漫单格，适合手机阅读",
+    width: 800,
+    height: 1280,
+    panel_slots: [
+      { id: "slot-1", x: 0, y: 0, width: 100, height: 100 },
+    ],
+    is_system: true,
+    recommended: true,
+  },
+  {
+    name: "条漫-两格",
+    category: "webtoon",
+    description: "条漫两格垂直布局",
+    width: 800,
+    height: 1600,
+    panel_slots: [
+      { id: "slot-1", x: 0, y: 0, width: 100, height: 48 },
+      { id: "slot-2", x: 0, y: 52, width: 100, height: 48 },
+    ],
+    is_system: true,
+    recommended: true,
+  },
+  {
+    name: "条漫-三格",
+    category: "webtoon",
+    description: "条漫三格垂直布局",
+    width: 800,
+    height: 2000,
+    panel_slots: [
+      { id: "slot-1", x: 0, y: 0, width: 100, height: 32 },
+      { id: "slot-2", x: 0, y: 34, width: 100, height: 32 },
+      { id: "slot-3", x: 0, y: 68, width: 100, height: 32 },
+    ],
+    is_system: true,
+    recommended: true,
+  },
+  // Free style
+  {
+    name: "自由-空白",
+    category: "free",
+    description: "空白画布，自由创作",
+    width: 1080,
+    height: 1920,
+    panel_slots: [],
+    is_system: true,
+    recommended: true,
+  },
+  {
+    name: "自由-网格辅助",
+    category: "free",
+    description: "带网格辅助线的空白画布",
+    width: 1080,
+    height: 1920,
+    panel_slots: [],
+    is_system: true,
+    recommended: false,
+  },
+];
+
 async function main() {
   console.log('开始种子数据初始化...\n');
 
@@ -540,9 +724,34 @@ async function main() {
     console.log(`✓ 创建示例项目: ${sample.story.title} (${sample.panels.length} 格)`);
   }
 
+  // 6. Clear and create layout templates
+  console.log('\n6. 创建布局模板...');
+  await prisma.layoutTemplate.deleteMany({
+    where: { is_system: true }
+  });
+
+  for (const template of LAYOUT_TEMPLATES) {
+    await prisma.layoutTemplate.create({
+      data: {
+        name: template.name,
+        category: template.category,
+        description: template.description,
+        width: template.width,
+        height: template.height,
+        panel_slots: template.panel_slots,
+        is_system: template.is_system,
+        recommended: template.recommended,
+        user_id: null,
+        use_count: 0,
+      }
+    });
+    console.log(`✓ 创建布局模板: ${template.name} (${template.category})`);
+  }
+
   console.log(`\n种子数据初始化完成！`);
   console.log(`- 官方分镜模板: ${OFFICIAL_TEMPLATES.length} 个`);
   console.log(`- 官方故事模板: ${PREDEFINED_TEMPLATES.length} 个`);
+  console.log(`- 布局模板: ${LAYOUT_TEMPLATES.length} 个`);
   console.log(`- 示例项目: ${SAMPLE_PROJECTS.length} 个`);
 }
 

@@ -1,10 +1,12 @@
+import { useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { formatErrorForToast, isRetryableError } from "../utils/errorHandling";
+import { formatErrorForToast } from "../utils/errorHandling";
 
 type OperationOptions = {
   successMessage?: string;
   errorTitle?: string;
-  enableRetry?: boolean;
+  /** 是否在失败时静默（不抛出错误） */
+  silent?: boolean;
 };
 
 /**
@@ -14,19 +16,23 @@ export function useStoryOperation() {
   const { toast } = useToast();
 
   /**
-   * 执行带统一错误处理的操作
+   * 直接执行操作并统一处理错误和成功提示
+   * @param operation - 要执行的异步操作
+   * @param options - 配置选项
+   * @returns 操作是否成功
    */
-  async function execute<T extends unknown[]>(
-    operation: (...args: T) => Promise<void>,
-    options: OperationOptions = {}
-  ): Promise<(...args: T) => Promise<void>> {
-    return async (...args: T) => {
+  const execute = useCallback(
+    async (
+      operation: () => Promise<void>,
+      options: OperationOptions = {}
+    ): Promise<boolean> => {
       try {
-        await operation(...args);
+        await operation();
 
         if (options.successMessage) {
           toast({ title: options.successMessage });
         }
+        return true;
       } catch (error) {
         const errorInfo = formatErrorForToast(error);
 
@@ -36,22 +42,14 @@ export function useStoryOperation() {
           variant: "destructive",
         });
 
-        throw error;
+        if (!options.silent) {
+          throw error;
+        }
+        return false;
       }
-    };
-  }
+    },
+    [toast]
+  );
 
-  /**
-   * 简化版：直接执行并处理错误
-   */
-  async function run<T extends unknown[]>(
-    operation: (...args: T) => Promise<void>,
-    args: T,
-    options: OperationOptions = {}
-  ): Promise<void> {
-    const wrappedOp = await execute(operation, options);
-    await wrappedOp(...args);
-  }
-
-  return { execute, run };
+  return { execute };
 }

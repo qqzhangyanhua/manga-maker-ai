@@ -4,17 +4,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import type { Story, Panel } from '../types/script-editor.types';
-
-interface Chapter {
-  id: string;
-  title: string;
-  summary: string | null;
-  chapter_order: number;
-  publish_status: string;
-  published_at: string | null;
-  created_at: string;
-}
+import type { Story, Panel, Chapter } from '../types/script-editor.types';
 
 interface StoryBasicData {
   story: Story;

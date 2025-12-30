@@ -47,8 +47,8 @@ interface Chapter {
   title: string;
   summary: string | null;
   chapter_order: number;
-  publish_status: string;
-  published_at: string | null;
+  publish_status?: string;  // 可选，兼容不同来源的数据
+  published_at?: string | null;
   created_at: string;
 }
 
@@ -172,7 +172,7 @@ export function SerialChapterList({
         warnings,
       });
     } else {
-      handlePublish(chapter.id, chapter.publish_status);
+      handlePublish(chapter.id, chapter.publish_status || "draft");
     }
   }
 
@@ -284,7 +284,7 @@ export function SerialChapterList({
 
     for (const chapter of chaptersToPublish) {
       try {
-        await handlePublish(chapter.id, chapter.publish_status);
+        await handlePublish(chapter.id, chapter.publish_status || "draft");
         await new Promise((resolve) => setTimeout(resolve, 500));
       } catch (error) {
         console.error(`Failed to publish ${chapter.id}:`, error);
@@ -458,7 +458,7 @@ export function SerialChapterList({
                             <h4 className="font-semibold text-white">
                               {chapter.title}
                             </h4>
-                            {getStatusBadge(chapter.publish_status)}
+                            {getStatusBadge(chapter.publish_status || "draft")}
                           </div>
 
                           {chapter.summary && (
@@ -549,7 +549,7 @@ export function SerialChapterList({
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handlePublish(chapter.id, chapter.publish_status)}
+                            onClick={() => handlePublish(chapter.id, chapter.publish_status || "draft")}
                             disabled={publishingId === chapter.id}
                             className="border-gray-700 text-gray-400 hover:bg-gray-800"
                           >
@@ -609,7 +609,7 @@ export function SerialChapterList({
                 if (publishCheckDialog.chapter) {
                   handlePublish(
                     publishCheckDialog.chapter.id,
-                    publishCheckDialog.chapter.publish_status
+                    publishCheckDialog.chapter.publish_status || "draft"
                   );
                 }
                 setPublishCheckDialog({ open: false, chapter: null, warnings: [] });
