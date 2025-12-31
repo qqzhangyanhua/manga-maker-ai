@@ -17,7 +17,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Plus, ImageIcon, Images, Sparkles, Loader2 } from "lucide-react";
+import { Plus, ImageIcon, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -272,28 +272,6 @@ export function PanelListView({
           )}
         </div>
         <div className="flex gap-2">
-          {/* AI生成分镜按钮（章节级别） */}
-          {currentChapterId && onGeneratePanelsForChapter && (
-            <Button
-              variant="default"
-              size="sm"
-              type="button"
-              onClick={() => onGeneratePanelsForChapter(currentChapterId)}
-              disabled={isGeneratingPanels}
-            >
-              {isGeneratingPanels ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  生成中...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  AI生成分镜
-                </>
-              )}
-            </Button>
-          )}
           <Button
             variant="secondary"
             type="button"

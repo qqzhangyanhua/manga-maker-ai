@@ -28,13 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ReferenceImageSelector } from "./ReferenceImageSelector";
 import { useComicStyles } from "../hooks/useComicStyles";
 import type { Panel } from "../types/script-editor.types";
-
-interface ReferenceImage {
-  id: string;
-  url: string;
-  label: string;
-  source: string;
-}
+import type { ReferenceImage } from "@/types/reference-image.types";
 
 interface MultiPanelGenerateDialogProps {
   open: boolean;

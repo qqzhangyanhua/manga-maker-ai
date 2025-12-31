@@ -43,6 +43,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useComicStyles } from "@/app/scripts/[id]/hooks/useComicStyles";
 import { ReferenceImageSelector } from "@/app/scripts/[id]/components/ReferenceImageSelector";
+import type { ReferenceImage } from "@/types/reference-image.types";
 
 interface GenerateResult {
   panel_id: string;
@@ -60,13 +61,6 @@ interface BatchGenerateResponse {
   skipped: number;
   message: string;
   error?: string;
-}
-
-interface ReferenceImage {
-  id: string;
-  url: string;
-  label: string;
-  source: string;
 }
 
 interface BatchGenerateDialogProps {
@@ -400,7 +394,7 @@ export default function BatchGenerateDialog({
               </Button>
               <Button
                 onClick={handleGenerate}
-                disabled={selectedPanelIds.length === 0}
+                disabled={selectedPanelIds.length === 0 || !selectedStyleId}
               >
                 <Wand2 className="w-4 h-4 mr-2" />
                 开始生成 ({selectedPanelIds.length}格)

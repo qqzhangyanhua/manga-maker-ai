@@ -8,9 +8,9 @@ import type { Panel, StoryFormData } from '../types/script-editor.types';
 
 // Tab 类型常量
 export const TAB_VALUES = {
-  PANELS: 'panels',
-  GALLERY: 'gallery',
   SERIAL: 'serial',
+  GALLERY: 'gallery',
+  LAYOUT: 'layout',
 } as const;
 
 export type TabValue = typeof TAB_VALUES[keyof typeof TAB_VALUES];
@@ -81,7 +81,7 @@ const initialState: UIState = {
   deletingPanelId: null,
   // 新增：页面级状态初始值
   currentChapterId: null,
-  activeTab: TAB_VALUES.PANELS,
+  activeTab: TAB_VALUES.SERIAL,
   generateDialog: { open: false, pendingChapterId: null },
   chapterDialog: { open: false, mode: 'create', nextOrder: 1 },
 };

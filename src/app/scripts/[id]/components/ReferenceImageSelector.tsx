@@ -20,13 +20,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Image as ImageIcon, User, Smile, Shirt, Move } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Panel } from "../types/script-editor.types";
-
-interface ReferenceImage {
-  id: string;
-  url: string;
-  label: string;
-  source: string;
-}
+import type { ReferenceImage } from "@/types/reference-image.types";
 
 interface ReferenceImageSelectorProps {
   open: boolean;
@@ -60,6 +54,14 @@ export function ReferenceImageSelector({
   const [isLoadingCharacters, setIsLoadingCharacters] = useState(false);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
 
+  // 角色完整数据缓存（避免重复请求）
+  const [characterDataCache, setCharacterDataCache] = useState<Record<string, {
+    views: Array<{ id: string; image_url: string; view_type: string }>;
+    expressions: Array<{ id: string; image_url: string; expression_type: string }>;
+    outfits: Array<{ id: string; image_url: string; outfit_name: string }>;
+    base_image_url: string | null;
+  }>>({});
+
   // 三视图
   const [characterViews, setCharacterViews] = useState<ReferenceImage[]>([]);
   const [isLoadingViews, setIsLoadingViews] = useState(false);
@@ -67,17 +69,14 @@ export function ReferenceImageSelector({
   // 表情矩阵
   const [expressions, setExpressions] = useState<ReferenceImage[]>([]);
   const [isLoadingExpressions, setIsLoadingExpressions] = useState(false);
-  const [expressionsLoaded, setExpressionsLoaded] = useState(false);
 
   // 服装管理
   const [outfits, setOutfits] = useState<ReferenceImage[]>([]);
   const [isLoadingOutfits, setIsLoadingOutfits] = useState(false);
-  const [outfitsLoaded, setOutfitsLoaded] = useState(false);
 
   // 姿势变体
   const [poses, setPoses] = useState<ReferenceImage[]>([]);
   const [isLoadingPoses, setIsLoadingPoses] = useState(false);
-  const [posesLoaded, setPosesLoaded] = useState(false);
 
   // 加载当前故事的图片
   async function loadStoryImages(): Promise<void> {
@@ -97,10 +96,11 @@ export function ReferenceImageSelector({
     }
   }
 
-  // 对话框打开时自动加载故事图片
+  // 对话框打开时自动加载故事图片并重置选择状态
   useEffect(() => {
     if (open) {
       loadStoryImages();
+      setSelectedIds([]); // 重置选中状态
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -125,41 +125,38 @@ export function ReferenceImageSelector({
     }
   }
 
-  // 加载角色三视图
-  async function loadCharacterViews(characterId: string): Promise<void> {
+  // 加载角色完整数据（缓存）
+  async function loadCharacterData(characterId: string): Promise<void> {
+    // 如果已缓存，直接使用
+    if (characterDataCache[characterId]) {
+      setSelectedCharacterId(characterId);
+      updateCharacterAssets(characterId, characterDataCache[characterId]);
+      return;
+    }
+
     setIsLoadingViews(true);
     try {
       const response = await fetch(`/api/character/${characterId}`);
-      if (!response.ok) throw new Error("加载三视图失败");
+      if (!response.ok) throw new Error("加载角色数据失败");
 
       const data = await response.json();
-      const character = data.character || data; // 兼容两种返回格式
-      const views: ReferenceImage[] = [];
+      const character = data.character || data;
 
-      // 添加基础参考图
-      if (character.base_image_url) {
-        views.push({
-          id: `base-${characterId}`,
-          url: character.base_image_url,
-          label: "基础参考图",
-          source: "view",
-        });
-      }
+      // 缓存完整数据
+      const characterData = {
+        views: character.views || [],
+        expressions: character.expressions || [],
+        outfits: character.outfits || [],
+        base_image_url: character.base_image_url,
+      };
 
-      // 添加三视图
-      const threeViews = (character.views || [])
-        .filter((v: { image_url: string | null }) => v.image_url)
-        .map((v: { id: string; image_url: string; view_type: string }) => ({
-          id: `view-${v.id}`,
-          url: v.image_url,
-          label: `${v.view_type}视图`,
-          source: "view",
-        }));
+      setCharacterDataCache(prev => ({
+        ...prev,
+        [characterId]: characterData,
+      }));
 
-      views.push(...threeViews);
-
-      setCharacterViews(views);
       setSelectedCharacterId(characterId);
+      updateCharacterAssets(characterId, characterData);
     } catch (error) {
       toast({
         title: "加载失败",
@@ -171,90 +168,58 @@ export function ReferenceImageSelector({
     }
   }
 
-  // 加载表情矩阵
-  async function loadExpressions(): Promise<void> {
-    if (!selectedCharacterId) return;
+  // 更新角色资产显示
+  function updateCharacterAssets(characterId: string, data: {
+    views: Array<{ id: string; image_url: string; view_type: string }>;
+    expressions: Array<{ id: string; image_url: string; expression_type: string }>;
+    outfits: Array<{ id: string; image_url: string; outfit_name: string }>;
+    base_image_url: string | null;
+  }): void {
+    const views: ReferenceImage[] = [];
 
-    setIsLoadingExpressions(true);
-    try {
-      const response = await fetch(`/api/character/${selectedCharacterId}`);
-      if (!response.ok) throw new Error("加载表情失败");
-
-      const data = await response.json();
-      const character = data.character || data; // 兼容两种返回格式
-      const exprs: ReferenceImage[] = (character.expressions || [])
-        .filter((e: { image_url: string | null }) => e.image_url)
-        .map((e: { id: string; image_url: string; expression_type: string }) => ({
-          id: `expr-${e.id}`,
-          url: e.image_url,
-          label: `${e.expression_type}表情`,
-          source: "expression",
-        }));
-
-      setExpressions(exprs);
-      setExpressionsLoaded(true);
-    } catch (error) {
-      toast({
-        title: "加载失败",
-        description: error instanceof Error ? error.message : "未知错误",
-        variant: "destructive",
+    // 添加基础参考图
+    if (data.base_image_url) {
+      views.push({
+        id: `base-${characterId}`,
+        url: data.base_image_url,
+        label: "基础参考图",
+        source: "view",
       });
-    } finally {
-      setIsLoadingExpressions(false);
     }
-  }
 
-  // 加载服装
-  async function loadOutfits(): Promise<void> {
-    if (!selectedCharacterId) return;
+    // 添加三视图
+    const threeViews = data.views
+      .filter(v => v.image_url)
+      .map(v => ({
+        id: `view-${v.id}`,
+        url: v.image_url,
+        label: `${v.view_type}视图`,
+        source: "view",
+      }));
+    views.push(...threeViews);
 
-    setIsLoadingOutfits(true);
-    try {
-      const response = await fetch(`/api/character/${selectedCharacterId}`);
-      if (!response.ok) throw new Error("加载服装失败");
+    setCharacterViews(views);
 
-      const data = await response.json();
-      const character = data.character || data; // 兼容两种返回格式
-      const outfitList: ReferenceImage[] = (character.outfits || [])
-        .filter((o: { image_url: string | null }) => o.image_url)
-        .map((o: { id: string; image_url: string; outfit_name: string }) => ({
-          id: `outfit-${o.id}`,
-          url: o.image_url,
-          label: o.outfit_name,
-          source: "outfit",
-        }));
+    // 同时准备表情和服装数据（不立即加载，Tab 切换时显示）
+    const exprs: ReferenceImage[] = data.expressions
+      .filter(e => e.image_url)
+      .map(e => ({
+        id: `expr-${e.id}`,
+        url: e.image_url,
+        label: `${e.expression_type}表情`,
+        source: "expression",
+      }));
+    setExpressions(exprs);
 
-      setOutfits(outfitList);
-      setOutfitsLoaded(true);
-    } catch (error) {
-      toast({
-        title: "加载失败",
-        description: error instanceof Error ? error.message : "未知错误",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoadingOutfits(false);
-    }
-  }
-
-  // 加载姿势变体（假设有这个API）
-  async function loadPoses(): Promise<void> {
-    if (!selectedCharacterId) return;
-
-    setIsLoadingPoses(true);
-    try {
-      // TODO: 实现姿势变体API
-      const poseList: ReferenceImage[] = [];
-      setPoses(poseList);
-      setPosesLoaded(true);
-
-      toast({
-        title: "暂无姿势变体",
-        description: "该功能即将上线",
-      });
-    } finally {
-      setIsLoadingPoses(false);
-    }
+    const outfitList: ReferenceImage[] = data.outfits
+      .filter(o => o.image_url)
+      .map(o => ({
+        id: `outfit-${o.id}`,
+        url: o.image_url,
+        label: o.outfit_name,
+        source: "outfit",
+      }));
+    setOutfits(outfitList);
   }
 
   // 切换选中状态
@@ -382,7 +347,7 @@ export function ReferenceImageSelector({
                       key={char.id}
                       variant={selectedCharacterId === char.id ? "default" : "outline"}
                       size="sm"
-                      onClick={() => loadCharacterViews(char.id)}
+                      onClick={() => loadCharacterData(char.id)}
                     >
                       {char.name}
                     </Button>
@@ -410,13 +375,7 @@ export function ReferenceImageSelector({
                       key={char.id}
                       variant={selectedCharacterId === char.id ? "default" : "outline"}
                       size="sm"
-                      onClick={() => {
-                        setSelectedCharacterId(char.id);
-                        // 如果已经加载过表情，则重新加载
-                        if (expressionsLoaded) {
-                          setExpressionsLoaded(false);
-                        }
-                      }}
+                      onClick={() => loadCharacterData(char.id)}
                     >
                       {char.name}
                     </Button>
@@ -425,23 +384,8 @@ export function ReferenceImageSelector({
               </div>
             )}
 
-            {/* 表情加载按钮 */}
-            {selectedCharacterId && !expressionsLoaded ? (
-              <div className="text-center py-8">
-                <Button onClick={loadExpressions} disabled={isLoadingExpressions}>
-                  {isLoadingExpressions ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      加载中...
-                    </>
-                  ) : (
-                    "加载表情矩阵"
-                  )}
-                </Button>
-              </div>
-            ) : selectedCharacterId && expressionsLoaded ? (
-              renderImageGrid(expressions, false)
-            ) : null}
+            {/* 表情矩阵 */}
+            {selectedCharacterId && renderImageGrid(expressions, false)}
           </TabsContent>
 
           <TabsContent value="outfits" className="space-y-4">
@@ -459,13 +403,7 @@ export function ReferenceImageSelector({
                       key={char.id}
                       variant={selectedCharacterId === char.id ? "default" : "outline"}
                       size="sm"
-                      onClick={() => {
-                        setSelectedCharacterId(char.id);
-                        // 如果已经加载过服装，则重新加载
-                        if (outfitsLoaded) {
-                          setOutfitsLoaded(false);
-                        }
-                      }}
+                      onClick={() => loadCharacterData(char.id)}
                     >
                       {char.name}
                     </Button>
@@ -474,72 +412,16 @@ export function ReferenceImageSelector({
               </div>
             )}
 
-            {/* 服装加载按钮 */}
-            {selectedCharacterId && !outfitsLoaded ? (
-              <div className="text-center py-8">
-                <Button onClick={loadOutfits} disabled={isLoadingOutfits}>
-                  {isLoadingOutfits ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      加载中...
-                    </>
-                  ) : (
-                    "加载服装图片"
-                  )}
-                </Button>
-              </div>
-            ) : selectedCharacterId && outfitsLoaded ? (
-              renderImageGrid(outfits, false)
-            ) : null}
+            {/* 服装管理 */}
+            {selectedCharacterId && renderImageGrid(outfits, false)}
           </TabsContent>
 
           <TabsContent value="poses" className="space-y-4">
-            {/* 角色选择 */}
-            {isLoadingCharacters ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="w-5 h-5 animate-spin" />
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <label className="text-sm font-medium">选择角色</label>
-                <div className="grid grid-cols-4 gap-2">
-                  {characters.map(char => (
-                    <Button
-                      key={char.id}
-                      variant={selectedCharacterId === char.id ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => {
-                        setSelectedCharacterId(char.id);
-                        // 如果已经加载过姿势，则重新加载
-                        if (posesLoaded) {
-                          setPosesLoaded(false);
-                        }
-                      }}
-                    >
-                      {char.name}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 姿势加载按钮 */}
-            {selectedCharacterId && !posesLoaded ? (
-              <div className="text-center py-8">
-                <Button onClick={loadPoses} disabled={isLoadingPoses}>
-                  {isLoadingPoses ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      加载中...
-                    </>
-                  ) : (
-                    "加载姿势变体"
-                  )}
-                </Button>
-              </div>
-            ) : selectedCharacterId && posesLoaded ? (
-              renderImageGrid(poses, false)
-            ) : null}
+            {/* 姿势功能暂未实现 */}
+            <div className="text-center py-12 space-y-3">
+              <Move className="w-12 h-12 text-muted-foreground mx-auto" />
+              <p className="text-sm text-muted-foreground">姿势变体功能即将上线</p>
+            </div>
           </TabsContent>
         </Tabs>
 
