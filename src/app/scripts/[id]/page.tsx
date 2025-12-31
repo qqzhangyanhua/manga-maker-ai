@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -367,82 +367,135 @@ export default function ScriptDetailsPage() {
             <div className="fixed top-20 left-1/4 w-96 h-96 bg-orange-500/5 blur-3xl rounded-full pointer-events-none" />
             <div className="fixed bottom-20 right-1/4 w-96 h-96 bg-purple-500/3 blur-3xl rounded-full pointer-events-none" />
 
-            <div className="relative px-4 py-12">
-              <div className="max-w-7xl mx-auto relative space-y-8">
-                <StoryHeader story={data.story} onBack={() => router.push("/scripts")} />
+            <div className="relative px-4 py-8">
+              <div className="max-w-6xl mx-auto relative">
+                {/* 顶部标题区域 */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded bg-gradient-to-br from-orange-500 to-purple-500 flex items-center justify-center">
+                        <span className="text-white text-sm">📖</span>
+                      </div>
+                      <h1 className="text-2xl font-bold text-white">{data.story.title}</h1>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-gray-700 hover:border-gray-600 text-orange-500 hover:text-orange-400"
+                      >
+                        ✨ AI 续写
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          uiActions.openChapterDialog("create", nextChapterOrder);
+                        }}
+                        className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
+                      >
+                        + 创建章节
+                      </Button>
+                    </div>
+                  </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                  {/* LeftSidebar 现在从 Context 获取数据 */}
-                  <LeftSidebar />
-
-                  <div className="lg:col-span-3">
-                    <Tabs
-                      value={uiState.activeTab}
-                      onValueChange={(value) => uiActions.setActiveTab(value as typeof uiState.activeTab)}
-                      className="w-full"
-                    >
-                      <TabsList className="mb-4">
-                        <TabsTrigger value={TAB_VALUES.PANELS}>分镜列表</TabsTrigger>
-                        <TabsTrigger value={TAB_VALUES.GALLERY}>生成图库</TabsTrigger>
-                        <TabsTrigger value={TAB_VALUES.SERIAL}>连载管理</TabsTrigger>
-                      </TabsList>
-
-                      <TabsContent value={TAB_VALUES.PANELS}>
-                        <PanelTab
-                          panels={data?.panels || []}
-                          projectId={data?.projectId || null}
-                          storyId={storyId}
-                          currentChapterId={uiState.currentChapterId}
-                          currentChapterTitle={
-                            uiState.currentChapterId
-                              ? data.chapters?.find((ch) => ch.id === uiState.currentChapterId)?.title
-                              : null
-                          }
-                          characters={characterAssets}
-                          charactersLoading={isCharactersLoading}
-                          onCharactersRefresh={() => refetchCharacters()}
-                          onGeneratePanelsForChapter={handleGeneratePanelsForChapter}
-                          isGeneratingPanels={isGenerating}
-                          streamingPanels={progress.generatedPanels || []}
-                          onDeletePanel={handleDeletePanel}
-                          onImageGenerated={handleImageGenerated}
-                          onRefresh={refreshStoryData}
-                          onError={(msg) =>
-                            toast({ title: "错误", description: msg, variant: "destructive" })
-                          }
-                          isPanelsLoading={isPanelsLoading}
-                        />
-                      </TabsContent>
-
-                      <TabsContent value={TAB_VALUES.GALLERY}>
-                        <StoryImagesGallery storyId={storyId} projectId={data?.projectId} />
-                      </TabsContent>
-
-                      <TabsContent value={TAB_VALUES.SERIAL}>
-                        <SerialChapterList
-                          storyId={storyId}
-                          chapters={data.chapters || []}
-                          panels={data.panels || []}
-                          onRefresh={refreshStoryData}
-                          onCreateChapter={() => {
-                            uiActions.openChapterDialog("create", nextChapterOrder);
-                          }}
-                          onGenerateNext={() => {
-                            uiActions.openChapterDialog("generate-next", nextChapterOrder);
-                          }}
-                          onGeneratePanels={(chapterId) => {
-                            uiActions.setCurrentChapter(chapterId);
-                            handleGeneratePanelsForChapter(chapterId);
-                          }}
-                          onViewPanels={(chapterId) => {
-                            uiActions.setCurrentChapter(chapterId);
-                            uiActions.setActiveTab(TAB_VALUES.PANELS);
-                          }}
-                        />
-                      </TabsContent>
-                    </Tabs>
+                  {/* 统计信息 */}
+                  <div className="flex items-center gap-6 text-sm text-gray-400">
+                    <span>共 {data.chapters?.length || 0} 章</span>
+                    <span>•</span>
+                    <span>已发布 {data.chapters?.filter(ch => ch.published_at).length || 0} 章</span>
+                    <span>•</span>
+                    <span>{Math.floor((data.panels?.length || 0) * 0.6)} 分钟</span>
+                    <span>•</span>
+                    <span>{data.panels?.filter(p => p.generated_image).length || 0} 张图片</span>
                   </div>
                 </div>
+
+                {/* Tab 导航 */}
+                <Tabs
+                  value={uiState.activeTab}
+                  onValueChange={(value) => uiActions.setActiveTab(value as typeof uiState.activeTab)}
+                  className="w-full"
+                >
+                  <TabsList className="mb-6 bg-transparent border-b border-gray-800 rounded-none w-full justify-start h-auto p-0">
+                    <TabsTrigger
+                      value={TAB_VALUES.SERIAL}
+                      className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-500 data-[state=active]:bg-transparent bg-transparent px-4 py-3 text-gray-400 data-[state=active]:text-white data-[state=active]:shadow-none"
+                    >
+                      章节创作
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value={TAB_VALUES.GALLERY}
+                      className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-500 data-[state=active]:bg-transparent bg-transparent px-4 py-3 text-gray-400 data-[state=active]:text-white data-[state=active]:shadow-none"
+                    >
+                      素材库
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value={TAB_VALUES.PANELS}
+                      className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-500 data-[state=active]:bg-transparent bg-transparent px-4 py-3 text-gray-400 data-[state=active]:text-white data-[state=active]:shadow-none"
+                    >
+                      排版导出
+                    </TabsTrigger>
+                  </TabsList>
+
+                  {/* 章节创作视图 */}
+                  <TabsContent value={TAB_VALUES.SERIAL} className="mt-0">
+                    <SerialChapterList
+                      storyId={storyId}
+                      chapters={data.chapters || []}
+                      panels={data.panels || []}
+                      onRefresh={refreshStoryData}
+                      onCreateChapter={() => {
+                        uiActions.openChapterDialog("create", nextChapterOrder);
+                      }}
+                      onGenerateNext={() => {
+                        uiActions.openChapterDialog("generate-next", nextChapterOrder);
+                      }}
+                      onGeneratePanels={(chapterId) => {
+                        uiActions.setCurrentChapter(chapterId);
+                        handleGeneratePanelsForChapter(chapterId);
+                      }}
+                      onViewPanels={(chapterId) => {
+                        uiActions.setCurrentChapter(chapterId);
+                        uiActions.setActiveTab(TAB_VALUES.PANELS);
+                      }}
+                    />
+                  </TabsContent>
+
+                  {/* 素材库视图 */}
+                  <TabsContent value={TAB_VALUES.GALLERY} className="mt-0">
+                    <div className="bg-[#1a1a1f]/60 backdrop-blur-sm border border-gray-800/50 rounded-xl p-6">
+                      <StoryImagesGallery storyId={storyId} projectId={data?.projectId} />
+                    </div>
+                  </TabsContent>
+
+                  {/* 排版导出视图 */}
+                  <TabsContent value={TAB_VALUES.PANELS} className="mt-0">
+                    <PanelTab
+                      panels={data?.panels || []}
+                      projectId={data?.projectId || null}
+                      storyId={storyId}
+                      currentChapterId={uiState.currentChapterId}
+                      currentChapterTitle={
+                        uiState.currentChapterId
+                          ? data.chapters?.find((ch) => ch.id === uiState.currentChapterId)?.title
+                          : null
+                      }
+                      characters={characterAssets}
+                      charactersLoading={isCharactersLoading}
+                      onCharactersRefresh={() => refetchCharacters()}
+                      onGeneratePanelsForChapter={handleGeneratePanelsForChapter}
+                      isGeneratingPanels={isGenerating}
+                      streamingPanels={progress.generatedPanels || []}
+                      onDeletePanel={handleDeletePanel}
+                      onImageGenerated={handleImageGenerated}
+                      onRefresh={refreshStoryData}
+                      onError={(msg) =>
+                        toast({ title: "错误", description: msg, variant: "destructive" })
+                      }
+                      isPanelsLoading={isPanelsLoading}
+                    />
+                  </TabsContent>
+                </Tabs>
 
                 <GenerationProgress progress={progress} onCancel={cancel} />
 

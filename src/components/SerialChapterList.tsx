@@ -39,6 +39,8 @@ import {
   Edit2,
   CheckSquare,
   Loader2,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { EditChapterDialog } from "./EditChapterDialog";
 
@@ -57,6 +59,11 @@ interface Panel {
   chapter_id?: string;
   generated_image?: string;
   image_url?: string;
+  panel_order?: number;
+  title?: string;
+  description?: string;
+  visual_description?: string;
+  character_descriptions?: string;
 }
 
 interface SerialChapterListProps {
@@ -92,6 +99,7 @@ export function SerialChapterList({
     warnings: string[];
   }>({ open: false, chapter: null, warnings: [] });
   const [batchOperating, setBatchOperating] = useState(false);
+  const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
 
   const sortedChapters = [...chapters].sort((a, b) => a.chapter_order - b.chapter_order);
   const publishedCount = chapters.filter((c) => c.publish_status === "published").length;
@@ -210,6 +218,17 @@ export function SerialChapterList({
     }
   }
 
+  // 展开/折叠章节
+  function toggleChapterExpand(chapterId: string) {
+    const newExpanded = new Set(expandedChapters);
+    if (newExpanded.has(chapterId)) {
+      newExpanded.delete(chapterId);
+    } else {
+      newExpanded.add(chapterId);
+    }
+    setExpandedChapters(newExpanded);
+  }
+
   // 批量选择
   function toggleChapterSelection(chapterId: string) {
     const newSelection = new Set(selectedChapters);
@@ -317,114 +336,21 @@ export function SerialChapterList({
 
   return (
     <>
-      <Card className="border-gray-800 bg-gray-900/50">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-lg text-gray-100 flex items-center gap-2">
-                <BookOpen className="w-5 h-5" />
-                连载章节
-              </CardTitle>
-              <p className="text-sm text-gray-400 mt-1">
-                已发布 {publishedCount} 章 · 草稿 {draftCount} 章
-                {isBatchMode && ` · 已选 ${selectedChapters.size} 章`}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              {isBatchMode ? (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={batchGeneratePanels}
-                    disabled={batchOperating}
-                    className="border-blue-500 text-blue-500 hover:bg-blue-500/10"
-                  >
-                    {batchOperating ? (
-                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                    ) : (
-                      <Layers className="w-4 h-4 mr-1" />
-                    )}
-                    批量生成分镜
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={batchPublish}
-                    disabled={batchOperating}
-                    className="border-green-500 text-green-500 hover:bg-green-500/10"
-                  >
-                    {batchOperating ? (
-                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                    ) : (
-                      <Eye className="w-4 h-4 mr-1" />
-                    )}
-                    批量发布
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelectedChapters(new Set())}
-                    className="border-gray-700 hover:bg-gray-800"
-                  >
-                    取消
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={onGenerateNext}
-                    className="border-orange-500 text-orange-500 hover:bg-orange-500/10"
-                  >
-                    <Sparkles className="w-4 h-4 mr-1" />
-                    AI 续写
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={onCreateChapter}
-                    className="border-gray-700 hover:bg-gray-800"
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    创作下一章
-                  </Button>
-                </>
-              )}
-            </div>
+      <div>
+        {sortedChapters.length === 0 ? (
+          <div className="text-center py-12 text-gray-400 bg-[#1a1a1f]/60 rounded-xl border border-gray-800/50">
+            <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
+            <p className="mb-4">还没有章节</p>
+            <Button
+              onClick={onCreateChapter}
+              className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              创建第一章
+            </Button>
           </div>
-        </CardHeader>
-        <CardContent>
-          {sortedChapters.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">
-              <p className="mb-4">还没有章节</p>
-              <Button variant="outline" onClick={onCreateChapter}>
-                <Plus className="w-4 h-4 mr-2" />
-                创建第一章
-              </Button>
-            </div>
-          ) : (
-            <>
-              {/* 批量操作工具栏 */}
-              {sortedChapters.length > 1 && (
-                <div className="mb-3 flex items-center gap-2 px-3 py-2 bg-gray-800/50 rounded-md">
-                  <Checkbox
-                    checked={selectedChapters.size === sortedChapters.length}
-                    onCheckedChange={selectAll}
-                    className="border-gray-600"
-                  />
-                  <span className="text-sm text-gray-400">
-                    {isBatchMode ? `已选 ${selectedChapters.size} 章` : "全选"}
-                  </span>
-                  {!isBatchMode && (
-                    <span className="text-xs text-gray-500 ml-auto">
-                      <CheckSquare className="w-3 h-3 inline mr-1" />
-                      提示：勾选章节可批量操作
-                    </span>
-                  )}
-                </div>
-              )}
+        ) : (
+          <>
 
               {/* 章节列表 */}
               <div className="space-y-3">
@@ -432,146 +358,209 @@ export function SerialChapterList({
                   const stats = getChapterStats(chapter.id);
                   const recommendedAction = getRecommendedAction(chapter);
                   const isSelected = selectedChapters.has(chapter.id);
+                  const isExpanded = expandedChapters.has(chapter.id);
+                  const chapterPanels = panels
+                    .filter((p) => p.chapter_id === chapter.id)
+                    .sort((a, b) => (a.panel_order || 0) - (b.panel_order || 0));
 
                   return (
                     <div
                       key={chapter.id}
-                      className={`border rounded-lg p-4 transition-colors ${
+                      className={`border rounded-lg overflow-hidden transition-colors ${
                         isSelected
                           ? "border-blue-500 bg-blue-500/5"
-                          : "border-gray-800 bg-gray-800/30 hover:bg-gray-800/50"
+                          : "border-gray-800/50 bg-[#1a1a1f]/60"
                       }`}
                     >
-                      <div className="flex items-start gap-3 mb-3">
-                        {/* 复选框 */}
-                        {sortedChapters.length > 1 && (
-                          <Checkbox
-                            checked={isSelected}
-                            onCheckedChange={() => toggleChapterSelection(chapter.id)}
-                            className="mt-1 border-gray-600"
-                          />
-                        )}
+                      {/* 章节头部 - 可点击展开 */}
+                      <div
+                        className="p-4 cursor-pointer hover:bg-gray-800/20 transition-colors"
+                        onClick={() => toggleChapterExpand(chapter.id)}
+                      >
+                        <div className="flex items-start gap-3">
+                          {/* 展开/折叠图标 */}
+                          <button
+                            className="mt-1 text-gray-400 hover:text-white transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleChapterExpand(chapter.id);
+                            }}
+                          >
+                            {isExpanded ? (
+                              <ChevronDown className="w-5 h-5" />
+                            ) : (
+                              <ChevronRight className="w-5 h-5" />
+                            )}
+                          </button>
 
-                        {/* 章节信息 */}
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h4 className="font-semibold text-white">
-                              {chapter.title}
-                            </h4>
-                            {getStatusBadge(chapter.publish_status || "draft")}
-                          </div>
-
-                          {chapter.summary && (
-                            <p className="text-sm text-gray-400 line-clamp-2 mb-2">
-                              {chapter.summary}
-                            </p>
+                          {/* 复选框 */}
+                          {sortedChapters.length > 1 && (
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleChapterSelection(chapter.id)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="mt-1 border-gray-600"
+                            />
                           )}
 
-                          <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
-                            <span>第 {chapter.chapter_order} 章</span>
-                            {chapter.published_at && (
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3" />
-                                {new Date(chapter.published_at).toLocaleDateString("zh-CN")}
-                              </span>
-                            )}
-                          </div>
+                          {/* 章节信息 */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs text-gray-500">第{chapter.chapter_order}章</span>
+                              {getStatusBadge(chapter.publish_status || "draft")}
+                            </div>
+                            <h4 className="font-semibold text-white text-lg mb-2">
+                              {chapter.title}
+                            </h4>
 
-                          {/* 分镜和图片统计 */}
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-4 text-sm">
-                              <div className="flex items-center gap-1 text-gray-400">
-                                <Film className="w-4 h-4" />
-                                <span>{stats.panelCount} 个分镜</span>
-                              </div>
-                              <div className="flex items-center gap-1 text-gray-400">
-                                <ImageIcon className="w-4 h-4" />
-                                <span>
-                                  {stats.generatedCount}/{stats.panelCount} 图片
-                                </span>
-                              </div>
+                            {chapter.summary && !isExpanded && (
+                              <p className="text-sm text-gray-400 line-clamp-2 mb-3">
+                                {chapter.summary}
+                              </p>
+                            )}
+
+                            {/* 统计信息 */}
+                            <div className="flex items-center gap-4 text-sm text-gray-400">
+                              <span>共 {stats.panelCount} 个分镜</span>
+                              <span>•</span>
+                              <span>已发布 {stats.generatedCount} 章</span>
+                              <span>•</span>
+                              <span>{Math.floor(stats.panelCount * 0.6)} 分钟</span>
+                              <span>•</span>
+                              <span>{stats.generatedCount} 张图片</span>
                             </div>
 
                             {stats.panelCount > 0 && (
-                              <div className="space-y-1">
-                                <div className="flex items-center justify-between text-xs text-gray-500">
+                              <div className="mt-2">
+                                <div className="flex items-center text-xs text-gray-500 mb-1">
                                   <span>图片生成进度</span>
-                                  <span>{Math.round(stats.progress)}%</span>
+                                  <span className="ml-auto">{Math.round(stats.progress)}%</span>
                                 </div>
-                                <Progress value={stats.progress} className="h-1" />
+                                <Progress value={stats.progress} className="h-1.5 bg-gray-800" />
                               </div>
                             )}
                           </div>
                         </div>
                       </div>
 
-                      {/* 操作按钮组 */}
-                      <div className="flex gap-2 flex-wrap">
-                        {/* 智能推荐的主要操作 */}
-                        {recommendedAction && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={recommendedAction.onClick}
-                            className={recommendedAction.color}
-                          >
-                            <recommendedAction.icon className="w-4 h-4 mr-1" />
-                            {recommendedAction.label}
-                          </Button>
-                        )}
+                      {/* 展开的分镜内容 */}
+                      {isExpanded && (
+                        <div className="border-t border-gray-800/50 bg-[#16161a]/80">
+                          <div className="p-4">
+                            {/* 操作按钮组 */}
+                            <div className="flex gap-2 mb-4 flex-wrap">
+                              {/* 生成分镜按钮 */}
+                              {stats.panelCount === 0 ? (
+                                <Button
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onGeneratePanels(chapter.id);
+                                  }}
+                                  className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
+                                >
+                                  <Layers className="w-4 h-4 mr-1" />
+                                  生成分镜
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onGeneratePanels(chapter.id);
+                                  }}
+                                  className="border-gray-700 hover:bg-gray-800"
+                                >
+                                  <Layers className="w-4 h-4 mr-1" />
+                                  收起分镜
+                                </Button>
+                              )}
 
-                        {/* 查看分镜 */}
-                        {stats.panelCount > 0 && !recommendedAction && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => onViewPanels(chapter.id)}
-                            className="border-gray-700 text-gray-300 hover:bg-gray-700"
-                          >
-                            <Film className="w-4 h-4 mr-1" />
-                            查看分镜 ({stats.panelCount})
-                          </Button>
-                        )}
+                              {/* 展开分镜 */}
+                              {stats.panelCount > 0 && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onViewPanels(chapter.id);
+                                  }}
+                                  className="border-gray-700 hover:bg-gray-800"
+                                >
+                                  <Film className="w-4 h-4 mr-1" />
+                                  展开分镜
+                                </Button>
+                              )}
 
-                        {/* 编辑按钮 */}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setEditingChapter(chapter)}
-                          className="border-gray-700 text-gray-400 hover:bg-gray-800"
-                        >
-                          <Edit2 className="w-4 h-4 mr-1" />
-                          编辑
-                        </Button>
+                              {/* 编辑按钮 */}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingChapter(chapter);
+                                }}
+                                className="border-gray-700 text-gray-400 hover:bg-gray-800"
+                              >
+                                <Edit2 className="w-4 h-4 mr-1" />
+                                编辑
+                              </Button>
+                            </div>
 
-                        {/* 取消发布 */}
-                        {chapter.publish_status === "published" && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handlePublish(chapter.id, chapter.publish_status || "draft")}
-                            disabled={publishingId === chapter.id}
-                            className="border-gray-700 text-gray-400 hover:bg-gray-800"
-                          >
-                            {publishingId === chapter.id ? (
-                              "处理中..."
+                            {/* 分镜列表 */}
+                            {chapterPanels.length > 0 ? (
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h5 className="text-sm font-medium text-gray-300">分镜列表</h5>
+                                </div>
+                                <div className="grid grid-cols-7 gap-2">
+                                  {chapterPanels.map((panel, idx) => {
+                                    const hasImage = !!(panel.generated_image || panel.image_url);
+                                    return (
+                                      <div
+                                        key={panel.id}
+                                        className="group relative bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50 hover:border-gray-600 transition-colors"
+                                      >
+                                        <div className="aspect-square flex items-center justify-center bg-gray-900/50">
+                                          {hasImage ? (
+                                            <img
+                                              src={panel.generated_image || panel.image_url}
+                                              alt={`分镜 ${idx + 1}`}
+                                              className="w-full h-full object-cover"
+                                            />
+                                          ) : (
+                                            <div className="text-center p-2">
+                                              <ImageIcon className="w-6 h-6 text-gray-600 mx-auto mb-1" />
+                                              <span className="text-xs text-gray-500">#{idx + 1}</span>
+                                            </div>
+                                          )}
+                                        </div>
+                                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-1">
+                                          <span className="text-xs text-white font-medium">#{idx + 1}</span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
                             ) : (
-                              <>
-                                <EyeOff className="w-4 h-4 mr-1" />
-                                取消发布
-                              </>
+                              <div className="text-center py-8 text-gray-500">
+                                <Film className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                <p className="text-sm">暂无分镜内容</p>
+                                <p className="text-xs mt-1">点击上方"生成分镜"按钮开始创作</p>
+                              </div>
                             )}
-                          </Button>
-                        )}
-                      </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
               </div>
             </>
           )}
-        </CardContent>
-      </Card>
+      </div>
 
       {/* 编辑章节对话框 */}
       <EditChapterDialog

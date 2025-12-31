@@ -19,9 +19,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -31,8 +37,12 @@ import {
   XCircle,
   AlertTriangle,
   ImageIcon,
+  Palette,
+  X,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useComicStyles } from "@/app/scripts/[id]/hooks/useComicStyles";
+import { ReferenceImageSelector } from "@/app/scripts/[id]/components/ReferenceImageSelector";
 
 interface GenerateResult {
   panel_id: string;
@@ -52,11 +62,20 @@ interface BatchGenerateResponse {
   error?: string;
 }
 
+interface ReferenceImage {
+  id: string;
+  url: string;
+  label: string;
+  source: string;
+}
+
 interface BatchGenerateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedPanelIds: string[];
   onComplete: () => void;
+  storyId?: string; // 新增:用于参考图选择
+  panels?: Array<{ id: string; generated_image?: string; panel_order?: number; [key: string]: unknown }>; // 新增:用于参考图选择
 }
 
 type GenerateStatus = "idle" | "generating" | "completed" | "error";
@@ -66,9 +85,16 @@ export default function BatchGenerateDialog({
   onOpenChange,
   selectedPanelIds,
   onComplete,
+  storyId,
+  panels = [],
 }: BatchGenerateDialogProps) {
   const { toast } = useToast();
-  const [styleOverride, setStyleOverride] = useState("");
+  const { data: comicStyles = [], isLoading: stylesLoading } = useComicStyles();
+
+  const [selectedStyleId, setSelectedStyleId] = useState<string | null>(null);
+  const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
+  const [referenceSelectorOpen, setReferenceSelectorOpen] = useState(false);
+
   const [status, setStatus] = useState<GenerateStatus>("idle");
   const [results, setResults] = useState<GenerateResult[]>([]);
   const [summary, setSummary] = useState<{
@@ -80,7 +106,8 @@ export default function BatchGenerateDialog({
 
   // 重置状态
   const resetState = useCallback(() => {
-    setStyleOverride("");
+    setSelectedStyleId(null);
+    setReferenceImages([]);
     setStatus("idle");
     setResults([]);
     setSummary(null);
@@ -108,7 +135,8 @@ export default function BatchGenerateDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           panel_ids: selectedPanelIds,
-          style: styleOverride || undefined,
+          style_key: selectedStyleId,
+          reference_image_urls: referenceImages.map(img => img.url),
         }),
       });
 
@@ -168,22 +196,98 @@ export default function BatchGenerateDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* 风格覆盖输入 */}
+          {/* 风格选择和参考图选择 */}
           {status === "idle" && (
-            <div className="space-y-2">
-              <Label htmlFor="style" className="text-sm font-medium">
-                风格覆盖 (可选)
-              </Label>
-              <Input
-                id="style"
-                placeholder="例如: manga style, watercolor, cyberpunk"
-                value={styleOverride}
-                onChange={(e) => setStyleOverride(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                留空则使用项目默认风格
-              </p>
-            </div>
+            <>
+              {/* 风格选择器 */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <Palette className="w-4 h-4" />
+                  漫画风格 (必选)
+                </Label>
+                <Select
+                  value={selectedStyleId || undefined}
+                  onValueChange={(value) => setSelectedStyleId(value)}
+                  disabled={stylesLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择漫画风格" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {stylesLoading ? (
+                      <SelectItem value="loading" disabled>
+                        加载中...
+                      </SelectItem>
+                    ) : comicStyles.length === 0 ? (
+                      <SelectItem value="empty" disabled>
+                        暂无可用风格
+                      </SelectItem>
+                    ) : (
+                      comicStyles.map((style) => (
+                        <SelectItem key={style.id} value={style.id}>
+                          {style.name_zh}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  选择用于生成图片的漫画风格
+                </p>
+              </div>
+
+              {/* 参考图选择器 */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4" />
+                  参考图片 {storyId && "(必选)"}
+                </Label>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => setReferenceSelectorOpen(true)}
+                  disabled={!storyId || !panels}
+                >
+                  <ImageIcon className="w-4 h-4 mr-2" />
+                  {referenceImages.length > 0
+                    ? `已选择 ${referenceImages.length} 张参考图`
+                    : !storyId
+                      ? "参考图功能不可用"
+                      : "选择参考图片"}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  {storyId
+                    ? "选择角色、场景等参考图片用于生成"
+                    : "此功能仅在脚本编辑器中可用"}
+                </p>
+
+                {/* 已选参考图预览 */}
+                {referenceImages.length > 0 && (
+                  <div className="grid grid-cols-4 gap-2 p-2 border rounded-md">
+                    {referenceImages.map((img) => (
+                      <div key={img.id} className="relative group">
+                        <img
+                          src={img.url}
+                          alt={img.label}
+                          className="w-full h-16 object-cover rounded"
+                        />
+                        <button
+                          onClick={() =>
+                            setReferenceImages((prev) =>
+                              prev.filter((i) => i.id !== img.id)
+                            )
+                          }
+                          className="absolute top-0 right-0 p-1 bg-destructive text-destructive-foreground rounded-bl opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                        <p className="text-xs truncate mt-1">{img.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
           )}
 
           {/* 生成进度 */}
@@ -316,6 +420,20 @@ export default function BatchGenerateDialog({
           )}
         </DialogFooter>
       </DialogContent>
+
+      {/* 参考图选择器对话框 */}
+      {storyId && panels && (
+        <ReferenceImageSelector
+          open={referenceSelectorOpen}
+          onOpenChange={setReferenceSelectorOpen}
+          storyId={storyId}
+          panels={panels as unknown as import("@/app/scripts/[id]/types/script-editor.types").Panel[]}
+          onConfirm={(images) => {
+            setReferenceImages(images);
+            setReferenceSelectorOpen(false);
+          }}
+        />
+      )}
     </Dialog>
   );
 }
