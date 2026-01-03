@@ -1,0 +1,10 @@
+import { ReactNode } from "react";
+
+export interface EmptyStateProps {
+  icon: ReactNode;
+  title: string;
+  description?: string;
+  action?: ReactNode;
+  variant?: "default" | "compact";
+  className?: string;
+}
