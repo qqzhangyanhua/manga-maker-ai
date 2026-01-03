@@ -5,11 +5,14 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
+import { BubbleEditor, BubbleCanvas } from "./BubbleEditor";
+import type { SpeechBubble, BubbleType, AlignmentGuide } from "./BubbleEditor";
+import { generateBubbleId, BUBBLE_PRESETS, DEFAULT_BUBBLE_SIZE } from "./BubbleEditor";
 import {
   Select,
   SelectContent,
@@ -22,7 +25,6 @@ import {
   FileText,
   Download,
   Maximize2,
-  MessageSquare,
   Grid3X3,
   Eye,
   Settings2,
@@ -93,6 +95,13 @@ export function LayoutExportTab({
   const [isExporting, setIsExporting] = useState(false);
   const [exportFormat, setExportFormat] = useState<"pdf" | "png" | "zip">("pdf");
 
+  // 气泡编辑状态
+  const [bubbles, setBubbles] = useState<SpeechBubble[]>([]);
+  const [selectedBubbleId, setSelectedBubbleId] = useState<string | null>(null);
+  const [editingPanelId, setEditingPanelId] = useState<string | null>(null);
+  const [doubleClickedBubbleId, setDoubleClickedBubbleId] = useState<string | null>(null);
+  const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuide[]>([]);
+
   // 获取当前页面尺寸
   const pageSize = useMemo(() => {
     if (pagePreset === "CUSTOM") {
@@ -118,6 +127,155 @@ export function LayoutExportTab({
     const start = currentPage * panelsPerPage;
     return panelsWithImages.slice(start, start + panelsPerPage);
   }, [panelsWithImages, currentPage, panelsPerPage]);
+
+  // 气泡操作方法
+  const handleAddBubble = useCallback(
+    (panelId: string, type: BubbleType) => {
+      const newBubble: SpeechBubble = {
+        id: generateBubbleId(),
+        panelId,
+        type,
+        text: "",
+        position: { x: 50, y: 30 }, // 默认位置（中心偏上）
+        size: DEFAULT_BUBBLE_SIZE,
+        style: {
+          ...BUBBLE_PRESETS[type].style,
+          fontFamily: BUBBLE_PRESETS[type].style.fontFamily || "Microsoft YaHei",
+          fontSize: BUBBLE_PRESETS[type].style.fontSize || 14,
+          fontWeight: BUBBLE_PRESETS[type].style.fontWeight || "normal",
+          color: BUBBLE_PRESETS[type].style.color || "#000000",
+        },
+      };
+      setBubbles((prev) => [...prev, newBubble]);
+      setSelectedBubbleId(newBubble.id);
+    },
+    []
+  );
+
+  const handleUpdateBubble = useCallback(
+    (id: string, updates: Partial<SpeechBubble>) => {
+      setBubbles((prev) =>
+        prev.map((b) => (b.id === id ? { ...b, ...updates } : b))
+      );
+    },
+    []
+  );
+
+  const handleDeleteBubble = useCallback((id: string) => {
+    setBubbles((prev) => prev.filter((b) => b.id !== id));
+    setSelectedBubbleId(null);
+  }, []);
+
+  const handleBubbleDoubleClick = useCallback((id: string) => {
+    setSelectedBubbleId(id);
+    setDoubleClickedBubbleId(id);
+    // 重置双击状态（给足够时间让 autoFocus 生效）
+    setTimeout(() => setDoubleClickedBubbleId(null), 100);
+  }, []);
+
+  const handleDuplicateBubble = useCallback(() => {
+    if (!selectedBubbleId) return;
+
+    const selectedBubble = bubbles.find((b) => b.id === selectedBubbleId);
+    if (!selectedBubble) return;
+
+    const newBubble: SpeechBubble = {
+      ...selectedBubble,
+      id: generateBubbleId(),
+      position: {
+        x: selectedBubble.position.x + 5, // 稍微偏移避免重叠
+        y: selectedBubble.position.y + 5,
+      },
+    };
+
+    setBubbles((prev) => [...prev, newBubble]);
+    setSelectedBubbleId(newBubble.id);
+
+    toast({
+      title: "气泡已复制",
+      description: "已创建选中气泡的副本",
+    });
+  }, [selectedBubbleId, bubbles, toast]);
+
+  const handleMoveLayer = useCallback(
+    (id: string, direction: "up" | "down" | "top" | "bottom") => {
+      setBubbles((prev) => {
+        const bubble = prev.find((b) => b.id === id);
+        if (!bubble) return prev;
+
+        // 获取当前分镜的所有气泡并按 zIndex 排序
+        const panelBubbles = prev.filter((b) => b.panelId === bubble.panelId);
+        const currentZIndex = bubble.zIndex || 0;
+
+        let newZIndex = currentZIndex;
+
+        switch (direction) {
+          case "top":
+            // 找到最大 zIndex 并加 1
+            const maxZ = Math.max(...panelBubbles.map((b) => b.zIndex || 0));
+            newZIndex = maxZ + 1;
+            break;
+
+          case "bottom":
+            // 找到最小 zIndex 并减 1
+            const minZ = Math.min(...panelBubbles.map((b) => b.zIndex || 0));
+            newZIndex = minZ - 1;
+            break;
+
+          case "up":
+            newZIndex = currentZIndex + 1;
+            break;
+
+          case "down":
+            newZIndex = currentZIndex - 1;
+            break;
+        }
+
+        return prev.map((b) => (b.id === id ? { ...b, zIndex: newZIndex } : b));
+      });
+    },
+    []
+  );
+
+  // 键盘快捷键
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 忽略在输入框中的按键
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      // Delete - 删除选中气泡
+      if (e.key === "Delete" && selectedBubbleId) {
+        e.preventDefault();
+        handleDeleteBubble(selectedBubbleId);
+        toast({
+          title: "气泡已删除",
+          description: "已删除选中的气泡",
+        });
+      }
+
+      // Esc - 取消选择
+      if (e.key === "Escape" && selectedBubbleId) {
+        e.preventDefault();
+        setSelectedBubbleId(null);
+      }
+
+      // Ctrl+D - 复制气泡
+      if (e.ctrlKey && e.key === "d" && selectedBubbleId) {
+        e.preventDefault();
+        handleDuplicateBubble();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedBubbleId, handleDeleteBubble, handleDuplicateBubble, toast]);
 
   // 导出处理
   const handleExport = async () => {
@@ -300,32 +458,18 @@ export function LayoutExportTab({
           </div>
         </div>
 
-        {/* 对话框设置 */}
-        <div className="bg-[#1a1a1f]/60 backdrop-blur-sm border border-gray-800/50 rounded-xl p-4">
-          <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
-            <MessageSquare className="w-4 h-4" />
-            对话框设置
-          </h3>
-
-          <div className="flex items-center justify-between">
-            <span className="text-gray-400 text-sm">显示对话气泡</span>
-            <button
-              onClick={() => setShowDialogBubbles(!showDialogBubbles)}
-              className={`w-10 h-6 rounded-full transition-colors ${
-                showDialogBubbles ? "bg-orange-500" : "bg-gray-700"
-              }`}
-            >
-              <div
-                className={`w-4 h-4 rounded-full bg-white transition-transform mx-1 ${
-                  showDialogBubbles ? "translate-x-4" : ""
-                }`}
-              />
-            </button>
-          </div>
-          <p className="text-xs text-gray-500 mt-2">
-            对话气泡功能需要先在分镜中添加对话文字
-          </p>
-        </div>
+        {/* 气泡编辑器 - 替换原来的对话框设置 */}
+        <BubbleEditor
+          bubbles={bubbles}
+          selectedBubbleId={selectedBubbleId}
+          editingPanelId={editingPanelId}
+          onAddBubble={handleAddBubble}
+          onUpdateBubble={handleUpdateBubble}
+          onDeleteBubble={handleDeleteBubble}
+          onSelectBubble={setSelectedBubbleId}
+          autoFocusTextarea={doubleClickedBubbleId === selectedBubbleId}
+          onMoveLayer={handleMoveLayer}
+        />
 
         {/* 导出 */}
         <div className="bg-[#1a1a1f]/60 backdrop-blur-sm border border-gray-800/50 rounded-xl p-4">
@@ -435,13 +579,65 @@ export function LayoutExportTab({
                 {currentPagePanels.map((panel) => (
                   <div
                     key={panel.id}
-                    className="bg-gray-100 rounded overflow-hidden"
+                    className="bg-gray-100 rounded overflow-hidden relative group cursor-pointer"
+                    onClick={() => setEditingPanelId(panel.id)}
                   >
                     <img
                       src={panel.generated_image || panel.image_url}
                       alt={panel.description || `分镜 ${panel.panel_order}`}
                       className="w-full h-full object-cover"
                     />
+
+                    {/* 气泡层（覆盖在图片上） */}
+                    <div className="absolute inset-0">
+                      {bubbles
+                        .filter((b) => b.panelId === panel.id)
+                        .map((bubble) => (
+                          <BubbleCanvas
+                            key={bubble.id}
+                            bubble={bubble}
+                            isSelected={selectedBubbleId === bubble.id}
+                            onSelect={() => setSelectedBubbleId(bubble.id)}
+                            onUpdate={(updates) =>
+                              handleUpdateBubble(bubble.id, updates)
+                            }
+                            onDelete={() => handleDeleteBubble(bubble.id)}
+                            onDoubleClick={() => handleBubbleDoubleClick(bubble.id)}
+                            allBubbles={bubbles}
+                            onShowGuides={setAlignmentGuides}
+                          />
+                        ))}
+
+                      {/* 对齐参考线 */}
+                      {editingPanelId === panel.id && alignmentGuides.map((guide, idx) => (
+                        <div
+                          key={idx}
+                          className="absolute pointer-events-none"
+                          style={{
+                            ...(guide.type === "vertical"
+                              ? {
+                                  left: `${guide.position}%`,
+                                  top: 0,
+                                  bottom: 0,
+                                  width: "1px",
+                                  backgroundColor: "#f97316", // orange-500
+                                }
+                              : {
+                                  top: `${guide.position}%`,
+                                  left: 0,
+                                  right: 0,
+                                  height: "1px",
+                                  backgroundColor: "#f97316", // orange-500
+                                }),
+                          }}
+                        />
+                      ))}
+                    </div>
+
+                    {/* 选中指示器 */}
+                    {editingPanelId === panel.id && (
+                      <div className="absolute inset-0 border-2 border-orange-500 rounded pointer-events-none" />
+                    )}
                   </div>
                 ))}
               </div>
