@@ -6,7 +6,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { BookOpen, TrendingUp } from "lucide-react";
+import { BookOpen, TrendingUp, FileText } from "lucide-react";
 import { useMemo } from "react";
 
 interface Chapter {
@@ -26,6 +26,7 @@ interface ScriptPageHeaderProps {
   chapters: Chapter[];
   panels: Panel[];
   onCreateChapter: () => void;
+  onImportText: () => void;
 }
 
 export function ScriptPageHeader({
@@ -33,6 +34,7 @@ export function ScriptPageHeader({
   chapters,
   panels,
   onCreateChapter,
+  onImportText,
 }: ScriptPageHeaderProps) {
   const stats = useMemo(() => {
     const publishedCount = chapters.filter((ch) => ch.published_at).length;
@@ -65,6 +67,15 @@ export function ScriptPageHeader({
           <h1 className="text-2xl font-bold text-white">{title}</h1>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onImportText}
+            className="border-gray-700 hover:border-gray-600 text-gray-300 hover:text-white"
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            导入文本
+          </Button>
           <Button
             variant="outline"
             size="sm"

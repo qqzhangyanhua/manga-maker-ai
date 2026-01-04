@@ -27,6 +27,7 @@ import { GenerationProgress } from "./components/GenerationProgress";
 import { GeneratePanelsDialog } from "./components/GeneratePanelsDialog";
 import { SerialChapterList } from "@/components/SerialChapterList";
 import { CreateChapterDialog } from "@/components/CreateChapterDialog";
+import { ImportTextDialog } from "@/components/StoryScript/ImportTextDialog";
 import { ScriptEditorProvider } from "./contexts/ScriptEditorContext";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ActionPrompt } from "@/components/common/ActionPrompt";
@@ -88,6 +89,9 @@ export default function ScriptDetailsPage() {
 
   // Sidebar state (for new layout)
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Import text dialog state
+  const [importTextDialogOpen, setImportTextDialogOpen] = useState(false);
 
   // Computed: 下一个章节序号
   const nextChapterOrder = useMemo(() => {
@@ -226,6 +230,18 @@ export default function ScriptDetailsPage() {
     setSidebarOpen(false);
   }, [toast]);
 
+  // Import text success handler
+  const handleImportTextSuccess = useCallback((chapterId: string) => {
+    setImportTextDialogOpen(false);
+    // 刷新数据
+    void refreshStoryData();
+    // 可选：跳转到新生成的章节
+    toast({
+      title: "导入成功",
+      description: "已成功生成分镜，刷新页面查看",
+    });
+  }, [refreshStoryData, toast]);
+
   // Sync form with fetched data
   useEffect(() => {
     if (!data?.story || uiState.editMode) return;
@@ -345,6 +361,9 @@ export default function ScriptDetailsPage() {
                       panels={(data.panels || []) as any}
                       onCreateChapter={() => {
                         uiActions.openChapterDialog("create", nextChapterOrder);
+                      }}
+                      onImportText={() => {
+                        setImportTextDialogOpen(true);
                       }}
                     />
                   </div>
@@ -544,6 +563,15 @@ export default function ScriptDetailsPage() {
                   onSuccess={() => {
                     void refreshStoryData();
                   }}
+                />
+
+                {/* 导入文本对话框 */}
+                <ImportTextDialog
+                  open={importTextDialogOpen}
+                  onOpenChange={setImportTextDialogOpen}
+                  storyId={storyId}
+                  projectId={data?.projectId || ""}
+                  onSuccess={handleImportTextSuccess}
                 />
 
                 {/* 资源库侧边栏 (新布局) */}
