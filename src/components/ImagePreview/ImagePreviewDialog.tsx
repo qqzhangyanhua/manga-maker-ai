@@ -1,6 +1,7 @@
 "use client";
 
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { VisuallyHidden } from "@/components/ui/visually-hidden";
 import Image from "next/image";
 
 interface ImagePreviewDialogProps {
@@ -19,6 +20,9 @@ export function ImagePreviewDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[90vw] max-h-[90vh] p-0 overflow-hidden">
+        <VisuallyHidden>
+          <DialogTitle>图片预览</DialogTitle>
+        </VisuallyHidden>
         <div className="relative w-full h-full flex items-center justify-center bg-black/90">
           <div className="relative w-full h-[80vh]">
             <Image

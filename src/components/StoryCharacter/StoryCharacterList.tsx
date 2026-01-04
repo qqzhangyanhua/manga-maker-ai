@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Users, Plus, Loader2, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { VisuallyHidden } from "@/components/ui/visually-hidden";
 import { StoryCharacterCard } from "./StoryCharacterCard";
 import { CharacterSelector } from "./CharacterSelector";
 import { AICharacterGeneratorDialog } from "@/components/AICharacterGenerator";
@@ -142,6 +143,9 @@ export function StoryCharacterList({
       {/* Image preview dialog */}
       <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
         <DialogContent className="max-w-3xl">
+          <VisuallyHidden>
+            <DialogTitle>角色图片预览</DialogTitle>
+          </VisuallyHidden>
           <div className="relative w-full aspect-square">
             {previewImage && (
               <Image
