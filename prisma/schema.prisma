@@ -877,4 +877,157 @@ model ExportHistory {
   @@map("export_history")
 }
 
+// ============================================================
+// Novel Writing Module - AI 小说创作模块
+// ============================================================
+
+// 小说项目
+model NovelProject {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String   @db.Uuid
+  title           String   @db.VarChar(200)
+  description     String?  @db.Text
+  genre           String?  @db.VarChar(50) // suspense, romance, adventure, scifi, fantasy, other
+  
+  // 世界观设定（JSON 结构化存储）
+  world_setting   Json?    // { locations: [], factions: [], rules: [], timeline: [] }
+
+  // 角色设定（JSON 结构化存储）
+  characters      Json?    // [{ name, role, description, traits, relationships }]
+
+  // 章节大纲（JSON 结构化存储）
+  outlines        Json?    // [{ chapterNumber, title, outline, keyEvents, characters, plotLines, isKeyChapter }]
+
+  // 项目配置
+  target_words    Int?     // 目标字数
+  status          String   @default("draft") // draft, writing, completed, archived
+  
+  // 统计信息
+  total_words     Int      @default(0)
+  chapter_count   Int      @default(0)
+  
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @default(now()) @db.Timestamptz(6)
+  
+  // Relations
+  chapters        NovelChapter[]
+  prompts         NovelPromptTemplate[]
+  
+  @@index([user_id, status], map: "idx_novel_projects_user_status")
+  @@index([user_id, updated_at], map: "idx_novel_projects_user_time")
+  @@map("novel_projects")
+}
+
+// 小说章节
+model NovelChapter {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id      String   @db.Uuid
+  chapter_number  Int      // 章节序号
+  title           String   @db.VarChar(200)
+  
+  // 章节大纲
+  outline         String?  @db.Text // 章节大纲摘要（用于 RAG 检索）
+  
+  // 章节内容
+  content         String?  @db.Text // 完整章节内容（2000-5000字）
+  word_count      Int      @default(0)
+  
+  // AI 生成相关
+  prompt_used     String?  @db.Text // 使用的 Prompt
+  model_used      String?  @db.VarChar(100) // 使用的模型
+  
+  // 状态
+  status          String   @default("draft") // draft, writing, completed
+  is_key_chapter  Boolean  @default(false) // 是否为关键章节（用于 RAG 优先检索）
+  
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @default(now()) @db.Timestamptz(6)
+  
+  // Relations
+  project         NovelProject      @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  versions        NovelChapterVersion[]
+  
+  @@unique([project_id, chapter_number], map: "unique_novel_chapter_number")
+  @@index([project_id, chapter_number], map: "idx_novel_chapters_project_order")
+  @@index([project_id, is_key_chapter], map: "idx_novel_chapters_key")
+  @@map("novel_chapters")
+}
+
+// 章节版本（多版本对比）
+model NovelChapterVersion {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chapter_id      String   @db.Uuid
+  version_number  Int      // 版本号（自增）
+  content         String   @db.Text
+  word_count      Int      @default(0)
+  
+  // 生成参数
+  prompt_used     String?  @db.Text
+  model_used      String?  @db.VarChar(100)
+  temperature     Float?   @default(0.7)
+  
+  // 版本状态
+  is_selected     Boolean  @default(false) // 是否为当前选中版本
+  user_rating     Int?     // 用户评分 1-5
+  notes           String?  @db.Text // 版本备注
+  
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  
+  // Relations
+  chapter         NovelChapter @relation(fields: [chapter_id], references: [id], onDelete: Cascade)
+  
+  @@unique([chapter_id, version_number], map: "unique_chapter_version")
+  @@index([chapter_id, is_selected], map: "idx_chapter_versions_selected")
+  @@map("novel_chapter_versions")
+}
+
+// Prompt 模板库
+model NovelPromptTemplate {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id      String?  @db.Uuid // null = 全局模板
+  user_id         String?  @db.Uuid // null = 系统模板
+  
+  name            String   @db.VarChar(100)
+  category        String   @db.VarChar(50) // outline, dialogue, description, continuation, revision
+  
+  // 模板内容
+  template        String   @db.Text // 支持 {{variable}} 变量语法
+  
+  // 变量定义
+  variables       Json     // [{ name: "character_name", type: "string", required: true }]
+  
+  // 模板配置
+  is_public       Boolean  @default(false)
+  is_system       Boolean  @default(false)
+  
+  // 统计
+  usage_count     Int      @default(0)
+  
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @default(now()) @db.Timestamptz(6)
+  
+  // Relations
+  project         NovelProject? @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  
+  @@index([category, is_public], map: "idx_novel_prompts_category")
+  @@index([user_id], map: "idx_novel_prompts_user")
+  @@index([project_id], map: "idx_novel_prompts_project")
+  @@map("novel_prompt_templates")
+}
+
+// 用户小说配额（成本控制）
+model NovelQuota {
+  user_id           String   @id @db.Uuid
+  daily_limit       Int      @default(50)     // 每日生成次数限制
+  used_today        Int      @default(0)
+  tokens_used_total Int      @default(0)
+  reset_at          DateTime
+  custom_api_key    String?  @db.Text         // 用户自定义 API Key（加密存储）
+  
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime @default(now()) @db.Timestamptz(6)
+  
+  @@map("novel_quotas")
+}
+
 

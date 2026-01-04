@@ -1,4 +1,7 @@
 # Manga Maker AI
+cd /Users/zhangyanhua/AI/manga-maker-ai/services/novel-backend
+source .venv/bin/activate
+uvicorn app.main:app --reload --port 8000
 
 一个端到端的 AI 漫画创作平台，覆盖“故事 → 剧本 → 分镜 → 图片 → 画面排版”全流程，内置数字演员管理、风格库、工作流调度与画面精炼工具。
 

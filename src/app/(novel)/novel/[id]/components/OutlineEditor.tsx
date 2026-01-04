@@ -1,0 +1,362 @@
+"use client";
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Plus,
+  Trash2,
+  Save,
+  ChevronUp,
+  ChevronDown,
+  Sparkles,
+  BookOpen,
+} from "lucide-react";
+import { toast } from "sonner";
+
+interface ChapterOutline {
+  chapterNumber: number;
+  title: string;
+  outline: string;
+  keyEvents: string[];
+  characters: string[];
+  plotLines: string[]; // 情节线索
+  isKeyChapter: boolean;
+}
+
+interface OutlineEditorProps {
+  projectId: string;
+  initialOutlines: ChapterOutline[];
+  onSave: (outlines: ChapterOutline[]) => Promise<void>;
+  onGenerateOutline?: () => Promise<void>;
+}
+
+export function OutlineEditor({
+  projectId,
+  initialOutlines,
+  onSave,
+  onGenerateOutline,
+}: OutlineEditorProps) {
+  const [outlines, setOutlines] = useState<ChapterOutline[]>(initialOutlines);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await onSave(outlines);
+      toast.success("大纲已保存");
+    } catch (error) {
+      toast.error("保存失败");
+      console.error(error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleGenerateOutline = async () => {
+    if (!onGenerateOutline) return;
+    setIsGenerating(true);
+    try {
+      await onGenerateOutline();
+      toast.success("大纲生成成功");
+    } catch (error) {
+      toast.error("生成失败");
+      console.error(error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const addChapter = () => {
+    const newChapterNumber = outlines.length + 1;
+    setOutlines([
+      ...outlines,
+      {
+        chapterNumber: newChapterNumber,
+        title: `第${newChapterNumber}章`,
+        outline: "",
+        keyEvents: [],
+        characters: [],
+        plotLines: [],
+        isKeyChapter: false,
+      },
+    ]);
+  };
+
+  const updateChapter = (
+    index: number,
+    field: keyof ChapterOutline,
+    value: string | string[] | boolean | number
+  ) => {
+    const newOutlines = [...outlines];
+    newOutlines[index] = { ...newOutlines[index], [field]: value };
+    setOutlines(newOutlines);
+  };
+
+  const removeChapter = (index: number) => {
+    if (confirm("确定要删除这一章吗？")) {
+      const newOutlines = outlines.filter((_, i) => i !== index);
+      // 重新编号
+      newOutlines.forEach((outline, i) => {
+        outline.chapterNumber = i + 1;
+      });
+      setOutlines(newOutlines);
+    }
+  };
+
+  const moveChapter = (index: number, direction: "up" | "down") => {
+    const newOutlines = [...outlines];
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+
+    if (targetIndex < 0 || targetIndex >= newOutlines.length) return;
+
+    // 交换位置
+    [newOutlines[index], newOutlines[targetIndex]] = [
+      newOutlines[targetIndex],
+      newOutlines[index],
+    ];
+
+    // 重新编号
+    newOutlines.forEach((outline, i) => {
+      outline.chapterNumber = i + 1;
+    });
+
+    setOutlines(newOutlines);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <BookOpen className="h-6 w-6" />
+          <h2 className="text-2xl font-bold">故事大纲</h2>
+          <Badge variant="secondary">{outlines.length} 章</Badge>
+        </div>
+        <div className="flex gap-2">
+          {onGenerateOutline && (
+            <Button
+              onClick={handleGenerateOutline}
+              disabled={isGenerating}
+              variant="outline"
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              {isGenerating ? "AI 生成中..." : "AI 生成大纲"}
+            </Button>
+          )}
+          <Button onClick={addChapter} variant="outline">
+            <Plus className="mr-2 h-4 w-4" />
+            添加章节
+          </Button>
+          <Button onClick={handleSave} disabled={isSaving}>
+            <Save className="mr-2 h-4 w-4" />
+            {isSaving ? "保存中..." : "保存"}
+          </Button>
+        </div>
+      </div>
+
+      {/* 大纲列表 */}
+      <div className="space-y-3">
+        {outlines.map((outline, index) => (
+          <Card
+            key={index}
+            className={outline.isKeyChapter ? "border-yellow-500 border-2" : ""}
+          >
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => moveChapter(index, "up")}
+                      disabled={index === 0}
+                      className="h-6 w-6 p-0"
+                    >
+                      <ChevronUp className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => moveChapter(index, "down")}
+                      disabled={index === outlines.length - 1}
+                      className="h-6 w-6 p-0"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge>{outline.chapterNumber}</Badge>
+                    <Input
+                      value={outline.title}
+                      onChange={(e) =>
+                        updateChapter(index, "title", e.target.value)
+                      }
+                      className="font-semibold"
+                      placeholder="章节标题"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-1 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={outline.isKeyChapter}
+                      onChange={(e) =>
+                        updateChapter(index, "isKeyChapter", e.target.checked)
+                      }
+                      className="rounded"
+                    />
+                    <span className="text-yellow-600">关键章节</span>
+                  </label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeChapter(index)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {/* 章节大纲 */}
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">
+                  章节大纲
+                </label>
+                <Textarea
+                  value={outline.outline}
+                  onChange={(e) =>
+                    updateChapter(index, "outline", e.target.value)
+                  }
+                  placeholder="描述本章的主要内容、情节发展..."
+                  rows={3}
+                  className="mt-1"
+                />
+              </div>
+
+              {/* 关键事件 */}
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">
+                  关键事件（用逗号分隔）
+                </label>
+                <Input
+                  value={outline.keyEvents.join(", ")}
+                  onChange={(e) =>
+                    updateChapter(
+                      index,
+                      "keyEvents",
+                      e.target.value.split(",").map((e) => e.trim())
+                    )
+                  }
+                  placeholder="例如：主角觉醒, 反派登场, 重要对话"
+                  className="mt-1"
+                />
+              </div>
+
+              {/* 出场角色 */}
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">
+                  出场角色（用逗号分隔）
+                </label>
+                <Input
+                  value={outline.characters.join(", ")}
+                  onChange={(e) =>
+                    updateChapter(
+                      index,
+                      "characters",
+                      e.target.value.split(",").map((c) => c.trim())
+                    )
+                  }
+                  placeholder="例如：李寻欢, 林诗音, 龙啸云"
+                  className="mt-1"
+                />
+              </div>
+
+              {/* 情节线索 */}
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">
+                  情节线索（用逗号分隔）
+                </label>
+                <Input
+                  value={outline.plotLines.join(", ")}
+                  onChange={(e) =>
+                    updateChapter(
+                      index,
+                      "plotLines",
+                      e.target.value.split(",").map((p) => p.trim())
+                    )
+                  }
+                  placeholder="例如：寻找真相, 复仇计划, 感情纠葛"
+                  className="mt-1"
+                />
+              </div>
+
+              {/* 标签展示 */}
+              <div className="flex flex-wrap gap-2">
+                {outline.keyEvents.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {outline.keyEvents.map((event, i) => (
+                      <Badge key={i} variant="destructive" className="text-xs">
+                        {event}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                {outline.characters.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {outline.characters.map((char, i) => (
+                      <Badge key={i} variant="secondary" className="text-xs">
+                        {char}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                {outline.plotLines.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {outline.plotLines.map((plot, i) => (
+                      <Badge key={i} variant="outline" className="text-xs">
+                        {plot}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {outlines.length === 0 && (
+        <Card className="p-12 text-center">
+          <div className="flex flex-col items-center gap-4">
+            <BookOpen className="h-12 w-12 text-muted-foreground" />
+            <div>
+              <h3 className="text-lg font-semibold">还没有大纲</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                点击"添加章节"开始规划你的故事，或使用"AI 生成大纲"让 AI
+                帮你构思
+              </p>
+            </div>
+            <div className="flex gap-2">
+              {onGenerateOutline && (
+                <Button onClick={handleGenerateOutline} disabled={isGenerating}>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  AI 生成大纲
+                </Button>
+              )}
+              <Button onClick={addChapter} variant="outline">
+                <Plus className="mr-2 h-4 w-4" />
+                手动添加章节
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
