@@ -19,13 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sparkles, Loader2, User } from "lucide-react";
 import { toast } from "sonner";
-
-interface ChapterOutline {
-  chapterNumber: number;
-  title: string;
-  outline: string;
-  content?: string;
-}
+import type { Character, ChapterOutline } from "./character";
 
 interface GeneratedCharacter {
   name: string;
@@ -42,7 +36,7 @@ interface GenerateCharactersDialogProps {
   onClose: () => void;
   projectId: string;
   outlines: ChapterOutline[];
-  onGenerated: (characters: any[]) => void;
+  onGenerated: (characters: Character[]) => void;
 }
 
 export function GenerateCharactersDialog({

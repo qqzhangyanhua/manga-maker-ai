@@ -32,21 +32,23 @@ import {
 import { Save, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
-interface ProjectSettingsProps {
-  project: {
-    id: string;
-    title: string;
-    description: string | null;
-    genre: string | null;
-    target_words: number | null;
-    status: string;
-    total_words: number;
-    chapter_count: number;
-  };
-  onUpdate: (project: ProjectSettingsProps["project"]) => void;
+interface NovelProjectBase {
+  id: string;
+  title: string;
+  description: string | null;
+  genre: string | null;
+  target_words: number | null;
+  status: string;
+  total_words: number;
+  chapter_count: number;
 }
 
-export function ProjectSettings({ project, onUpdate }: ProjectSettingsProps) {
+interface ProjectSettingsProps<T extends NovelProjectBase> {
+  project: T;
+  onUpdate: (project: T) => void;
+}
+
+export function ProjectSettings<T extends NovelProjectBase>({ project, onUpdate }: ProjectSettingsProps<T>) {
   const router = useRouter();
   const [title, setTitle] = useState(project.title);
   const [description, setDescription] = useState(project.description || "");

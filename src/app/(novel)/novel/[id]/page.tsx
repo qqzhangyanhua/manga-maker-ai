@@ -76,6 +76,7 @@ interface NovelProject {
   title: string;
   description: string | null;
   genre: string | null;
+  target_words: number | null;
   status: string;
   total_words: number;
   chapter_count: number;
