@@ -8,8 +8,9 @@ export interface Question {
   type: "choice" | "text";
   options?: string[];
   hint: string;
+  suggestions?: string[];
   is_last?: boolean;
-  total_steps?: number;
+  total_steps: number;
 }
 
 export interface StoryDraft {
@@ -50,4 +51,10 @@ export type InspirationFlowState =
       answers: Record<number, string>;
     }
   | { stage: "generating"; sessionId: string }
-  | { stage: "result"; draft: StoryDraft; selectedTitle: string };
+  | {
+      stage: "result";
+      sessionId: string;
+      draft: StoryDraft;
+      selectedTitle: string;
+      answers: Record<number, string>; // 保存用户的所有答案
+    };

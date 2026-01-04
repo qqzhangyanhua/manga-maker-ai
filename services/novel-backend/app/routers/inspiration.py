@@ -3,7 +3,7 @@
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from uuid import UUID
 
@@ -28,6 +28,8 @@ class StartSessionResponse(BaseModel):
     type: str
     options: Optional[list] = None
     hint: str
+    suggestions: Optional[list] = None
+    total_steps: int
 
 
 class SubmitAnswerRequest(BaseModel):
@@ -38,13 +40,17 @@ class SubmitAnswerRequest(BaseModel):
 
 class NextQuestionResponse(BaseModel):
     """下一个问题响应"""
+    model_config = ConfigDict(exclude_none=True)
+
     step: int
     question: Optional[str] = None
     type: Optional[str] = None
     options: Optional[list] = None
     hint: Optional[str] = None
+    suggestions: Optional[list] = None
     is_last: bool
     message: Optional[str] = None
+    total_steps: Optional[int] = None
 
 
 class GenerateRequest(BaseModel):
@@ -54,8 +60,9 @@ class GenerateRequest(BaseModel):
 
 class CreateProjectRequest(BaseModel):
     """创建项目请求"""
-    session_id: str
     selected_title: str
+    draft: dict  # 故事雏形数据
+    genre: str
 
 
 # ============ API Endpoints ============
@@ -158,63 +165,34 @@ async def create_project_from_inspiration(
 ):
     """基于灵感模式结果创建项目"""
     try:
-        service = InspirationService()
-        
-        # 验证会话所有权
-        session = service.get_session(request.session_id)
-        if not session:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="会话不存在或已过期"
-            )
-        
-        if session["user_id"] != user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="无权访问此会话"
-            )
-        
-        # 获取生成的故事雏形
-        draft = session.get("generated_draft")
-        if not draft:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="请先生成故事雏形"
-            )
-        
-        # 提取类型（从第一个问题的答案）
-        genre = session["answers"].get(1, "")
-        
+        # 直接使用前端传递的 draft 数据，不再依赖会话
+        draft = request.draft
+
         # 创建项目
         new_project = NovelProject(
             user_id=user_id,
             title=request.selected_title,
-            description=draft["description"],
-            genre=genre,
-            world_setting=draft["world_setting"],
-            characters=[draft["protagonist"]],
-            outlines=draft["outline"],
+            description=draft.get("description", ""),
+            genre=request.genre,
+            world_setting=draft.get("world_setting", {}),
+            characters=[draft.get("protagonist", {})],
+            outlines=draft.get("outline", []),
             target_words=100000,  # 默认 10 万字
             status="draft"
         )
-        
+
         db.add(new_project)
         await db.commit()
         await db.refresh(new_project)
-        
-        # 清除会话
-        service.clear_session(request.session_id)
-        
+
         logger.info(f"基于灵感模式创建项目成功: {new_project.id}")
-        
+
         return {
             "project_id": str(new_project.id),
             "title": new_project.title,
             "message": "项目创建成功"
         }
-        
-    except HTTPException:
-        raise
+
     except Exception as e:
         logger.error(f"创建项目失败: {str(e)}", exc_info=True)
         raise HTTPException(

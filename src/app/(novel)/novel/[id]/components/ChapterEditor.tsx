@@ -3,7 +3,7 @@
  */
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,19 +12,23 @@ import { Sparkles, Save, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { RevisionDialog } from "./RevisionDialog";
 
-interface Chapter {
-  id: string;
-  chapter_number: number;
+interface ChapterOutline {
+  chapterNumber: number;
   title: string;
-  outline: string | null;
-  content: string | null;
-  word_count: number;
+  outline: string;
+  keyEvents: string[];
+  characters: string[];
+  plotLines: string[];
+  isKeyChapter: boolean;
+  content?: string;
+  wordCount?: number;
+  status?: "draft" | "completed";
 }
 
 interface ChapterEditorProps {
-  chapter: Chapter;
+  chapter: ChapterOutline;
   project: { id: string; title: string };
-  onUpdate: (chapter: Chapter) => void;
+  onUpdate: (chapter: ChapterOutline) => void;
 }
 
 export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps) {
@@ -37,6 +41,14 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
   const [selectedText, setSelectedText] = useState("");
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // 🔧 新增：监听 chapter prop 变化，联动更新表单内容
+  useEffect(() => {
+    console.log(`[ChapterEditor] 切换到章节 ${chapter.chapterNumber}: ${chapter.title}`);
+    setTitle(chapter.title);
+    setOutline(chapter.outline || "");
+    setContent(chapter.content || "");
+  }, [chapter.chapterNumber, chapter.title, chapter.outline, chapter.content]);
+
   async function handleGenerate() {
     if (!outline.trim()) {
       toast.error("请先填写章节大纲");
@@ -47,13 +59,64 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
       setGenerating(true);
       setContent(""); // 清空现有内容
 
+      // 步骤1：创建或查找对应的 chapter 记录（后端需要 chapter_id）
+      let chapterId: string | null = null;
+
+      // 先尝试查找是否已有对应的 chapter
+      const listResponse = await fetch(`/api/novel/chapters/project/${project.id}`);
+      if (listResponse.ok) {
+        const chapters = await listResponse.json();
+        const existingChapter = chapters.find(
+          (ch: { chapter_number: number }) => ch.chapter_number === chapter.chapterNumber
+        );
+        if (existingChapter) {
+          chapterId = existingChapter.id;
+        }
+      }
+
+      // 如果不存在，创建新的 chapter 记录
+      if (!chapterId) {
+        const createResponse = await fetch("/api/novel/chapters", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project_id: project.id,
+            chapter_number: chapter.chapterNumber,
+            title: title,
+            outline: outline,
+          }),
+        });
+
+        if (!createResponse.ok) {
+          throw new Error("创建章节记录失败");
+        }
+
+        const newChapter = await createResponse.json();
+        chapterId = newChapter.id;
+      } else {
+        // 🔧 修复：如果 chapter 已存在，更新其 outline 和 title 确保使用最新值
+        const updateResponse = await fetch(`/api/novel/chapters/${chapterId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: title,
+            outline: outline,
+          }),
+        });
+
+        if (!updateResponse.ok) {
+          console.warn("更新章节大纲失败，将使用旧大纲");
+        }
+      }
+
+      // 步骤2：使用 chapter_id 进行流式生成
       const response = await fetch("/api/novel/chapters/generate/stream", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          chapter_id: chapter.id,
+          chapter_id: chapterId,
           use_rag: true,
           temperature: 0.7,
         }),
@@ -89,7 +152,18 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
         }
       }
 
-      toast.success("生成完成");
+      // 🔧 修复：生成完成后自动保存到 outlines
+      const updatedChapter: ChapterOutline = {
+        ...chapter,
+        title,
+        outline,
+        content: accumulatedContent,
+        wordCount: accumulatedContent.length,
+        status: "completed",
+      };
+
+      onUpdate(updatedChapter);
+      toast.success("生成完成并已保存");
     } catch (error) {
       console.error("生成失败:", error);
       toast.error(error instanceof Error ? error.message : "生成失败");
@@ -132,25 +206,18 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
     try {
       setSaving(true);
 
-      const response = await fetch(`/api/novel/chapters/${chapter.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title,
-          outline,
-          content,
-        }),
-      });
+      // 更新当前章节的数据
+      const updatedChapter: ChapterOutline = {
+        ...chapter,
+        title,
+        outline,
+        content,
+        wordCount: content.length,
+        status: content.trim() ? "completed" : "draft",
+      };
 
-      if (response.ok) {
-        const updated = await response.json();
-        onUpdate(updated);
-        toast.success("保存成功");
-      } else {
-        throw new Error("保存失败");
-      }
+      onUpdate(updatedChapter);
+      toast.success("保存成功");
     } catch (error) {
       console.error("保存失败:", error);
       toast.error("保存失败");
@@ -163,7 +230,7 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>第 {chapter.chapter_number} 章</CardTitle>
+          <CardTitle>第 {chapter.chapterNumber} 章</CardTitle>
           <div className="flex gap-2">
             <Button
               variant="outline"

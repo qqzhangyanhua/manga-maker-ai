@@ -3,11 +3,12 @@
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from typing import List, Optional
 from pydantic import BaseModel, Field
 from uuid import UUID
 from datetime import datetime
+import logging
 
 from ..database import get_db
 from ..models import NovelProject, NovelChapter
@@ -17,6 +18,7 @@ from ..services.generation_service import NovelGenerationService
 from fastapi.responses import Response
 
 router = APIRouter(prefix="/projects", tags=["projects"])
+logger = logging.getLogger(__name__)
 
 
 # ============ Pydantic Models ============
@@ -566,6 +568,64 @@ async def save_project_outlines(
     }
 
 
+@router.post("/{project_id}/analyze-chapters-characters")
+async def analyze_chapters_characters(
+    project_id: UUID,
+    request: dict,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    分析章节内容并提取角色信息
+
+    根据已生成的章节内容，AI 分析并提取出现的角色，
+    自动生成角色的性格、外貌、背景等详细设定
+    """
+    chapters_context = request.get("chapters_context", "")
+
+    if not chapters_context or len(chapters_context.strip()) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="章节内容不能为空"
+        )
+
+    # 验证项目所有权
+    result = await db.execute(
+        select(NovelProject).where(
+            NovelProject.id == project_id,
+            NovelProject.user_id == user_id
+        )
+    )
+    project = result.scalar_one_or_none()
+
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="项目不存在"
+        )
+
+    # 调用生成服务分析角色
+    generation_service = NovelGenerationService()
+
+    try:
+        characters = await generation_service.analyze_chapters_characters(
+            chapters_context=chapters_context,
+            genre=project.genre
+        )
+
+        return {
+            "message": "分析完成",
+            "characters": characters
+        }
+
+    except Exception as e:
+        logger.error(f"分析章节角色失败: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"分析失败: {str(e)}"
+        )
+
+
 @router.post("/{project_id}/generate-outline")
 async def generate_project_outline(
     project_id: UUID,
@@ -576,7 +636,10 @@ async def generate_project_outline(
     """AI 生成项目大纲"""
     chapter_count = request.get("chapter_count", 10)
     style = request.get("style")
-    
+    mode = request.get("mode", "full")  # "full" 或 "continue"
+    existing_outlines = request.get("existing_outlines", [])  # 续写模式的上下文
+    start_chapter = request.get("start_chapter", 1)  # 起始章节号
+
     # 验证项目所有权并获取项目信息
     result = await db.execute(
         select(NovelProject).where(
@@ -585,34 +648,44 @@ async def generate_project_outline(
         )
     )
     project = result.scalar_one_or_none()
-    
+
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="项目不存在"
         )
-    
+
     # 调用生成服务
     generation_service = NovelGenerationService()
-    
+
     try:
         result = await generation_service.generate_outline(
             premise=project.description or project.title,
             characters=project.characters,
             world_setting=project.world_setting,
             chapter_count=chapter_count,
-            style=style or project.genre
+            style=style or project.genre,
+            mode=mode,
+            existing_outlines=existing_outlines,
+            start_chapter=start_chapter
         )
-        
-        # 自动保存生成的大纲
-        project.outlines = result["chapters"]
+
+        # 根据模式保存大纲
+        if mode == "continue":
+            # 续写模式：追加到现有大纲
+            current_outlines = project.outlines or []
+            project.outlines = current_outlines + result["chapters"]
+        else:
+            # 完整生成模式：覆盖现有大纲
+            project.outlines = result["chapters"]
+
         await db.commit()
-        
+
         return {
             "message": "大纲生成成功",
             "chapters": result["chapters"]
         }
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

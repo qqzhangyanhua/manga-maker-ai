@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -42,6 +42,43 @@ interface WorldSetting {
   timeline: TimelineEvent[];
 }
 
+/**
+ * 确保 WorldSetting 所有字段都正确初始化
+ */
+function ensureWorldSettingFields(data: any): WorldSetting {
+  return {
+    locations: Array.isArray(data?.locations)
+      ? data.locations.map((loc: any) => ({
+          name: loc?.name ?? "",
+          description: loc?.description ?? "",
+          type: loc?.type ?? "",
+        }))
+      : [],
+    factions: Array.isArray(data?.factions)
+      ? data.factions.map((faction: any) => ({
+          name: faction?.name ?? "",
+          description: faction?.description ?? "",
+          leader: faction?.leader ?? "",
+          members: Array.isArray(faction?.members) ? faction.members : [],
+        }))
+      : [],
+    rules: Array.isArray(data?.rules)
+      ? data.rules.map((rule: any) => ({
+          title: rule?.title ?? "",
+          description: rule?.description ?? "",
+          category: rule?.category ?? "",
+        }))
+      : [],
+    timeline: Array.isArray(data?.timeline)
+      ? data.timeline.map((event: any) => ({
+          year: event?.year ?? "",
+          event: event?.event ?? "",
+          importance: event?.importance ?? "medium",
+        }))
+      : [],
+  };
+}
+
 interface WorldSettingEditorProps {
   projectId: string;
   initialData: WorldSetting | null;
@@ -54,14 +91,14 @@ export function WorldSettingEditor({
   onSave,
 }: WorldSettingEditorProps) {
   const [worldSetting, setWorldSetting] = useState<WorldSetting>(
-    initialData || {
-      locations: [],
-      factions: [],
-      rules: [],
-      timeline: [],
-    }
+    ensureWorldSettingFields(initialData)
   );
   const [isSaving, setIsSaving] = useState(false);
+
+  // 当 initialData 变化时更新 worldSetting
+  useEffect(() => {
+    setWorldSetting(ensureWorldSettingFields(initialData));
+  }, [initialData]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -322,7 +359,7 @@ export function WorldSettingEditor({
                 <div>
                   <label className="text-sm font-medium">成员（用逗号分隔）</label>
                   <Input
-                    value={faction.members.join(", ")}
+                    value={(faction.members || []).join(", ")}
                     onChange={(e) =>
                       updateFaction(
                         index,

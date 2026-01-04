@@ -92,7 +92,14 @@
       "Bash(echo:*)",
       "Bash(fi)",
       "Skill(ui-ux-pro-max)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(python:*)",
+      "Bash(Get-Process)",
+      "Bash(Where-Object:*)",
+      "Bash(Select-Object:*)",
+      "Bash(Format-Table:*)",
+      "Bash(tasklist)",
+      "Bash(.venv/Scripts/python.exe:*)"
     ],
     "deny": [],
     "ask": []

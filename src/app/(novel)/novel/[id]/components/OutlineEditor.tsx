@@ -1,11 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Plus,
   Trash2,
@@ -14,6 +20,9 @@ import {
   ChevronDown,
   Sparkles,
   BookOpen,
+  ChevronDown as ChevronDownIcon,
+  Wand2,
+  PenLine,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -27,11 +36,28 @@ interface ChapterOutline {
   isKeyChapter: boolean;
 }
 
+/**
+ * 确保 outline 对象所有字段都正确初始化
+ */
+function ensureOutlineFields(outline: any): ChapterOutline {
+  return {
+    chapterNumber: outline.chapterNumber ?? outline.chapter_number ?? 0,
+    title: outline.title ?? "",
+    outline: outline.outline ?? "",
+    keyEvents: Array.isArray(outline.keyEvents) ? outline.keyEvents :
+               Array.isArray(outline.key_events) ? outline.key_events : [],
+    characters: Array.isArray(outline.characters) ? outline.characters : [],
+    plotLines: Array.isArray(outline.plotLines) ? outline.plotLines :
+               Array.isArray(outline.plot_lines) ? outline.plot_lines : [],
+    isKeyChapter: outline.isKeyChapter ?? outline.is_key_chapter ?? false,
+  };
+}
+
 interface OutlineEditorProps {
   projectId: string;
   initialOutlines: ChapterOutline[];
   onSave: (outlines: ChapterOutline[]) => Promise<void>;
-  onGenerateOutline?: () => Promise<void>;
+  onGenerateOutline?: (mode: "full" | "continue") => Promise<void>;
 }
 
 export function OutlineEditor({
@@ -40,9 +66,17 @@ export function OutlineEditor({
   onSave,
   onGenerateOutline,
 }: OutlineEditorProps) {
-  const [outlines, setOutlines] = useState<ChapterOutline[]>(initialOutlines);
+  // 规范化 initialOutlines 确保所有字段都存在
+  const [outlines, setOutlines] = useState<ChapterOutline[]>(
+    initialOutlines.map(ensureOutlineFields)
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // 当 initialOutlines 变化时更新 outlines
+  useEffect(() => {
+    setOutlines(initialOutlines.map(ensureOutlineFields));
+  }, [initialOutlines]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -57,12 +91,19 @@ export function OutlineEditor({
     }
   };
 
-  const handleGenerateOutline = async () => {
+  const handleGenerateOutline = async (mode: "full" | "continue") => {
     if (!onGenerateOutline) return;
+
+    // 续写模式需要至少有一章现有内容
+    if (mode === "continue" && outlines.length === 0) {
+      toast.error("续写模式需要至少有一章现有内容");
+      return;
+    }
+
     setIsGenerating(true);
     try {
-      await onGenerateOutline();
-      toast.success("大纲生成成功");
+      await onGenerateOutline(mode);
+      toast.success(mode === "full" ? "大纲生成成功" : "续写章节生成成功");
     } catch (error) {
       toast.error("生成失败");
       console.error(error);
@@ -138,14 +179,41 @@ export function OutlineEditor({
         </div>
         <div className="flex gap-2">
           {onGenerateOutline && (
-            <Button
-              onClick={handleGenerateOutline}
-              disabled={isGenerating}
-              variant="outline"
-            >
-              <Sparkles className="mr-2 h-4 w-4" />
-              {isGenerating ? "AI 生成中..." : "AI 生成大纲"}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  disabled={isGenerating}
+                  variant="outline"
+                >
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  {isGenerating ? "AI 生成中..." : "AI 生成大纲"}
+                  <ChevronDownIcon className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleGenerateOutline("full")}>
+                  <Wand2 className="mr-2 h-4 w-4" />
+                  <div className="flex flex-col">
+                    <span className="font-medium">完整生成</span>
+                    <span className="text-xs text-muted-foreground">
+                      从头开始生成全新大纲（会覆盖现有内容）
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleGenerateOutline("continue")}
+                  disabled={outlines.length === 0}
+                >
+                  <PenLine className="mr-2 h-4 w-4" />
+                  <div className="flex flex-col">
+                    <span className="font-medium">续写章节</span>
+                    <span className="text-xs text-muted-foreground">
+                      基于现有内容生成后续章节（保持剧情连贯）
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
           <Button onClick={addChapter} variant="outline">
             <Plus className="mr-2 h-4 w-4" />
@@ -245,7 +313,7 @@ export function OutlineEditor({
                   关键事件（用逗号分隔）
                 </label>
                 <Input
-                  value={outline.keyEvents.join(", ")}
+                  value={(outline.keyEvents || []).join(", ")}
                   onChange={(e) =>
                     updateChapter(
                       index,
@@ -264,7 +332,7 @@ export function OutlineEditor({
                   出场角色（用逗号分隔）
                 </label>
                 <Input
-                  value={outline.characters.join(", ")}
+                  value={(outline.characters || []).join(", ")}
                   onChange={(e) =>
                     updateChapter(
                       index,
@@ -283,7 +351,7 @@ export function OutlineEditor({
                   情节线索（用逗号分隔）
                 </label>
                 <Input
-                  value={outline.plotLines.join(", ")}
+                  value={(outline.plotLines || []).join(", ")}
                   onChange={(e) =>
                     updateChapter(
                       index,
@@ -344,7 +412,7 @@ export function OutlineEditor({
             </div>
             <div className="flex gap-2">
               {onGenerateOutline && (
-                <Button onClick={handleGenerateOutline} disabled={isGenerating}>
+                <Button onClick={() => handleGenerateOutline("full")} disabled={isGenerating}>
                   <Sparkles className="mr-2 h-4 w-4" />
                   AI 生成大纲
                 </Button>

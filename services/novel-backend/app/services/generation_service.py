@@ -218,18 +218,24 @@ class NovelGenerationService:
         characters: Optional[list] = None,
         world_setting: Optional[dict] = None,
         chapter_count: int = 10,
-        style: Optional[str] = None
+        style: Optional[str] = None,
+        mode: str = "full",
+        existing_outlines: Optional[list] = None,
+        start_chapter: int = 1
     ) -> dict:
         """
         生成小说大纲
-        
+
         Args:
             premise: 故事前提/描述
             characters: 角色列表
             world_setting: 世界观设定
             chapter_count: 期望章节数
             style: 风格偏好（可选）
-        
+            mode: 生成模式（"full" 完整生成 | "continue" 续写模式）
+            existing_outlines: 现有章节大纲（续写模式使用）
+            start_chapter: 起始章节号（续写模式使用）
+
         Returns:
             {
                 "chapters": [
@@ -246,8 +252,37 @@ class NovelGenerationService:
             }
         """
         try:
-            # 构建系统提示词
-            system_prompt = """你是一位专业的小说策划师，擅长构建完整的故事大纲。
+            # 根据模式构建不同的系统提示词
+            if mode == "continue" and existing_outlines:
+                system_prompt = """你是一位专业的小说策划师，擅长续写和扩展故事大纲。
+
+任务：基于现有章节的剧情发展，生成后续章节的大纲，确保剧情连贯、逻辑合理。
+
+要求：
+1. 仔细分析现有章节的情节走向、角色发展和线索铺垫
+2. 后续章节要自然承接现有内容，保持剧情连贯性
+3. 延续已有的情节线索，推进故事发展
+4. 保持角色性格和行为的一致性
+5. 每章大纲要包含：章节标题、大纲摘要（100-200字）、关键事件、出场角色、涉及的情节线索
+6. 标注关键章节（如转折点、高潮、结局）
+
+输出格式：
+返回 JSON 格式的章节大纲列表，严格按照以下格式：
+{
+  "chapters": [
+    {
+      "chapter_number": 起始章节号,
+      "title": "第N章：标题",
+      "outline": "章节大纲描述...",
+      "key_events": ["事件1", "事件2"],
+      "characters": ["角色A", "角色B"],
+      "plot_lines": ["主线", "支线"],
+      "is_key_chapter": true
+    }
+  ]
+}"""
+            else:
+                system_prompt = """你是一位专业的小说策划师，擅长构建完整的故事大纲。
 
 任务：根据提供的故事前提、角色和世界观，生成详细的章节大纲。
 
@@ -274,16 +309,36 @@ class NovelGenerationService:
     }
   ]
 }"""
-            
+
             if style:
                 system_prompt += f"\n\n风格要求：{style}"
-            
+
             # 构建用户提示词
-            user_prompt = f"""故事前提：
+            if mode == "continue" and existing_outlines:
+                # 续写模式：包含现有章节上下文
+                user_prompt = f"""故事背景：
+{premise}
+
+现有章节（参考上下文）：
+"""
+                for outline in existing_outlines:
+                    ch_num = outline.get("chapter_number", "?")
+                    ch_title = outline.get("title", "未命名")
+                    ch_outline = outline.get("outline", "")
+                    user_prompt += f"\n第 {ch_num} 章《{ch_title}》：\n{ch_outline}\n"
+
+                user_prompt += f"\n\n续写要求：\n"
+                user_prompt += f"- 从第 {start_chapter} 章开始生成\n"
+                user_prompt += f"- 生成 {chapter_count} 个新章节\n"
+                user_prompt += f"- 承接上述章节的剧情，保持连贯性\n"
+                user_prompt += f"- 推进故事发展，不要重复现有内容\n"
+            else:
+                # 完整生成模式
+                user_prompt = f"""故事前提：
 {premise}
 
 期望章节数：{chapter_count}"""
-            
+
             # 添加角色信息
             if characters and len(characters) > 0:
                 user_prompt += "\n\n角色设定：\n"
@@ -293,7 +348,7 @@ class NovelGenerationService:
                         role = char.get("role", "")
                         description = char.get("description", "")
                         user_prompt += f"- {name}（{role}）：{description}\n"
-            
+
             # 添加世界观信息
             if world_setting and isinstance(world_setting, dict):
                 if world_setting.get("locations"):
@@ -301,15 +356,15 @@ class NovelGenerationService:
                     for loc in world_setting["locations"]:
                         if isinstance(loc, dict):
                             user_prompt += f"- {loc.get('name', '')}：{loc.get('description', '')}\n"
-                
+
                 if world_setting.get("rules"):
                     user_prompt += "\n\n世界观-规则：\n"
                     for rule in world_setting["rules"]:
                         if isinstance(rule, dict):
                             user_prompt += f"- {rule.get('name', '')}：{rule.get('description', '')}\n"
-            
+
             user_prompt += "\n\n请生成详细的章节大纲。"
-            
+
             # 调用 OpenAI API
             response = await self.client.chat.completions.create(
                 model=self.model,
@@ -321,29 +376,149 @@ class NovelGenerationService:
                 max_tokens=4000,
                 response_format={"type": "json_object"}  # 强制 JSON 输出
             )
-            
+
             # 解析响应
             import json
             content = response.choices[0].message.content
             result = json.loads(content)
-            
+
             # 验证和规范化数据
             if "chapters" not in result:
                 raise ValueError("AI 返回的数据格式不正确")
-            
-            # 确保每章都有必需的字段
+
+            # 确保每章都有必需的字段，并修正章节号
             for i, chapter in enumerate(result["chapters"]):
-                chapter.setdefault("chapter_number", i + 1)
-                chapter.setdefault("title", f"第{i + 1}章")
+                chapter["chapter_number"] = start_chapter + i  # 使用起始章节号
+                chapter.setdefault("title", f"第{start_chapter + i}章")
                 chapter.setdefault("outline", "")
                 chapter.setdefault("key_events", [])
                 chapter.setdefault("characters", [])
                 chapter.setdefault("plot_lines", [])
                 chapter.setdefault("is_key_chapter", False)
-            
-            logger.info(f"成功生成 {len(result['chapters'])} 章大纲")
+
+            logger.info(f"成功生成 {len(result['chapters'])} 章大纲（模式: {mode}, 起始章节: {start_chapter}）")
             return result
-            
+
         except Exception as e:
             logger.error(f"大纲生成失败: {str(e)}", exc_info=True)
             raise Exception(f"大纲生成失败: {str(e)}")
+
+    async def analyze_chapters_characters(
+        self,
+        chapters_context: str,
+        genre: Optional[str] = None
+    ) -> list:
+        """
+        分析章节内容并提取角色信息
+
+        Args:
+            chapters_context: 章节内容文本
+            genre: 作品类型（可选）
+
+        Returns:
+            [
+                {
+                    "name": "角色名",
+                    "role": "主角/配角/反派",
+                    "description": "角色简介",
+                    "traits": ["性格特征1", "性格特征2"],
+                    "appearance": "外貌描述",
+                    "background": "背景故事"
+                }
+            ]
+        """
+        try:
+            # 构建系统提示词
+            system_prompt = """你是一位专业的小说角色分析师，擅长从章节大纲中提取角色信息。
+
+任务：严格分析提供的章节大纲，只提取大纲中明确出现的角色，不要凭空创造角色。
+
+核心原则：
+1. **只提取大纲中明确提到的角色** - 角色名称必须在大纲中直接出现
+2. **不要创造新角色** - 即使觉得应该有某个角色，如果大纲中没有提到，也不要添加
+3. **不要过度推断** - 只基于大纲中明确的描述来填写角色信息
+4. **如果大纲中某个角色信息不完整** - 相应字段可以留空或使用"暂无描述"
+
+具体要求：
+1. 仔细阅读每一章的大纲，识别所有被明确提到的角色名字
+2. 对于每个角色，只提取大纲中明确描述的信息：
+   - 名称：必须在大纲中明确出现
+   - 角色定位：根据大纲中的描述判断（主角、配角、反派、路人）
+   - 角色简介：概括该角色在大纲中的作用和特点
+   - 性格特征：只提取大纲中明确描述的性格词（如果没有则留空）
+   - 外貌描述：只提取大纲中明确的外貌描写（如果没有则留空）
+   - 背景故事：只提取大纲中明确的背景信息（如果没有则留空）
+3. 优先提取有具体行动、台词或情节推动作用的角色
+4. 提取 3-10 个角色（如果大纲中角色少于3个，就提取实际数量）
+5. 按角色在大纲中的重要性排序（主角优先，然后配角、反派等）
+
+严格禁止的行为：
+❌ 不要添加大纲中没有提到的角色
+❌ 不要为角色编造大纲中没有的性格特征
+❌ 不要为角色编造大纲中没有的外貌描述
+❌ 不要为角色编造大纲中没有的背景故事
+❌ 不要合理推测或补充信息
+
+输出格式：
+返回 JSON 格式的角色列表，严格按照以下格式：
+{
+  "characters": [
+    {
+      "name": "角色名（必须在大纲中出现）",
+      "role": "主角/配角/反派/路人",
+      "description": "角色简介（基于大纲中的描述）",
+      "traits": ["性格1", "性格2"],  // 只填大纲中明确提到的
+      "appearance": "外貌描述",       // 只填大纲中明确提到的，没有就留空
+      "background": "背景故事"        // 只填大纲中明确提到的，没有就留空
+    }
+  ]
+}"""
+
+            if genre:
+                system_prompt += f"\n\n作品类型：{genre}\n注意：类型仅供参考，不要据此添加不在大纲中的角色。"
+
+            # 构建用户提示词
+            user_prompt = f"""章节大纲：
+
+{chapters_context}
+
+请严格基于上述大纲内容，提取所有明确出现的角色并生成设定。
+记住：只提取大纲中明确提到的角色，不要添加任何大纲中没有的角色或信息。"""
+
+            # 调用 OpenAI API
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.5,  # 降低温度，减少创造性
+                max_tokens=3000,
+                response_format={"type": "json_object"}  # 强制 JSON 输出
+            )
+
+            # 解析响应
+            import json
+            content = response.choices[0].message.content
+            result = json.loads(content)
+
+            # 验证和规范化数据
+            if "characters" not in result:
+                raise ValueError("AI 返回的数据格式不正确")
+
+            # 确保每个角色都有必需的字段
+            for character in result["characters"]:
+                character.setdefault("name", "未命名角色")
+                character.setdefault("role", "配角")
+                character.setdefault("description", "")
+                character.setdefault("traits", [])
+                character.setdefault("appearance", "")
+                character.setdefault("background", "")
+
+            logger.info(f"成功分析章节大纲，提取 {len(result['characters'])} 个角色")
+            return result["characters"]
+
+        except Exception as e:
+            logger.error(f"分析章节角色失败: {str(e)}", exc_info=True)
+            raise Exception(f"分析章节角色失败: {str(e)}")
+

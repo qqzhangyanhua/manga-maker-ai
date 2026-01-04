@@ -143,12 +143,12 @@ export function GenerateOutlineDialog({
 
           <div className="space-y-2">
             <Label htmlFor="style">风格偏好（可选）</Label>
-            <Select value={style} onValueChange={setStyle}>
+            <Select value={style || "none"} onValueChange={(value) => setStyle(value === "none" ? "" : value)}>
               <SelectTrigger id="style">
                 <SelectValue placeholder="选择风格（可选）" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">不指定</SelectItem>
+                <SelectItem value="none">不指定</SelectItem>
                 <SelectItem value="玄幻">玄幻</SelectItem>
                 <SelectItem value="科幻">科幻</SelectItem>
                 <SelectItem value="现代">现代</SelectItem>

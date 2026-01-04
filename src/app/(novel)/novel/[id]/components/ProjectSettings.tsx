@@ -152,12 +152,12 @@ export function ProjectSettings({ project, onUpdate }: ProjectSettingsProps) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="genre">类型</Label>
-              <Select value={genre} onValueChange={setGenre}>
+              <Select value={genre || "none"} onValueChange={(value) => setGenre(value === "none" ? "" : value)}>
                 <SelectTrigger id="genre">
                   <SelectValue placeholder="选择类型" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">不指定</SelectItem>
+                  <SelectItem value="none">不指定</SelectItem>
                   <SelectItem value="玄幻">玄幻</SelectItem>
                   <SelectItem value="科幻">科幻</SelectItem>
                   <SelectItem value="现代">现代</SelectItem>

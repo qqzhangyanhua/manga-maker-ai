@@ -104,9 +104,9 @@ class StoryDraft(BaseModel):
     world_setting: WorldSetting = Field(..., description="世界观设定")
     outline: List[ChapterOutline] = Field(
         ...,
-        min_length=8,
-        max_length=12,
-        description="章节大纲（8-12章）"
+        min_length=3,
+        max_length=15,
+        description="章节大纲（3-15章，根据故事类型调整）"
     )
 
 

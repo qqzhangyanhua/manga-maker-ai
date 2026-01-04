@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,8 +14,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2, Save, User, Heart, Swords } from "lucide-react";
+import { Plus, Edit, Trash2, Save, User, Heart, Swords, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { GenerateCharactersDialog } from "./GenerateCharactersDialog";
 
 interface Character {
   id: string;
@@ -33,23 +34,49 @@ interface Character {
   }[];
 }
 
+/**
+ * 确保 character 对象所有字段都正确初始化
+ */
+function ensureCharacterFields(character: any): Character {
+  return {
+    id: character.id ?? Date.now().toString(),
+    name: character.name ?? "",
+    role: character.role ?? "配角",
+    description: character.description ?? "",
+    traits: Array.isArray(character.traits) ? character.traits : [],
+    appearance: character.appearance ?? "",
+    background: character.background ?? "",
+    relationships: Array.isArray(character.relationships) ? character.relationships : [],
+  };
+}
+
 interface CharacterManagerProps {
   projectId: string;
   initialCharacters: Character[];
+  outlines?: any[]; // 章节大纲，用于 AI 分析
   onSave: (characters: Character[]) => Promise<void>;
 }
 
 export function CharacterManager({
   projectId,
   initialCharacters,
+  outlines = [],
   onSave,
 }: CharacterManagerProps) {
-  const [characters, setCharacters] = useState<Character[]>(initialCharacters);
+  const [characters, setCharacters] = useState<Character[]>(
+    initialCharacters.map(ensureCharacterFields)
+  );
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(
     null
   );
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // 当 initialCharacters 变化时更新 characters
+  useEffect(() => {
+    setCharacters(initialCharacters.map(ensureCharacterFields));
+  }, [initialCharacters]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -184,11 +211,34 @@ export function CharacterManager({
     }
   };
 
+  const handleGeneratedCharacters = async (generatedCharacters: Character[]) => {
+    // 合并生成的角色到现有列表
+    const updatedCharacters = [...characters, ...generatedCharacters];
+    setCharacters(updatedCharacters);
+
+    // 自动保存到数据库
+    try {
+      await onSave(updatedCharacters);
+      toast.success(`已添加并保存 ${generatedCharacters.length} 个角色`);
+    } catch (error) {
+      toast.error("保存失败，请手动点击保存按钮");
+      console.error("保存生成的角色失败:", error);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">角色管理</h2>
         <div className="flex gap-2">
+          <Button
+            onClick={() => setIsGenerateDialogOpen(true)}
+            variant="outline"
+            disabled={outlines.length === 0}
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            AI 生成角色
+          </Button>
           <Button onClick={() => openEditDialog(null)} variant="outline">
             <Plus className="mr-2 h-4 w-4" />
             添加角色
@@ -239,24 +289,24 @@ export function CharacterManager({
               <p className="text-sm text-muted-foreground line-clamp-2">
                 {character.description || "暂无描述"}
               </p>
-              {character.traits.length > 0 && (
+              {(character.traits || []).length > 0 && (
                 <div className="flex flex-wrap gap-1">
-                  {character.traits.slice(0, 3).map((trait, i) => (
+                  {(character.traits || []).slice(0, 3).map((trait, i) => (
                     <Badge key={i} variant="outline" className="text-xs">
                       {trait}
                     </Badge>
                   ))}
-                  {character.traits.length > 3 && (
+                  {(character.traits || []).length > 3 && (
                     <Badge variant="outline" className="text-xs">
-                      +{character.traits.length - 3}
+                      +{(character.traits || []).length - 3}
                     </Badge>
                   )}
                 </div>
               )}
-              {character.relationships.length > 0 && (
+              {(character.relationships || []).length > 0 && (
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <User className="h-3 w-3" />
-                  <span>{character.relationships.length} 个关系</span>
+                  <span>{(character.relationships || []).length} 个关系</span>
                 </div>
               )}
             </CardContent>
@@ -440,6 +490,15 @@ export function CharacterManager({
           )}
         </DialogContent>
       </Dialog>
+
+      {/* AI 生成角色对话框 */}
+      <GenerateCharactersDialog
+        isOpen={isGenerateDialogOpen}
+        onClose={() => setIsGenerateDialogOpen(false)}
+        projectId={projectId}
+        outlines={outlines}
+        onGenerated={handleGeneratedCharacters}
+      />
     </div>
   );
 }
