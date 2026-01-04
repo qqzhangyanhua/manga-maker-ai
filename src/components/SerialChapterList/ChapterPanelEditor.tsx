@@ -383,6 +383,7 @@ export function ChapterPanelEditor({
         open={multiPanelDialogOpen}
         panels={chapterPanels as ScriptPanel[]}
         storyId={storyId}
+        projectId={projectId}
         onOpenChange={setMultiPanelDialogOpen}
         onSuccess={() => {
           void onRefresh();

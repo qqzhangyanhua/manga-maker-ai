@@ -34,6 +34,7 @@ interface MultiPanelGenerateDialogProps {
   open: boolean;
   panels: Panel[];
   storyId?: string; // 故事 ID
+  projectId?: string | null; // 项目 ID，用于加载素材
   onOpenChange: (open: boolean) => void;
   onSuccess?: (imageUrl: string, panelIds: string[]) => void;
 }
@@ -42,6 +43,7 @@ export function MultiPanelGenerateDialog({
   open,
   panels,
   storyId,
+  projectId,
   onOpenChange,
   onSuccess,
 }: MultiPanelGenerateDialogProps) {
@@ -63,8 +65,9 @@ export function MultiPanelGenerateDialog({
     .sort((a, b) => a.panel_order - b.panel_order);
 
   // 获取章节信息（从第一个分镜，假设所有分镜都属于同一章节）
-  const chapterInfo = selectedPanels.length > 0 && selectedPanels[0].chapter 
+  const chapterInfo = selectedPanels.length > 0 && selectedPanels[0].chapter
     ? {
+        id: selectedPanels[0].chapter.id,
         title: selectedPanels[0].chapter.title,
         order: selectedPanels[0].chapter.chapter_order,
       }
@@ -429,6 +432,7 @@ export function MultiPanelGenerateDialog({
         <ReferenceImageSelector
           open={referenceSelectorOpen}
           storyId={storyId}
+          projectId={projectId}
           panels={panels}
           onOpenChange={setReferenceSelectorOpen}
           onConfirm={handleReferenceConfirm}

@@ -407,6 +407,7 @@ export function PanelListView({
         open={multiPanelDialogOpen}
         panels={filteredPanels}
         storyId={storyId}
+        projectId={projectId}
         onOpenChange={setMultiPanelDialogOpen}
         onSuccess={(imageUrl, panelIds) => {
           console.log("[PanelListView] 多镜生成成功:", { imageUrl, panelIds });
@@ -420,6 +421,7 @@ export function PanelListView({
         panel={selectedPanelForGeneration}
         allPanels={filteredPanels}
         storyId={storyId}
+        projectId={projectId}
         characters={characters}
         onCharactersRefresh={onCharactersRefresh}
         onOpenChange={setReferenceDialogOpen}

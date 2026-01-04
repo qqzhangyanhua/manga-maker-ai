@@ -41,6 +41,7 @@ interface ReferenceGuidedGenerationDialogProps {
   panel: Panel | null;
   allPanels?: Panel[];
   storyId?: string;
+  projectId?: string | null; // 项目 ID，用于加载素材
   characters: CharacterReference[];
   onCharactersRefresh?: () => void | Promise<void>;
   onOpenChange: (open: boolean) => void;
@@ -74,6 +75,7 @@ export function ReferenceGuidedGenerationDialog({
   panel,
   allPanels,
   storyId,
+  projectId,
   characters,
   onCharactersRefresh,
   onOpenChange,
@@ -443,6 +445,7 @@ export function ReferenceGuidedGenerationDialog({
         <ReferenceImageSelector
           open={referenceSelectorOpen}
           storyId={storyId}
+          projectId={projectId}
           panels={allPanels || (panel ? [panel] : [])}
           onOpenChange={setReferenceSelectorOpen}
           onConfirm={(images) => {

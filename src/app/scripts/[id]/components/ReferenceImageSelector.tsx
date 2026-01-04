@@ -25,6 +25,7 @@ import type { ReferenceImage } from "@/types/reference-image.types";
 interface ReferenceImageSelectorProps {
   open: boolean;
   storyId?: string;
+  projectId?: string | null; // 项目ID，用于加载素材
   panels: Panel[];
   onOpenChange: (open: boolean) => void;
   onConfirm: (images: ReferenceImage[]) => void;
@@ -33,6 +34,7 @@ interface ReferenceImageSelectorProps {
 export function ReferenceImageSelector({
   open,
   storyId,
+  projectId,
   panels,
   onOpenChange,
   onConfirm,
@@ -68,41 +70,140 @@ export function ReferenceImageSelector({
 
   // 表情矩阵
   const [expressions, setExpressions] = useState<ReferenceImage[]>([]);
-  const [isLoadingExpressions, setIsLoadingExpressions] = useState(false);
 
   // 服装管理
   const [outfits, setOutfits] = useState<ReferenceImage[]>([]);
-  const [isLoadingOutfits, setIsLoadingOutfits] = useState(false);
 
-  // 姿势变体
-  const [poses, setPoses] = useState<ReferenceImage[]>([]);
-  const [isLoadingPoses, setIsLoadingPoses] = useState(false);
+  // 姿势变体（暂未实现）
+  const [poses] = useState<ReferenceImage[]>([]);
 
-  // 加载当前故事的图片
+  // 加载当前故事/章节的图片（使用 /api/story/{storyId}/generated-images）
   async function loadStoryImages(): Promise<void> {
+    console.log("[ReferenceImageSelector] loadStoryImages called", {
+      storyId,
+      projectId,
+      hasStoryId: !!storyId,
+      hasProjectId: !!projectId,
+    });
+
     setIsLoadingStory(true);
     try {
-      const images: ReferenceImage[] = panels
-        .filter(p => p.generated_image)
-        .map(p => ({
-          id: `panel-${p.id}`,
-          url: p.generated_image || "",
-          label: `分镜 #${p.panel_order}`,
-          source: "story",
-        }));
+      let images: ReferenceImage[] = [];
+
+      // 如果有 storyId 和 projectId，调用 API 获取整个项目的所有生成图片
+      if (storyId && projectId) {
+        try {
+          const apiUrl = `/api/story/${storyId}/generated-images?page=1&limit=100&projectId=${projectId}`;
+          console.log("[ReferenceImageSelector] Fetching from API:", apiUrl);
+
+          const response = await fetch(apiUrl);
+
+          console.log("[ReferenceImageSelector] API response status:", response.status);
+
+          if (response.ok) {
+            const data = await response.json();
+
+            console.log("[ReferenceImageSelector] API response data:", {
+              success: data.success,
+              imagesCount: data.data?.images?.length || 0,
+              pagination: data.data?.pagination,
+            });
+
+            if (data.success && data.data?.images) {
+              // 转换 API 返回的图片格式为 ReferenceImage 格式
+              images = data.data.images.map((img: {
+                id: string;
+                image_url: string;
+                prompt: string;
+                chapter_info?: { id: string; title: string; chapter_order: number } | null;
+                panel_info?: Array<{ id: string; panel_order: number; description: string }> | null;
+              }) => {
+                let label = "生成图片";
+
+                // 优先显示章节信息
+                if (img.chapter_info) {
+                  label = `第${img.chapter_info.chapter_order}章`;
+                  // 如果有分镜信息，添加分镜编号
+                  if (img.panel_info && img.panel_info.length > 0) {
+                    const panelOrders = img.panel_info.map(p => `#${p.panel_order}`).join(",");
+                    label += ` - 分镜 ${panelOrders}`;
+                  }
+                } else if (img.panel_info && img.panel_info.length > 0) {
+                  // 没有章节信息但有分镜信息
+                  const panelOrders = img.panel_info.map(p => `#${p.panel_order}`).join(",");
+                  label = `分镜 ${panelOrders}`;
+                }
+
+                return {
+                  id: `generated-${img.id}`,
+                  url: img.image_url,
+                  label,
+                  source: "story",
+                };
+              });
+
+              console.log("[ReferenceImageSelector] Converted images count:", images.length);
+            }
+          } else {
+            console.warn("[ReferenceImageSelector] Failed to load story images from API, status:", response.status);
+            const errorData = await response.json().catch(() => null);
+            console.warn("[ReferenceImageSelector] Error data:", errorData);
+
+            // API调用失败，回退到使用传入的panels
+            images = panels
+              .filter(p => p.generated_image)
+              .map(p => ({
+                id: `panel-${p.id}`,
+                url: p.generated_image || "",
+                label: `分镜 #${p.panel_order}`,
+                source: "story",
+              }));
+
+            console.log("[ReferenceImageSelector] Fallback to local panels:", images.length);
+          }
+        } catch (error) {
+          console.error("[ReferenceImageSelector] Error loading story images:", error);
+          // 出错时回退到使用传入的panels
+          images = panels
+            .filter(p => p.generated_image)
+            .map(p => ({
+              id: `panel-${p.id}`,
+              url: p.generated_image || "",
+              label: `分镜 #${p.panel_order}`,
+              source: "story",
+            }));
+
+          console.log("[ReferenceImageSelector] Fallback to local panels after error:", images.length);
+        }
+      } else {
+        console.log("[ReferenceImageSelector] No storyId or projectId, using local panels");
+        // 没有 storyId 或 projectId，使用传入的panels
+        images = panels
+          .filter(p => p.generated_image)
+          .map(p => ({
+            id: `panel-${p.id}`,
+            url: p.generated_image || "",
+            label: `分镜 #${p.panel_order}`,
+            source: "story",
+          }));
+
+        console.log("[ReferenceImageSelector] Local panels count:", images.length);
+      }
+
+      console.log("[ReferenceImageSelector] Final images to display:", images.length);
       setStoryImages(images);
     } finally {
       setIsLoadingStory(false);
     }
   }
 
-  // 对话框打开时自动加载故事图片并重置选择状态
+  // 对话框打开时或参数变化时加载故事图片
   useEffect(() => {
     if (open) {
       loadStoryImages();
       setSelectedIds([]); // 重置选中状态
     }
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, storyId, projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 加载故事角色
   async function loadCharacters(): Promise<void> {
@@ -291,7 +392,10 @@ export function ReferenceImageSelector({
         <DialogHeader>
           <DialogTitle>选择参考图</DialogTitle>
           <DialogDescription>
-            选择用于生成多格图片的参考图片，已选中 {selectedIds.length} 张
+            {(storyId && projectId)
+              ? "选择用于生成多格图片的参考图片（包含项目所有已生成素材），已选中 "
+              : "选择用于生成多格图片的参考图片，已选中 "}
+            {selectedIds.length} 张
           </DialogDescription>
         </DialogHeader>
 
@@ -308,7 +412,7 @@ export function ReferenceImageSelector({
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="story">
               <ImageIcon className="w-4 h-4 mr-1" />
-              故事图片
+              {(storyId && projectId) ? "项目素材" : "故事图片"}
             </TabsTrigger>
             <TabsTrigger value="views">
               <User className="w-4 h-4 mr-1" />
