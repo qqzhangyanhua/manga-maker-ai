@@ -119,7 +119,35 @@ async function handleRequest(
     }
 
     // 处理普通 JSON 响应
-    const data = await response.json();
+    let data;
+    try {
+      data = await response.json();
+    } catch (jsonError) {
+      // JSON 解析失败，尝试读取原始文本
+      console.error("[Novel API Proxy] JSON parse error:", jsonError);
+
+      try {
+        const text = await response.text();
+        console.error("[Novel API Proxy] Raw response:", text.substring(0, 500));
+
+        return NextResponse.json(
+          {
+            error: "Invalid JSON Response",
+            message: "后端返回了无效的 JSON 格式",
+            detail: jsonError instanceof Error ? jsonError.message : "JSON 解析错误",
+          },
+          { status: 502 }
+        );
+      } catch (textError) {
+        return NextResponse.json(
+          {
+            error: "Failed to read response",
+            message: "无法读取后端响应",
+          },
+          { status: 502 }
+        );
+      }
+    }
 
     return NextResponse.json(data, {
       status: response.status,

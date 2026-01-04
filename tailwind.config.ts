@@ -17,6 +17,8 @@ export default {
         sans: ['Nunito', 'sans-serif'],
         comic: ['Bangers', 'cursive'],
         'comic-body': ['Comic Neue', 'cursive'],
+        heading: ['Poppins', 'sans-serif'],
+        body: ['Open Sans', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",

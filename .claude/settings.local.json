@@ -90,7 +90,9 @@
       "Bash(! grep:*)",
       "Bash(then)",
       "Bash(echo:*)",
-      "Bash(fi)"
+      "Bash(fi)",
+      "Skill(ui-ux-pro-max)",
+      "Bash(python3:*)"
     ],
     "deny": [],
     "ask": []

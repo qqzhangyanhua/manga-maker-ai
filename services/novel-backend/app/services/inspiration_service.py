@@ -6,8 +6,10 @@ from typing import Optional, Dict, List
 from uuid import uuid4
 from datetime import datetime
 from ..config import settings
+from ..schemas.inspiration import StoryDraft
 import logging
 import json
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +72,7 @@ class InspirationService:
     def start_session(self, user_id: str) -> dict:
         """
         开始新的灵感会话
-        
+
         Returns:
             {
                 "session_id": "uuid",
@@ -78,11 +80,12 @@ class InspirationService:
                 "question": "...",
                 "type": "choice" | "text",
                 "options": [...],  # 仅 choice 类型
-                "hint": "..."
+                "hint": "...",
+                "total_steps": 6
             }
         """
         session_id = str(uuid4())
-        
+
         # 创建会话
         self._sessions[session_id] = {
             "user_id": user_id,
@@ -90,7 +93,7 @@ class InspirationService:
             "answers": {},
             "created_at": datetime.now().isoformat()
         }
-        
+
         # 返回第一个问题
         first_question = self.QUESTIONS[0]
         return {
@@ -99,7 +102,8 @@ class InspirationService:
             "question": first_question["question"],
             "type": first_question["type"],
             "options": first_question.get("options"),
-            "hint": first_question["hint"]
+            "hint": first_question["hint"],
+            "total_steps": len(self.QUESTIONS)
         }
     
     def submit_answer_and_next(self, session_id: str, answer: str) -> dict:
@@ -148,51 +152,24 @@ class InspirationService:
             "type": next_question["type"],
             "options": next_question.get("options"),
             "hint": next_question["hint"],
-            "is_last": next_question["step"] >= len(self.QUESTIONS)
+            "is_last": next_question["step"] >= len(self.QUESTIONS),
+            "total_steps": len(self.QUESTIONS)
         }
     
     async def generate_story_draft(self, session_id: str) -> dict:
         """
-        根据对话生成故事雏形
-        
+        根据对话生成故事雏形（使用 JSON mode + Pydantic 验证）
+
         Returns:
-            {
-                "title_suggestions": ["标题1", "标题2", "标题3"],
-                "description": "故事简介（200字）",
-                "protagonist": {
-                    "name": "建议名称",
-                    "role": "角色定位",
-                    "description": "详细描述",
-                    "traits": ["特点1", "特点2"],
-                    "appearance": "外貌描述",
-                    "background": "背景故事"
-                },
-                "world_setting": {
-                    "locations": [...],
-                    "factions": [...],
-                    "rules": [...],
-                    "timeline": [...]
-                },
-                "outline": [
-                    {
-                        "chapter_number": 1,
-                        "title": "章节标题",
-                        "outline": "章节大纲",
-                        "key_events": [...],
-                        "characters": [...],
-                        "plot_lines": [...],
-                        "is_key_chapter": false
-                    }
-                ]
-            }
+            StoryDraft 对象的 dict 表示
         """
         # 验证会话
         if session_id not in self._sessions:
             raise ValueError("会话不存在或已过期")
-        
+
         session = self._sessions[session_id]
         answers = session["answers"]
-        
+
         # 构建用户输入摘要
         user_input = f"""类型：{answers.get(1, '未指定')}
 核心主题：{answers.get(2, '未指定')}
@@ -200,8 +177,8 @@ class InspirationService:
 背景：{answers.get(4, '未指定')}
 核心冲突：{answers.get(5, '未指定')}
 发展方向：{answers.get(6, '未指定')}"""
-        
-        # 构建系统提示词
+
+        # 系统提示词（明确要求 JSON 格式）
         system_prompt = """你是一位专业的故事策划师，擅长根据用户的创意构建完整的故事框架。
 
 任务：根据用户提供的信息，生成一个完整的故事雏形。
@@ -209,12 +186,14 @@ class InspirationService:
 要求：
 1. 标题要吸引人，符合类型特点，提供 3 个不同风格的选择
 2. 简介要简洁有力（200字左右），突出核心冲突和吸引点
-3. 主角要有鲜明特点，包含姓名、角色定位、详细描述、性格特点、外貌、背景
+3. 主角要有鲜明特点，包含姓名、角色定位、详细描述、性格特点（2-5个）、外貌、背景
 4. 世界观要合理自洽，包含 2-3 个关键地点、1-2 个派系/组织、2-3 条世界规则、简要时间线
-5. 大纲要有起承转合，生成 10 章大纲，每章包含标题、大纲、关键事件、出场角色、情节线索
-6. 标注 1-2 个关键章节（开篇、高潮或结局）
+5. 大纲要有起承转合，生成 8-12 章大纲，每章包含标题、大纲（100-200字）、关键事件、出场角色、情节线索
+6. 标注 1-2 个关键章节（is_key_chapter=true），通常是开篇、高潮或结局
 
-输出格式：严格按照 JSON 格式输出，确保所有字段都存在
+**重要：必须输出纯 JSON 格式，不要包含任何其他文字。直接从 { 开始，以 } 结束。**
+
+JSON 格式如下：
 {
   "title_suggestions": ["标题1", "标题2", "标题3"],
   "description": "故事简介（200字）",
@@ -227,18 +206,10 @@ class InspirationService:
     "background": "背景故事"
   },
   "world_setting": {
-    "locations": [
-      {"name": "地点名", "description": "描述"}
-    ],
-    "factions": [
-      {"name": "派系名", "description": "描述"}
-    ],
-    "rules": [
-      {"name": "规则名", "description": "描述"}
-    ],
-    "timeline": [
-      {"time": "时间点", "event": "事件"}
-    ]
+    "locations": [{"name": "地点名", "description": "描述"}],
+    "factions": [{"name": "派系名", "description": "描述"}],
+    "rules": [{"name": "规则名", "description": "描述"}],
+    "timeline": [{"time": "时间点", "event": "事件"}]
   },
   "outline": [
     {
@@ -252,15 +223,17 @@ class InspirationService:
     }
   ]
 }"""
-        
+
         user_prompt = f"""请根据以下信息生成故事雏形：
 
 {user_input}
 
-请生成完整的故事框架，包括标题建议、简介、主角设定、世界观和 10 章大纲。"""
-        
+请生成完整的故事框架，包括标题建议、简介、主角设定、世界观和章节大纲。
+
+记住：只输出 JSON，不要有任何其他文字。"""
+
         try:
-            # 调用 OpenAI API
+            # 使用标准 JSON mode（兼容第三方端点）
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -271,23 +244,44 @@ class InspirationService:
                 max_tokens=4000,
                 response_format={"type": "json_object"}
             )
-            
-            # 解析响应
+
+            # 获取响应内容
             content = response.choices[0].message.content
-            result = json.loads(content)
-            
-            # 验证必需字段
-            required_fields = ["title_suggestions", "description", "protagonist", "world_setting", "outline"]
-            for field in required_fields:
-                if field not in result:
-                    raise ValueError(f"AI 返回的数据缺少字段: {field}")
-            
+
+            if not content:
+                raise ValueError("LLM 返回了空响应")
+
+            # 清理可能的控制字符
+            content = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', content)
+
+            # 尝试提取 JSON（防止 LLM 在前后添加额外文字）
+            json_match = re.search(r'\{.*\}', content, re.DOTALL)
+            if json_match:
+                content = json_match.group(0)
+
+            # 解析 JSON
+            try:
+                raw_data = json.loads(content)
+            except json.JSONDecodeError as json_err:
+                logger.error(f"JSON 解析失败: {json_err}")
+                logger.error(f"原始内容前 500 字符: {content[:500]}")
+                raise ValueError(f"AI 返回的 JSON 格式无效: {str(json_err)}")
+
+            # 使用 Pydantic 验证和清理数据
+            try:
+                story_draft = StoryDraft.model_validate(raw_data)
+                result = story_draft.model_dump()
+            except Exception as validation_err:
+                logger.error(f"Pydantic 验证失败: {validation_err}")
+                logger.error(f"原始数据: {json.dumps(raw_data, ensure_ascii=False, indent=2)}")
+                raise ValueError(f"AI 返回的数据结构不符合要求: {str(validation_err)}")
+
             # 保存生成结果到会话
             session["generated_draft"] = result
-            
+
             logger.info(f"成功生成故事雏形，会话 ID: {session_id}")
             return result
-            
+
         except Exception as e:
             logger.error(f"生成故事雏形失败: {str(e)}", exc_info=True)
             raise Exception(f"生成故事雏形失败: {str(e)}")
