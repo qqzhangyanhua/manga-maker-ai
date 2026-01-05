@@ -6,7 +6,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { BookOpen, TrendingUp, FileText } from "lucide-react";
+import { BookOpen, TrendingUp, FileText, Maximize2 } from "lucide-react";
 import { useMemo } from "react";
 
 interface Chapter {
@@ -27,6 +27,7 @@ interface ScriptPageHeaderProps {
   panels: Panel[];
   onCreateChapter: () => void;
   onImportText: () => void;
+  onEnterFocusMode?: () => void;
 }
 
 export function ScriptPageHeader({
@@ -35,6 +36,7 @@ export function ScriptPageHeader({
   panels,
   onCreateChapter,
   onImportText,
+  onEnterFocusMode,
 }: ScriptPageHeaderProps) {
   const stats = useMemo(() => {
     const publishedCount = chapters.filter((ch) => ch.published_at).length;
@@ -67,6 +69,18 @@ export function ScriptPageHeader({
           <h1 className="text-2xl font-bold text-white">{title}</h1>
         </div>
         <div className="flex items-center gap-3">
+          {/* 专注模式按钮 - 仅在有分镜时显示 */}
+          {panels.length > 0 && onEnterFocusMode && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onEnterFocusMode}
+              className="border-purple-500/50 hover:border-purple-500 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
+            >
+              <Maximize2 className="w-4 h-4 mr-2" />
+              专注编辑
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useCallback, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -7,6 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Lock, BookOpen, Sparkles, PanelRight } from "lucide-react";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
@@ -35,6 +45,7 @@ import { ErrorBanner } from "@/components/common/ErrorBanner";
 import { BatchOperationBar } from "@/components/common/BatchOperationBar";
 import { useProgressCalculation } from "@/hooks/useProgressCalculation";
 import { useBatchSelection } from "@/hooks/useBatchSelection";
+import { FocusMode } from "./components/FocusMode";
 
 export default function ScriptDetailsPage() {
   const params = useParams();
@@ -92,6 +103,13 @@ export default function ScriptDetailsPage() {
 
   // Import text dialog state
   const [importTextDialogOpen, setImportTextDialogOpen] = useState(false);
+
+  // AlertDialog state for batch delete confirmation
+  const [showBatchDeleteDialog, setShowBatchDeleteDialog] = useState(false);
+
+  // Focus mode state
+  const [focusModeEnabled, setFocusModeEnabled] = useState(false);
+  const [focusModeInitialPanelId, setFocusModeInitialPanelId] = useState<string | null>(null);
 
   // Computed: 下一个章节序号
   const nextChapterOrder = useMemo(() => {
@@ -180,11 +198,12 @@ export default function ScriptDetailsPage() {
     const selectedCount = panelSelection.selectedCount;
     if (selectedCount === 0) return;
 
-    const confirmed = window.confirm(
-      `确定要删除 ${selectedCount} 个分镜吗？此操作无法撤销。`
-    );
-    if (!confirmed) return;
+    // 打开确认对话框
+    setShowBatchDeleteDialog(true);
+  }, [panelSelection.selectedCount]);
 
+  // 确认批量删除
+  const confirmBatchDelete = useCallback(async () => {
     try {
       const response = await fetch("/api/panel/batch-delete", {
         method: "POST",
@@ -201,7 +220,7 @@ export default function ScriptDetailsPage() {
 
       toast({
         title: "删除成功",
-        description: `已删除 ${selectedCount} 个分镜`,
+        description: `已删除 ${panelSelection.selectedCount} 个分镜`,
       });
 
       // 清除选择并刷新数据
@@ -211,6 +230,8 @@ export default function ScriptDetailsPage() {
       const message = error instanceof Error ? error.message : "批量删除失败";
       setErrorState(message);
       console.error("批量删除失败:", error);
+    } finally {
+      setShowBatchDeleteDialog(false);
     }
   }, [panelSelection, refetchPanels, toast]);
 
@@ -244,6 +265,19 @@ export default function ScriptDetailsPage() {
       description: "已成功生成分镜，刷新页面查看",
     });
   }, [refreshStoryData, toast]);
+
+  // Focus mode handlers
+  const handleEnterFocusMode = useCallback((panelId?: string) => {
+    setFocusModeInitialPanelId(panelId || null);
+    setFocusModeEnabled(true);
+  }, []);
+
+  const handleExitFocusMode = useCallback(() => {
+    setFocusModeEnabled(false);
+    setFocusModeInitialPanelId(null);
+    // 刷新数据以获取最新状态
+    void refreshStoryData();
+  }, [refreshStoryData]);
 
   // Sync form with fetched data
   useEffect(() => {
@@ -315,6 +349,22 @@ export default function ScriptDetailsPage() {
     );
   }
 
+  // 如果启用了专注模式，渲染专注模式组件
+  if (focusModeEnabled) {
+    return (
+      <FocusMode
+        storyId={storyId}
+        projectId={data?.projectId || null}
+        panels={data?.panels || []}
+        chapters={data?.chapters || []}
+        characters={characterAssets}
+        initialPanelId={focusModeInitialPanelId}
+        onExit={handleExitFocusMode}
+        onPanelUpdate={refreshStoryData}
+      />
+    );
+  }
+
   return (
     <ErrorBoundary>
       <ScriptEditorProvider
@@ -368,6 +418,7 @@ export default function ScriptDetailsPage() {
                       onImportText={() => {
                         setImportTextDialogOpen(true);
                       }}
+                      onEnterFocusMode={() => handleEnterFocusMode()}
                     />
                   </div>
 
@@ -596,6 +647,24 @@ export default function ScriptDetailsPage() {
                     </SheetContent>
                   </Sheet>
                 )}
+
+                {/* 批量删除确认对话框 */}
+                <AlertDialog open={showBatchDeleteDialog} onOpenChange={setShowBatchDeleteDialog}>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>确认删除</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        确定要删除 {panelSelection.selectedCount} 个分镜吗？此操作无法撤销。
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>取消</AlertDialogCancel>
+                      <AlertDialogAction onClick={confirmBatchDelete} className="bg-destructive hover:bg-destructive/90">
+                        删除
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
           </main>

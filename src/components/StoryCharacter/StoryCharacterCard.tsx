@@ -11,6 +11,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { RoleSelector } from "./RoleSelector";
 import { VariationDialog } from "./VariationDialog";
@@ -39,6 +49,8 @@ export function StoryCharacterCard({
   const [isRemoving, setIsRemoving] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [showVariationDialog, setShowVariationDialog] = useState(false);
+  const [showRemoveDialog, setShowRemoveDialog] = useState(false);
+  const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
 
   const regenerateImageMutation = useRegenerateCharacterImage();
 
@@ -62,24 +74,26 @@ export function StoryCharacterCard({
     }
   };
 
-  const handleRemove = async () => {
-    if (!confirm(`确定要从故事中移除角色「${character.name}」吗？`)) {
-      return;
-    }
+  const handleRemove = () => {
+    setShowRemoveDialog(true);
+  };
+
+  const confirmRemove = async () => {
     setIsRemoving(true);
     try {
       await onRemove(character.id);
     } finally {
       setIsRemoving(false);
+      setShowRemoveDialog(false);
     }
   };
 
   // 快速重生成（使用原提示词）
-  const handleFastRegenerate = async () => {
-    if (!confirm(`确定要使用原提示词重新生成「${character.name}」的图片吗？`)) {
-      return;
-    }
+  const handleFastRegenerate = () => {
+    setShowRegenerateDialog(true);
+  };
 
+  const confirmFastRegenerate = async () => {
     setIsRegenerating(true);
     try {
       await regenerateImageMutation.mutateAsync({
@@ -99,6 +113,7 @@ export function StoryCharacterCard({
       });
     } finally {
       setIsRegenerating(false);
+      setShowRegenerateDialog(false);
     }
   };
 
@@ -268,6 +283,48 @@ export function StoryCharacterCard({
         characterName={character.name}
         onConfirm={handleVariationRegenerate}
       />
+
+      {/* Remove Confirmation Dialog */}
+      <AlertDialog open={showRemoveDialog} onOpenChange={setShowRemoveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认移除角色</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要从故事中移除角色「{character.name}」吗？
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmRemove}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              移除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Regenerate Confirmation Dialog */}
+      <AlertDialog open={showRegenerateDialog} onOpenChange={setShowRegenerateDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认重新生成</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要使用原提示词重新生成「{character.name}」的图片吗？这将替换当前的角色图片。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmFastRegenerate}
+              className="bg-primary hover:bg-primary/90"
+            >
+              重新生成
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

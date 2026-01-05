@@ -14,7 +14,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, BookOpen, Clock, FileText, Sparkles, ImageIcon, Wand2 } from "lucide-react";
+import { Plus, BookOpen, Clock, FileText, Sparkles, ImageIcon, Wand2, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 import { CreateProjectDialog } from "./components/CreateProjectDialog";
 import { InspirationModeDialog } from "./components/InspirationModeDialog";
 
@@ -33,11 +44,15 @@ interface NovelProject {
 
 export default function NovelDashboard() {
   const router = useRouter();
+  const { toast } = useToast();
   const [projects, setProjects] = useState<NovelProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [inspirationDialogOpen, setInspirationDialogOpen] = useState(false);
   const [generatingCover, setGeneratingCover] = useState<string | null>(null); // 正在生成封面的项目ID
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<NovelProject | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchProjects();
@@ -91,9 +106,53 @@ export default function NovelDashboard() {
       );
     } catch (error) {
       console.error("生成封面失败:", error);
-      alert(error instanceof Error ? error.message : "生成封面失败");
+      toast({
+        title: "生成封面失败",
+        description: error instanceof Error ? error.message : "生成封面失败",
+        variant: "destructive",
+      });
     } finally {
       setGeneratingCover(null);
+    }
+  }
+
+  function handleDeleteClick(project: NovelProject, event: React.MouseEvent) {
+    event.stopPropagation();
+    setProjectToDelete(project);
+    setDeleteDialogOpen(true);
+  }
+
+  async function handleConfirmDelete() {
+    if (!projectToDelete) return;
+
+    try {
+      setDeleting(true);
+      const response = await fetch(`/api/novel/projects/${projectToDelete.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "删除失败");
+      }
+
+      // 从列表中移除
+      setProjects((prev) => prev.filter((p) => p.id !== projectToDelete.id));
+      toast({
+        title: "删除成功",
+        description: `已删除小说「${projectToDelete.title}」`,
+      });
+    } catch (error) {
+      console.error("删除项目失败:", error);
+      toast({
+        title: "删除失败",
+        description: error instanceof Error ? error.message : "删除项目失败",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+      setDeleteDialogOpen(false);
+      setProjectToDelete(null);
     }
   }
 
@@ -208,6 +267,16 @@ export default function NovelDashboard() {
                     </>
                   )}
                 </Button>
+
+                {/* 删除按钮 */}
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => handleDeleteClick(project, e)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
               </div>
 
               <CardHeader>
@@ -268,6 +337,28 @@ export default function NovelDashboard() {
           router.push(`/novel/${projectId}`);
         }}
       />
+
+      {/* 删除确认对话框 */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除小说「{projectToDelete?.title}」吗？此操作将删除所有章节内容，且无法恢复。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "删除中..." : "确认删除"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

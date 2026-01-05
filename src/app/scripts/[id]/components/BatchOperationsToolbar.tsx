@@ -16,6 +16,16 @@ import {
   Loader2,
   Grid3x3,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { BatchAssetBindingDialog } from "./PanelEditor/BatchAssetBindingDialog";
 import type { Panel } from "../types/script-editor.types";
@@ -40,6 +50,7 @@ export function BatchOperationsToolbar({
   const { toast } = useToast();
   const [isDeleting, setIsDeleting] = useState(false);
   const [isAssetDialogOpen, setIsAssetDialogOpen] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const selectedCount = selectedPanelIds.length;
   const totalCount = panels.length;
@@ -63,14 +74,13 @@ export function BatchOperationsToolbar({
   }
 
   // Batch delete
-  async function handleBatchDelete(): Promise<void> {
+  function handleBatchDelete(): void {
     if (selectedCount === 0) return;
+    setShowDeleteDialog(true);
+  }
 
-    const confirmMessage = `确定要删除选中的 ${selectedCount} 个分镜吗？此操作不可撤销。`;
-    if (!window.confirm(confirmMessage)) {
-      return;
-    }
-
+  // Confirm batch delete
+  async function confirmBatchDelete(): Promise<void> {
     try {
       setIsDeleting(true);
       await onBatchDelete(selectedPanelIds);
@@ -90,6 +100,7 @@ export function BatchOperationsToolbar({
       });
     } finally {
       setIsDeleting(false);
+      setShowDeleteDialog(false);
     }
   }
 
@@ -194,6 +205,26 @@ export function BatchOperationsToolbar({
           onRefresh?.();
         }}
       />
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除选中的 {selectedCount} 个分镜吗？此操作不可撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmBatchDelete}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

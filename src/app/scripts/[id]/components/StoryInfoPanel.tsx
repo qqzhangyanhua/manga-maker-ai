@@ -22,6 +22,7 @@ import { SaveIndicator } from "@/components/ui/save-indicator";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { useComicStyles } from "../hooks/useComicStyles";
 import { useState, useRef } from "react";
+import { useToast } from "@/hooks/use-toast";
 import type { Story } from "../types/script-editor.types";
 
 interface StoryInfoPanelProps {
@@ -52,6 +53,8 @@ export function StoryInfoPanel({
   onFormChange,
   onAutoSave,
 }: StoryInfoPanelProps) {
+  const { toast } = useToast();
+
   // Comic styles hook
   const { data: comicStyles = [], isLoading: stylesLoading } = useComicStyles();
 
@@ -78,13 +81,21 @@ export function StoryInfoPanel({
 
     // Validate file type
     if (!file.type.startsWith("image/")) {
-      alert("请上传图片文件");
+      toast({
+        title: "文件类型错误",
+        description: "请上传图片文件",
+        variant: "destructive",
+      });
       return;
     }
 
     // Validate file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
-      alert("图片大小不能超过10MB");
+      toast({
+        title: "文件过大",
+        description: "图片大小不能超过10MB",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -118,19 +129,31 @@ export function StoryInfoPanel({
           onFormChange("style_reference_image", data.url);
         } catch (uploadError) {
           console.error("Image upload failed:", uploadError);
-          alert(uploadError instanceof Error ? uploadError.message : "图片上传失败");
+          toast({
+            title: "上传失败",
+            description: uploadError instanceof Error ? uploadError.message : "图片上传失败",
+            variant: "destructive",
+          });
         } finally {
           setUploading(false);
         }
       };
       reader.onerror = () => {
-        alert("读取文件失败");
+        toast({
+          title: "读取失败",
+          description: "读取文件失败",
+          variant: "destructive",
+        });
         setUploading(false);
       };
       reader.readAsDataURL(file);
     } catch (error) {
       console.error("File read error:", error);
-      alert("读取文件失败");
+      toast({
+        title: "读取失败",
+        description: "读取文件失败",
+        variant: "destructive",
+      });
       setUploading(false);
     }
   };

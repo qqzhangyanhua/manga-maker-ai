@@ -13,6 +13,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Plus,
   Trash2,
   Save,
@@ -72,6 +82,7 @@ export function OutlineEditor({
   );
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
 
   // 当 initialOutlines 变化时更新 outlines
   useEffect(() => {
@@ -139,14 +150,19 @@ export function OutlineEditor({
   };
 
   const removeChapter = (index: number) => {
-    if (confirm("确定要删除这一章吗？")) {
-      const newOutlines = outlines.filter((_, i) => i !== index);
-      // 重新编号
-      newOutlines.forEach((outline, i) => {
-        outline.chapterNumber = i + 1;
-      });
-      setOutlines(newOutlines);
-    }
+    setDeleteIndex(index);
+  };
+
+  const confirmRemoveChapter = () => {
+    if (deleteIndex === null) return;
+
+    const newOutlines = outlines.filter((_, i) => i !== deleteIndex);
+    // 重新编号
+    newOutlines.forEach((outline, i) => {
+      outline.chapterNumber = i + 1;
+    });
+    setOutlines(newOutlines);
+    setDeleteIndex(null);
   };
 
   const moveChapter = (index: number, direction: "up" | "down") => {
@@ -425,6 +441,26 @@ export function OutlineEditor({
           </div>
         </Card>
       )}
+
+      <AlertDialog open={deleteIndex !== null} onOpenChange={(open) => !open && setDeleteIndex(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除这一章吗？此操作无法撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmRemoveChapter}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
