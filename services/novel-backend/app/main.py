@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 import logging
 
 from .config import settings
-from .routers import projects, chapters, inspiration
+from .routers import projects, chapters, inspiration, search, export, batch
 
 # 配置日志
 logging.basicConfig(
@@ -50,6 +50,9 @@ app.add_middleware(
 app.include_router(projects.router)
 app.include_router(chapters.router)
 app.include_router(inspiration.router)
+app.include_router(search.router)
+app.include_router(export.router)
+app.include_router(batch.router)
 
 
 @app.get("/health")

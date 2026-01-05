@@ -182,6 +182,7 @@ export default function NovelProjectPage() {
           <WorldSettingEditor
             projectId={projectId}
             initialData={project.world_setting as never}
+            outlines={outlines}
             onSave={handleSaveWorldSetting}
           />
         </TabsContent>

@@ -3,6 +3,9 @@
  */
 "use client";
 
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Search, Download } from "lucide-react";
 import { SearchDialog } from "./components/SearchDialog";
 import { ExportDialog } from "./components/ExportDialog";
 import type { NovelProject, ChapterOutline } from "./types";
@@ -21,6 +24,27 @@ export function ProjectHeader({
   outlines,
   onSelectChapter,
 }: ProjectHeaderProps) {
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+
+  // 添加快捷键监听
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl/⌘ + K 打开搜索
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+      // Ctrl/⌘ + E 打开导出
+      if ((e.metaKey || e.ctrlKey) && e.key === "e") {
+        e.preventDefault();
+        setExportOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   const handleSelectChapter = async (chapterId: string) => {
     const chapterNumber = parseInt(chapterId);
     if (!isNaN(chapterNumber)) {
@@ -47,13 +71,51 @@ export function ProjectHeader({
           </div>
         </div>
         <div className="flex gap-2">
-          <SearchDialog
-            projectId={projectId}
-            onSelectChapter={handleSelectChapter}
-          />
-          <ExportDialog projectId={projectId} projectTitle={project.title} />
+          {/* 搜索按钮 */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSearchOpen(true)}
+            className="gap-2"
+          >
+            <Search className="w-4 h-4" />
+            搜索
+            <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+              <span className="text-xs">⌘</span>K
+            </kbd>
+          </Button>
+
+          {/* 导出按钮 */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setExportOpen(true)}
+            className="gap-2"
+          >
+            <Download className="w-4 h-4" />
+            导出
+            <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+              <span className="text-xs">⌘</span>E
+            </kbd>
+          </Button>
         </div>
       </div>
+
+      {/* 搜索对话框 */}
+      <SearchDialog
+        projectId={projectId}
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        onSelectChapter={handleSelectChapter}
+      />
+
+      {/* 导出对话框 */}
+      <ExportDialog
+        projectId={projectId}
+        projectTitle={project.title}
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+      />
     </div>
   );
 }

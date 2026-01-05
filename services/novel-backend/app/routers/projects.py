@@ -13,7 +13,7 @@ import logging
 from ..database import get_db
 from ..models import NovelProject, NovelChapter
 from ..middleware.auth import get_current_user_id
-from ..services.export_service import NovelExportService
+from ..services.export_service import ExportService
 from ..services.generation_service import NovelGenerationService
 from fastapi.responses import Response
 
@@ -61,14 +61,14 @@ class ProjectResponse(BaseModel):
     chapter_count: int
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
         # 自动转换 UUID 为字符串
         json_encoders = {
             UUID: str
         }
-    
+
     @classmethod
     def model_validate(cls, obj):
         """重写验证方法，自动转换 UUID 字段"""
@@ -83,6 +83,16 @@ class ProjectResponse(BaseModel):
         return super().model_validate(obj)
 
 
+class AnalyzeChaptersCharactersRequest(BaseModel):
+    """分析章节角色请求"""
+    chapters_context: str
+
+
+class AnalyzeWorldSettingRequest(BaseModel):
+    """分析世界观设定请求"""
+    chapters_context: str
+
+
 # ============ API Endpoints ============
 
 @router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
@@ -92,7 +102,7 @@ async def create_project(
     db: AsyncSession = Depends(get_db)
 ):
     """创建新的小说项目"""
-    
+
     # 创建项目
     new_project = NovelProject(
         user_id=user_id,
@@ -101,37 +111,97 @@ async def create_project(
         genre=project_data.genre,
         world_setting=project_data.world_setting,
         characters=project_data.characters,
-        target_words=project_data.target_words,
+        target_words=project_data.target_words or 100000,
+        status="draft"
     )
-    
+
     db.add(new_project)
     await db.commit()
     await db.refresh(new_project)
-    
-    return ProjectResponse.model_validate(new_project)
+
+    # 手动构造响应,确保UUID转换为字符串
+    return {
+        "id": str(new_project.id),
+        "user_id": str(new_project.user_id),
+        "title": new_project.title,
+        "description": new_project.description,
+        "genre": new_project.genre,
+        "world_setting": new_project.world_setting,
+        "characters": new_project.characters,
+        "outlines": new_project.outlines,
+        "target_words": new_project.target_words,
+        "status": new_project.status,
+        "total_words": 0,
+        "chapter_count": 0,
+        "created_at": new_project.created_at,
+        "updated_at": new_project.updated_at,
+    }
 
 
 @router.get("", response_model=List[ProjectResponse])
 async def list_projects(
-    status_filter: Optional[str] = None,
     skip: int = 0,
     limit: int = 20,
+    status_filter: Optional[str] = None,
+    search: Optional[str] = None,
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
-    """获取用户的项目列表"""
-    
+    """列出用户的所有项目"""
+
+    # 基础查询
     query = select(NovelProject).where(NovelProject.user_id == user_id)
-    
+
+    # 状态过滤
     if status_filter:
         query = query.where(NovelProject.status == status_filter)
-    
+
+    # 搜索过滤
+    if search:
+        query = query.where(
+            or_(
+                NovelProject.title.ilike(f"%{search}%"),
+                NovelProject.description.ilike(f"%{search}%")
+            )
+        )
+
+    # 排序和分页
     query = query.order_by(NovelProject.updated_at.desc()).offset(skip).limit(limit)
-    
+
     result = await db.execute(query)
     projects = result.scalars().all()
-    
-    return [ProjectResponse.model_validate(p) for p in projects]
+
+    # 为每个项目添加统计信息并转换UUID
+    response_projects = []
+    for project in projects:
+        # 查询章节统计
+        stats_query = select(
+            func.count(NovelChapter.id).label("chapter_count"),
+            func.coalesce(func.sum(NovelChapter.word_count), 0).label("total_words")
+        ).where(NovelChapter.project_id == project.id)
+
+        stats_result = await db.execute(stats_query)
+        stats = stats_result.one()
+
+        # 手动构造响应对象
+        response_projects.append({
+            "id": str(project.id),
+            "user_id": str(project.user_id),
+            "title": project.title,
+            "description": project.description,
+            "genre": project.genre,
+            "world_setting": project.world_setting,
+            "characters": project.characters,
+            "outlines": project.outlines,
+            "target_words": project.target_words,
+            "status": project.status,
+            "total_words": stats.total_words,
+            "chapter_count": stats.chapter_count,
+            "created_at": project.created_at,
+            "updated_at": project.updated_at,
+        })
+
+    return response_projects
 
 
 @router.get("/{project_id}", response_model=ProjectResponse)
@@ -141,57 +211,108 @@ async def get_project(
     db: AsyncSession = Depends(get_db)
 ):
     """获取项目详情"""
-    
+
     query = select(NovelProject).where(
         NovelProject.id == project_id,
         NovelProject.user_id == user_id
     )
-    
+
     result = await db.execute(query)
     project = result.scalar_one_or_none()
-    
+
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="项目不存在"
         )
-    
-    return ProjectResponse.model_validate(project)
+
+    # 查询统计信息
+    stats_query = select(
+        func.count(NovelChapter.id).label("chapter_count"),
+        func.coalesce(func.sum(NovelChapter.word_count), 0).label("total_words")
+    ).where(NovelChapter.project_id == project_id)
+
+    stats_result = await db.execute(stats_query)
+    stats = stats_result.one()
+
+    # 手动构造响应,确保UUID转换为字符串
+    return {
+        "id": str(project.id),
+        "user_id": str(project.user_id),
+        "title": project.title,
+        "description": project.description,
+        "genre": project.genre,
+        "world_setting": project.world_setting,
+        "characters": project.characters,
+        "outlines": project.outlines,
+        "target_words": project.target_words,
+        "status": project.status,
+        "total_words": stats.total_words,
+        "chapter_count": stats.chapter_count,
+        "created_at": project.created_at,
+        "updated_at": project.updated_at,
+    }
 
 
 @router.patch("/{project_id}", response_model=ProjectResponse)
 async def update_project(
     project_id: UUID,
-    project_data: ProjectUpdate,
+    project_update: ProjectUpdate,
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
-    """更新项目信息"""
-    
-    # 查询项目
+    """更新项目"""
+
     query = select(NovelProject).where(
         NovelProject.id == project_id,
         NovelProject.user_id == user_id
     )
-    
+
     result = await db.execute(query)
     project = result.scalar_one_or_none()
-    
+
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="项目不存在"
         )
-    
+
     # 更新字段
-    update_data = project_data.model_dump(exclude_unset=True)
+    update_data = project_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(project, field, value)
-    
+
+    project.updated_at = datetime.utcnow()
+
     await db.commit()
     await db.refresh(project)
-    
-    return ProjectResponse.model_validate(project)
+
+    # 添加统计信息
+    stats_query = select(
+        func.count(NovelChapter.id).label("chapter_count"),
+        func.coalesce(func.sum(NovelChapter.word_count), 0).label("total_words")
+    ).where(NovelChapter.project_id == project_id)
+
+    stats_result = await db.execute(stats_query)
+    stats = stats_result.one()
+
+    # 手动构造响应,确保UUID转换为字符串
+    return {
+        "id": str(project.id),
+        "user_id": str(project.user_id),
+        "title": project.title,
+        "description": project.description,
+        "genre": project.genre,
+        "world_setting": project.world_setting,
+        "characters": project.characters,
+        "outlines": project.outlines,
+        "target_words": project.target_words,
+        "status": project.status,
+        "total_words": stats.total_words,
+        "chapter_count": stats.chapter_count,
+        "created_at": project.created_at,
+        "updated_at": project.updated_at,
+    }
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -201,25 +322,87 @@ async def delete_project(
     db: AsyncSession = Depends(get_db)
 ):
     """删除项目"""
-    
+
     query = select(NovelProject).where(
         NovelProject.id == project_id,
         NovelProject.user_id == user_id
     )
-    
+
     result = await db.execute(query)
     project = result.scalar_one_or_none()
-    
+
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="项目不存在"
         )
-    
+
     await db.delete(project)
     await db.commit()
-    
+
     return None
+
+
+@router.get("/{project_id}/outlines")
+async def get_project_outlines(
+    project_id: UUID,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """获取项目大纲"""
+
+    # 验证项目所有权
+    project_query = select(NovelProject).where(
+        NovelProject.id == project_id,
+        NovelProject.user_id == user_id
+    )
+    project_result = await db.execute(project_query)
+    project = project_result.scalar_one_or_none()
+
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="项目不存在"
+        )
+
+    # 返回大纲数据
+    return {
+        "outlines": project.outlines or []
+    }
+
+
+@router.put("/{project_id}/outlines")
+async def update_project_outlines(
+    project_id: UUID,
+    outlines: list,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """更新项目大纲"""
+
+    # 验证项目所有权
+    project_query = select(NovelProject).where(
+        NovelProject.id == project_id,
+        NovelProject.user_id == user_id
+    )
+    project_result = await db.execute(project_query)
+    project = project_result.scalar_one_or_none()
+
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="项目不存在"
+        )
+
+    # 更新大纲
+    project.outlines = outlines
+    await db.commit()
+    await db.refresh(project)
+
+    return {
+        "message": "大纲已更新",
+        "outlines": project.outlines
+    }
 
 
 @router.get("/{project_id}/statistics")
@@ -229,7 +412,7 @@ async def get_project_statistics(
     db: AsyncSession = Depends(get_db)
 ):
     """获取项目统计信息"""
-    
+
     # 验证项目所有权
     project_query = select(NovelProject).where(
         NovelProject.id == project_id,
@@ -237,23 +420,23 @@ async def get_project_statistics(
     )
     project_result = await db.execute(project_query)
     project = project_result.scalar_one_or_none()
-    
+
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="项目不存在"
         )
-    
+
     # 统计章节信息
     stats_query = select(
         func.count(NovelChapter.id).label("total_chapters"),
         func.sum(NovelChapter.word_count).label("total_words"),
         func.count(NovelChapter.id).filter(NovelChapter.status == "completed").label("completed_chapters")
     ).where(NovelChapter.project_id == project_id)
-    
+
     stats_result = await db.execute(stats_query)
     stats = stats_result.one()
-    
+
     return {
         "total_chapters": stats.total_chapters or 0,
         "total_words": stats.total_words or 0,
@@ -273,13 +456,13 @@ async def export_project(
 ):
     """
     导出项目为文件
-    
+
     Args:
         project_id: 项目 ID
         format: 导出格式（txt, docx, pdf）
         include_outline: 是否包含章节大纲
     """
-    
+
     # 验证项目所有权
     project_query = select(NovelProject).where(
         NovelProject.id == project_id,
@@ -287,316 +470,60 @@ async def export_project(
     )
     project_result = await db.execute(project_query)
     project = project_result.scalar_one_or_none()
-    
+
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="项目不存在"
         )
-    
+
     # 查询所有章节（按章节号排序）
     chapters_query = select(NovelChapter).where(
         NovelChapter.project_id == project_id
     ).order_by(NovelChapter.chapter_number)
-    
+
     chapters_result = await db.execute(chapters_query)
     chapters = chapters_result.scalars().all()
-    
-    if not chapters:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="项目没有章节可导出"
-        )
-    
-    # 转换为字典格式
-    chapters_data = [
-        {
-            "chapter_number": ch.chapter_number,
-            "title": ch.title,
-            "outline": ch.outline,
-            "content": ch.content,
+
+    # 调用导出服务
+    export_service = ExportService()
+    file_content, content_type, filename = await export_service.export_project(
+        project=project,
+        chapters=chapters,
+        format=format,
+        include_outline=include_outline
+    )
+
+    return Response(
+        content=file_content,
+        media_type=content_type,
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
         }
-        for ch in chapters
-    ]
-    
-    # 导出服务
-    export_service = NovelExportService()
-    
-    try:
-        if format == "txt":
-            content = export_service.export_to_txt(
-                project_title=project.title,
-                chapters=chapters_data,
-                include_outline=include_outline
-            )
-            media_type = "text/plain; charset=utf-8"
-            filename = f"{project.title}.txt"
-            
-        elif format == "docx":
-            content = export_service.export_to_word(
-                project_title=project.title,
-                project_description=project.description or "",
-                chapters=chapters_data,
-                include_outline=include_outline
-            )
-            media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            filename = f"{project.title}.docx"
-            
-        elif format == "pdf":
-            content = export_service.export_to_pdf(
-                project_title=project.title,
-                project_description=project.description or "",
-                chapters=chapters_data,
-                include_outline=include_outline
-            )
-            media_type = "application/pdf"
-            filename = f"{project.title}.pdf"
-            
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="不支持的导出格式"
-            )
-        
-        # 返回文件
-        return Response(
-            content=content,
-            media_type=media_type,
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename}"'
-            }
-        )
-        
-    except Exception as e:
-        logger.error(f"导出失败: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"导出失败: {str(e)}"
-        )
-
-
-@router.get("/{project_id}/search")
-async def search_project(
-    project_id: UUID,
-    q: str,  # 搜索关键词
-    type: str = "all",  # all, title, content
-    user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    全文搜索
-    
-    Args:
-        project_id: 项目 ID
-        q: 搜索关键词
-        type: 搜索类型（all=全部, title=标题, content=内容）
-    """
-    
-    # 验证项目所有权
-    project_query = select(NovelProject).where(
-        NovelProject.id == project_id,
-        NovelProject.user_id == user_id
     )
-    project_result = await db.execute(project_query)
-    project = project_result.scalar_one_or_none()
-    
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="项目不存在"
-        )
-    
-    if not q or len(q.strip()) == 0:
-        return {"results": [], "total": 0}
-    
-    # 构建搜索条件
-    search_keyword = f"%{q}%"
-    conditions = [NovelChapter.project_id == project_id]
-    
-    if type == "title":
-        conditions.append(NovelChapter.title.ilike(search_keyword))
-    elif type == "content":
-        conditions.append(NovelChapter.content.ilike(search_keyword))
-    else:  # all
-        conditions.append(
-            or_(
-                NovelChapter.title.ilike(search_keyword),
-                NovelChapter.content.ilike(search_keyword),
-                NovelChapter.outline.ilike(search_keyword)
-            )
-        )
-    
-    # 执行搜索
-    search_query = select(NovelChapter).where(*conditions).order_by(
-        NovelChapter.chapter_number
-    )
-    
-    result = await db.execute(search_query)
-    chapters = result.scalars().all()
-    
-    # 格式化结果（包含上下文片段）
-    results = []
-    for chapter in chapters:
-        # 查找关键词在内容中的位置
-        content = chapter.content or ""
-        title = chapter.title or ""
-        outline = chapter.outline or ""
-        
-        # 提取包含关键词的片段
-        snippets = []
-        
-        # 搜索标题
-        if q.lower() in title.lower():
-            snippets.append({
-                "type": "title",
-                "text": title,
-                "highlight": True
-            })
-        
-        # 搜索大纲
-        if outline and q.lower() in outline.lower():
-            start = max(0, outline.lower().find(q.lower()) - 50)
-            end = min(len(outline), start + 150)
-            snippet_text = outline[start:end]
-            if start > 0:
-                snippet_text = "..." + snippet_text
-            if end < len(outline):
-                snippet_text = snippet_text + "..."
-            snippets.append({
-                "type": "outline",
-                "text": snippet_text,
-                "highlight": True
-            })
-        
-        # 搜索正文（最多3个片段）
-        if content:
-            content_lower = content.lower()
-            q_lower = q.lower()
-            start_pos = 0
-            for _ in range(3):
-                pos = content_lower.find(q_lower, start_pos)
-                if pos == -1:
-                    break
-                start = max(0, pos - 50)
-                end = min(len(content), pos + len(q) + 100)
-                snippet_text = content[start:end]
-                if start > 0:
-                    snippet_text = "..." + snippet_text
-                if end < len(content):
-                    snippet_text = snippet_text + "..."
-                snippets.append({
-                    "type": "content",
-                    "text": snippet_text,
-                    "highlight": True
-                })
-                start_pos = pos + len(q)
-        
-        results.append({
-            "id": str(chapter.id),
-            "chapter_number": chapter.chapter_number,
-            "title": chapter.title,
-            "word_count": chapter.word_count,
-            "snippets": snippets[:5]  # 最多5个片段
-        })
-    
-    return {
-        "results": results,
-        "total": len(results),
-        "query": q
-    }
-
-
-@router.get("/{project_id}/outlines")
-async def get_project_outlines(
-    project_id: UUID,
-    user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
-):
-    """获取项目大纲"""
-    # 验证项目所有权
-    result = await db.execute(
-        select(NovelProject).where(
-            NovelProject.id == project_id,
-            NovelProject.user_id == user_id
-        )
-    )
-    project = result.scalar_one_or_none()
-    
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="项目不存在"
-        )
-    
-    return {
-        "outlines": project.outlines or []
-    }
-
-
-@router.put("/{project_id}/outlines")
-async def save_project_outlines(
-    project_id: UUID,
-    request: dict,
-    user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
-):
-    """保存项目大纲"""
-    outlines = request.get("outlines", [])
-    
-    # 验证项目所有权
-    result = await db.execute(
-        select(NovelProject).where(
-            NovelProject.id == project_id,
-            NovelProject.user_id == user_id
-        )
-    )
-    project = result.scalar_one_or_none()
-    
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="项目不存在"
-        )
-    
-    # 更新大纲
-    project.outlines = outlines
-    await db.commit()
-    
-    return {
-        "message": "大纲保存成功",
-        "outlines": outlines
-    }
 
 
 @router.post("/{project_id}/analyze-chapters-characters")
 async def analyze_chapters_characters(
     project_id: UUID,
-    request: dict,
+    request_body: AnalyzeChaptersCharactersRequest,
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    分析章节内容并提取角色信息
+    分析章节内容并生成角色建议
 
-    根据已生成的章节内容，AI 分析并提取出现的角色，
-    自动生成角色的性格、外貌、背景等详细设定
+    Args:
+        project_id: 项目 ID
+        request_body: 包含章节内容的请求体
     """
-    chapters_context = request.get("chapters_context", "")
-
-    if not chapters_context or len(chapters_context.strip()) == 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="章节内容不能为空"
-        )
-
     # 验证项目所有权
-    result = await db.execute(
-        select(NovelProject).where(
-            NovelProject.id == project_id,
-            NovelProject.user_id == user_id
-        )
+    project_query = select(NovelProject).where(
+        NovelProject.id == project_id,
+        NovelProject.user_id == user_id
     )
-    project = result.scalar_one_or_none()
+    project_result = await db.execute(project_query)
+    project = project_result.scalar_one_or_none()
 
     if not project:
         raise HTTPException(
@@ -607,16 +534,52 @@ async def analyze_chapters_characters(
     # 调用生成服务分析角色
     generation_service = NovelGenerationService()
 
+    system_prompt = """你是一位资深的小说编辑，擅长分析故事中的角色设定。
+
+任务：根据章节内容，提取并分析主要角色，生成结构化的角色信息。
+
+输出格式（JSON）：
+{
+  "characters": [
+    {
+      "name": "角色名",
+      "role": "主角/配角/反派",
+      "description": "角色简介（中文，50字内）",
+      "traits": ["性格特点1", "性格特点2"],
+      "appearance": "外貌描述（英文，用于图像生成）",
+      "background": "背景故事（中文，100字内）"
+    }
+  ]
+}
+
+要求：
+1. 提取3-8个主要角色
+2. description 用中文，appearance 用英文
+3. traits 包含2-4个性格特点
+4. 角色设定要符合故事情节"""
+
+    user_prompt = f"""章节内容：
+{request_body.chapters_context}
+
+请分析以上内容，提取主要角色信息。"""
+
     try:
-        characters = await generation_service.analyze_chapters_characters(
-            chapters_context=chapters_context,
-            genre=project.genre
+        completion = await generation_service.client.chat.completions.create(
+            model=generation_service.model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.7,
+            response_format={"type": "json_object"}
         )
 
-        return {
-            "message": "分析完成",
-            "characters": characters
-        }
+        import json
+        result = json.loads(completion.choices[0].message.content)
+
+        logger.info(f"分析章节角色成功，项目ID: {project_id}，角色数: {len(result.get('characters', []))}")
+
+        return result
 
     except Exception as e:
         logger.error(f"分析章节角色失败: {str(e)}", exc_info=True)
@@ -626,28 +589,35 @@ async def analyze_chapters_characters(
         )
 
 
-@router.post("/{project_id}/generate-outline")
-async def generate_project_outline(
+@router.post("/{project_id}/analyze-world-setting")
+async def analyze_world_setting(
     project_id: UUID,
-    request: dict,
+    request_body: AnalyzeWorldSettingRequest,
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
-    """AI 生成项目大纲"""
-    chapter_count = request.get("chapter_count", 10)
-    style = request.get("style")
-    mode = request.get("mode", "full")  # "full" 或 "continue"
-    existing_outlines = request.get("existing_outlines", [])  # 续写模式的上下文
-    start_chapter = request.get("start_chapter", 1)  # 起始章节号
+    """
+    分析章节内容并生成世界观设定建议
 
-    # 验证项目所有权并获取项目信息
-    result = await db.execute(
-        select(NovelProject).where(
-            NovelProject.id == project_id,
-            NovelProject.user_id == user_id
-        )
+    Args:
+        project_id: 项目 ID
+        request_body: 包含章节内容的请求体
+
+    Returns:
+        {
+          "locations": [...],
+          "factions": [...],
+          "rules": [...],
+          "timeline": [...]
+        }
+    """
+    # 验证项目所有权
+    project_query = select(NovelProject).where(
+        NovelProject.id == project_id,
+        NovelProject.user_id == user_id
     )
-    project = result.scalar_one_or_none()
+    project_result = await db.execute(project_query)
+    project = project_result.scalar_one_or_none()
 
     if not project:
         raise HTTPException(
@@ -655,39 +625,107 @@ async def generate_project_outline(
             detail="项目不存在"
         )
 
-    # 调用生成服务
+    # 调用生成服务分析世界观
     generation_service = NovelGenerationService()
 
+    system_prompt = """你是一位资深的世界观设定专家，擅长从故事中提取并构建完整的世界观体系。
+
+任务：根据章节内容，提取世界观设定，包括地点、派系、规则、时间线。
+
+输出要求：
+1. 必须严格输出JSON格式
+2. 每个数组提取3-5个条目即可（不要太多）
+3. 描述要简洁，不要包含特殊字符和换行符
+4. 派系members可以为空数组
+
+输出格式（严格的JSON）：
+{
+  "locations": [
+    {
+      "name": "地点名称",
+      "description": "地点描述",
+      "type": "城市"
+    }
+  ],
+  "factions": [
+    {
+      "name": "派系名称",
+      "description": "派系描述",
+      "leader": "领导者",
+      "members": []
+    }
+  ],
+  "rules": [
+    {
+      "title": "规则标题",
+      "description": "规则描述",
+      "category": "魔法"
+    }
+  ],
+  "timeline": [
+    {
+      "year": "时间",
+      "event": "事件描述",
+      "importance": "high"
+    }
+  ]
+}
+
+注意：
+- type只能是：城市/村庄/森林/山脉/海洋/沙漠/平原/洞穴/遗迹/其他
+- category只能是：魔法/科技/社会/政治/经济/宗教/军事/其他
+- importance只能是：high/medium/low
+- 所有文本不要包含引号、换行符等特殊字符"""
+
+    user_prompt = f"""章节内容：
+{request_body.chapters_context}
+
+请分析以上内容，严格按照JSON格式输出世界观设定。"""
+
     try:
-        result = await generation_service.generate_outline(
-            premise=project.description or project.title,
-            characters=project.characters,
-            world_setting=project.world_setting,
-            chapter_count=chapter_count,
-            style=style or project.genre,
-            mode=mode,
-            existing_outlines=existing_outlines,
-            start_chapter=start_chapter
+        completion = await generation_service.client.chat.completions.create(
+            model=generation_service.model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.5,  # 降低温度提高稳定性
+            response_format={"type": "json_object"}
         )
 
-        # 根据模式保存大纲
-        if mode == "continue":
-            # 续写模式：追加到现有大纲
-            current_outlines = project.outlines or []
-            project.outlines = current_outlines + result["chapters"]
-        else:
-            # 完整生成模式：覆盖现有大纲
-            project.outlines = result["chapters"]
+        import json
 
-        await db.commit()
+        # 获取LLM返回的内容
+        llm_response = completion.choices[0].message.content
+        logger.info(f"LLM返回内容长度: {len(llm_response)}")
 
-        return {
-            "message": "大纲生成成功",
-            "chapters": result["chapters"]
-        }
+        # 尝试解析JSON
+        try:
+            result = json.loads(llm_response)
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON解析失败: {str(e)}")
+            logger.error(f"LLM返回内容: {llm_response[:500]}...")  # 只记录前500字符
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"LLM返回的JSON格式无效: {str(e)}"
+            )
 
+        # 确保所有字段都存在
+        result.setdefault("locations", [])
+        result.setdefault("factions", [])
+        result.setdefault("rules", [])
+        result.setdefault("timeline", [])
+
+        logger.info(f"分析世界观成功，项目ID: {project_id}，地点: {len(result['locations'])}，派系: {len(result['factions'])}")
+
+        return result
+
+    except HTTPException:
+        # 重新抛出HTTP异常
+        raise
     except Exception as e:
+        logger.error(f"分析世界观失败: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"大纲生成失败: {str(e)}"
+            detail=f"分析失败: {str(e)}"
         )

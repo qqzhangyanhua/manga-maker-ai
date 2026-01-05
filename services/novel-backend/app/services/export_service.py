@@ -1,306 +1,321 @@
 """
-导出服务 - 支持 TXT、Word、PDF 格式
+小说导出服务
+支持 TXT、Word (DOCX)、PDF 三种格式
 """
-from docx import Document
-from docx.shared import Pt, RGBColor, Inches
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
-from io import BytesIO
-from typing import List, Dict
-import logging
+import io
+from typing import List, Literal
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-logger = logging.getLogger(__name__)
+from ..models import NovelProject, NovelChapter
+from ..schemas.export import ExportConfig
 
 
-class NovelExportService:
+class ExportService:
     """小说导出服务"""
     
-    def __init__(self):
-        pass
+    def __init__(self, db: AsyncSession):
+        self.db = db
     
-    def export_to_txt(
+    async def export_novel(
         self,
-        project_title: str,
-        chapters: List[Dict],
-        include_outline: bool = False
+        project_id: str,
+        format: Literal["txt", "docx", "pdf"],
+        config: ExportConfig
     ) -> bytes:
         """
-        导出为 TXT 纯文本
+        导出小说
         
         Args:
-            project_title: 项目标题
-            chapters: 章节列表
-            include_outline: 是否包含章节大纲
-        
-        Returns:
-            TXT 文件内容（bytes）
-        """
-        try:
-            lines = []
+            project_id: 项目 ID
+            format: 导出格式（txt/docx/pdf）
+            config: 导出配置
             
-            # 标题
-            lines.append(f"{project_title}\n")
-            lines.append("=" * 50 + "\n\n")
+        Returns:
+            文件字节流
+        """
+        # 查询项目和章节
+        stmt = (
+            select(NovelProject)
+            .where(NovelProject.id == project_id)
+            .options(selectinload(NovelProject.chapters))
+        )
+        result = await self.db.execute(stmt)
+        project = result.scalar_one_or_none()
+        
+        if not project:
+            raise ValueError(f"项目不存在: {project_id}")
+        
+        # 获取章节列表（按章节号排序）
+        chapters = sorted(project.chapters, key=lambda c: c.chapter_number)
+        
+        if not chapters:
+            raise ValueError("项目没有章节，无法导出")
+        
+        # 根据格式调用不同的导出方法
+        if format == "txt":
+            return self._export_txt(project, chapters, config)
+        elif format == "docx":
+            return self._export_docx(project, chapters, config)
+        elif format == "pdf":
+            return self._export_pdf(project, chapters, config)
+        else:
+            raise ValueError(f"不支持的导出格式: {format}")
+    
+    def _export_txt(
+        self,
+        project: NovelProject,
+        chapters: List[NovelChapter],
+        config: ExportConfig
+    ) -> bytes:
+        """导出为 TXT 纯文本格式"""
+        lines = []
+        
+        # 添加元数据
+        if config.include_metadata:
+            lines.append(project.title)
+            lines.append(f"作者：{project.user_id}")  # 注意：这里需要关联查询用户信息
+            if project.description:
+                lines.append(f"\n简介：{project.description}")
+            lines.append("\n" + "="*50 + "\n")
+        
+        # 添加章节
+        for chapter in chapters:
+            # 章节标题
+            lines.append(f"\n第{chapter.chapter_number}章 {chapter.title}\n")
             
             # 章节内容
-            for chapter in chapters:
-                # 章节标题
-                lines.append(f"\n\n第{chapter['chapter_number']}章 {chapter['title']}\n")
-                lines.append("-" * 40 + "\n\n")
-                
-                # 章节大纲（可选）
-                if include_outline and chapter.get('outline'):
-                    lines.append(f"【大纲】\n{chapter['outline']}\n\n")
-                
-                # 章节正文
-                if chapter.get('content'):
-                    lines.append(chapter['content'])
-                    lines.append("\n\n")
-                else:
-                    lines.append("（内容为空）\n\n")
+            lines.append(chapter.content)
             
-            # 统计信息
-            total_words = sum(len(ch.get('content', '')) for ch in chapters)
-            lines.append("\n" + "=" * 50 + "\n")
-            lines.append(f"全文完 | 共 {len(chapters)} 章 | 总计 {total_words} 字\n")
-            
-            content = "".join(lines)
-            return content.encode('utf-8')
-            
-        except Exception as e:
-            logger.error(f"导出 TXT 失败: {str(e)}")
-            raise
+            # 章节分隔符
+            if config.chapter_separator:
+                lines.append("\n" + "="*50 + "\n")
+        
+        # 转换为字节流
+        text = "\n".join(lines)
+        return text.encode("utf-8")
     
-    def export_to_word(
+    def _export_docx(
         self,
-        project_title: str,
-        project_description: str,
-        chapters: List[Dict],
-        include_outline: bool = False
+        project: NovelProject,
+        chapters: List[NovelChapter],
+        config: ExportConfig
     ) -> bytes:
-        """
-        导出为 Word (.docx)
-        
-        Args:
-            project_title: 项目标题
-            project_description: 项目描述
-            chapters: 章节列表
-            include_outline: 是否包含章节大纲
-        
-        Returns:
-            Word 文件内容（bytes）
-        """
+        """导出为 Word (DOCX) 格式"""
         try:
-            doc = Document()
-            
-            # 设置标题样式
-            title = doc.add_heading(project_title, level=0)
+            from docx import Document
+            from docx.shared import Pt, RGBColor
+            from docx.enum.text import WD_ALIGN_PARAGRAPH
+        except ImportError:
+            raise ImportError("请安装 python-docx: pip install python-docx")
+        
+        doc = Document()
+        
+        # 添加元数据
+        if config.include_metadata:
+            # 标题
+            title = doc.add_heading(project.title, 0)
             title.alignment = WD_ALIGN_PARAGRAPH.CENTER
             
-            # 项目描述
-            if project_description:
-                desc = doc.add_paragraph(project_description)
-                desc.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                desc_format = desc.paragraph_format
-                desc_format.space_after = Pt(12)
+            # 作者
+            author_para = doc.add_paragraph(f"作者：{project.user_id}")
+            author_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             
+            # 简介
+            if project.description:
+                doc.add_paragraph()
+                intro_heading = doc.add_heading("简介", level=2)
+                intro_heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                doc.add_paragraph(project.description)
+            
+            # 分页
             doc.add_page_break()
+        
+        # 添加章节
+        for chapter in chapters:
+            # 章节标题
+            chapter_heading = doc.add_heading(
+                f"第{chapter.chapter_number}章 {chapter.title}",
+                level=1
+            )
             
             # 章节内容
-            for chapter in chapters:
-                # 章节标题
-                chapter_title = doc.add_heading(
-                    f"第{chapter['chapter_number']}章 {chapter['title']}", 
-                    level=1
-                )
-                chapter_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                
-                # 章节大纲（可选）
-                if include_outline and chapter.get('outline'):
-                    outline_para = doc.add_paragraph()
-                    outline_run = outline_para.add_run(f"【大纲】{chapter['outline']}")
-                    outline_run.font.size = Pt(10)
-                    outline_run.font.color.rgb = RGBColor(128, 128, 128)
-                    outline_para.paragraph_format.space_after = Pt(12)
-                
-                # 章节正文
-                if chapter.get('content'):
-                    # 分段处理
-                    paragraphs = chapter['content'].split('\n')
-                    for para_text in paragraphs:
-                        if para_text.strip():
-                            para = doc.add_paragraph(para_text.strip())
-                            para_format = para.paragraph_format
-                            para_format.line_spacing = 1.5  # 1.5 倍行距
-                            para_format.first_line_indent = Inches(0.3)  # 首行缩进
-                else:
-                    doc.add_paragraph("（内容为空）")
-                
-                # 章节分页
-                if chapter != chapters[-1]:
-                    doc.add_page_break()
+            content_para = doc.add_paragraph(chapter.content)
             
-            # 统计信息
-            doc.add_page_break()
-            total_words = sum(len(ch.get('content', '')) for ch in chapters)
-            stats = doc.add_paragraph(
-                f"全文完\n\n"
-                f"共 {len(chapters)} 章\n"
-                f"总计 {total_words:,} 字"
-            )
-            stats.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            # 设置段落格式
+            content_para.paragraph_format.first_line_indent = Pt(24)  # 首行缩进
+            content_para.paragraph_format.line_spacing = 1.5  # 行间距
             
-            # 保存到内存
-            buffer = BytesIO()
-            doc.save(buffer)
-            buffer.seek(0)
-            
-            return buffer.getvalue()
-            
-        except Exception as e:
-            logger.error(f"导出 Word 失败: {str(e)}")
-            raise
+            # 章节分页
+            if config.chapter_separator:
+                doc.add_page_break()
+        
+        # 保存到字节流
+        buffer = io.BytesIO()
+        doc.save(buffer)
+        buffer.seek(0)
+        return buffer.read()
     
-    def export_to_pdf(
+    def _export_pdf(
         self,
-        project_title: str,
-        project_description: str,
-        chapters: List[Dict],
-        include_outline: bool = False
+        project: NovelProject,
+        chapters: List[NovelChapter],
+        config: ExportConfig
     ) -> bytes:
+        """导出为 PDF 格式"""
+        try:
+            from reportlab.pdfgen import canvas
+            from reportlab.lib.pagesizes import A4
+            from reportlab.pdfbase import pdfmetrics
+            from reportlab.pdfbase.ttfonts import TTFont
+            from reportlab.lib.units import cm
+        except ImportError:
+            raise ImportError("请安装 reportlab: pip install reportlab")
+        
+        buffer = io.BytesIO()
+        c = canvas.Canvas(buffer, pagesize=A4)
+        width, height = A4
+        
+        # 注册中文字体
+        try:
+            # 尝试使用系统字体
+            font_name = config.font_family or "SimSun"
+            # 注意：实际部署时需要提供字体文件路径
+            # 这里使用 reportlab 内置的字体作为后备
+            from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+            pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
+            font_name = 'STSong-Light'
+        except Exception:
+            # 如果无法加载中文字体，使用默认字体
+            font_name = 'Helvetica'
+        
+        font_size = config.font_size or 12
+        line_height = font_size * 1.5
+        margin = 2 * cm
+        y = height - margin
+        
+        # 添加元数据
+        if config.include_metadata:
+            # 标题
+            c.setFont(font_name, 18)
+            title_width = c.stringWidth(project.title, font_name, 18)
+            c.drawString((width - title_width) / 2, y, project.title)
+            y -= 30
+            
+            # 作者
+            c.setFont(font_name, 12)
+            author_text = f"作者：{project.user_id}"
+            author_width = c.stringWidth(author_text, font_name, 12)
+            c.drawString((width - author_width) / 2, y, author_text)
+            y -= 20
+            
+            # 简介
+            if project.description:
+                y -= 20
+                c.setFont(font_name, 10)
+                desc_lines = self._wrap_text(
+                    project.description,
+                    width - 2 * margin,
+                    font_name,
+                    10,
+                    c
+                )
+                for line in desc_lines:
+                    if y < margin:
+                        c.showPage()
+                        y = height - margin
+                    c.drawString(margin, y, line)
+                    y -= line_height
+            
+            # 新页开始正文
+            c.showPage()
+            y = height - margin
+        
+        # 添加章节
+        c.setFont(font_name, font_size)
+        
+        for chapter in chapters:
+            # 章节标题
+            c.setFont(font_name, 14)
+            chapter_title = f"第{chapter.chapter_number}章 {chapter.title}"
+            c.drawString(margin, y, chapter_title)
+            y -= 30
+            
+            # 章节内容
+            c.setFont(font_name, font_size)
+            content_lines = self._wrap_text(
+                chapter.content,
+                width - 2 * margin,
+                font_name,
+                font_size,
+                c
+            )
+            
+            for line in content_lines:
+                if y < margin:  # 换页
+                    c.showPage()
+                    y = height - margin
+                    c.setFont(font_name, font_size)
+                
+                c.drawString(margin, y, line)
+                y -= line_height
+            
+            # 章节分页
+            if config.chapter_separator:
+                c.showPage()
+                y = height - margin
+                c.setFont(font_name, font_size)
+        
+        # 保存 PDF
+        c.save()
+        buffer.seek(0)
+        return buffer.read()
+    
+    def _wrap_text(
+        self,
+        text: str,
+        max_width: float,
+        font_name: str,
+        font_size: int,
+        canvas_obj: "canvas.Canvas"
+    ) -> List[str]:
         """
-        导出为 PDF
+        文本自动换行
         
         Args:
-            project_title: 项目标题
-            project_description: 项目描述
-            chapters: 章节列表
-            include_outline: 是否包含章节大纲
-        
+            text: 要换行的文本
+            max_width: 最大宽度（点）
+            font_name: 字体名称
+            font_size: 字体大小
+            canvas_obj: Canvas 对象（用于测量文本宽度）
+            
         Returns:
-            PDF 文件内容（bytes）
+            换行后的文本列表
         """
-        try:
-            buffer = BytesIO()
-            doc = SimpleDocTemplate(
-                buffer,
-                pagesize=A4,
-                rightMargin=72,
-                leftMargin=72,
-                topMargin=72,
-                bottomMargin=18,
-            )
+        lines = []
+        paragraphs = text.split('\n')
+        
+        for paragraph in paragraphs:
+            if not paragraph.strip():
+                lines.append('')
+                continue
             
-            # 尝试注册中文字体（如果失败则使用默认字体）
-            try:
-                # macOS 系统字体
-                pdfmetrics.registerFont(TTFont('Chinese', '/System/Library/Fonts/PingFang.ttc'))
-                font_name = 'Chinese'
-            except:
-                try:
-                    # Linux 系统字体
-                    pdfmetrics.registerFont(TTFont('Chinese', '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc'))
-                    font_name = 'Chinese'
-                except:
-                    # 降级使用 Helvetica（不支持中文，但至少能生成）
-                    font_name = 'Helvetica'
-                    logger.warning("未找到中文字体，使用默认字体")
+            words = list(paragraph)  # 中文按字符分割
+            current_line = ''
             
-            # 定义样式
-            styles = getSampleStyleSheet()
-            
-            title_style = ParagraphStyle(
-                'CustomTitle',
-                parent=styles['Heading1'],
-                fontName=font_name,
-                fontSize=24,
-                textColor=RGBColor(0, 0, 0),
-                spaceAfter=30,
-                alignment=TA_CENTER,
-            )
-            
-            chapter_title_style = ParagraphStyle(
-                'ChapterTitle',
-                parent=styles['Heading2'],
-                fontName=font_name,
-                fontSize=16,
-                spaceAfter=12,
-                spaceBefore=12,
-                alignment=TA_CENTER,
-            )
-            
-            normal_style = ParagraphStyle(
-                'CustomNormal',
-                parent=styles['Normal'],
-                fontName=font_name,
-                fontSize=11,
-                leading=16,
-                alignment=TA_JUSTIFY,
-                firstLineIndent=20,
-            )
-            
-            outline_style = ParagraphStyle(
-                'Outline',
-                parent=styles['Normal'],
-                fontName=font_name,
-                fontSize=9,
-                textColor=RGBColor(128, 128, 128),
-                spaceAfter=12,
-            )
-            
-            # 构建文档内容
-            story = []
-            
-            # 标题页
-            story.append(Paragraph(project_title, title_style))
-            if project_description:
-                story.append(Paragraph(project_description, normal_style))
-            story.append(PageBreak())
-            
-            # 章节内容
-            for chapter in chapters:
-                # 章节标题
-                chapter_title = f"第{chapter['chapter_number']}章 {chapter['title']}"
-                story.append(Paragraph(chapter_title, chapter_title_style))
-                story.append(Spacer(1, 12))
+            for word in words:
+                test_line = current_line + word
+                width = canvas_obj.stringWidth(test_line, font_name, font_size)
                 
-                # 章节大纲（可选）
-                if include_outline and chapter.get('outline'):
-                    outline_text = f"【大纲】{chapter['outline']}"
-                    story.append(Paragraph(outline_text, outline_style))
-                
-                # 章节正文
-                if chapter.get('content'):
-                    paragraphs = chapter['content'].split('\n')
-                    for para_text in paragraphs:
-                        if para_text.strip():
-                            story.append(Paragraph(para_text.strip(), normal_style))
-                            story.append(Spacer(1, 6))
+                if width <= max_width:
+                    current_line = test_line
                 else:
-                    story.append(Paragraph("（内容为空）", normal_style))
-                
-                # 章节分页
-                if chapter != chapters[-1]:
-                    story.append(PageBreak())
+                    if current_line:
+                        lines.append(current_line)
+                    current_line = word
             
-            # 统计信息
-            story.append(PageBreak())
-            total_words = sum(len(ch.get('content', '')) for ch in chapters)
-            stats_text = f"全文完<br/><br/>共 {len(chapters)} 章<br/>总计 {total_words:,} 字"
-            story.append(Paragraph(stats_text, chapter_title_style))
-            
-            # 生成 PDF
-            doc.build(story)
-            buffer.seek(0)
-            
-            return buffer.getvalue()
-            
-        except Exception as e:
-            logger.error(f"导出 PDF 失败: {str(e)}")
-            raise
+            if current_line:
+                lines.append(current_line)
+        
+        return lines

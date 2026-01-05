@@ -1,227 +1,156 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, FileText, AlertCircle } from "lucide-react";
-import { toast } from "sonner";
+import { useState, useEffect } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Search, FileText, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 interface SearchResult {
-  id: string;
-  chapter_number: number;
-  title: string;
-  word_count: number;
-  snippets: {
-    type: "title" | "outline" | "content";
-    text: string;
-    highlight: boolean;
-  }[];
+  chapter_id: string
+  chapter_number: number
+  title: string
+  snippet: string
+  relevance: number
+  match_type: "title" | "content"
 }
 
 interface SearchDialogProps {
-  projectId: string;
-  onSelectChapter: (chapterId: string) => void;
+  projectId: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSelectChapter: (chapterId: string) => void
 }
 
-export function SearchDialog({ projectId, onSelectChapter }: SearchDialogProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [searchType, setSearchType] = useState<"all" | "title" | "content">("all");
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
+export function SearchDialog({
+  projectId,
+  open,
+  onOpenChange,
+  onSelectChapter,
+}: SearchDialogProps) {
+  const [query, setQuery] = useState("")
+  const [searchType, setSearchType] = useState<"all" | "title" | "content">("all")
+  const [results, setResults] = useState<SearchResult[]>([])
+  const [loading, setLoading] = useState(false)
+
+  // 防抖搜索
+  useEffect(() => {
+    if (!query.trim()) {
+      setResults([])
+      return
+    }
+
+    const timer = setTimeout(() => {
+      handleSearch()
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [query, searchType])
 
   const handleSearch = async () => {
-    if (!query.trim()) {
-      toast.error("请输入搜索关键词");
-      return;
-    }
+    setLoading(true)
 
-    setIsSearching(true);
-    setHasSearched(true);
     try {
       const response = await fetch(
-        `/api/novel/projects/${projectId}/search?q=${encodeURIComponent(
-          query
-        )}&type=${searchType}`
-      );
+        `/api/novel/search/projects/${projectId}?q=${encodeURIComponent(query)}&type=${searchType}`
+      )
 
       if (!response.ok) {
-        throw new Error("搜索失败");
+        throw new Error("搜索失败")
       }
 
-      const data = await response.json();
-      setResults(data.results);
-
-      if (data.results.length === 0) {
-        toast.info("未找到相关内容");
-      }
+      const data = await response.json()
+      setResults(data.results || [])
     } catch (error) {
-      console.error("搜索失败:", error);
-      toast.error("搜索失败，请重试");
+      console.error("Search error:", error)
+      toast.error("搜索失败，请重试")
+      setResults([])
     } finally {
-      setIsSearching(false);
+      setLoading(false)
     }
-  };
-
-  const handleSelectChapter = (chapterId: string) => {
-    onSelectChapter(chapterId);
-    setIsOpen(false);
-  };
-
-  const highlightText = (text: string, query: string) => {
-    if (!query) return text;
-
-    const parts = text.split(new RegExp(`(${query})`, "gi"));
-    return (
-      <>
-        {parts.map((part, index) =>
-          part.toLowerCase() === query.toLowerCase() ? (
-            <mark key={index} className="bg-yellow-200 dark:bg-yellow-900">
-              {part}
-            </mark>
-          ) : (
-            part
-          )
-        )}
-      </>
-    );
-  };
+  }
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Search className="mr-2 h-4 w-4" />
-          搜索
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px] max-h-[80vh]">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
         <DialogHeader>
-          <DialogTitle>全文搜索</DialogTitle>
-          <DialogDescription>
-            搜索章节标题、大纲或正文内容
-          </DialogDescription>
+          <DialogTitle>搜索章节</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* 搜索输入 */}
-          <div className="flex gap-2">
+          {/* 搜索框 */}
+          <div className="flex items-center space-x-2">
+            <Search className="w-5 h-5 text-muted-foreground" />
             <Input
-              placeholder="输入关键词..."
+              placeholder="输入关键词搜索..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              autoFocus
               className="flex-1"
             />
-            <Button onClick={handleSearch} disabled={isSearching}>
-              <Search className="mr-2 h-4 w-4" />
-              {isSearching ? "搜索中..." : "搜索"}
-            </Button>
           </div>
 
           {/* 搜索类型 */}
-          <div className="flex gap-2">
-            <Button
-              variant={searchType === "all" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSearchType("all")}
-            >
-              全部
-            </Button>
-            <Button
-              variant={searchType === "title" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSearchType("title")}
-            >
-              标题
-            </Button>
-            <Button
-              variant={searchType === "content" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSearchType("content")}
-            >
-              正文
-            </Button>
-          </div>
+          <Tabs value={searchType} onValueChange={(v) => setSearchType(v as any)}>
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="all">全部</TabsTrigger>
+              <TabsTrigger value="title">标题</TabsTrigger>
+              <TabsTrigger value="content">内容</TabsTrigger>
+            </TabsList>
+          </Tabs>
 
           {/* 搜索结果 */}
-          <ScrollArea className="h-[400px] rounded-md border p-4">
-            {!hasSearched ? (
-              <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                <Search className="h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">
-                  输入关键词开始搜索
-                </p>
+          <div className="space-y-2 max-h-[400px] overflow-y-auto">
+            {loading ? (
+              <div className="flex items-center justify-center py-8 text-muted-foreground">
+                <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                搜索中...
               </div>
             ) : results.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">
-                  未找到包含 "{query}" 的内容
-                </p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  尝试使用其他关键词或搜索类型
-                </p>
+              <div className="text-center py-8 text-muted-foreground">
+                {query ? "未找到相关结果" : "输入关键词开始搜索"}
               </div>
             ) : (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-sm text-muted-foreground">
-                    找到 {results.length} 个结果
-                  </span>
-                </div>
-                {results.map((result) => (
-                  <div
-                    key={result.id}
-                    className="rounded-lg border p-4 hover:bg-muted/50 cursor-pointer transition-colors"
-                    onClick={() => handleSelectChapter(result.id)}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge variant="outline">
-                        第 {result.chapter_number} 章
-                      </Badge>
-                      <h4 className="font-medium">{result.title}</h4>
-                      <span className="text-xs text-muted-foreground ml-auto">
-                        {result.word_count} 字
-                      </span>
+              results.map((result) => (
+                <div
+                  key={result.chapter_id}
+                  className="p-3 rounded-lg border hover:bg-accent cursor-pointer transition-colors"
+                  onClick={() => {
+                    onSelectChapter(result.chapter_id)
+                    onOpenChange(false)
+                  }}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <FileText className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-medium">
+                          第{result.chapter_number}章 {result.title}
+                        </span>
+                      </div>
+                      <div
+                        className="mt-1 text-sm text-muted-foreground line-clamp-2"
+                        dangerouslySetInnerHTML={{ __html: result.snippet }}
+                      />
                     </div>
-                    <div className="space-y-2">
-                      {result.snippets.map((snippet, index) => (
-                        <div key={index} className="text-sm">
-                          <div className="flex items-center gap-2 mb-1">
-                            <FileText className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground">
-                              {snippet.type === "title"
-                                ? "标题"
-                                : snippet.type === "outline"
-                                ? "大纲"
-                                : "正文"}
-                            </span>
-                          </div>
-                          <p className="text-muted-foreground pl-5">
-                            {highlightText(snippet.text, query)}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
+                    <span className="text-xs text-muted-foreground ml-2 whitespace-nowrap">
+                      {result.match_type === "title" ? "标题匹配" : "内容匹配"}
+                    </span>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))
             )}
-          </ScrollArea>
+          </div>
+
+          {/* 搜索统计 */}
+          {results.length > 0 && (
+            <div className="text-sm text-muted-foreground text-center">
+              找到 {results.length} 个结果
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
-  );
+  )
 }
