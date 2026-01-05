@@ -93,6 +93,12 @@ class AnalyzeWorldSettingRequest(BaseModel):
     chapters_context: str
 
 
+class OptimizeDescriptionRequest(BaseModel):
+    """优化/生成描述请求"""
+    description: str
+    mode: str  # "optimize" or "generate"
+
+
 # ============ API Endpoints ============
 
 @router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
@@ -728,4 +734,100 @@ async def analyze_world_setting(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"分析失败: {str(e)}"
+        )
+
+
+@router.post("/{project_id}/optimize-description")
+async def optimize_description(
+    project_id: UUID,
+    request_body: OptimizeDescriptionRequest,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    AI优化或生成项目描述
+
+    Args:
+        project_id: 项目 ID
+        request_body: 包含描述内容和模式的请求体
+
+    Returns:
+        {
+          "optimized_description": "优化后的描述"
+        }
+    """
+    # 验证项目所有权
+    project_query = select(NovelProject).where(
+        NovelProject.id == project_id,
+        NovelProject.user_id == user_id
+    )
+    project_result = await db.execute(project_query)
+    project = project_result.scalar_one_or_none()
+
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="项目不存在"
+        )
+
+    # 调用生成服务
+    generation_service = NovelGenerationService()
+
+    if request_body.mode == "optimize":
+        system_prompt = """你是一位专业的文案编辑，擅长优化文字描述。
+
+任务：优化小说项目描述，使其更加清晰、吸引人。
+
+要求：
+1. 保留原意，提升表达质量
+2. 突出故事亮点和创作意图
+3. 语言简洁有力，富有吸引力
+4. 长度控制在100-200字
+5. 只输出优化后的描述，不要其他内容"""
+
+        user_prompt = f"""原描述：
+{request_body.description}
+
+请优化这段描述。"""
+
+    else:  # generate
+        system_prompt = """你是一位专业的文案创作者，擅长创作引人入胜的小说简介。
+
+任务：根据用户提供的关键词或简要信息，生成完整的小说项目描述。
+
+要求：
+1. 描述清晰，突出故事核心
+2. 富有吸引力，激发阅读兴趣
+3. 包含故事背景、主题、亮点
+4. 长度控制在100-200字
+5. 只输出描述内容，不要其他内容"""
+
+        user_prompt = f"""关键词/简要信息：
+{request_body.description if request_body.description.strip() else "创作一个有趣的故事"}
+
+请生成项目描述。"""
+
+    try:
+        completion = await generation_service.client.chat.completions.create(
+            model=generation_service.model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.7,
+        )
+
+        optimized_description = completion.choices[0].message.content.strip()
+
+        logger.info(f"描述优化成功，项目ID: {project_id}，模式: {request_body.mode}")
+
+        return {
+            "optimized_description": optimized_description
+        }
+
+    except Exception as e:
+        logger.error(f"描述优化失败: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"处理失败: {str(e)}"
         )

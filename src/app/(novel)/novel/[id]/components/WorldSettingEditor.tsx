@@ -56,15 +56,25 @@ export function WorldSettingEditor({
     }
   };
 
-  const handleGenerated = (generatedWorldSetting: WorldSetting) => {
+  const handleGenerated = async (generatedWorldSetting: WorldSetting) => {
     // 合并生成的世界观设定到现有设定
-    setWorldSetting({
+    const mergedSetting = {
       locations: [...worldSetting.locations, ...generatedWorldSetting.locations],
       factions: [...worldSetting.factions, ...generatedWorldSetting.factions],
       rules: [...worldSetting.rules, ...generatedWorldSetting.rules],
       timeline: [...worldSetting.timeline, ...generatedWorldSetting.timeline],
-    });
-    toast.success("已添加AI生成的世界观设定，别忘了保存");
+    };
+
+    setWorldSetting(mergedSetting);
+
+    // 自动保存到数据库
+    try {
+      await onSave(mergedSetting);
+      toast.success("已添加AI生成的世界观设定并保存成功");
+    } catch (error) {
+      toast.error("保存失败，请手动点击保存按钮");
+      console.error(error);
+    }
   };
 
   return (

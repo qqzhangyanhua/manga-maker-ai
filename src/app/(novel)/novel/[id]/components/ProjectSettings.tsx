@@ -29,8 +29,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Save, Trash2, AlertTriangle } from "lucide-react";
+import { Save, Trash2, AlertTriangle, Sparkles, Wand2 } from "lucide-react";
 import { toast } from "sonner";
+import { OptimizeDescriptionDialog } from "./OptimizeDescriptionDialog";
 
 interface NovelProjectBase {
   id: string;
@@ -57,6 +58,8 @@ export function ProjectSettings<T extends NovelProjectBase>({ project, onUpdate 
   const [status, setStatus] = useState(project.status);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isOptimizeDialogOpen, setIsOptimizeDialogOpen] = useState(false);
+  const [optimizeMode, setOptimizeMode] = useState<"optimize" | "generate">("optimize");
 
   async function handleSave() {
     if (!title.trim()) {
@@ -116,6 +119,42 @@ export function ProjectSettings<T extends NovelProjectBase>({ project, onUpdate 
     }
   }
 
+  function handleOptimizeClick(mode: "optimize" | "generate") {
+    setOptimizeMode(mode);
+    setIsOptimizeDialogOpen(true);
+  }
+
+  async function handleOptimizedDescription(optimizedDescription: string) {
+    // 更新描述并自动保存
+    setDescription(optimizedDescription);
+
+    // 自动保存到数据库
+    setIsSaving(true);
+    try {
+      const response = await fetch(`/api/novel/projects/${project.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description: optimizedDescription.trim() || null,
+        }),
+      });
+
+      if (response.ok) {
+        const updated = await response.json();
+        onUpdate(updated);
+        toast.success("描述已更新并保存");
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || "保存失败");
+      }
+    } catch (error) {
+      console.error("保存失败:", error);
+      toast.error("保存失败，请手动点击保存按钮");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Card>
@@ -146,9 +185,32 @@ export function ProjectSettings<T extends NovelProjectBase>({ project, onUpdate 
               placeholder="简要描述你的小说内容、主题或创作意图"
               rows={4}
             />
-            <p className="text-xs text-muted-foreground">
-              描述将用于 AI 生成大纲和章节内容
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                描述将用于 AI 生成大纲和章节内容
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleOptimizeClick("optimize")}
+                  disabled={!description.trim()}
+                >
+                  <Wand2 className="mr-2 h-3 w-3" />
+                  AI优化
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleOptimizeClick("generate")}
+                >
+                  <Sparkles className="mr-2 h-3 w-3" />
+                  AI生成
+                </Button>
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -292,6 +354,15 @@ export function ProjectSettings<T extends NovelProjectBase>({ project, onUpdate 
           {isSaving ? "保存中..." : "保存设置"}
         </Button>
       </div>
+
+      <OptimizeDescriptionDialog
+        isOpen={isOptimizeDialogOpen}
+        onClose={() => setIsOptimizeDialogOpen(false)}
+        projectId={project.id}
+        currentDescription={description}
+        mode={optimizeMode}
+        onConfirm={handleOptimizedDescription}
+      />
     </div>
   );
 }
