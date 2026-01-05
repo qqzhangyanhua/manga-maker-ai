@@ -75,10 +75,10 @@ export default function ScriptDetailsPage() {
   });
 
   // Batch selection for panels
-  const panelSelection = useBatchSelection({
-    items: data?.panels || [],
-    getId: (panel) => panel.id,
-  });
+  const panelSelection = useBatchSelection(
+    data?.panels || [],
+    { getId: (panel: { id: string }) => panel.id }
+  );
 
   // Batch operations state
   const [batchGenerating, setBatchGenerating] = useState(false);
@@ -125,11 +125,14 @@ export default function ScriptDetailsPage() {
 
   // Batch operations handlers
   const handleBatchGenerate = useCallback(async () => {
-    const selectedPanels = panelSelection.selectedItems;
+    const selectedIds = panelSelection.getSelectedItems();
+    const selectedPanels = (data?.panels || []).filter((p: { id: string }) =>
+      selectedIds.includes(p.id)
+    );
     if (selectedPanels.length === 0) return;
 
     // 过滤出有 prompt_used 的分镜
-    const panelsWithPrompt = selectedPanels.filter((p) => p.prompt_used);
+    const panelsWithPrompt = selectedPanels.filter((p: { prompt_used?: string }) => p.prompt_used);
     if (panelsWithPrompt.length === 0) {
       setErrorState("选中的分镜都没有提示词，请先生成提示词");
       return;
@@ -143,7 +146,7 @@ export default function ScriptDetailsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          panel_ids: panelsWithPrompt.map((p) => p.id),
+          panel_ids: panelsWithPrompt.map((p: { id: string }) => p.id),
         }),
       });
 
@@ -187,7 +190,7 @@ export default function ScriptDetailsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          panel_ids: Array.from(panelSelection.selectedIds),
+          panel_ids: Array.from(panelSelection.selected),
         }),
       });
 

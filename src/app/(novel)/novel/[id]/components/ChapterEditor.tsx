@@ -311,10 +311,11 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
 
       {/* 修订对话框 */}
       <RevisionDialog
-        isOpen={isRevisionDialogOpen}
-        onClose={() => setIsRevisionDialogOpen(false)}
+        chapterId={project.id}
+        open={isRevisionDialogOpen}
+        onOpenChange={setIsRevisionDialogOpen}
         selectedText={selectedText}
-        onReplace={handleReplaceText}
+        onAccept={handleReplaceText}
       />
     </Card>
   );
