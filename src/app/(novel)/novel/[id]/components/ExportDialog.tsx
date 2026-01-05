@@ -29,7 +29,7 @@ interface ExportDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
-type ExportFormat = "txt" | "docx" | "pdf"
+type ExportFormat = "txt" | "markdown" | "epub" | "docx" | "pdf"
 
 interface ExportConfig {
   include_metadata: boolean
@@ -43,6 +43,18 @@ const FORMAT_OPTIONS = [
     label: "纯文本 (TXT)",
     description: "适合上传到网文平台",
     icon: FileText,
+  },
+  {
+    value: "markdown" as const,
+    label: "Markdown (MD)",
+    description: "适合二次编辑和版本控制",
+    icon: FileText,
+  },
+  {
+    value: "epub" as const,
+    label: "电子书 (EPUB)",
+    description: "适合电子阅读器和移动设备",
+    icon: File,
   },
   {
     value: "docx" as const,
@@ -112,7 +124,7 @@ export function ExportDialog({
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.detail || "导出失败")
+        throw new Error(error.error || error.detail || "导出失败")
       }
 
       // 获取文件
