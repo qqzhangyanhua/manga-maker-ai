@@ -90,7 +90,8 @@
       "Bash(Select-Object:*)",
       "Bash(Format-Table:*)",
       "Bash(tasklist)",
-      "Bash(.venv/Scripts/python.exe:*)"
+      "Bash(.venv/Scripts/python.exe:*)",
+      "Bash(/Users/zhangyanhua/AI/manga-maker-ai/scripts/verify-novel-cover.sh)"
     ],
     "deny": [],
     "ask": []

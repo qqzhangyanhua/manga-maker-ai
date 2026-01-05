@@ -888,7 +888,7 @@ model NovelProject {
   title           String   @db.VarChar(200)
   description     String?  @db.Text
   genre           String?  @db.VarChar(50) // suspense, romance, adventure, scifi, fantasy, other
-  
+
   // 世界观设定（JSON 结构化存储）
   world_setting   Json?    // { locations: [], factions: [], rules: [], timeline: [] }
 
@@ -901,7 +901,8 @@ model NovelProject {
   // 项目配置
   target_words    Int?     // 目标字数
   status          String   @default("draft") // draft, writing, completed, archived
-  
+  cover_image     String?  // AI生成的封面图URL
+
   // 统计信息
   total_words     Int      @default(0)
   chapter_count   Int      @default(0)
