@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChevronRight, Image as ImageIcon, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Panel, Chapter } from "@/types";
+import type { Panel } from "@prisma/client";
+import type { Chapter } from "@prisma/client";
 import { useFocusMode } from "../../contexts/FocusModeContext";
 
 interface ChapterPanelNavProps {
@@ -64,12 +65,14 @@ export function ChapterPanelNav({ className }: ChapterPanelNavProps) {
   // 当选择新分镜时，自动展开该章节
   const handlePanelSelect = useCallback((panel: Panel) => {
     actions.selectPanel(panel.id);
-    // 确保该章节是展开的
-    setExpandedChapters((prev) => {
-      const newSet = new Set(prev);
-      newSet.add(panel.chapter_id);
-      return newSet;
-    });
+    // 确保该章节是展开的（如果有 chapter_id）
+    if (panel.chapter_id) {
+      setExpandedChapters((prev) => {
+        const newSet = new Set(prev);
+        newSet.add(panel.chapter_id!); // TypeScript 收窄不够，需要断言
+        return newSet;
+      });
+    }
   }, [actions]);
 
   return (
@@ -121,8 +124,8 @@ export function ChapterPanelNav({ className }: ChapterPanelNavProps) {
                   <div className="pl-6 space-y-2">
                     {chapterPanels.map((panel) => {
                       const isSelected = state.currentPanelId === panel.id;
-                      const hasImage = !!panel.image_url;
-                      
+                      const hasImage = !!panel.generated_image;
+
                       return (
                         <button
                           key={panel.id}
@@ -138,7 +141,7 @@ export function ChapterPanelNav({ className }: ChapterPanelNavProps) {
                           <div className="relative w-16 h-16 flex-shrink-0 rounded overflow-hidden bg-gray-900">
                             {hasImage ? (
                               <img
-                                src={panel.image_url!}
+                                src={panel.generated_image!}
                                 alt={`分镜 ${panel.panel_order}`}
                                 className="w-full h-full object-cover"
                               />
@@ -147,14 +150,14 @@ export function ChapterPanelNav({ className }: ChapterPanelNavProps) {
                                 <ImageIcon className="w-6 h-6 text-gray-600" />
                               </div>
                             )}
-                            
+
                             {/* 序号徽章 */}
                             <div className="absolute top-1 left-1 bg-black/80 text-white text-xs px-1.5 py-0.5 rounded">
                               {panel.panel_order}
                             </div>
-                            
-                            {/* 生成中状态 */}
-                            {panel.image_generation_status === "pending" && (
+
+                            {/* 生成中状态 - Panel 模型没有 image_generation_status，用 prompt_used 判断 */}
+                            {panel.prompt_used && !panel.generated_image && (
                               <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                                 <Sparkles className="w-4 h-4 text-orange-400 animate-pulse" />
                               </div>
@@ -185,7 +188,7 @@ export function ChapterPanelNav({ className }: ChapterPanelNavProps) {
       <div className="p-4 border-t border-gray-800">
         <div className="flex items-center justify-between text-xs text-gray-400">
           <span>
-            已生成: {panels.filter((p) => p.image_url).length}/{panels.length}
+            已生成: {panels.filter((p) => p.generated_image).length}/{panels.length}
           </span>
           {state.currentPanel && (
             <span className="text-orange-400">

@@ -5,7 +5,9 @@
  * Focus Mode Main Entry Component
  */
 
-import type { Panel, Chapter, CharacterAsset } from "@/types";
+import type { Panel } from "@prisma/client";
+import type { Chapter } from "@prisma/client";
+import type { Character } from "@prisma/client";
 import { FocusModeProvider } from "../../contexts/FocusModeContext";
 import { FocusModeLayout } from "./FocusModeLayout";
 
@@ -14,7 +16,7 @@ interface FocusModeProps {
   projectId: string | null;
   panels: Panel[];
   chapters: Chapter[];
-  characters: CharacterAsset[];
+  characters: Character[];
   initialPanelId?: string | null;
   onExit: () => void;
   onPanelUpdate: () => void;
@@ -36,16 +38,13 @@ export function FocusMode({
 }: FocusModeProps) {
   return (
     <FocusModeProvider
-      storyId={storyId}
-      projectId={projectId}
       panels={panels}
       chapters={chapters}
       characters={characters}
       initialPanelId={initialPanelId}
       onExit={onExit}
-      onPanelUpdate={onPanelUpdate}
     >
-      <FocusModeLayout storyId={storyId} projectId={projectId} />
+      <FocusModeLayout storyId={storyId} projectId={projectId} onPanelUpdate={onPanelUpdate} />
     </FocusModeProvider>
   );
 }

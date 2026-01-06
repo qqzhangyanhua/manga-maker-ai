@@ -3,7 +3,9 @@
  * Focus Mode Type Definitions
  */
 
-import type { Panel, Chapter, CharacterAsset } from "@/types";
+import type { Panel } from "@prisma/client";
+import type { Chapter } from "@prisma/client";
+import type { Character } from "@prisma/client";
 
 /**
  * 专注模式面板状态
@@ -109,14 +111,18 @@ export interface FocusModeActions {
 export interface FocusModeContextValue {
   state: FocusModeState;
   actions: FocusModeActions;
-  
+
   // 数据源
   panels: Panel[];
   chapters: Chapter[];
-  characters: CharacterAsset[];
-  
+  characters: Character[];
+
   // 加载状态
   isLoading: boolean;
+
+  // 预览控制
+  setPreviewImage?: (imageUrl: string | null) => void;
+  toggleShowOriginal?: () => void;
 }
 
 /**

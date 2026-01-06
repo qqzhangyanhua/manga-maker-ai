@@ -2,7 +2,10 @@
  * SerialChapterList 组件类型定义
  */
 
-import type { CharacterReference } from "@/app/scripts/[id]/types/character.types";
+import type { CharacterReference as CharacterRef } from "@/app/scripts/[id]/types/character.types";
+
+// 重新导出以供外部使用
+export type CharacterReference = CharacterRef;
 
 export interface Chapter {
   id: string;

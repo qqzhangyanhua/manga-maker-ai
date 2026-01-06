@@ -45,7 +45,6 @@ import { ErrorBanner } from "@/components/common/ErrorBanner";
 import { BatchOperationBar } from "@/components/common/BatchOperationBar";
 import { useProgressCalculation } from "@/hooks/useProgressCalculation";
 import { useBatchSelection } from "@/hooks/useBatchSelection";
-import { FocusMode } from "./components/FocusMode";
 
 export default function ScriptDetailsPage() {
   const params = useParams();
@@ -107,9 +106,16 @@ export default function ScriptDetailsPage() {
   // AlertDialog state for batch delete confirmation
   const [showBatchDeleteDialog, setShowBatchDeleteDialog] = useState(false);
 
-  // Focus mode state
-  const [focusModeEnabled, setFocusModeEnabled] = useState(false);
-  const [focusModeInitialPanelId, setFocusModeInitialPanelId] = useState<string | null>(null);
+  // Focus mode: 通过路由跳转而不是状态切换
+  const handleEnterFocusMode = useCallback(
+    (panelId?: string) => {
+      const url = panelId
+        ? `/scripts/${storyId}/focus?panel=${panelId}`
+        : `/scripts/${storyId}/focus`;
+      router.push(url);
+    },
+    [storyId, router]
+  );
 
   // Computed: 下一个章节序号
   const nextChapterOrder = useMemo(() => {
@@ -266,19 +272,6 @@ export default function ScriptDetailsPage() {
     });
   }, [refreshStoryData, toast]);
 
-  // Focus mode handlers
-  const handleEnterFocusMode = useCallback((panelId?: string) => {
-    setFocusModeInitialPanelId(panelId || null);
-    setFocusModeEnabled(true);
-  }, []);
-
-  const handleExitFocusMode = useCallback(() => {
-    setFocusModeEnabled(false);
-    setFocusModeInitialPanelId(null);
-    // 刷新数据以获取最新状态
-    void refreshStoryData();
-  }, [refreshStoryData]);
-
   // Sync form with fetched data
   useEffect(() => {
     if (!data?.story || uiState.editMode) return;
@@ -346,22 +339,6 @@ export default function ScriptDetailsPage() {
           </div>
         </main>
       </div>
-    );
-  }
-
-  // 如果启用了专注模式，渲染专注模式组件
-  if (focusModeEnabled) {
-    return (
-      <FocusMode
-        storyId={storyId}
-        projectId={data?.projectId || null}
-        panels={data?.panels || []}
-        chapters={data?.chapters || []}
-        characters={characterAssets}
-        initialPanelId={focusModeInitialPanelId}
-        onExit={handleExitFocusMode}
-        onPanelUpdate={refreshStoryData}
-      />
     );
   }
 

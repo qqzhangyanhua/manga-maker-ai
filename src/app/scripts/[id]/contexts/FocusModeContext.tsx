@@ -1,49 +1,51 @@
 "use client";
 
 /**
- * 专注模式上下文
- * Focus Mode Context - 管理专注编辑模式的状态
+ * 专注模式上下文 - 重构版
+ * Focus Mode Context - 仅管理 UI 状态，业务逻辑已迁移到 Provider 和 Hook
+ *
+ * 职责：
+ * - 面板导航状态（当前面板 ID、上一个/下一个）
+ * - 配置状态（提示词、模型参数）
+ * - 预览状态（预览图、显示原图）
+ *
+ * 不包含：
+ * - 图片生成逻辑（使用 usePanelImageGeneration Hook）
+ * - 面板更新逻辑（使用 ScriptOperationsProvider）
+ * - 错误处理（使用 ScriptOperationsProvider）
  */
 
 import { createContext, useContext, useState, useCallback, useMemo } from "react";
-import type { Panel, Chapter, CharacterAsset } from "@/types";
+import type { Panel } from "@prisma/client";
+import type { Chapter } from "@prisma/client";
+import type { Character } from "@prisma/client";
 import type {
   FocusModeContextValue,
   FocusModeState,
   FocusModeActions,
-  FocusModePanel,
   FocusModeConfig,
 } from "../components/FocusMode/types";
 import { DEFAULT_FOCUS_MODE_CONFIG } from "../components/FocusMode/types";
-import { useToast } from "@/hooks/use-toast";
 
 const FocusModeContext = createContext<FocusModeContextValue | null>(null);
 
 interface FocusModeProviderProps {
   children: React.ReactNode;
-  storyId: string;
-  projectId: string | null;
   panels: Panel[];
   chapters: Chapter[];
-  characters: CharacterAsset[];
+  characters: Character[];
   initialPanelId?: string | null;
   onExit: () => void;
-  onPanelUpdate: () => void;
 }
 
 export function FocusModeProvider({
   children,
-  storyId,
-  projectId,
   panels,
   chapters,
   characters,
   initialPanelId,
   onExit,
-  onPanelUpdate,
 }: FocusModeProviderProps) {
-  const { toast } = useToast();
-  
   // 初始化当前面板
   const initialPanel = useMemo(() => {
     if (initialPanelId) {
@@ -52,13 +54,11 @@ export function FocusModeProvider({
     return panels[0];
   }, [initialPanelId, panels]);
 
-  // 状态管理
+  // UI 状态管理
   const [currentPanelId, setCurrentPanelId] = useState<string | null>(
     initialPanel?.id || null
   );
   const [config, setConfig] = useState<FocusModeConfig>(DEFAULT_FOCUS_MODE_CONFIG);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generationProgress, setGenerationProgress] = useState(0);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [showOriginal, setShowOriginal] = useState(true);
 
@@ -101,181 +101,17 @@ export function FocusModeProvider({
     setConfig(DEFAULT_FOCUS_MODE_CONFIG);
   }, []);
 
-  // 生成操作
-  const generateImage = useCallback(async () => {
-    if (!currentPanel) {
-      toast({
-        title: "错误",
-        description: "未选择分镜",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsGenerating(true);
-    setGenerationProgress(0);
-
-    try {
-      const requestBody: Record<string, unknown> = {
-        panel_id: currentPanel.id,
-        prompt: config.customPrompt || currentPanel.prompt_used,
-        negative_prompt: config.negativePrompt,
-        model_name: config.modelName,
-        aspect_ratio: config.aspectRatio,
-        num_inference_steps: config.numInferenceSteps,
-        guidance_scale: config.guidanceScale,
-      };
-
-      // 添加参考图（如果有）
-      if (config.referenceImages.length > 0) {
-        requestBody.reference_image_urls = config.referenceImages.map((img) => img.url);
-      }
-
-      const response = await fetch(`/api/panel/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "生成失败");
-      }
-
-      const result = await response.json();
-      
-      // 更新预览图
-      setPreviewImageUrl(result.image_url);
+  // 预览操作
+  const setPreviewImage = useCallback((imageUrl: string | null) => {
+    setPreviewImageUrl(imageUrl);
+    if (imageUrl) {
       setShowOriginal(false);
-
-      toast({
-        title: "生成成功",
-        description: "分镜图片已生成",
-      });
-
-      // 通知父组件更新数据
-      onPanelUpdate();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "生成失败";
-      toast({
-        title: "生成失败",
-        description: message,
-        variant: "destructive",
-      });
-      console.error("图片生成失败:", error);
-    } finally {
-      setIsGenerating(false);
-      setGenerationProgress(0);
     }
-  }, [currentPanel, config, toast, onPanelUpdate]);
-
-  const cancelGeneration = useCallback(() => {
-    setIsGenerating(false);
-    setGenerationProgress(0);
   }, []);
 
-  // 编辑操作
-  const updatePanelDescription = useCallback(
-    async (description: string) => {
-      if (!currentPanel) return;
-
-      try {
-        const response = await fetch(`/api/panel/${currentPanel.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ description }),
-        });
-
-        if (!response.ok) {
-          throw new Error("更新失败");
-        }
-
-        toast({
-          title: "更新成功",
-          description: "分镜描述已更新",
-        });
-
-        onPanelUpdate();
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "更新失败";
-        toast({
-          title: "更新失败",
-          description: message,
-          variant: "destructive",
-        });
-      }
-    },
-    [currentPanel, toast, onPanelUpdate]
-  );
-
-  const updatePanelPrompt = useCallback(
-    async (prompt: string) => {
-      if (!currentPanel) return;
-
-      try {
-        const response = await fetch(`/api/panel/${currentPanel.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt_used: prompt }),
-        });
-
-        if (!response.ok) {
-          throw new Error("更新失败");
-        }
-
-        toast({
-          title: "更新成功",
-          description: "提示词已更新",
-        });
-
-        onPanelUpdate();
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "更新失败";
-        toast({
-          title: "更新失败",
-          description: message,
-          variant: "destructive",
-        });
-      }
-    },
-    [currentPanel, toast, onPanelUpdate]
-  );
-
-  const deletePanelImage = useCallback(async () => {
-    if (!currentPanel) return;
-
-    try {
-      const response = await fetch(`/api/panel/${currentPanel.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          image_url: null,
-          image_generation_status: null,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("删除失败");
-      }
-
-      setPreviewImageUrl(null);
-      setShowOriginal(true);
-
-      toast({
-        title: "删除成功",
-        description: "分镜图片已删除",
-      });
-
-      onPanelUpdate();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "删除失败";
-      toast({
-        title: "删除失败",
-        description: message,
-        variant: "destructive",
-      });
-    }
-  }, [currentPanel, toast, onPanelUpdate]);
+  const toggleShowOriginal = useCallback(() => {
+    setShowOriginal((prev) => !prev);
+  }, []);
 
   const exitFocusMode = useCallback(() => {
     onExit();
@@ -285,14 +121,14 @@ export function FocusModeProvider({
   const state: FocusModeState = useMemo(
     () => ({
       currentPanelId,
-      currentPanel: currentPanel as FocusModePanel | null,
+      currentPanel: currentPanel as unknown as FocusModeState["currentPanel"],
       config,
-      isGenerating,
-      generationProgress,
+      isGenerating: false, // 现在由 usePanelImageGeneration 管理
+      generationProgress: 0, // 现在由 usePanelImageGeneration 管理
       previewImageUrl,
       showOriginal,
     }),
-    [currentPanelId, currentPanel, config, isGenerating, generationProgress, previewImageUrl, showOriginal]
+    [currentPanelId, currentPanel, config, previewImageUrl, showOriginal]
   );
 
   const actions: FocusModeActions = useMemo(
@@ -302,11 +138,26 @@ export function FocusModeProvider({
       goToNextPanel,
       updateConfig,
       resetConfig,
-      generateImage,
-      cancelGeneration,
-      updatePanelDescription,
-      updatePanelPrompt,
-      deletePanelImage,
+      generateImage: async () => {
+        // 占位符 - 实际实现在使用 usePanelImageGeneration 的组件中
+        console.warn("generateImage should be called from component using usePanelImageGeneration");
+      },
+      cancelGeneration: () => {
+        // 占位符
+        console.warn("cancelGeneration should be called from component using usePanelImageGeneration");
+      },
+      updatePanelDescription: async () => {
+        // 占位符 - 实际实现在使用 ScriptOperationsProvider 的组件中
+        console.warn("updatePanelDescription should be called from component using ScriptOperationsProvider");
+      },
+      updatePanelPrompt: async () => {
+        // 占位符
+        console.warn("updatePanelPrompt should be called from component using ScriptOperationsProvider");
+      },
+      deletePanelImage: async () => {
+        // 占位符
+        console.warn("deletePanelImage should be called from component using ScriptOperationsProvider");
+      },
       exitFocusMode,
     }),
     [
@@ -315,11 +166,6 @@ export function FocusModeProvider({
       goToNextPanel,
       updateConfig,
       resetConfig,
-      generateImage,
-      cancelGeneration,
-      updatePanelDescription,
-      updatePanelPrompt,
-      deletePanelImage,
       exitFocusMode,
     ]
   );
@@ -328,12 +174,14 @@ export function FocusModeProvider({
     () => ({
       state,
       actions,
-      panels,
-      chapters,
-      characters,
+      panels: panels as unknown as FocusModeContextValue["panels"],
+      chapters: chapters as unknown as FocusModeContextValue["chapters"],
+      characters: characters as unknown as FocusModeContextValue["characters"],
       isLoading: false,
+      setPreviewImage,
+      toggleShowOriginal,
     }),
-    [state, actions, panels, chapters, characters]
+    [state, actions, panels, chapters, characters, setPreviewImage, toggleShowOriginal]
   );
 
   return (
@@ -353,4 +201,3 @@ export function useFocusMode() {
   }
   return context;
 }
-

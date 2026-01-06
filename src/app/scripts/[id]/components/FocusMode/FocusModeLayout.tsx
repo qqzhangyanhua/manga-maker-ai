@@ -18,9 +18,10 @@ interface FocusModeLayoutProps {
   className?: string;
   storyId?: string;
   projectId?: string | null;
+  onPanelUpdate: () => void;
 }
 
-export function FocusModeLayout({ className, storyId, projectId }: FocusModeLayoutProps) {
+export function FocusModeLayout({ className, storyId, projectId, onPanelUpdate }: FocusModeLayoutProps) {
   const { state, actions } = useFocusMode();
 
   // 键盘快捷键

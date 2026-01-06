@@ -39,7 +39,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useFocusMode } from "../../contexts/FocusModeContext";
 import { ReferenceImageSelector } from "../ReferenceImageSelector";
-import type { ReferenceImage } from "../../types/script-editor.types";
+import type { ReferenceImage } from "../FocusMode/types";
 
 interface PanelConfigSidebarProps {
   className?: string;
@@ -268,10 +268,10 @@ export function PanelConfigSidebar({ className, storyId, projectId }: PanelConfi
                               : "border-gray-700 bg-black/30 hover:border-gray-600"
                           )}
                         >
-                          {character.reference_image_url ? (
+                          {character.reference_image ? (
                             <div className="w-full aspect-square rounded overflow-hidden">
                               <img
-                                src={character.reference_image_url}
+                                src={character.reference_image}
                                 alt={character.name}
                                 className="w-full h-full object-cover"
                               />
