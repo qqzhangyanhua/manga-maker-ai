@@ -241,6 +241,39 @@ export default function ScriptDetailsPage() {
     }
   }, [panelSelection, refetchPanels, toast]);
 
+  // 生成章节背景图
+  const handleGenerateBackground = useCallback(async (
+    chapterId: string,
+    params: { scene_type: string; style: string; prompt?: string; negative_prompt?: string }
+  ) => {
+    try {
+      const response = await fetch(`/api/chapter/${chapterId}/generate-background`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(params),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "生成失败");
+      }
+
+      toast({
+        title: "背景图生成成功",
+        description: "章节背景图已生成并保存",
+      });
+
+      // 刷新故事数据以显示新的背景图
+      await refreshStoryData();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "生成背景图失败";
+      setErrorState(message);
+      console.error("生成背景图失败:", error);
+      throw error; // 重新抛出错误以便对话框处理
+    }
+  }, [refreshStoryData, toast]);
+
   // Asset library handlers
   const handleCharacterSelect = useCallback((character: { id: string; name: string }) => {
     toast({
@@ -524,6 +557,7 @@ export default function ScriptDetailsPage() {
                       charactersLoading={isCharactersLoading}
                       isGeneratingPanels={isGenerating}
                       streamingPanels={progress.generatedPanels || []}
+                      storyStyle={data.story?.style || undefined}
                       onRefresh={refreshStoryData}
                       onCreateChapter={() => {
                         uiActions.openChapterDialog("create", nextChapterOrder);
@@ -535,6 +569,7 @@ export default function ScriptDetailsPage() {
                         uiActions.setCurrentChapter(chapterId);
                         handleGeneratePanelsForChapter(chapterId);
                       }}
+                      onGenerateBackground={handleGenerateBackground}
                       onDeletePanel={handleDeletePanel}
                       onImageGenerated={handleImageGenerated}
                       onCharactersRefresh={() => refetchCharacters()}

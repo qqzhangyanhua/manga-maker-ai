@@ -398,7 +398,8 @@ model Scene {
   updated_at      DateTime @default(now()) @db.Timestamptz(6)
 
   // Phase 2: Reverse relation
-  panels Panel[]
+  panels   Panel[]
+  chapters Chapter[] // 章节背景图关联
 
   @@index([user_id, scene_type], map: "idx_scenes_user_type")
   @@map("scenes")
@@ -468,7 +469,7 @@ model Story {
 model Chapter {
   id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   story_id      String  @db.Uuid
-  title         String // Chapter title (e.g., "绗竴绔狅細鐩搁亣")
+  title         String // Chapter title (e.g., "第一章：相遇")
   summary       String? @db.Text // Chapter summary for AI panel generation
   chapter_order Int // Display order in story
 
@@ -477,20 +478,27 @@ model Chapter {
   is_key_chapter     Boolean @default(false) // Mark as key chapter for context loading
   key_chapter_reason String? @db.Text // Why this chapter is key (e.g., "character death", "major plot twist")
 
-  // 杩炶浇妯″紡鏀寔
-  publish_status String    @default("draft") // draft/published/archived - 绔犺妭鍙戝竷鐘舵€?
-  published_at   DateTime? @db.Timestamptz(6) // 鍙戝竷鏃堕棿
+  // 连载模式支持
+  publish_status String    @default("draft") // draft/published/archived - 章节发布状态
+  published_at   DateTime? @db.Timestamptz(6) // 发布时间
+
+  // 章节背景图（方案C：混合模式）
+  scene_id             String? @db.Uuid // 关联到 Scene 库（可选，用于复用已有场景）
+  background_image_url String? // 章节独立背景图URL（快速AI生成，不入库）
+  background_prompt    String? @db.Text // 背景图AI生成提示词
 
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
 
   story            Story                   @relation(fields: [story_id], references: [id], onDelete: Cascade)
+  scene            Scene?                  @relation(fields: [scene_id], references: [id], onDelete: SetNull)
   panels           Panel[]
   character_states ChapterCharacterState[] // Character states at end of chapter
 
   @@index([story_id, chapter_order], map: "idx_chapters_story_order")
   @@index([story_id, is_key_chapter], map: "idx_chapters_key")
   @@index([story_id, publish_status], map: "idx_chapters_publish_status")
+  @@index([scene_id], map: "idx_chapters_scene")
   @@map("chapters")
 }
 

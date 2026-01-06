@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Layers,
   Edit2,
+  Image,
 } from "lucide-react";
 import { ChapterPanelEditor } from "./ChapterPanelEditor";
 import type { ChapterCardProps } from "./types";
@@ -45,6 +46,8 @@ export function ChapterCard({
   onToggleSelect,
   onEdit,
   onGeneratePanels,
+  onGenerateBackground,
+  generatingBackground = false,
   // 分镜编辑相关
   projectId,
   storyId,
@@ -152,6 +155,30 @@ export function ChapterCard({
                   AI 生成分镜
                 </Button>
               ) : null}
+
+              {/* 生成背景图按钮 */}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onGenerateBackground();
+                }}
+                disabled={generatingBackground}
+                className="border-gray-700 text-gray-400 hover:bg-gray-800"
+              >
+                {generatingBackground ? (
+                  <>
+                    <Layers className="w-4 h-4 mr-1 animate-spin" />
+                    生成中...
+                  </>
+                ) : (
+                  <>
+                    <Image className="w-4 h-4 mr-1" />
+                    生成章节背景
+                  </>
+                )}
+              </Button>
 
               {/* 编辑章节按钮 */}
               <Button

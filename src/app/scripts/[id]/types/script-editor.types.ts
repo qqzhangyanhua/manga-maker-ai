@@ -36,6 +36,7 @@ export interface Story {
   outline: Record<string, unknown>;
   characters: StoryCharacter[];
   comic_style_id?: string | null; // 选择的漫画风格ID
+  style?: string | null; // 风格提示词（从 comic_style.prompt_prefix 或自定义）
   style_reference_image?: string | null; // 参考图URL（优先级最高）
   comic_style?: ComicStyle | null; // 关联的风格对象
   // 连载模式支持

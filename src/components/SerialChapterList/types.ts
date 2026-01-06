@@ -50,10 +50,12 @@ export interface SerialChapterListProps {
   charactersLoading?: boolean;
   isGeneratingPanels?: boolean;
   streamingPanels?: Panel[];
+  storyStyle?: string; // 当前故事的风格
   onRefresh: () => Promise<void> | void;
   onCreateChapter: () => void;
   onGenerateNext: () => void;
   onGeneratePanels: (chapterId: string) => void;
+  onGenerateBackground: (chapterId: string, params: { scene_type: string; style: string; prompt?: string; negative_prompt?: string }) => Promise<void>;
   onDeletePanel: (panelId: string) => Promise<void>;
   onImageGenerated: (panelId: string, imageUrl: string) => Promise<void>;
   onCharactersRefresh?: () => void;
@@ -72,6 +74,8 @@ export interface ChapterCardProps {
   onToggleSelect: () => void;
   onEdit: () => void;
   onGeneratePanels: () => void;
+  onGenerateBackground: () => void;
+  generatingBackground?: boolean;
   // 分镜编辑相关
   projectId: string | null;
   storyId: string;

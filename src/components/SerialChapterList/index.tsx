@@ -15,6 +15,7 @@ import { BookOpen, Plus } from "lucide-react";
 import { EditChapterDialog } from "@/components/EditChapterDialog";
 import { ChapterCard } from "./ChapterCard";
 import { PublishCheckDialog } from "./PublishCheckDialog";
+import { GenerateBackgroundDialog, type GenerateBackgroundParams } from "./GenerateBackgroundDialog";
 import { useChapterOperations } from "./hooks/useChapterOperations";
 import type { SerialChapterListProps, Chapter, ChapterStats } from "./types";
 
@@ -27,10 +28,12 @@ export function SerialChapterList({
   charactersLoading = false,
   isGeneratingPanels = false,
   streamingPanels = [],
+  storyStyle,
   onRefresh,
   onCreateChapter,
   onGenerateNext,
   onGeneratePanels,
+  onGenerateBackground,
   onDeletePanel,
   onImageGenerated,
   onCharactersRefresh,
@@ -39,6 +42,9 @@ export function SerialChapterList({
   // 状态管理
   const [editingChapter, setEditingChapter] = useState<Chapter | null>(null);
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
+  const [generatingBackground, setGeneratingBackground] = useState<string | null>(null);
+  const [backgroundDialogOpen, setBackgroundDialogOpen] = useState(false);
+  const [currentChapterForBackground, setCurrentChapterForBackground] = useState<Chapter | null>(null);
 
   const sortedChapters = useMemo(
     () => [...chapters].sort((a, b) => a.chapter_order - b.chapter_order),
@@ -85,6 +91,28 @@ export function SerialChapterList({
     });
   }, []);
 
+  // 打开背景生成对话框
+  const handleOpenBackgroundDialog = useCallback((chapterId: string) => {
+    const chapter = sortedChapters.find(c => c.id === chapterId);
+    if (chapter) {
+      setCurrentChapterForBackground(chapter);
+      setBackgroundDialogOpen(true);
+    }
+  }, [sortedChapters]);
+
+  // 确认生成背景
+  const handleConfirmGenerateBackground = useCallback(async (params: GenerateBackgroundParams) => {
+    if (!currentChapterForBackground) return;
+
+    setGeneratingBackground(currentChapterForBackground.id);
+    try {
+      await onGenerateBackground(currentChapterForBackground.id, params);
+    } finally {
+      setGeneratingBackground(null);
+      setCurrentChapterForBackground(null);
+    }
+  }, [currentChapterForBackground, onGenerateBackground]);
+
   return (
     <>
       <div>
@@ -120,6 +148,8 @@ export function SerialChapterList({
                   onToggleSelect={() => toggleChapterSelection(chapter.id)}
                   onEdit={() => setEditingChapter(chapter)}
                   onGeneratePanels={() => onGeneratePanels(chapter.id)}
+                  onGenerateBackground={() => handleOpenBackgroundDialog(chapter.id)}
+                  generatingBackground={generatingBackground === chapter.id}
                   // 分镜编辑相关
                   projectId={projectId}
                   storyId={storyId}
@@ -154,6 +184,15 @@ export function SerialChapterList({
         warnings={publishCheckDialog.warnings}
         onOpenChange={(open) => !open && closePublishCheckDialog()}
         onConfirm={confirmPublish}
+      />
+
+      {/* 生成背景对话框 */}
+      <GenerateBackgroundDialog
+        open={backgroundDialogOpen}
+        onOpenChange={setBackgroundDialogOpen}
+        chapterTitle={currentChapterForBackground?.title}
+        storyStyle={storyStyle}
+        onConfirm={handleConfirmGenerateBackground}
       />
     </>
   );

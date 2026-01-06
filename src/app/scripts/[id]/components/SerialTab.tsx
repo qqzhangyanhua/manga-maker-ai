@@ -15,7 +15,9 @@ interface SerialTabProps {
   nextChapterOrder: number;
   isGeneratingPanels: boolean;
   streamingPanels: unknown[];
+  storyStyle?: string;
   onGeneratePanels: (chapterId: string) => void;
+  onGenerateBackground: (chapterId: string, params: { scene_type: string; style: string; prompt?: string; negative_prompt?: string }) => Promise<void>;
   onDeletePanel: (panelId: string) => Promise<void>;
   onImageGenerated: (panelId: string, imageUrl: string) => Promise<void>;
 }
@@ -88,7 +90,9 @@ export function SerialTab({
   nextChapterOrder,
   isGeneratingPanels,
   streamingPanels,
+  storyStyle,
   onGeneratePanels,
+  onGenerateBackground,
   onDeletePanel,
   onImageGenerated,
 }: SerialTabProps) {
@@ -155,6 +159,7 @@ export function SerialTab({
         charactersLoading={isCharactersLoading}
         isGeneratingPanels={isGeneratingPanels}
         streamingPanels={adaptedStreamingPanels}
+        storyStyle={storyStyle}
         onRefresh={refetchAll}
         onCreateChapter={() => {
           uiActions.openChapterDialog("create", nextChapterOrder);
@@ -166,6 +171,7 @@ export function SerialTab({
           uiActions.setCurrentChapter(chapterId);
           onGeneratePanels(chapterId);
         }}
+        onGenerateBackground={onGenerateBackground}
         onDeletePanel={onDeletePanel}
         onImageGenerated={onImageGenerated}
         onCharactersRefresh={() => void refetchCharacters()}
