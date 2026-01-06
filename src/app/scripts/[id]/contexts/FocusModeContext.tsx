@@ -61,6 +61,8 @@ export function FocusModeProvider({
   const [config, setConfig] = useState<FocusModeConfig>(DEFAULT_FOCUS_MODE_CONFIG);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [showOriginal, setShowOriginal] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
 
   // 当前面板数据
   const currentPanel = useMemo(() => {
@@ -71,10 +73,18 @@ export function FocusModeProvider({
   // 导航操作
   const selectPanel = useCallback((panelId: string) => {
     setCurrentPanelId(panelId);
-    // 重置预览状态
-    setShowOriginal(true);
-    setPreviewImageUrl(null);
-  }, []);
+
+    // 查找新面板，如果有已生成的图片，自动加载到预览
+    const newPanel = panels.find((p) => p.id === panelId);
+    if (newPanel?.generated_image) {
+      setPreviewImageUrl(newPanel.generated_image);
+      setShowOriginal(true);
+    } else {
+      // 没有生成图片时才清空预览
+      setPreviewImageUrl(null);
+      setShowOriginal(true);
+    }
+  }, [panels]);
 
   const goToPreviousPanel = useCallback(() => {
     if (!currentPanelId) return;
@@ -113,6 +123,14 @@ export function FocusModeProvider({
     setShowOriginal((prev) => !prev);
   }, []);
 
+  // 生成状态控制（供 Hook 调用）
+  const setGenerationState = useCallback((generating: boolean, progress?: number) => {
+    setIsGenerating(generating);
+    if (progress !== undefined) {
+      setGenerationProgress(progress);
+    }
+  }, []);
+
   const exitFocusMode = useCallback(() => {
     onExit();
   }, [onExit]);
@@ -123,12 +141,12 @@ export function FocusModeProvider({
       currentPanelId,
       currentPanel: currentPanel as unknown as FocusModeState["currentPanel"],
       config,
-      isGenerating: false, // 现在由 usePanelImageGeneration 管理
-      generationProgress: 0, // 现在由 usePanelImageGeneration 管理
+      isGenerating,
+      generationProgress,
       previewImageUrl,
       showOriginal,
     }),
-    [currentPanelId, currentPanel, config, previewImageUrl, showOriginal]
+    [currentPanelId, currentPanel, config, isGenerating, generationProgress, previewImageUrl, showOriginal]
   );
 
   const actions: FocusModeActions = useMemo(
@@ -180,8 +198,9 @@ export function FocusModeProvider({
       isLoading: false,
       setPreviewImage,
       toggleShowOriginal,
+      setGenerationState,
     }),
-    [state, actions, panels, chapters, characters, setPreviewImage, toggleShowOriginal]
+    [state, actions, panels, chapters, characters, setPreviewImage, toggleShowOriginal, setGenerationState]
   );
 
   return (

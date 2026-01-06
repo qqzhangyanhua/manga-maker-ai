@@ -36,8 +36,8 @@ export function PanelPreviewCenter({ className }: PanelPreviewCenterProps) {
 
   // 获取显示的图片URL
   const displayImageUrl = state.showOriginal
-    ? currentPanel?.image_url
-    : state.previewImageUrl || currentPanel?.image_url;
+    ? currentPanel?.generated_image
+    : state.previewImageUrl || currentPanel?.generated_image;
 
   const handleDownload = () => {
     if (!displayImageUrl) return;

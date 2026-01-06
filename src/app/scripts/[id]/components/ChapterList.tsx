@@ -48,6 +48,7 @@ export function ChapterList({
   const [expandingContent, setExpandingContent] = useState<string | null>(null);
   const [analyzingStates, setAnalyzingStates] = useState<string | null>(null);
   const [togglingKeyChapter, setTogglingKeyChapter] = useState<string | null>(null);
+  const [generatingBackground, setGeneratingBackground] = useState<string | null>(null);
 
   // Dialog states for confirmations
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -184,6 +185,40 @@ export function ChapterList({
       });
     } finally {
       setTogglingKeyChapter(null);
+    }
+  }
+
+  async function handleGenerateBackground(chapter: Chapter) {
+    setGeneratingBackground(chapter.id);
+    try {
+      const response = await fetch(`/api/chapter/${chapter.id}/generate-background`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          scene_type: "outdoor",
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "生成失败");
+      }
+
+      toast({
+        title: "背景图生成成功",
+        description: "章节背景图已生成并保存",
+      });
+
+      window.location.reload();
+    } catch (error) {
+      toast({
+        title: "生成失败",
+        description: error instanceof Error ? error.message : "未知错误",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingBackground(null);
     }
   }
 
@@ -384,11 +419,13 @@ export function ChapterList({
                     onSelect={() => onChapterSelect(chapter.id)}
                     onToggleExpansion={() => toggleChapterExpansion(chapter.id)}
                     onExpandContent={() => handleExpandContent(chapter)}
-                onAnalyzeStates={() => handleAnalyzeCharacterStates(chapter)}
-                onToggleKeyChapter={() => handleToggleKeyChapter(chapter)}
-                onEdit={() => handleEdit(chapter)}
-                onDelete={() => handleDelete(chapter)}
-              />
+                    onAnalyzeStates={() => handleAnalyzeCharacterStates(chapter)}
+                    onToggleKeyChapter={() => handleToggleKeyChapter(chapter)}
+                    onEdit={() => handleEdit(chapter)}
+                    onDelete={() => handleDelete(chapter)}
+                    onGenerateBackground={() => handleGenerateBackground(chapter)}
+                    generatingBackground={generatingBackground === chapter.id}
+                  />
             ))}
               </div>
             </>

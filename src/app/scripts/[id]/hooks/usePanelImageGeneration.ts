@@ -46,20 +46,32 @@ export function usePanelImageGeneration(options: UseImageGenerationOptions = {})
       try {
         const requestBody: Record<string, unknown> = {
           panel_id: panelId,
-          prompt: config.customPrompt,
-          negative_prompt: config.negativePrompt,
-          model_name: config.modelName,
-          aspect_ratio: config.aspectRatio,
-          num_inference_steps: config.numInferenceSteps,
-          guidance_scale: config.guidanceScale,
+          prompt: config.customPrompt || "", // API 要求必填
         };
+
+        // 可选参数
+        if (config.negativePrompt) {
+          requestBody.negative_prompt = config.negativePrompt;
+        }
+        if (config.modelName) {
+          requestBody.model_name = config.modelName;
+        }
+        if (config.aspectRatio) {
+          requestBody.aspect_ratio = config.aspectRatio;
+        }
+        if (config.numInferenceSteps) {
+          requestBody.num_inference_steps = config.numInferenceSteps;
+        }
+        if (config.guidanceScale) {
+          requestBody.guidance_scale = config.guidanceScale;
+        }
 
         // 添加参考图（如果有）
         if (config.referenceImages && config.referenceImages.length > 0) {
           requestBody.reference_image_urls = config.referenceImages.map((img) => img.url);
         }
 
-        const response = await fetch(`/api/panel/generate`, {
+        const response = await fetch(`/api/panel/generate-image`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(requestBody),

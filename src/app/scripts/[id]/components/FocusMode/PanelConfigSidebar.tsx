@@ -41,6 +41,8 @@ import { useFocusMode } from "../../contexts/FocusModeContext";
 import { ReferenceImageSelector } from "../ReferenceImageSelector";
 import type { ReferenceImage } from "../FocusMode/types";
 import type { Panel } from "../../types/script-editor.types";
+import { usePanelImageGeneration } from "../../hooks/usePanelImageGeneration";
+import { useScriptData } from "../../providers/ScriptDataProvider";
 
 interface PanelConfigSidebarProps {
   className?: string;
@@ -49,13 +51,29 @@ interface PanelConfigSidebarProps {
 }
 
 export function PanelConfigSidebar({ className, storyId, projectId }: PanelConfigSidebarProps) {
-  const { state, actions, characters, panels } = useFocusMode();
-  
+  const { state, actions, characters, panels, setPreviewImage, setGenerationState } = useFocusMode();
+  const { refetchAll } = useScriptData();
+
+  // 使用共享的图片生成 Hook
+  const {
+    isGenerating,
+    generateImage,
+  } = usePanelImageGeneration({
+    onSuccess: (imageUrl) => {
+      setPreviewImage?.(imageUrl);
+      setGenerationState?.(false, 0);
+    },
+    onPanelUpdate: refetchAll,
+    onError: () => {
+      setGenerationState?.(false, 0);
+    },
+  });
+
   // 本地编辑状态
   const [localPrompt, setLocalPrompt] = useState("");
   const [localDescription, setLocalDescription] = useState("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  
+
   // 参考图选择器状态
   const [referenceImageSelectorOpen, setReferenceImageSelectorOpen] = useState(false);
 
@@ -90,6 +108,35 @@ export function PanelConfigSidebar({ className, storyId, projectId }: PanelConfi
 
   const handleResetConfig = () => {
     actions.resetConfig();
+  };
+
+  // 处理图片生成
+  const handleGenerateImage = async () => {
+    if (!state.currentPanel) return;
+
+    // 开始生成时设置状态
+    setGenerationState?.(true, 0);
+
+    // 如果用户没有填写自定义提示词，使用 panel 的 description 或 prompt_used
+    const prompt = state.config.customPrompt
+      || state.currentPanel.description
+      || state.currentPanel.prompt_used
+      || "Generate comic panel image";
+
+    try {
+      await generateImage(state.currentPanel.id, {
+        customPrompt: prompt,
+        negativePrompt: state.config.negativePrompt,
+        modelName: state.config.modelName,
+        aspectRatio: state.config.aspectRatio,
+        numInferenceSteps: state.config.numInferenceSteps,
+        guidanceScale: state.config.guidanceScale,
+        referenceImages: state.config.referenceImages,
+      });
+    } catch (error) {
+      // 错误处理已在 Hook 中完成，这里确保状态重置
+      setGenerationState?.(false, 0);
+    }
   };
 
   // 图像生成模型选项
@@ -416,11 +463,11 @@ export function PanelConfigSidebar({ className, storyId, projectId }: PanelConfi
       {/* 底部操作按钮 */}
       <div className="p-4 border-t border-gray-800 space-y-2">
         <Button
-          onClick={actions.generateImage}
-          disabled={state.isGenerating || !state.currentPanel}
+          onClick={handleGenerateImage}
+          disabled={isGenerating || !state.currentPanel}
           className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {state.isGenerating ? (
+          {isGenerating ? (
             <>
               <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
               生成中...
@@ -433,7 +480,7 @@ export function PanelConfigSidebar({ className, storyId, projectId }: PanelConfi
           )}
         </Button>
 
-        {state.currentPanel?.image_url && (
+        {state.currentPanel?.generated_image && (
           <Button
             onClick={actions.deletePanelImage}
             variant="outline"

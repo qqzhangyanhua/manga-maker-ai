@@ -42,6 +42,12 @@ export async function GET(
                         created_at: true,
                     },
                     orderBy: { chapter_order: 'asc' }
+                },
+                story_characters: {
+                    include: {
+                        character: true
+                    },
+                    orderBy: { display_order: 'asc' }
                 }
             }
         });
@@ -61,13 +67,22 @@ export async function GET(
             ? story.projects[0].id
             : null;
 
-        // Remove projects from story object but keep comic_style and chapters
-        const { projects, chapters, ...storyData } = story;
+        // Remove projects and story_characters from story object, but keep comic_style and chapters
+        const { projects, chapters, story_characters, ...storyData } = story;
+
+        // Transform story_characters to flat character list with role info
+        const characters = story_characters?.map(sc => ({
+            ...sc.character,
+            role: sc.role,
+            character_arc: sc.character_arc,
+            display_order: sc.display_order
+        })) || [];
 
         return {
             story: storyData,
             projectId,
             chapters: chapters || [],
+            characters,
         };
     });
 }
@@ -100,7 +115,7 @@ export async function PATCH(
 
         // Update story
         const body = await req.json();
-        const { title, premise, genre, outline, characters, status, comic_style_id, style_reference_image } = body;
+        const { title, premise, genre, outline, status, comic_style_id, style_reference_image } = body;
 
         const updated = await prisma.story.update({
             where: { id },
@@ -109,7 +124,6 @@ export async function PATCH(
                 ...(premise && { premise }),
                 ...(genre && { genre }),
                 ...(outline && { outline }),
-                ...(characters !== undefined && { characters }),
                 ...(status && { status }),
                 ...(comic_style_id !== undefined && { comic_style_id }),
                 ...(style_reference_image !== undefined && { style_reference_image }),

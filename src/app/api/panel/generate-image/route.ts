@@ -28,7 +28,19 @@ export async function POST(req: Request) {
     userId = payload.userId;
 
     const body = await req.json();
-    const { panel_id, prompt, style, wait, reference_image_urls = [] } = body; // 不设置默认值，后面统一处理
+    const {
+      panel_id,
+      prompt,
+      style,
+      wait,
+      reference_image_urls = [],
+      // 新增参数
+      negative_prompt,
+      model_name,
+      aspect_ratio,
+      num_inference_steps,
+      guidance_scale,
+    } = body;
 
     if (!panel_id || !prompt) {
       return NextResponse.json(
@@ -61,6 +73,11 @@ export async function POST(req: Request) {
         },
         outfit: true,
         scene: true,
+        chapter: {
+          include: {
+            scene: true, // 章节关联的 Scene
+          },
+        },
       },
     });
 
@@ -156,9 +173,41 @@ export async function POST(req: Request) {
         referenceImages.push(panel.scene.image_url);
         console.log(`✓ 分镜 ${panel_id} 将使用场景参考图: ${panel.scene.image_url}`);
       }
+
+      // Add chapter background image if available (priority: scene > background_image_url)
+      if (panel.chapter) {
+        if (panel.chapter.scene?.image_url) {
+          referenceImages.push(panel.chapter.scene.image_url);
+          console.log(`✓ 分镜 ${panel_id} 将使用章节关联场景图: ${panel.chapter.scene.image_url}`);
+        } else if (panel.chapter.background_image_url) {
+          referenceImages.push(panel.chapter.background_image_url);
+          console.log(`✓ 分镜 ${panel_id} 将使用章节背景图: ${panel.chapter.background_image_url}`);
+        }
+      }
     }
 
     console.log(`分镜 ${panel_id} 总共使用 ${referenceImages.length} 张参考图`);
+
+    // 根据宽高比计算图片尺寸
+    const calculateDimensions = (ratio: string): { width: number; height: number } => {
+      const baseSize = 1024;
+      switch (ratio) {
+        case "1:1":
+          return { width: baseSize, height: baseSize };
+        case "16:9":
+          return { width: baseSize, height: Math.round(baseSize * 9 / 16) };
+        case "9:16":
+          return { width: Math.round(baseSize * 9 / 16), height: baseSize };
+        case "4:3":
+          return { width: baseSize, height: Math.round(baseSize * 3 / 4) };
+        case "3:4":
+          return { width: Math.round(baseSize * 3 / 4), height: baseSize };
+        default:
+          return { width: baseSize, height: Math.round(baseSize * 3 / 4) };
+      }
+    };
+
+    const dimensions = calculateDimensions(aspect_ratio || "4:3");
 
     // 使用统一图片生成系统 - 直接同步生成（不使用队列）
     const stylePrompt = style || panel.project.style || "manga style";
@@ -166,6 +215,11 @@ export async function POST(req: Request) {
 
     console.log(`🚀 开始直接生成图片...`);
     console.log(`  - Prompt: ${fullPrompt.substring(0, 100)}...`);
+    console.log(`  - Negative Prompt: ${negative_prompt || "none"}`);
+    console.log(`  - Model: ${model_name || "default"}`);
+    console.log(`  - Dimensions: ${dimensions.width}x${dimensions.height} (${aspect_ratio || "default"})`);
+    console.log(`  - Steps: ${num_inference_steps || "default"}`);
+    console.log(`  - Guidance: ${guidance_scale || "default"}`);
     console.log(`  - 参考图数量: ${referenceImages.length}`);
 
     // 直接调用图片生成，不使用队列
@@ -176,8 +230,11 @@ export async function POST(req: Request) {
       const result = await callImageGenerationByType({
         providerType: "image_generation",
         prompt: fullPrompt,
-        width: 1024,
-        height: 768,
+        negative_prompt: negative_prompt,
+        width: dimensions.width,
+        height: dimensions.height,
+        steps: num_inference_steps,
+        cfg_scale: guidance_scale,
         referenceImageUrls: referenceImages,
         options: { userId },
       });
@@ -240,7 +297,17 @@ export async function POST(req: Request) {
         providerType: "image_generation",
         status: "success",
         durationMs: Date.now() - startedAt,
-        requestPayload: { panel_id, prompt, style, reference_images_count: referenceImages.length },
+        requestPayload: {
+          panel_id,
+          prompt,
+          negative_prompt,
+          model_name,
+          aspect_ratio,
+          num_inference_steps,
+          guidance_scale,
+          style,
+          reference_images_count: referenceImages.length,
+        },
         responsePayload: { panel_id, image_url: imageUrl },
       });
     }

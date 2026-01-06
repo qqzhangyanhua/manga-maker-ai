@@ -17,7 +17,7 @@ export interface FocusModePanel {
   panel_order: number;
   description: string;
   prompt_used: string | null;
-  image_url: string | null;
+  generated_image: string | null;
   image_generation_status: string | null;
   created_at: string;
   updated_at: string;
@@ -118,6 +118,7 @@ export interface FocusModeContextValue {
   // 预览控制
   setPreviewImage?: (imageUrl: string | null) => void;
   toggleShowOriginal?: () => void;
+  setGenerationState?: (generating: boolean, progress?: number) => void;
 }
 
 /**

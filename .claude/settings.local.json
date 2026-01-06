@@ -95,7 +95,8 @@
       "Bash(PGPASSWORD='3MRL8JKw5fn5Njy5' pg_dump:*)",
       "Bash(PGPASSWORD='3MRL8JKw5fn5Njy5' psql:*)",
       "Bash(gh pr view:*)",
-      "Bash(git rev-parse:*)"
+      "Bash(git rev-parse:*)",
+      "mcp__auggie-mcp__codebase-retrieval"
     ],
     "deny": [],
     "ask": []

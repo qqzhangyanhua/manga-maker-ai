@@ -15,6 +15,7 @@ import {
   Users,
   ChevronDown,
   ChevronRight,
+  Image,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +48,8 @@ interface ChapterItemProps {
   onToggleKeyChapter: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onGenerateBackground?: () => void;
+  generatingBackground?: boolean;
 }
 
 export function ChapterItem({
@@ -63,6 +66,8 @@ export function ChapterItem({
   onToggleKeyChapter,
   onEdit,
   onDelete,
+  onGenerateBackground,
+  generatingBackground = false,
 }: ChapterItemProps) {
   const [isContentExpanded, setIsContentExpanded] = useState(false);
 
@@ -179,6 +184,22 @@ export function ChapterItem({
                 )}
                 {chapter.is_key_chapter ? "取消关键标记" : "标为关键章节"}
               </DropdownMenuItem>
+              {onGenerateBackground && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={onGenerateBackground}
+                    disabled={generatingBackground}
+                  >
+                    {generatingBackground ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Image className="w-4 h-4 mr-2" />
+                    )}
+                    生成章节背景图
+                  </DropdownMenuItem>
+                </>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onEdit}>
                 <Pencil className="w-4 h-4 mr-2" />
