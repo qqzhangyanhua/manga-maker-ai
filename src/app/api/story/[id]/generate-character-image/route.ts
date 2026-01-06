@@ -9,10 +9,9 @@ import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { callImageGenerationByType } from "@/lib/image-generation";
 import { minioClient, MINIO_BUCKET, ensureBucketExists, getPublicUrl } from "@/lib/minio";
-import type { SuggestedCharacter, SuggestedCharactersData } from "@/types/suggested-characters.types";
 
 interface RequestBody {
-  temp_id: string;
+  id: string; // SuggestedCharacter ID (not temp_id)
   auto_save?: boolean;
   comic_style_id?: string;
 }
@@ -64,6 +63,12 @@ export async function POST(
     // 获取故事
     const story = await prisma.story.findUnique({
       where: { id: storyId },
+      select: {
+        id: true,
+        user_id: true,
+        genre: true,
+        comic_style_id: true,
+      },
     });
 
     if (!story) {
@@ -76,26 +81,32 @@ export async function POST(
 
     // 解析请求
     const body = (await req.json()) as RequestBody;
-    const { temp_id, auto_save = true, comic_style_id } = body;
+    const { id, auto_save = true, comic_style_id } = body;
 
-    if (!temp_id) {
-      return NextResponse.json({ error: "temp_id 不能为空" }, { status: 400 });
+    if (!id) {
+      return NextResponse.json({ error: "id 不能为空" }, { status: 400 });
     }
 
-    // 获取建议角色数据
-    if (!story.suggested_characters) {
-      return NextResponse.json({ error: "故事没有建议角色，请先运行角色分析" }, { status: 400 });
-    }
-
-    const suggestedData = story.suggested_characters as unknown as SuggestedCharactersData;
-    const suggestedCharacter = suggestedData.characters.find((char) => char.temp_id === temp_id);
+    // 查询建议角色
+    const suggestedCharacter = await prisma.suggestedCharacter.findUnique({
+      where: { id },
+    });
 
     if (!suggestedCharacter) {
-      return NextResponse.json({ error: "无效的 temp_id" }, { status: 400 });
+      return NextResponse.json({ error: "建议角色不存在" }, { status: 404 });
+    }
+
+    if (suggestedCharacter.story_id !== storyId) {
+      return NextResponse.json({ error: "建议角色不属于此故事" }, { status: 403 });
+    }
+
+    // 检查是否已生成
+    if (suggestedCharacter.generated) {
+      console.log(`[generate-character-image] Warning: Character ${suggestedCharacter.name} already generated`);
     }
 
     // 获取漫画风格
-    const styleId = comic_style_id || suggestedData.comic_style_id || story.comic_style_id;
+    const styleId = comic_style_id || story.comic_style_id;
     let comicStylePrompt: string | null = null;
 
     if (styleId) {
@@ -132,6 +143,7 @@ export async function POST(
 
     const image_base64 = imageResult.images[0];
     let character_id: string | null = null;
+    let image_url: string | null = null;
 
     // 如果 auto_save=true，保存到角色库
     if (auto_save) {
@@ -175,15 +187,15 @@ export async function POST(
           "Content-Type": "image/png",
         });
 
-        const imageUrl = getPublicUrl(objectName);
+        image_url = getPublicUrl(objectName);
 
         // 更新 Character.base_image_url
         await prisma.character.update({
           where: { id: character.id },
-          data: { base_image_url: imageUrl },
+          data: { base_image_url: image_url },
         });
 
-        console.log(`[generate-character-image] Uploaded image for ${suggestedCharacter.name}: ${imageUrl}`);
+        console.log(`[generate-character-image] Uploaded image for ${suggestedCharacter.name}: ${image_url}`);
       } catch (uploadError) {
         console.error(`[generate-character-image] Image upload failed for ${suggestedCharacter.name}:`, uploadError);
         // 继续处理，即使上传失败
@@ -213,29 +225,15 @@ export async function POST(
       console.log(`[generate-character-image] Created character ${suggestedCharacter.name} (${character.id})`);
     }
 
-    // 更新 suggested_characters 状态
-    const updatedCharacters = suggestedData.characters.map((char) => {
-      if (char.temp_id === temp_id) {
-        return {
-          ...char,
-          generated: true,
-          character_id,
-          generated_at: new Date().toISOString(),
-          optimized_prompt: imagePrompt,
-        };
-      }
-      return char;
-    });
-
-    const updatedData: SuggestedCharactersData = {
-      ...suggestedData,
-      characters: updatedCharacters,
-    };
-
-    await prisma.story.update({
-      where: { id: storyId },
+    // 更新 SuggestedCharacter 记录
+    await prisma.suggestedCharacter.update({
+      where: { id: suggestedCharacter.id },
       data: {
-        suggested_characters: updatedData as any,
+        generated: true,
+        character_id,
+        image_url,
+        optimized_prompt: imagePrompt,
+        generated_at: new Date(),
       },
     });
 
@@ -246,10 +244,11 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      temp_id,
+      id,
       image_base64,
       optimized_prompt: imagePrompt,
       character_id,
+      image_url,
       credits_used: creditsUsed,
     });
   } catch (error) {

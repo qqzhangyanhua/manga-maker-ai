@@ -140,7 +140,7 @@ export function AICharacterGeneratorDialog({
       setStoryContext(result.story_context);
 
       // 默认全选所有角色
-      setSelectedTempIds(new Set(result.suggested_characters.map((c) => c.temp_id)));
+      setSelectedTempIds(new Set(result.suggested_characters.map((c) => c.id)));
 
       setStage("preview_list");
 
@@ -188,15 +188,16 @@ export function AICharacterGeneratorDialog({
 
       // 更新 suggestedCharacters 状态
       setSuggestedCharacters((prev) =>
-        prev.map((char) => {
-          const generated = result.results.find((r) => r.temp_id === char.temp_id);
+        prev.map((char): SuggestedCharacter => {
+          const generated = result.results.find((r) => r.id === char.id);
           if (generated?.success) {
             return {
               ...char,
               generated: true,
               character_id: generated.character_id ?? null,
-              image_url: generated.image_base64,
-              optimized_prompt: generated.optimized_prompt,
+              image_url: generated.image_base64 ?? null,
+              optimized_prompt: generated.optimized_prompt ?? null,
+              generated_at: new Date(),
             };
           }
           return char;
@@ -432,10 +433,10 @@ export function AICharacterGeneratorDialog({
             <div className="grid grid-cols-3 gap-4">
               {suggestedCharacters.map((char) => (
                 <SuggestedCharacterCard
-                  key={char.temp_id}
+                  key={char.id}
                   character={char}
-                  selected={selectedTempIds.has(char.temp_id)}
-                  onToggle={() => toggleTempIdSelection(char.temp_id)}
+                  selected={selectedTempIds.has(char.id)}
+                  onToggle={() => toggleTempIdSelection(char.id)}
                 />
               ))}
             </div>

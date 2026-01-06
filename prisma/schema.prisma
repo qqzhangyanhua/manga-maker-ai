@@ -10,14 +10,11 @@ datasource db {
 model User {
   id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email             String    @unique
-  email_verified    DateTime? @db.Timestamptz(6)
   name              String?
   image             String?
-  password          String?
   created_at        DateTime? @default(now()) @db.Timestamptz(6)
   updated_at        DateTime? @default(now()) @db.Timestamptz(6)
-  verified          Boolean?  @default(false)
-  email_verified_at DateTime? @db.Timestamptz(6)
+  verified          Boolean?  @default(false) // Email verification status
   password_hash     String?   @default("")
   role              String?   @default("user")
   status            String?   @default("active")
@@ -98,6 +95,7 @@ model Character {
   story_characters         StoryCharacter[]
   panels                   Panel[]
   chapter_character_states ChapterCharacterState[] // Phase 4: Character state tracking
+  suggested_characters     SuggestedCharacter[] // Phase 3: AI-suggested characters before generation
   comic_style              ComicStyle?             @relation(fields: [comic_style_id], references: [id], onDelete: SetNull)
 
   @@index([user_id, training_status], map: "idx_characters_user_status")
@@ -432,7 +430,6 @@ model Story {
   premise               String  @db.Text // Story premise/idea
   genre                 String // Genre: suspense/romance/adventure/scifi/daily/fantasy
   outline               Json // Story outline: { acts: [...], scenes: [...] }
-  characters            Json? // DEPRECATED: Use story_characters relation instead
   template_id           String? @db.Uuid
   comic_style_id        String? @db.Uuid // FK to ComicStyle for visual style
   style_reference_image String? // Reference image URL for extracting visual style (highest priority)
@@ -453,6 +450,9 @@ model Story {
 
   // Phase 2: Real character relationship
   story_characters StoryCharacter[]
+
+  // Phase 3: AI-suggested characters (replaces suggested_characters JSONB field)
+  suggested_characters_list SuggestedCharacter[]
 
   // Comic style relationship
   comic_style ComicStyle? @relation(fields: [comic_style_id], references: [id], onDelete: SetNull)
@@ -516,6 +516,36 @@ model StoryCharacter {
   @@index([story_id], map: "idx_story_characters_story")
   @@index([character_id], map: "idx_story_characters_character")
   @@map("story_characters")
+}
+
+// SuggestedCharacter - AI-suggested characters for stories (two-step generation)
+// Replaces Story.suggested_characters JSONB field with normalized table structure
+model SuggestedCharacter {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  story_id    String   @db.Uuid
+  name        String // Character name suggested by AI
+  description String   @db.Text // Chinese description (50-120 chars)
+  appearance  String   @db.Text // English appearance for AI image generation (80-160 chars)
+  role        String   @default("supporting") // protagonist, antagonist, supporting, minor
+
+  // Generation tracking
+  generated         Boolean  @default(false) // Whether image has been generated
+  character_id      String?  @db.Uuid // FK to Character after image generation
+  image_url         String? // Generated image URL (for quick preview)
+  optimized_prompt  String?  @db.Text // Optimized prompt after style processing
+  generated_at      DateTime? @db.Timestamptz(6) // When image was generated
+
+  // Metadata (migrated from JSONB wrapper)
+  display_order Int      @default(0) // Display order in UI
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  story     Story      @relation(fields: [story_id], references: [id], onDelete: Cascade)
+  character Character? @relation(fields: [character_id], references: [id], onDelete: SetNull)
+
+  @@index([story_id, generated], map: "idx_suggested_characters_story_generated")
+  @@index([character_id], map: "idx_suggested_characters_character")
+  @@map("suggested_characters")
 }
 
 // Workflow - Automation workflow tracking

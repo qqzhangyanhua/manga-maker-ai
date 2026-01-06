@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
         role: payload.role,
         status: payload.status,
         verified: payload.verified,
-        email_verified_at: payload.verified ? now : null,
+        // email_verified_at field removed from schema
         created_at: now,
         updated_at: now,
       },

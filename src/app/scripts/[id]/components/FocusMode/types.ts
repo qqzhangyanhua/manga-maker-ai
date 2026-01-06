@@ -6,6 +6,7 @@
 import type { Panel } from "@prisma/client";
 import type { Chapter } from "@prisma/client";
 import type { Character } from "@prisma/client";
+import type { ReferenceImage as GlobalReferenceImage } from "@/types/reference-image.types";
 
 /**
  * 专注模式面板状态
@@ -26,15 +27,9 @@ export interface FocusModePanel {
 }
 
 /**
- * 参考图类型（从现有类型复用）
+ * 参考图类型（使用全局类型）
  */
-export interface ReferenceImage {
-  id: string;
-  url: string;
-  source_type: "story" | "character_base" | "character_view" | "character_expression" | "character_outfit" | "character_pose";
-  source_id?: string;
-  label?: string;
-}
+export type ReferenceImage = GlobalReferenceImage;
 
 /**
  * 专注模式配置

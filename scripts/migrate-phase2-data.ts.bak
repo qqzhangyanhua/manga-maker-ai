@@ -1,0 +1,276 @@
+/**
+ * Phase 2 Data Migration Script
+ *
+ * This script migrates existing data to the new Phase 2 schema:
+ * 1. Migrates Story.characters JSON to StoryCharacter table
+ * 2. Migrates Panel.character_name to Panel.character_id
+ * 3. Copies Character.base_image_url to Character.reference_image
+ *
+ * Run with: npx ts-node scripts/migrate-phase2-data.ts
+ * Or: npx tsx scripts/migrate-phase2-data.ts
+ */
+
+import { PrismaClient, Prisma } from "@prisma/client";
+
+const prisma = new PrismaClient();
+
+interface LegacyCharacter {
+  name: string;
+  role?: string;
+  description?: string;
+  arc?: string;
+}
+
+/**
+ * Map Chinese/English role names to standard values
+ */
+function mapRole(role?: string): string {
+  if (!role) return "supporting";
+
+  const roleMap: Record<string, string> = {
+    // Chinese
+    "主角": "protagonist",
+    "反派": "antagonist",
+    "配角": "supporting",
+    "龙套": "minor",
+    "主人公": "protagonist",
+    "敌人": "antagonist",
+    // English
+    protagonist: "protagonist",
+    antagonist: "antagonist",
+    supporting: "supporting",
+    minor: "minor",
+    main: "protagonist",
+    villain: "antagonist",
+    side: "supporting",
+  };
+
+  const normalized = role.toLowerCase().trim();
+  return roleMap[normalized] || roleMap[role] || "supporting";
+}
+
+/**
+ * Migrate Story.characters JSON to StoryCharacter table
+ */
+async function migrateStoryCharacters(): Promise<void> {
+  console.log("\n=== Migrating Story Characters ===\n");
+  console.log("⚠️  DEPRECATED: Story.characters field has been removed from schema.");
+  console.log("This migration script is no longer needed as data has already been migrated.");
+  console.log("If you need to re-run this migration, please restore the Story.characters field first.");
+  return;
+
+  /* COMMENTED OUT - Story.characters field no longer exists in schema
+  const stories = await prisma.story.findMany({
+    where: {
+      characters: { not: Prisma.DbNull },
+    },
+    select: {
+      id: true,
+      user_id: true,
+      title: true,
+      characters: true,
+    },
+  });
+
+  console.log(`Found ${stories.length} stories with character data`);
+
+  let linkedCount = 0;
+  let skippedCount = 0;
+
+  for (const story of stories) {
+    const chars = story.characters as unknown as LegacyCharacter[] | null;
+    if (!chars || !Array.isArray(chars)) {
+      console.log(`  [SKIP] Story "${story.title}": No valid character array`);
+      continue;
+    }
+
+    console.log(
+      `\n  Processing Story: "${story.title}" (${chars.length} characters)`
+    );
+  */
+
+    for (let i = 0; i < chars.length; i++) {
+      const char = chars[i];
+      if (!char.name) {
+        console.log(`    [SKIP] Character at index ${i}: No name`);
+        skippedCount++;
+        continue;
+      }
+
+      // Try to find matching character in user's library
+      const matchedCharacter = await prisma.character.findFirst({
+        where: {
+          user_id: story.user_id,
+          name: { contains: char.name, mode: "insensitive" },
+        },
+      });
+
+      if (matchedCharacter) {
+        // Check if already linked
+        const existing = await prisma.storyCharacter.findUnique({
+          where: {
+            story_id_character_id: {
+              story_id: story.id,
+              character_id: matchedCharacter.id,
+            },
+          },
+        });
+
+        if (existing) {
+          console.log(
+            `    [EXISTS] "${char.name}" already linked to character "${matchedCharacter.name}"`
+          );
+          continue;
+        }
+
+        // Create StoryCharacter link
+        await prisma.storyCharacter.create({
+          data: {
+            story_id: story.id,
+            character_id: matchedCharacter.id,
+            role: mapRole(char.role),
+            character_arc: char.arc || char.description || null,
+            display_order: i,
+          },
+        });
+
+        console.log(
+          `    [LINKED] "${char.name}" -> Character "${matchedCharacter.name}" (${mapRole(char.role)})`
+        );
+        linkedCount++;
+      } else {
+        console.log(
+          `    [NO MATCH] "${char.name}" - No matching character in library`
+        );
+        skippedCount++;
+      }
+    }
+  }
+
+  console.log(`\n  Summary: ${linkedCount} linked, ${skippedCount} skipped`);
+  */
+}
+
+/**
+ * Migrate Panel.character_name to Panel.character_id
+ */
+async function migratePanelCharacters(): Promise<void> {
+  console.log("\n=== Migrating Panel Characters ===\n");
+
+  const panels = await prisma.panel.findMany({
+    where: {
+      character_name: { not: null },
+      character_id: null,
+    },
+    include: {
+      project: true,
+    },
+  });
+
+  console.log(`Found ${panels.length} panels with character_name but no character_id`);
+
+  let linkedCount = 0;
+  let skippedCount = 0;
+
+  for (const panel of panels) {
+    if (!panel.character_name) continue;
+
+    // Try to find matching character
+    const matchedCharacter = await prisma.character.findFirst({
+      where: {
+        user_id: panel.project.user_id,
+        name: { contains: panel.character_name, mode: "insensitive" },
+      },
+    });
+
+    if (matchedCharacter) {
+      await prisma.panel.update({
+        where: { id: panel.id },
+        data: { character_id: matchedCharacter.id },
+      });
+
+      console.log(
+        `  [LINKED] Panel ${panel.panel_order} "${panel.character_name}" -> "${matchedCharacter.name}"`
+      );
+      linkedCount++;
+    } else {
+      console.log(
+        `  [NO MATCH] Panel ${panel.panel_order} "${panel.character_name}"`
+      );
+      skippedCount++;
+    }
+  }
+
+  console.log(`\n  Summary: ${linkedCount} linked, ${skippedCount} skipped`);
+}
+
+/**
+ * Copy Character.base_image_url to Character.reference_image
+ */
+async function migrateCharacterReferenceImages(): Promise<void> {
+  console.log("\n=== Migrating Character Reference Images ===\n");
+
+  const result = await prisma.$executeRaw`
+    UPDATE characters
+    SET reference_image = base_image_url
+    WHERE base_image_url IS NOT NULL
+      AND base_image_url != ''
+      AND (reference_image IS NULL OR reference_image = '')
+  `;
+
+  console.log(`  Updated ${result} character reference images`);
+}
+
+/**
+ * Print migration summary
+ */
+async function printSummary(): Promise<void> {
+  console.log("\n=== Migration Summary ===\n");
+
+  const storyCharacterCount = await prisma.storyCharacter.count();
+  const panelsWithCharacter = await prisma.panel.count({
+    where: { character_id: { not: null } },
+  });
+  const charactersWithRef = await prisma.character.count({
+    where: { reference_image: { not: null } },
+  });
+
+  console.log(`  StoryCharacter records: ${storyCharacterCount}`);
+  console.log(`  Panels with character_id: ${panelsWithCharacter}`);
+  console.log(`  Characters with reference_image: ${charactersWithRef}`);
+}
+
+/**
+ * Main migration function
+ */
+async function main(): Promise<void> {
+  console.log("========================================");
+  console.log("  Phase 2 Data Migration");
+  console.log("========================================");
+
+  try {
+    // 1. Migrate story characters
+    await migrateStoryCharacters();
+
+    // 2. Migrate panel characters
+    await migratePanelCharacters();
+
+    // 3. Migrate character reference images
+    await migrateCharacterReferenceImages();
+
+    // 4. Print summary
+    await printSummary();
+
+    console.log("\n========================================");
+    console.log("  Migration completed successfully!");
+    console.log("========================================\n");
+  } catch (error) {
+    console.error("\nMigration failed:", error);
+    process.exit(1);
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+// Run migration
+main();

@@ -231,7 +231,7 @@ export interface VersionPanel {
   camera_angle: string | null;
   shot_size: string | null;
   dialogue: string | null;
-  character_name: string | null;
+  character_id: string | null; // FK to Character table
   emotion: string | null;
   generated_image: string | null;
   prompt_used: string | null;

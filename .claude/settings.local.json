@@ -91,7 +91,9 @@
       "Bash(Format-Table:*)",
       "Bash(tasklist)",
       "Bash(.venv/Scripts/python.exe:*)",
-      "Bash(/Users/zhangyanhua/AI/manga-maker-ai/scripts/verify-novel-cover.sh)"
+      "Bash(/Users/zhangyanhua/AI/manga-maker-ai/scripts/verify-novel-cover.sh)",
+      "Bash(PGPASSWORD='3MRL8JKw5fn5Njy5' pg_dump:*)",
+      "Bash(PGPASSWORD='3MRL8JKw5fn5Njy5' psql:*)"
     ],
     "deny": [],
     "ask": []

@@ -5,7 +5,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { CharacterRole } from "@/components/StoryCharacter/types";
-import type { SuggestedCharacter } from "@/types/suggested-characters.types";
+import type { SuggestedCharacterResponse } from "@/types/suggested-characters.types";
 
 /**
  * 生成的角色数据结构
@@ -133,7 +133,7 @@ export function useSaveGeneratedCharacters(storyId: string) {
  */
 export interface AnalyzeCharactersResult {
   success: boolean;
-  suggested_characters: SuggestedCharacter[];
+  suggested_characters: SuggestedCharacterResponse[];
   story_context: {
     title: string;
     premise: string;
@@ -168,12 +168,12 @@ export function useAnalyzeCharacters(storyId: string) {
 }
 
 /**
- * 第二步：批量为建议角色生成图片并保存到角色库
+ * 第二步:批量为建议角色生成图片并保存到角色库
  */
 export interface BatchGenerateImagesResult {
   success: boolean;
   results: Array<{
-    temp_id: string;
+    id: string; // Changed from temp_id to id
     success: boolean;
     image_base64?: string;
     optimized_prompt?: string;

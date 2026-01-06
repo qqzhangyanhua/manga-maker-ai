@@ -1,0 +1,23 @@
+#!/bin/sh
+# Pre-commit hook: 运行类型检查和 lint
+
+echo "🔍 Running pre-commit checks..."
+
+# 运行类型检查
+echo "📝 TypeScript type check..."
+pnpm type-check
+if [ $? -ne 0 ]; then
+  echo "❌ Type check failed. Please fix type errors before committing."
+  exit 1
+fi
+
+# 运行 lint
+echo "🔧 ESLint check..."
+pnpm lint
+if [ $? -ne 0 ]; then
+  echo "❌ Linting failed. Please fix linting errors before committing."
+  exit 1
+fi
+
+echo "✅ All pre-commit checks passed!"
+exit 0

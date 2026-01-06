@@ -61,16 +61,33 @@ export async function PATCH(
       description,
       panel_type,
       importance,
-      character_name,
+      character_name, // DEPRECATED: Use character_id instead
       emotion,
       prompt_used,
       generated_image,
       // Phase 2: Asset binding fields
-      character_id,
+      character_id, // PREFERRED
       expression_type,
       outfit_id,
       scene_id,
     } = body;
+
+    // Handle character_id (backward compatibility for character_name)
+    let resolvedCharacterId = character_id;
+    if (character_id === undefined && character_name !== undefined) {
+      // Only lookup if character_id not provided but character_name is
+      if (character_name) {
+        const character = await prisma.character.findFirst({
+          where: {
+            user_id: userId,
+            name: { contains: character_name, mode: "insensitive" },
+          },
+        });
+        resolvedCharacterId = character?.id ?? null;
+      } else {
+        resolvedCharacterId = null;
+      }
+    }
 
     // 更新 panel
     const updatedPanel = await prisma.panel.update({
@@ -83,15 +100,26 @@ export async function PATCH(
         ...(description !== undefined && { description }),
         ...(panel_type !== undefined && { panel_type }),
         ...(importance !== undefined && { importance }),
-        ...(character_name !== undefined && { character_name }),
+        // Do NOT write to character_name anymore
         ...(emotion !== undefined && { emotion }),
         ...(prompt_used !== undefined && { prompt_used }),
         ...(generated_image !== undefined && { generated_image }),
         // Phase 2: Asset binding fields
-        ...(character_id !== undefined && { character_id }),
+        ...(resolvedCharacterId !== undefined && { character_id: resolvedCharacterId }),
         ...(expression_type !== undefined && { expression_type }),
         ...(outfit_id !== undefined && { outfit_id }),
         ...(scene_id !== undefined && { scene_id }),
+      },
+      include: {
+        character: {
+          select: { id: true, name: true },
+        },
+        outfit: {
+          select: { id: true, outfit_name: true },
+        },
+        scene: {
+          select: { id: true, name: true },
+        },
       },
     });
 

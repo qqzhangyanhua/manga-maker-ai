@@ -4,7 +4,7 @@
  */
 
 import { ensureLlmProvider } from "../llm-provider";
-import { consumeCredits, checkCredits, type CreditError } from "../credits";
+import { consumeCredits, checkCredits, InsufficientCreditsError } from "../credits";
 import type { ImageGenerationParams, ImageGenerationResult, ImageGenerationOptions } from "./types";
 import { callStableDiffusionAPI } from "./providers/stable-diffusion";
 import { callComfyUIAPI } from "./providers/comfyui";
@@ -60,11 +60,7 @@ export async function callImageGenerationByType(
     // 先检查余额是否足够
     const hasEnough = await checkCredits(options.userId, creditsCost);
     if (!hasEnough) {
-      const error = new Error(`算力不足，本次操作需要 ${creditsCost} 算力`) as CreditError;
-      error.code = "INSUFFICIENT_CREDITS";
-      error.required = creditsCost;
-      error.available = 0;
-      throw error;
+      throw new InsufficientCreditsError(creditsCost, 0);
     }
 
     // 扣除算力

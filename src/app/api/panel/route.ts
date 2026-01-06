@@ -31,7 +31,8 @@ export async function POST(req: Request) {
             camera_angle,
             shot_size,
             dialogue,
-            character_name,
+            character_name, // DEPRECATED: Use character_id instead
+            character_id, // PREFERRED
             emotion,
             panel_order, // optional, if not provided will append
         } = body;
@@ -51,6 +52,19 @@ export async function POST(req: Request) {
 
         if (project.user_id !== payload.userId) {
             return NextResponse.json({ error: "无权操作" }, { status: 403 });
+        }
+
+        // Handle character_id (backward compatibility for character_name)
+        let resolvedCharacterId = character_id;
+        if (!resolvedCharacterId && character_name) {
+            // Backward compatibility: lookup character by name
+            const character = await prisma.character.findFirst({
+                where: {
+                    user_id: payload.userId,
+                    name: { contains: character_name, mode: "insensitive" },
+                },
+            });
+            resolvedCharacterId = character?.id ?? null;
         }
 
         // Determine order
@@ -85,8 +99,14 @@ export async function POST(req: Request) {
                 camera_angle,
                 shot_size,
                 dialogue,
-                character_name,
+                character_id: resolvedCharacterId, // Use resolved character_id
+                // Do NOT write to character_name anymore
                 emotion,
+            },
+            include: {
+                character: {
+                    select: { id: true, name: true },
+                },
             },
         });
 

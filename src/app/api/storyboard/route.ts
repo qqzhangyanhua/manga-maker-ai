@@ -39,7 +39,7 @@ const systemPrompt = `你是一位资深的漫画分镜导演和AI绘画专家�
       "description": "中文场景描述，包含角色动作、表情、环境细节（80-150字）",
       "visual_prompt": "简化的可编辑视觉描述（20-60字中文，更简洁易懂）",
       "english_prompt": "English visual prompt for AI image generation, detailed and vivid (80-180 chars)",
-      "character_name": "角色名（如有）",
+      "character_id": "角色UUID（如果故事有关联角色）",
       "emotion": "情绪（如：愤怒/悲伤/开心/平静）",
       "dialogue": "对白内容（如有）",
       "camera_angle": "俯视/仰视/平视/荷兰角",
@@ -212,7 +212,7 @@ export async function POST(req: Request) {
           importance: importance,
           description: panel.description || "无描述",
           dialogue: panel.dialogue || null,
-          character_name: panel.character_name || null,
+          character_id: panel.character_id || null, // Use character_id from LLM response
           emotion: panel.emotion || null,
           prompt_used: panel.english_prompt || panel.description || "",
           generated_image: null, // 预留给图像生成

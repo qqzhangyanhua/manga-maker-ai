@@ -8,7 +8,7 @@ export const convertApiPanelToLocal = (apiPanel: ApiPanel): PanelData => ({
   importance: apiPanel.importance as PanelData["importance"],
   description: apiPanel.description,
   dialogue: apiPanel.dialogue || undefined,
-  character: apiPanel.character_name || undefined,
+  character: apiPanel.character?.name || undefined, // Use joined character.name
   emotion: apiPanel.emotion || undefined,
   generatedImage: apiPanel.generated_image || undefined,
   englishPrompt: apiPanel.prompt_used || undefined,
@@ -71,7 +71,7 @@ export function panelDataToApiPanels(
       shot_size: panel.shotSize || null,
       prompt_used: panel.englishPrompt || null,
       generated_image: panel.generatedImage || null,
-      character_name: originalPanel?.character_name || null,
+      character_id: originalPanel?.character_id || null, // Use character_id
       emotion: originalPanel?.emotion || null,
       script_segment_id: originalPanel?.script_segment_id || null,
       script_start: originalPanel?.script_start || null,

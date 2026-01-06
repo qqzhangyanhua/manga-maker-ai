@@ -1,14 +1,9 @@
-/**
- * POST /api/story/[id]/analyze-characters
- * 第一步：分析故事并生成建议角色列表（仅文本描述，无图片）
- */
-
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { callChatCompletionByType } from "@/lib/llm-provider";
-import type { SuggestedCharacter, SuggestedCharactersData } from "@/types/suggested-characters.types";
+import { InsufficientCreditsError } from "@/lib/credits";
 import type { CharacterRole } from "@/components/StoryCharacter/types";
 
 const VALID_ROLES: CharacterRole[] = ["protagonist", "antagonist", "supporting", "minor"];
@@ -85,6 +80,11 @@ export async function POST(
     // 获取故事并验证所有权
     const story = await prisma.story.findUnique({
       where: { id: storyId },
+      include: {
+        suggested_characters_list: {
+          orderBy: { display_order: "asc" },
+        },
+      },
     });
 
     if (!story) {
@@ -103,11 +103,21 @@ export async function POST(
     const characterCount = Math.min(Math.max(count, 3), 5);
 
     // 如果已有建议角色且不强制重新生成，直接返回
-    if (story.suggested_characters && !force_regenerate) {
-      const existingData = story.suggested_characters as unknown as SuggestedCharactersData;
+    if (story.suggested_characters_list.length > 0 && !force_regenerate) {
       return NextResponse.json({
         success: true,
-        suggested_characters: existingData.characters,
+        suggested_characters: story.suggested_characters_list.map((char) => ({
+          id: char.id,
+          name: char.name,
+          description: char.description,
+          appearance: char.appearance,
+          role: char.role,
+          generated: char.generated,
+          character_id: char.character_id,
+          image_url: char.image_url,
+          optimized_prompt: char.optimized_prompt,
+          generated_at: char.generated_at,
+        })),
         story_context: {
           title: story.title,
           premise: story.premise,
@@ -116,6 +126,14 @@ export async function POST(
         credits_used: 0,
         from_cache: true,
       });
+    }
+
+    // 如果强制重新生成，先删除旧的建议角色
+    if (force_regenerate && story.suggested_characters_list.length > 0) {
+      await prisma.suggestedCharacter.deleteMany({
+        where: { story_id: storyId },
+      });
+      console.log(`[analyze-characters] Deleted ${story.suggested_characters_list.length} old suggested characters`);
     }
 
     // 获取漫画风格（优先使用请求参数，否则使用故事默认风格）
@@ -190,43 +208,39 @@ ${comicStylePrompt ? `<comic_style>${comicStylePrompt}</comic_style>` : ""}
       );
     }
 
-    // 生成建议角色列表（添加 temp_id）
-    const suggestedCharacters: SuggestedCharacter[] = characterDataList.map((char) => ({
-      temp_id: `temp_${crypto.randomUUID()}`,
-      name: char.name,
-      description: char.description,
-      appearance: char.appearance,
-      role: char.role,
-      generated: false,
-      character_id: null,
-    }));
+    // 批量创建 SuggestedCharacter 记录
+    const createdCharacters = await Promise.all(
+      characterDataList.map((char, index) =>
+        prisma.suggestedCharacter.create({
+          data: {
+            story_id: storyId,
+            name: char.name,
+            description: char.description,
+            appearance: char.appearance,
+            role: char.role,
+            display_order: index,
+          },
+        })
+      )
+    );
 
-    // 构建完整数据结构
-    const suggestedCharactersData: SuggestedCharactersData = {
-      version: "1.0",
-      generated_at: new Date().toISOString(),
-      characters: suggestedCharacters,
-      comic_style_id: styleId || null,
-      settings: {
-        count: characterCount,
-        temperature: 0.8,
-      },
-    };
-
-    // 保存到数据库
-    await prisma.story.update({
-      where: { id: storyId },
-      data: {
-        suggested_characters: suggestedCharactersData as any,
-      },
-    });
-
-    console.log(`[analyze-characters] Generated ${suggestedCharacters.length} characters`);
+    console.log(`[analyze-characters] Created ${createdCharacters.length} suggested characters`);
     console.log(`[analyze-characters] Duration: ${Date.now() - startedAt}ms`);
 
     return NextResponse.json({
       success: true,
-      suggested_characters: suggestedCharacters,
+      suggested_characters: createdCharacters.map((char) => ({
+        id: char.id,
+        name: char.name,
+        description: char.description,
+        appearance: char.appearance,
+        role: char.role,
+        generated: char.generated,
+        character_id: char.character_id,
+        image_url: char.image_url,
+        optimized_prompt: char.optimized_prompt,
+        generated_at: char.generated_at,
+      })),
       story_context: {
         title: story.title,
         premise: story.premise,
@@ -238,7 +252,7 @@ ${comicStylePrompt ? `<comic_style>${comicStylePrompt}</comic_style>` : ""}
     console.error("[analyze-characters] Error:", error);
 
     // 处理算力不足错误
-    if (error instanceof Error && "code" in error && error.code === "INSUFFICIENT_CREDITS") {
+    if (error instanceof InsufficientCreditsError) {
       return NextResponse.json({ error: error.message }, { status: 429 });
     }
 

@@ -6,7 +6,8 @@ export type ApiPanel = {
   importance: string;
   description: string;
   dialogue: string | null;
-  character_name: string | null;
+  character_id: string | null; // FK to Character table
+  character?: { id: string; name: string } | null; // Joined character data
   emotion: string | null;
   prompt_used: string | null;
   generated_image: string | null;

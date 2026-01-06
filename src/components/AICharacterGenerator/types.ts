@@ -3,7 +3,7 @@
  */
 
 import type { CharacterRole } from "@/components/StoryCharacter/types";
-import type { SuggestedCharacter } from "@/types/suggested-characters.types";
+import type { SuggestedCharacterResponse } from "@/types/suggested-characters.types";
 
 /**
  * 对话框阶段
@@ -44,8 +44,8 @@ export interface GenerationProgress {
   total: number;
   completed: number;
   failed: number;
-  current_temp_id?: string;
+  current_id?: string; // Changed from current_temp_id
 }
 
-// 导出 SuggestedCharacter 类型，方便其他组件使用
-export type { SuggestedCharacter };
+// 导出 SuggestedCharacterResponse 类型，方便其他组件使用
+export type { SuggestedCharacterResponse as SuggestedCharacter };

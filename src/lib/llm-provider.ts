@@ -1,8 +1,16 @@
 import type { LlmProvider } from "@prisma/client";
 import { prisma } from "./db";
-import { consumeCredits, checkCredits, type CreditError } from "./credits";
+import { consumeCredits, checkCredits, InsufficientCreditsError } from "./credits";
 import https from "https";
-import { logInfo } from "./api-logger";
+import { logger } from "./logger";
+
+/**
+ * Extended fetch options for Node.js environment
+ * Node.js fetch supports additional options like 'agent' that are not in the standard Web API
+ */
+interface NodeFetchOptions extends RequestInit {
+  agent?: https.Agent;
+}
 
 type ChatRole = "system" | "user" | "assistant";
 
@@ -24,10 +32,44 @@ export type LlmCallOptions =
 
 const normalizeBaseUrl = (url: string) => url.replace(/\/$/, "");
 
-// Create HTTPS agent that ignores SSL certificate errors
-const httpsAgent = new https.Agent({
-  rejectUnauthorized: false
-});
+/**
+ * 创建 HTTPS Agent，仅在开发环境且显式设置环境变量时禁用证书验证
+ *
+ * 安全说明：
+ * - 生产环境必须验证 SSL 证书
+ * - 开发环境如需使用自签名证书，设置 ALLOW_SELF_SIGNED_CERT=true
+ *
+ * @security Critical - 禁用证书验证会导致中间人攻击风险
+ */
+function createHttpsAgent(): https.Agent {
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const allowSelfSigned = process.env.ALLOW_SELF_SIGNED_CERT === 'true';
+
+  // 生产环境始终验证证书
+  if (!isDevelopment) {
+    return new https.Agent({
+      rejectUnauthorized: true,
+    });
+  }
+
+  // 开发环境：仅在显式设置时允许自签名证书
+  if (allowSelfSigned) {
+    logger.warn(
+      "[Security Warning] SSL certificate validation is disabled. " +
+      "This should NEVER be used in production!"
+    );
+    return new https.Agent({
+      rejectUnauthorized: false,
+    });
+  }
+
+  // 默认：始终验证证书
+  return new https.Agent({
+    rejectUnauthorized: true,
+  });
+}
+
+const httpsAgent = createHttpsAgent();
 
 export const findLlmProviderByType = async (providerType: string): Promise<LlmProvider | null> => {
   return prisma.llmProvider.findFirst({
@@ -69,11 +111,7 @@ export const callChatCompletionByType = async (params: {
     // 先检查余额是否足够
     const hasEnough = await checkCredits(options.userId, creditsCost);
     if (!hasEnough) {
-      const error = new Error(`算力不足，本次操作需要 ${creditsCost} 算力`) as CreditError;
-      error.code = "INSUFFICIENT_CREDITS";
-      error.required = creditsCost;
-      error.available = 0; // 实际值会在 consumeCredits 中获取
-      throw error;
+      throw new InsufficientCreditsError(creditsCost, 0);
     }
 
     // 扣除算力
@@ -88,13 +126,10 @@ export const callChatCompletionByType = async (params: {
   const endpoint = `${normalizeBaseUrl(provider.base_url)}/v1/chat/completions`;
 
   // 记录 LLM API 调用信息
-  logInfo("LLM API call", {
-    endpoint: "llm-provider",
+  logger.debug("LLM API call", {
     providerType,
     providerName: provider.provider_name,
     model: provider.model,
-    baseUrl: provider.base_url,
-    fullEndpoint: endpoint,
     creditsCost,
     userId: options?.userId,
   });
@@ -111,9 +146,8 @@ export const callChatCompletionByType = async (params: {
       temperature,
       max_tokens: maxTokens,
     }),
-    // @ts-ignore - Node.js fetch supports agent option
     agent: endpoint.startsWith("https") ? httpsAgent : undefined,
-  });
+  } as NodeFetchOptions);
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -149,11 +183,7 @@ export async function* callChatCompletionStreamByType(params: {
 
     const hasEnough = await checkCredits(options.userId, creditsCost);
     if (!hasEnough) {
-      const error = new Error(`算力不足，本次操作需要 ${creditsCost} 算力`) as CreditError;
-      error.code = "INSUFFICIENT_CREDITS";
-      error.required = creditsCost;
-      error.available = 0;
-      throw error;
+      throw new InsufficientCreditsError(creditsCost, 0);
     }
 
     await consumeCredits({
@@ -167,13 +197,10 @@ export async function* callChatCompletionStreamByType(params: {
   const endpoint = `${normalizeBaseUrl(provider.base_url)}/v1/chat/completions`;
 
   // 记录流式 LLM API 调用信息
-  logInfo("LLM API call (stream)", {
-    endpoint: "llm-provider-stream",
+  logger.debug("LLM API call (stream)", {
     providerType,
     providerName: provider.provider_name,
     model: provider.model,
-    baseUrl: provider.base_url,
-    fullEndpoint: endpoint,
     creditsCost,
     userId: options?.userId,
   });
@@ -191,9 +218,8 @@ export async function* callChatCompletionStreamByType(params: {
       max_tokens: maxTokens,
       stream: true, // 启用流式返回
     }),
-    // @ts-ignore - Node.js fetch supports agent option
     agent: endpoint.startsWith("https") ? httpsAgent : undefined,
-  });
+  } as NodeFetchOptions);
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -244,7 +270,7 @@ export async function* callChatCompletionStreamByType(params: {
             yield delta; // 返回文本片段
           }
         } catch (parseError) {
-          console.warn("Failed to parse SSE chunk:", data);
+          logger.warn("Failed to parse SSE chunk", { data });
         }
       }
     }

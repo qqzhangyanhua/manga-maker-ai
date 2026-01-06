@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { prisma, Prisma } from "@/lib/db";
 import { generateStoryOutlineStream } from "@/lib/story-generator";
 import { assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
@@ -186,8 +186,8 @@ export async function POST(req: Request) {
                             title: outline.title,
                             premise,
                             genre: outline.genre,
-                            outline: outline as any,
-                            characters: outline.characters as any,
+                            outline: outline as unknown as Prisma.InputJsonValue,
+                            // characters: outline.characters as any, // REMOVED: Use story_characters relation
                             template_id: templateId || null,
                             comic_style_id: comicStyle?.id || null,
                             status: "draft",

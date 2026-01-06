@@ -21,7 +21,7 @@ const mergeSystemPrompt = `你是一位专业的漫画分镜编辑。
   "visual_prompt": "融合后的简化视觉描述",
   "english_prompt": "Merged English prompt for AI generation",
   "dialogue": "融合后的对白（如有）",
-  "character_name": "角色名（如有）",
+  "character_id": "角色UUID（优先使用，如果两个分镜共享角色）",
   "emotion": "情绪",
   "camera_angle": "俯视/仰视/平视/荷兰角",
   "shot_size": "特写/近景/中景/全景/远景"
@@ -143,7 +143,7 @@ export async function POST(req: Request) {
 - 重要性：${panels[0].importance}
 - 描述：${panels[0].description}
 - 对白：${panels[0].dialogue || "无"}
-- 角色：${panels[0].character_name || "无"}
+- 角色ID：${panels[0].character_id || "无"}
 - 情绪：${panels[0].emotion || "无"}
 - 镜头角度：${panels[0].camera_angle || "平视"}
 - 镜头尺寸：${panels[0].shot_size || "中景"}
@@ -153,7 +153,7 @@ export async function POST(req: Request) {
 - 重要性：${panels[1].importance}
 - 描述：${panels[1].description}
 - 对白：${panels[1].dialogue || "无"}
-- 角色：${panels[1].character_name || "无"}
+- 角色ID：${panels[1].character_id || "无"}
 - 情绪：${panels[1].emotion || "无"}
 - 镜头角度：${panels[1].camera_angle || "平视"}
 - 镜头尺寸：${panels[1].shot_size || "中景"}
@@ -205,7 +205,7 @@ export async function POST(req: Request) {
           visual_prompt: mergedData.visual_prompt || mergedData.description,
           prompt_used: mergedData.english_prompt,
           dialogue: mergedData.dialogue || null,
-          character_name: mergedData.character_name || null,
+          character_id: mergedData.character_id || panels[0].character_id || panels[1].character_id || null,
           emotion: mergedData.emotion || null,
           camera_angle: mergedData.camera_angle || null,
           shot_size: mergedData.shot_size || null,

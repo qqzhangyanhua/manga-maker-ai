@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
             password_hash: passwordHash,
             name: name ?? existingUser.name ?? null,
             verified: true,
-            email_verified_at: now,
+            // email_verified_at field removed from schema
             updated_at: now,
             role: "user",
             status: "active",
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
             password_hash: passwordHash,
             name: name ?? null,
             verified: true,
-            email_verified_at: now,
+            // email_verified_at field removed from schema
             role: "user",
             status: "active",
             created_at: now,

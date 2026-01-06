@@ -70,12 +70,12 @@ export async function POST(req: Request) {
             premise,
             genre,
             outline,
-            characters,
+            // characters, // REMOVED: Use story_characters relation instead
             status = "draft",
         } = body;
 
         if (!title) {
-            const error = new Error("缺少必填字段：title") as any;
+            const error = new Error("缺少必填字段：title") as Error & { status?: number };
             error.status = 400;
             throw error;
         }
@@ -87,7 +87,7 @@ export async function POST(req: Request) {
                 premise,
                 genre: genre || "suspense",
                 outline: outline || {},
-                characters: characters || [],
+                // characters: characters || [], // REMOVED
                 status,
             },
         });

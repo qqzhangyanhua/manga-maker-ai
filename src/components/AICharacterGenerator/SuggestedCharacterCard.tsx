@@ -3,11 +3,11 @@
 import { User, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { SuggestedCharacter } from "@/types/suggested-characters.types";
+import type { SuggestedCharacterResponse } from "@/types/suggested-characters.types";
 import type { CharacterRole } from "@/components/StoryCharacter/types";
 
 interface SuggestedCharacterCardProps {
-  character: SuggestedCharacter;
+  character: SuggestedCharacterResponse;
   selected: boolean;
   onToggle: () => void;
 }
@@ -31,6 +31,8 @@ export function SuggestedCharacterCard({
   selected,
   onToggle,
 }: SuggestedCharacterCardProps) {
+  const characterRole = character.role as CharacterRole;
+
   return (
     <div
       onClick={onToggle}
@@ -45,7 +47,7 @@ export function SuggestedCharacterCard({
       <div
         className={cn(
           "w-full aspect-[3/4] rounded-md flex items-center justify-center mb-2 transition-all",
-          roleColors[character.role]
+          roleColors[characterRole]
         )}
       >
         <User className="w-12 h-12 text-muted-foreground/60" />
@@ -58,7 +60,7 @@ export function SuggestedCharacterCard({
             {character.name}
           </h4>
           <Badge variant="secondary" className="text-xs flex-shrink-0">
-            {roleLabels[character.role]}
+            {roleLabels[characterRole]}
           </Badge>
         </div>
         <p

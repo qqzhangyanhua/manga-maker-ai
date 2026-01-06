@@ -3,7 +3,7 @@
  * Story → Script → Storyboard → Images → Export
  */
 
-import { prisma } from "./db";
+import { prisma, Prisma } from "./db";
 import { generateStoryOutline, StoryGenre } from "./story-generator";
 import { callChatCompletionByType } from "./llm-provider";
 import { generateImageBatch } from "./unified-image-generation";
@@ -121,8 +121,8 @@ export class WorkflowEngine {
                 title: outline.title,
                 premise: this.config.premise,
                 genre: outline.genre,
-                outline: outline as any,
-                characters: outline.characters as any,
+                outline: outline as unknown as Prisma.InputJsonValue,
+                // characters: outline.characters as any, // REMOVED: Use story_characters relation
                 template_id: this.config.templateId || null,
                 status: "completed",
             },
@@ -137,6 +137,13 @@ export class WorkflowEngine {
     private async generateStoryboard(storyId: string) {
         const story = await prisma.story.findUnique({
             where: { id: storyId },
+            include: {
+                story_characters: {
+                    include: {
+                        character: true,
+                    },
+                },
+            },
         });
 
         if (!story) {
@@ -149,10 +156,10 @@ export class WorkflowEngine {
 
 标题: ${story.title}
 类型: ${story.genre}
-梗概: ${(story.outline as any).logline}
+梗概: ${(story.outline as Record<string, unknown>).logline}
 
 角色:
-${(story.characters as any).map((c: any) => `- ${c.name}: ${c.description}`).join("\n")}
+${story.story_characters.map((sc) => `- ${sc.character.name}: ${sc.character.description || ''}`).join("\n")}
 
 剧情:
 ${(story.outline as any).acts.map((act: any, i: number) => `

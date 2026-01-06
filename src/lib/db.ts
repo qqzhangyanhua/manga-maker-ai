@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -6,6 +6,9 @@ declare global {
   // eslint-disable-next-line no-var
   var dbInitialized: boolean | undefined;
 }
+
+// Re-export Prisma namespace for type conversions
+export { Prisma };
 
 const rawDatabaseUrl = process.env.DATABASE_URL;
 

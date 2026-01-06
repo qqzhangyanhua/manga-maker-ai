@@ -61,7 +61,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
     if (payload.verified !== undefined) {
       data.verified = payload.verified;
-      data.email_verified_at = payload.verified ? new Date() : null;
+      // email_verified_at field removed from schema
     }
     if (payload.password !== undefined) {
       data.password_hash = await hashText(payload.password);

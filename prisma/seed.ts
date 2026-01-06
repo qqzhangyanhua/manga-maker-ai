@@ -619,10 +619,10 @@ async function main() {
       data: {
         email: SYSTEM_USER.email,
         name: SYSTEM_USER.name,
-        password: hashedPassword,
+        password_hash: hashedPassword,
         role: SYSTEM_USER.role,
         status: SYSTEM_USER.status,
-        email_verified: new Date(),
+        verified: true,
       }
     });
     console.log('✓ 创建系统用户:', systemUser.email);

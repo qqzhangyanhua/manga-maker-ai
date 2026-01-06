@@ -1,17 +1,48 @@
 /**
  * 建议角色相关的类型定义
  * 用于两步角色生成流程
+ *
+ * Week 3 Task 2: Migrated from JSONB to SuggestedCharacter table
  */
 
+import type { SuggestedCharacter } from "@prisma/client";
 import type { CharacterRole } from "@/components/StoryCharacter/types";
 
 /**
- * Story.suggested_characters 字段的数据结构
+ * SuggestedCharacter with related Character info (for GET endpoints)
+ */
+export type SuggestedCharacterWithRelations = SuggestedCharacter & {
+  character?: {
+    id: string;
+    name: string;
+    base_image_url: string | null;
+  } | null;
+};
+
+/**
+ * Response format for suggested character APIs
+ */
+export interface SuggestedCharacterResponse {
+  id: string; // SuggestedCharacter UUID (replaces temp_id)
+  name: string;
+  description: string;
+  appearance: string;
+  role: CharacterRole;
+  generated: boolean;
+  character_id: string | null;
+  image_url: string | null;
+  optimized_prompt: string | null;
+  generated_at: Date | null;
+}
+
+/**
+ * @deprecated Legacy JSONB structure - kept for backward compatibility during migration
+ * Will be removed in Week 4 after complete migration
  */
 export interface SuggestedCharactersData {
   version: string; // "1.0"
   generated_at: string; // ISO 8601 timestamp
-  characters: SuggestedCharacter[];
+  characters: LegacySuggestedCharacter[];
   comic_style_id: string | null;
   settings: {
     count: number;
@@ -20,17 +51,18 @@ export interface SuggestedCharactersData {
 }
 
 /**
- * 单个建议角色的数据结构
+ * @deprecated Legacy suggested character format
+ * Will be removed in Week 4 after complete migration
  */
-export interface SuggestedCharacter {
-  temp_id: string; // 临时ID，格式: "temp_{uuid}"
-  name: string; // 角色名字
-  description: string; // 中文，50-120字
-  appearance: string; // 英文，用于AI绘画
-  role: CharacterRole; // protagonist | antagonist | supporting | minor
-  generated: boolean; // 是否已生成图片
-  character_id: string | null; // 生成图片后的 Character ID
-  generated_at?: string; // 图片生成时间
-  image_url?: string; // 图片URL（可选，用于快速预览）
-  optimized_prompt?: string; // 优化后的提示词
+export interface LegacySuggestedCharacter {
+  temp_id: string; // Replaced by database UUID
+  name: string;
+  description: string;
+  appearance: string;
+  role: CharacterRole;
+  generated: boolean;
+  character_id: string | null;
+  generated_at?: string;
+  image_url?: string;
+  optimized_prompt?: string;
 }

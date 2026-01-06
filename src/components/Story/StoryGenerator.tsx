@@ -297,7 +297,7 @@ export function StoryGenerator({
                     premise: premise,
                     genre: genre === "auto" ? "suspense" : genre,
                     outline: generatedStory,
-                    characters: generatedStory.characters || [],
+                    // characters: generatedStory.characters || [], // REMOVED: Use story_characters relation instead
                     status: "draft",
                 }),
             });

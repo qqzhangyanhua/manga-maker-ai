@@ -54,7 +54,12 @@ function mapRole(role?: string): string {
  */
 async function migrateStoryCharacters(): Promise<void> {
   console.log("\n=== Migrating Story Characters ===\n");
+  console.log("⚠️  DEPRECATED: Story.characters field has been removed from schema.");
+  console.log("This migration script is no longer needed as data has already been migrated.");
+  console.log("If you need to re-run this migration, please restore the Story.characters field first.");
+  return;
 
+  /* COMMENTED OUT - Story.characters field no longer exists in schema
   const stories = await prisma.story.findMany({
     where: {
       characters: { not: Prisma.DbNull },
@@ -82,66 +87,7 @@ async function migrateStoryCharacters(): Promise<void> {
     console.log(
       `\n  Processing Story: "${story.title}" (${chars.length} characters)`
     );
-
-    for (let i = 0; i < chars.length; i++) {
-      const char = chars[i];
-      if (!char.name) {
-        console.log(`    [SKIP] Character at index ${i}: No name`);
-        skippedCount++;
-        continue;
-      }
-
-      // Try to find matching character in user's library
-      const matchedCharacter = await prisma.character.findFirst({
-        where: {
-          user_id: story.user_id,
-          name: { contains: char.name, mode: "insensitive" },
-        },
-      });
-
-      if (matchedCharacter) {
-        // Check if already linked
-        const existing = await prisma.storyCharacter.findUnique({
-          where: {
-            story_id_character_id: {
-              story_id: story.id,
-              character_id: matchedCharacter.id,
-            },
-          },
-        });
-
-        if (existing) {
-          console.log(
-            `    [EXISTS] "${char.name}" already linked to character "${matchedCharacter.name}"`
-          );
-          continue;
-        }
-
-        // Create StoryCharacter link
-        await prisma.storyCharacter.create({
-          data: {
-            story_id: story.id,
-            character_id: matchedCharacter.id,
-            role: mapRole(char.role),
-            character_arc: char.arc || char.description || null,
-            display_order: i,
-          },
-        });
-
-        console.log(
-          `    [LINKED] "${char.name}" -> Character "${matchedCharacter.name}" (${mapRole(char.role)})`
-        );
-        linkedCount++;
-      } else {
-        console.log(
-          `    [NO MATCH] "${char.name}" - No matching character in library`
-        );
-        skippedCount++;
-      }
-    }
-  }
-
-  console.log(`\n  Summary: ${linkedCount} linked, ${skippedCount} skipped`);
+  */
 }
 
 /**

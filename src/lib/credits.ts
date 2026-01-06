@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import { businessLogger } from "./logger";
 
 // 默认注册赠送算力
 export const DEFAULT_REGISTER_CREDITS = 2000;
@@ -32,10 +33,33 @@ export interface AddCreditsParams {
   refId?: string;
 }
 
-export interface CreditError extends Error {
-  code: "INSUFFICIENT_CREDITS";
-  required: number;
-  available: number;
+/**
+ * 自定义错误类：算力不足
+ *
+ * 使用继承 Error 的类，而不是类型转换
+ */
+export class InsufficientCreditsError extends Error {
+  public readonly code = "INSUFFICIENT_CREDITS";
+
+  constructor(
+    public readonly required: number,
+    public readonly available: number
+  ) {
+    super(`算力不足，需要 ${required}，当前余额 ${available}`);
+    this.name = "InsufficientCreditsError";
+    // Maintains proper stack trace for where our error was thrown (only available on V8)
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, InsufficientCreditsError);
+    }
+  }
+}
+
+/**
+ * 用户数据行接口（用于 $queryRaw 返回类型）
+ */
+interface UserCreditsRow {
+  credits: number;
+  total_credits_used: number;
 }
 
 /**
@@ -75,8 +99,10 @@ export async function checkCredits(userId: string, required: number): Promise<bo
 }
 
 /**
- * 消耗算力（带余额检查）
- * @throws CreditError 如果余额不足
+ * 消耗算力（带余额检查和行级锁）
+ *
+ * @security 使用 SELECT FOR UPDATE 防止并发竞态条件
+ * @throws InsufficientCreditsError 如果余额不足
  */
 export async function consumeCredits(params: ConsumeCreditsParams): Promise<{
   newBalance: number;
@@ -88,27 +114,26 @@ export async function consumeCredits(params: ConsumeCreditsParams): Promise<{
     throw new Error("消耗算力必须大于0");
   }
 
-
-  // 使用事务确保原子性
+  // 使用事务 + 行级锁确保原子性
   const result = await prisma.$transaction(async (tx) => {
-    // 获取当前余额并加锁
-    const user = await tx.user.findUnique({
-      where: { id: userId },
-      select: { credits: true, total_credits_used: true },
-    });
+    // 使用 SELECT FOR UPDATE 获取行级锁，防止并发修改
+    const users = await tx.$queryRaw<UserCreditsRow[]>`
+      SELECT credits, total_credits_used
+      FROM users
+      WHERE id = ${userId}::uuid
+      FOR UPDATE
+    `;
 
-    if (!user) {
+    if (!users || users.length === 0) {
       throw new Error("用户不存在");
     }
 
+    const user = users[0];
     const currentCredits = user.credits;
 
+    // 检查余额
     if (currentCredits < amount) {
-      const error = new Error(`算力不足，需要 ${amount}，当前余额 ${currentCredits}`) as CreditError;
-      error.code = "INSUFFICIENT_CREDITS";
-      error.required = amount;
-      error.available = currentCredits;
-      throw error;
+      throw new InsufficientCreditsError(amount, currentCredits);
     }
 
     const newBalance = currentCredits - amount;
@@ -138,11 +163,19 @@ export async function consumeCredits(params: ConsumeCreditsParams): Promise<{
     return { newBalance, consumed: amount };
   });
 
+  // 记录算力消耗
+  businessLogger.credits("consumed", userId, amount, {
+    newBalance: result.newBalance,
+    description,
+  });
+
   return result;
 }
 
 /**
  * 增加算力（充值/赠送/管理员调整）
+ *
+ * @security 使用行级锁防止并发问题
  */
 export async function addCredits(params: AddCreditsParams): Promise<{
   newBalance: number;
@@ -154,17 +187,20 @@ export async function addCredits(params: AddCreditsParams): Promise<{
     throw new Error("增加算力必须大于0");
   }
 
-
   const result = await prisma.$transaction(async (tx) => {
-    const user = await tx.user.findUnique({
-      where: { id: userId },
-      select: { credits: true },
-    });
+    // 使用 SELECT FOR UPDATE 获取行级锁
+    const users = await tx.$queryRaw<UserCreditsRow[]>`
+      SELECT credits
+      FROM users
+      WHERE id = ${userId}::uuid
+      FOR UPDATE
+    `;
 
-    if (!user) {
+    if (!users || users.length === 0) {
       throw new Error("用户不存在");
     }
 
+    const user = users[0];
     const newBalance = user.credits + amount;
 
     // 更新用户余额
@@ -187,6 +223,13 @@ export async function addCredits(params: AddCreditsParams): Promise<{
     });
 
     return { newBalance, added: amount };
+  });
+
+  // 记录算力增加
+  businessLogger.credits("added", userId, amount, {
+    newBalance: result.newBalance,
+    action,
+    description,
   });
 
   return result;
@@ -271,6 +314,8 @@ export async function rechargeCredits(params: {
 
 /**
  * 管理员调整用户算力
+ *
+ * @security 使用行级锁防止并发问题
  */
 export async function adminAdjustCredits(params: {
   userId: string;
@@ -284,17 +329,20 @@ export async function adminAdjustCredits(params: {
     throw new Error("调整金额不能为0");
   }
 
-
   const result = await prisma.$transaction(async (tx) => {
-    const user = await tx.user.findUnique({
-      where: { id: userId },
-      select: { credits: true },
-    });
+    // 使用 SELECT FOR UPDATE 获取行级锁
+    const users = await tx.$queryRaw<UserCreditsRow[]>`
+      SELECT credits, total_credits_used
+      FROM users
+      WHERE id = ${userId}::uuid
+      FOR UPDATE
+    `;
 
-    if (!user) {
+    if (!users || users.length === 0) {
       throw new Error("用户不存在");
     }
 
+    const user = users[0];
     const newBalance = user.credits + amount;
 
     if (newBalance < 0) {
@@ -302,15 +350,22 @@ export async function adminAdjustCredits(params: {
     }
 
     // 更新用户余额和累计消耗
-    const updateData: { credits: number; total_credits_used?: number } = { credits: newBalance };
     if (amount < 0) {
-      updateData.total_credits_used = { increment: Math.abs(amount) } as unknown as number;
+      // 如果是扣除，更新 total_credits_used
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          credits: newBalance,
+          total_credits_used: (user.total_credits_used ?? 0) + Math.abs(amount),
+        },
+      });
+    } else {
+      // 如果是增加，只更新 credits
+      await tx.user.update({
+        where: { id: userId },
+        data: { credits: newBalance },
+      });
     }
-
-    await tx.user.update({
-      where: { id: userId },
-      data: { credits: newBalance },
-    });
 
     // 记录交易
     await tx.creditTransaction.create({

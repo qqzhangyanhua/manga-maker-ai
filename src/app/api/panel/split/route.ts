@@ -17,7 +17,7 @@ const splitSystemPrompt = `你是一位专业的漫画分镜编辑。
     "visual_prompt": "第一个分镜的简化视觉描述",
     "english_prompt": "First panel English prompt for AI generation",
     "dialogue": "第一个分镜的对白（如有）",
-    "character_name": "角色名（如有）",
+    "character_id": "角色UUID（优先使用）",
     "emotion": "情绪",
     "camera_angle": "俯视/仰视/平视/荷兰角",
     "shot_size": "特写/近景/中景/全景/远景"
@@ -29,7 +29,7 @@ const splitSystemPrompt = `你是一位专业的漫画分镜编辑。
     "visual_prompt": "第二个分镜的简化视觉描述",
     "english_prompt": "Second panel English prompt for AI generation",
     "dialogue": "第二个分镜的对白（如有）",
-    "character_name": "角色名（如有）",
+    "character_id": "角色UUID（优先使用）",
     "emotion": "情绪",
     "camera_angle": "俯视/仰视/平视/荷兰角",
     "shot_size": "特写/近景/中景/全景/远景"
@@ -88,7 +88,7 @@ export async function POST(req: Request) {
 - 重要性：${panel.importance}
 - 描述：${panel.description}
 - 对白：${panel.dialogue || "无"}
-- 角色：${panel.character_name || "无"}
+- 角色ID：${panel.character_id || "无"}
 - 情绪：${panel.emotion || "无"}
 - 镜头角度：${panel.camera_angle || "平视"}
 - 镜头尺寸：${panel.shot_size || "中景"}
@@ -151,7 +151,7 @@ export async function POST(req: Request) {
           visual_prompt: splitData.panel1.visual_prompt || splitData.panel1.description,
           prompt_used: splitData.panel1.english_prompt,
           dialogue: splitData.panel1.dialogue || null,
-          character_name: splitData.panel1.character_name || null,
+          character_id: splitData.panel1.character_id || panel.character_id || null,
           emotion: splitData.panel1.emotion || null,
           camera_angle: splitData.panel1.camera_angle || null,
           shot_size: splitData.panel1.shot_size || null,
@@ -172,7 +172,7 @@ export async function POST(req: Request) {
           visual_prompt: splitData.panel2.visual_prompt || splitData.panel2.description,
           prompt_used: splitData.panel2.english_prompt,
           dialogue: splitData.panel2.dialogue || null,
-          character_name: splitData.panel2.character_name || null,
+          character_id: splitData.panel2.character_id || panel.character_id || null,
           emotion: splitData.panel2.emotion || null,
           camera_angle: splitData.panel2.camera_angle || null,
           shot_size: splitData.panel2.shot_size || null,

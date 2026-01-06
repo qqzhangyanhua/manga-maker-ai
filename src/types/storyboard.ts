@@ -17,7 +17,8 @@ export type Panel = {
   description: string;
   visual_prompt: string | null;
   dialogue: string | null;
-  character_name: string | null;
+  character_id: string | null; // FK to Character table
+  character?: { id: string; name: string } | null; // Joined character data
   emotion: string | null;
   generated_image: string | null;
   prompt_used: string | null;

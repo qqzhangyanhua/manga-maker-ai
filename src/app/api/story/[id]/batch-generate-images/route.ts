@@ -9,11 +9,9 @@ import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { callImageGenerationByType } from "@/lib/image-generation";
 import { minioClient, MINIO_BUCKET, ensureBucketExists, getPublicUrl } from "@/lib/minio";
-import type { SuggestedCharacter, SuggestedCharactersData } from "@/types/suggested-characters.types";
-import type { CharacterRole } from "@/components/StoryCharacter/types";
 
 interface RequestBody {
-  temp_ids: string[];
+  ids: string[]; // SuggestedCharacter IDs (not temp_ids)
   auto_save?: boolean;
   comic_style_id?: string;
 }
@@ -65,6 +63,12 @@ export async function POST(
     // 获取故事
     const story = await prisma.story.findUnique({
       where: { id: storyId },
+      select: {
+        id: true,
+        user_id: true,
+        genre: true,
+        comic_style_id: true,
+      },
     });
 
     if (!story) {
@@ -77,35 +81,36 @@ export async function POST(
 
     // 解析请求
     const body = (await req.json()) as RequestBody;
-    const { temp_ids, auto_save = true, comic_style_id } = body;
+    const { ids, auto_save = true, comic_style_id } = body;
 
-    if (!temp_ids || !Array.isArray(temp_ids) || temp_ids.length === 0) {
-      return NextResponse.json({ error: "temp_ids 不能为空" }, { status: 400 });
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json({ error: "ids 不能为空" }, { status: 400 });
     }
 
-    if (temp_ids.length > 5) {
+    if (ids.length > 5) {
       return NextResponse.json({ error: "最多同时生成 5 个角色" }, { status: 400 });
     }
 
-    // 获取建议角色数据
-    if (!story.suggested_characters) {
-      return NextResponse.json({ error: "故事没有建议角色，请先运行角色分析" }, { status: 400 });
+    // 查询建议角色
+    const suggestedCharacters = await prisma.suggestedCharacter.findMany({
+      where: {
+        id: { in: ids },
+        story_id: storyId,
+      },
+    });
+
+    if (suggestedCharacters.length !== ids.length) {
+      return NextResponse.json({ error: "部分 ID 无效或不属于此故事" }, { status: 400 });
     }
 
-    const suggestedData = story.suggested_characters as unknown as SuggestedCharactersData;
-    const suggestedCharacters = suggestedData.characters;
-
-    // 查找要生成的角色
-    const charactersToGenerate = temp_ids
-      .map((tempId) => suggestedCharacters.find((char) => char.temp_id === tempId))
-      .filter((char): char is SuggestedCharacter => char !== undefined);
-
-    if (charactersToGenerate.length !== temp_ids.length) {
-      return NextResponse.json({ error: "部分 temp_id 无效" }, { status: 400 });
+    // 检查是否已生成
+    const alreadyGenerated = suggestedCharacters.filter((char) => char.generated);
+    if (alreadyGenerated.length > 0) {
+      console.log(`[batch-generate] Warning: ${alreadyGenerated.length} characters already generated`);
     }
 
     // 获取漫画风格
-    const styleId = comic_style_id || suggestedData.comic_style_id || story.comic_style_id;
+    const styleId = comic_style_id || story.comic_style_id;
     let comicStylePrompt: string | null = null;
 
     if (styleId) {
@@ -127,7 +132,7 @@ export async function POST(
 
     // 并行生成图片
     const results = await Promise.all(
-      charactersToGenerate.map(async (suggestedChar) => {
+      suggestedCharacters.map(async (suggestedChar) => {
         try {
           // 构建图片生成提示词
           const imagePrompt = buildImagePrompt(suggestedChar.appearance, story.genre || "", comicStylePrompt);
@@ -153,6 +158,7 @@ export async function POST(
 
           const image_base64 = imageResult.images[0] ?? "";
           let character_id: string | null = null;
+          let image_url: string | null = null;
 
           // 如果 auto_save=true，保存到角色库
           if (auto_save) {
@@ -189,15 +195,15 @@ export async function POST(
                 "Content-Type": "image/png",
               });
 
-              const imageUrl = getPublicUrl(objectName);
+              image_url = getPublicUrl(objectName);
 
               // 更新 Character.base_image_url
               await prisma.character.update({
                 where: { id: character.id },
-                data: { base_image_url: imageUrl },
+                data: { base_image_url: image_url },
               });
 
-              console.log(`[batch-generate] Uploaded image for ${suggestedChar.name}: ${imageUrl}`);
+              console.log(`[batch-generate] Uploaded image for ${suggestedChar.name}: ${image_url}`);
             } catch (uploadError) {
               console.error(`[batch-generate] Image upload failed for ${suggestedChar.name}:`, uploadError);
               // 继续处理，即使上传失败
@@ -227,17 +233,30 @@ export async function POST(
             console.log(`[batch-generate] Created character ${suggestedChar.name} (${character.id})`);
           }
 
+          // 更新 SuggestedCharacter 记录
+          await prisma.suggestedCharacter.update({
+            where: { id: suggestedChar.id },
+            data: {
+              generated: true,
+              character_id,
+              image_url,
+              optimized_prompt: imagePrompt,
+              generated_at: new Date(),
+            },
+          });
+
           return {
-            temp_id: suggestedChar.temp_id,
+            id: suggestedChar.id,
             success: true,
             image_base64,
             optimized_prompt: imagePrompt,
             character_id,
+            image_url,
           };
         } catch (error) {
           console.error(`[batch-generate] Failed to generate ${suggestedChar.name}:`, error);
           return {
-            temp_id: suggestedChar.temp_id,
+            id: suggestedChar.id,
             success: false,
             error: error instanceof Error ? error.message : "生成失败",
           };
@@ -245,37 +264,10 @@ export async function POST(
       })
     );
 
-    // 更新 suggested_characters 状态
-    const updatedCharacters = suggestedCharacters.map((char) => {
-      const result = results.find((r) => r.temp_id === char.temp_id);
-      if (result && result.success) {
-        return {
-          ...char,
-          generated: true,
-          character_id: result.character_id ?? null,
-          generated_at: new Date().toISOString(),
-          optimized_prompt: result.optimized_prompt,
-        } as SuggestedCharacter;
-      }
-      return char;
-    });
-
-    const updatedData: SuggestedCharactersData = {
-      ...suggestedData,
-      characters: updatedCharacters,
-    };
-
-    await prisma.story.update({
-      where: { id: storyId },
-      data: {
-        suggested_characters: updatedData as any,
-      },
-    });
-
     const savedCount = results.filter((r) => r.success && r.character_id).length;
     const totalCreditsUsed = results.filter((r) => r.success).length * 30; // 假设每张图片30 credits
 
-    console.log(`[batch-generate] Completed: ${savedCount}/${temp_ids.length} saved`);
+    console.log(`[batch-generate] Completed: ${savedCount}/${ids.length} saved`);
     console.log(`[batch-generate] Duration: ${Date.now() - startedAt}ms`);
 
     return NextResponse.json({

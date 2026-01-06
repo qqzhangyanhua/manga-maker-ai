@@ -81,6 +81,13 @@ export async function POST(req: Request) {
         // Get story from database
         const story = await prisma.story.findUnique({
           where: { id: storyId },
+          include: {
+            story_characters: {
+              include: {
+                character: true,
+              },
+            },
+          },
         });
 
         if (!story) {
@@ -102,7 +109,11 @@ export async function POST(req: Request) {
         }
 
         const outline = story.outline as { acts?: StoryAct[] };
-        const characters = story.characters as unknown as StoryCharacter[];
+        const characters: StoryCharacter[] = story.story_characters.map((sc) => ({
+          name: sc.character.name,
+          description: sc.character.description || '',
+          role: sc.role as "protagonist" | "antagonist" | "supporting",
+        }));
 
         if (!outline.acts || !outline.acts[actIndex]) {
           sendEvent(controller, {
