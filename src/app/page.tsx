@@ -2,12 +2,18 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { BarChart3, BookOpen, FileText, Images, Play, ArrowRight, Layers, Sparkles } from "lucide-react";
+import { BarChart3, BookOpen, FileText, Images, Play, ArrowRight, Layers, Sparkles, PenLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TrialDialog } from "@/components/TrialDialog";
 import { HeroSection, ShowcaseSection, Navbar } from "@/components/Landing";
 
 const recordShortcuts = [
+  {
+    title: "生成小说",
+    description: "使用 AI 辅助创作，让灵感变成精彩小说",
+    href: "/novel",
+    icon: PenLine,
+  },
   {
     title: "示例项目",
     description: "浏览优质示例，一键复制到你的账号开始学习",
@@ -108,7 +114,7 @@ const HomePage = () => {
                 需要登录后访问
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {recordShortcuts.map((item) => {
                 const Icon = item.icon;
                 return (
