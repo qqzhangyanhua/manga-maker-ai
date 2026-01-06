@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { BarChart3, BookOpen, FileText, Images, Play, ArrowRight, Layers, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TrialDialog } from "@/components/TrialDialog";
-import { OnboardingDialog } from "@/components/OnboardingDialog";
 import { HeroSection, ShowcaseSection, Navbar } from "@/components/Landing";
 
 const recordShortcuts = [
@@ -43,11 +42,6 @@ const recordShortcuts = [
 
 const HomePage = () => {
   const [showTrialDialog, setShowTrialDialog] = useState(false);
-
-  // 回调函数：从 OnboardingDialog 打开 TrialDialog
-  const handleOpenTrialFromOnboarding = useCallback(() => {
-    setShowTrialDialog(true);
-  }, []);
 
   return (
     <div className="min-h-screen bg-[#0f0f13]">
@@ -171,9 +165,6 @@ const HomePage = () => {
 
       {/* Trial Dialog */}
       <TrialDialog open={showTrialDialog} onOpenChange={setShowTrialDialog} />
-
-      {/* Onboarding Dialog */}
-      <OnboardingDialog onOpenTrialDialog={handleOpenTrialFromOnboarding} />
     </div>
   );
 };
