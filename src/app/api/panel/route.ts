@@ -57,14 +57,22 @@ export async function POST(req: Request) {
         // Handle character_id (backward compatibility for character_name)
         let resolvedCharacterId = character_id;
         if (!resolvedCharacterId && character_name) {
-            // Backward compatibility: lookup character by name
+            // Backward compatibility: lookup character by exact name match (case-insensitive)
             const character = await prisma.character.findFirst({
                 where: {
                     user_id: payload.userId,
-                    name: { contains: character_name, mode: "insensitive" },
+                    name: { equals: character_name, mode: "insensitive" },
                 },
+                orderBy: { created_at: 'asc' }, // Deterministic ordering if duplicates exist
             });
-            resolvedCharacterId = character?.id ?? null;
+
+            if (character) {
+                console.log(`[COMPAT] Resolved character_name "${character_name}" → ${character.id} (user: ${payload.userId})`);
+                resolvedCharacterId = character.id;
+            } else {
+                console.warn(`[COMPAT] Failed to resolve character_name: "${character_name}" (user: ${payload.userId})`);
+                resolvedCharacterId = null;
+            }
         }
 
         // Determine order

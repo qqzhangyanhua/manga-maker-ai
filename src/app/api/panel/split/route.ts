@@ -132,13 +132,16 @@ export async function POST(req: Request) {
 
     // 使用事务删除旧 panel 并创建两个新 panel
     const newPanels = await prisma.$transaction(async (tx) => {
-      // 后续 panels 的 order 都要 +1
-      await tx.$executeRaw`
-        UPDATE panels
-        SET panel_order = panel_order + 1
-        WHERE project_id = ${panel.project_id}::uuid
-        AND panel_order > ${panel.panel_order}
-      `;
+      // 后续 panels 的 order 都要 +1 (使用 Prisma query 代替 raw SQL)
+      await tx.panel.updateMany({
+        where: {
+          project_id: panel.project_id,
+          panel_order: { gt: panel.panel_order },
+        },
+        data: {
+          panel_order: { increment: 1 },
+        },
+      });
 
       // 创建第一个新 panel（替换原位置）
       const created1 = await tx.panel.create({

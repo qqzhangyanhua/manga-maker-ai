@@ -418,10 +418,10 @@ const EditablePanelCard = ({
         </div>
 
         {/* Character & Emotion */}
-        {(panel.character_name || panel.emotion) && (
+        {(panel.character?.name || panel.emotion) && (
           <div className="text-xs text-muted-foreground">
-            {panel.character_name && <span>角色: {panel.character_name}</span>}
-            {panel.character_name && panel.emotion && <span> · </span>}
+            {panel.character?.name && <span>角色: {panel.character.name}</span>}
+            {panel.character?.name && panel.emotion && <span> · </span>}
             {panel.emotion && <span>情绪: {panel.emotion}</span>}
           </div>
         )}

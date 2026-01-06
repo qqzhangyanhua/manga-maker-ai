@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils";
 import { useFocusMode } from "../../contexts/FocusModeContext";
 import { ReferenceImageSelector } from "../ReferenceImageSelector";
 import type { ReferenceImage } from "../FocusMode/types";
+import type { Panel } from "../../types/script-editor.types";
 
 interface PanelConfigSidebarProps {
   className?: string;
@@ -449,7 +450,7 @@ export function PanelConfigSidebar({ className, storyId, projectId }: PanelConfi
           open={referenceImageSelectorOpen}
           storyId={storyId}
           projectId={projectId}
-          panels={panels}
+          panels={panels as unknown as Panel[]}
           onOpenChange={setReferenceImageSelectorOpen}
           onConfirm={(images) => {
             actions.updateConfig({ referenceImages: images });

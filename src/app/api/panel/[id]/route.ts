@@ -80,10 +80,18 @@ export async function PATCH(
         const character = await prisma.character.findFirst({
           where: {
             user_id: userId,
-            name: { contains: character_name, mode: "insensitive" },
+            name: { equals: character_name, mode: "insensitive" },
           },
+          orderBy: { created_at: 'asc' }, // Deterministic ordering if duplicates exist
         });
-        resolvedCharacterId = character?.id ?? null;
+
+        if (character) {
+          console.log(`[COMPAT] Resolved character_name "${character_name}" → ${character.id} (user: ${userId})`);
+          resolvedCharacterId = character.id;
+        } else {
+          console.warn(`[COMPAT] Failed to resolve character_name: "${character_name}" (user: ${userId})`);
+          resolvedCharacterId = null;
+        }
       } else {
         resolvedCharacterId = null;
       }
@@ -158,13 +166,16 @@ export async function DELETE(
       where: { id: panelId },
     });
 
-    // 重新排序后续 panels
-    await prisma.$executeRaw`
-      UPDATE panels
-      SET panel_order = panel_order - 1
-      WHERE project_id = ${existingPanel.project_id}::uuid
-      AND panel_order > ${existingPanel.panel_order}
-    `;
+    // 重新排序后续 panels (使用 Prisma query 代替 raw SQL)
+    await prisma.panel.updateMany({
+      where: {
+        project_id: existingPanel.project_id,
+        panel_order: { gt: existingPanel.panel_order },
+      },
+      data: {
+        panel_order: { decrement: 1 },
+      },
+    });
 
     return {
       message: "分镜已删除",

@@ -114,12 +114,13 @@ async function migratePanelCharacters(): Promise<void> {
   for (const panel of panels) {
     if (!panel.character_name) continue;
 
-    // Try to find matching character
+    // Try to find matching character (exact match for better accuracy)
     const matchedCharacter = await prisma.character.findFirst({
       where: {
         user_id: panel.project.user_id,
-        name: { contains: panel.character_name, mode: "insensitive" },
+        name: { equals: panel.character_name, mode: "insensitive" },
       },
+      orderBy: { created_at: 'asc' }, // Deterministic ordering
     });
 
     if (matchedCharacter) {
