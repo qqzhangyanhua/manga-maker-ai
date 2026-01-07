@@ -4,12 +4,13 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import type { Story, Panel, Chapter } from '../types/script-editor.types';
+import type { Story, Panel, Chapter, SourceNovelInfo } from '../types/script-editor.types';
 
 interface StoryBasicData {
   story: Story;
   projectId: string | null;
   chapters: Chapter[];
+  sourceNovel: SourceNovelInfo | null;
 }
 
 interface PanelsData {
@@ -36,6 +37,7 @@ export function useStoryBasicData(storyId: string) {
         story: data.story,
         projectId: data.projectId || null,
         chapters: data.chapters || [],
+        sourceNovel: data.sourceNovel || null,
       };
     },
     staleTime: 5 * 60 * 1000, // 5分钟缓存
@@ -95,6 +97,7 @@ export function useStoryDataOptimized(storyId: string) {
   const panels = panelsData?.panels || [];
   const projectId = panelsData?.projectId || basicData?.projectId || null;
   const chapters = basicData?.chapters || [];
+  const sourceNovel = basicData?.sourceNovel || null;
 
   return {
     data: story ? {
@@ -102,6 +105,7 @@ export function useStoryDataOptimized(storyId: string) {
       panels,
       projectId,
       chapters,
+      sourceNovel,
     } : undefined,
     isLoading: isStoryLoading,
     isPanelsLoading,

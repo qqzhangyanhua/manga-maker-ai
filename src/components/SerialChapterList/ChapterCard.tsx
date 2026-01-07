@@ -5,6 +5,7 @@
 
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -17,6 +18,7 @@ import {
   Image,
 } from "lucide-react";
 import { ChapterPanelEditor } from "./ChapterPanelEditor";
+import { GenerateChapterScenesDialog } from "./GenerateChapterScenesDialog";
 import type { ChapterCardProps } from "./types";
 
 function getStatusBadge(status: string) {
@@ -61,6 +63,8 @@ export function ChapterCard({
   onRefresh,
   onError,
 }: ChapterCardProps) {
+  const [generateScenesDialogOpen, setGenerateScenesDialogOpen] = useState(false);
+
   return (
     <div
       className={`border rounded-lg overflow-hidden transition-colors ${
@@ -162,7 +166,7 @@ export function ChapterCard({
                 variant="outline"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onGenerateBackground();
+                  setGenerateScenesDialogOpen(true);
                 }}
                 disabled={generatingBackground}
                 className="border-gray-700 text-gray-400 hover:bg-gray-800"
@@ -215,6 +219,19 @@ export function ChapterCard({
           </div>
         </div>
       )}
+
+      {/* Generate Chapter Scenes Dialog */}
+      <GenerateChapterScenesDialog
+        open={generateScenesDialogOpen}
+        onOpenChange={setGenerateScenesDialogOpen}
+        chapterId={chapter.id}
+        chapterTitle={chapter.title}
+        chapterOrder={chapter.chapter_order}
+        storyId={storyId}
+        onSuccess={() => {
+          onRefresh?.();
+        }}
+      />
     </div>
   );
 }

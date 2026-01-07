@@ -397,11 +397,22 @@ model Scene {
   created_at      DateTime @default(now()) @db.Timestamptz(6)
   updated_at      DateTime @default(now()) @db.Timestamptz(6)
 
+  // Source tracking fields (for AI-generated scenes)
+  source_chapter_id String? @db.Uuid // Source chapter ID (for novel chapter backgrounds)
+  source_novel_id   String? @db.Uuid // Source novel project ID
+  generation_params Json? // Generation parameters archive { prompt, negative_prompt, style, scene_type, model }
+  is_ai_generated   Boolean @default(false) // Whether AI generated
+  generation_cost   Int     @default(0) // Credits consumed for generation
+
   // Phase 2: Reverse relation
-  panels   Panel[]
-  chapters Chapter[] // 章节背景图关联
+  panels           Panel[]
+  chapters         Chapter[] // 章节背景图关联
+  suggested_scenes SuggestedScene[] // AI-suggested scenes that generated this scene
 
   @@index([user_id, scene_type], map: "idx_scenes_user_type")
+  @@index([source_chapter_id], map: "idx_scenes_source_chapter")
+  @@index([source_novel_id], map: "idx_scenes_source_novel")
+  @@index([user_id, is_ai_generated], map: "idx_scenes_user_ai_generated")
   @@map("scenes")
 }
 
@@ -443,6 +454,10 @@ model Story {
   is_serialized Boolean @default(true) // 鏄惁涓鸿繛杞戒綔鍝侊紙榛樿鍚敤锛?
   serial_status String? @default("ongoing") // ongoing/completed/hiatus - 杩炶浇鐘舵€?
 
+  // 小说转漫画来源追踪
+  source_type     String? // "original" | "novel_adaptation" - 来源类型
+  source_novel_id String? @db.Uuid // 来源小说项目ID（软关联NovelProject）
+
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
 
@@ -462,6 +477,7 @@ model Story {
   @@index([is_sample], map: "idx_stories_sample")
   @@index([comic_style_id], map: "idx_stories_comic_style")
   @@index([is_serialized, serial_status], map: "idx_stories_serialized")
+  @@index([source_novel_id], map: "idx_stories_source_novel")
   @@map("stories")
 }
 
@@ -487,6 +503,10 @@ model Chapter {
   background_image_url String? // 章节独立背景图URL（快速AI生成，不入库）
   background_prompt    String? @db.Text // 背景图AI生成提示词
 
+  // 小说来源追踪（用于从NovelChapter转换）
+  source_novel_chapter_id String? @db.Uuid // 来源小说章节ID（软关联NovelChapter）
+  source_scene_markers    Json? // 场景标记位置 [{ start: number, end: number, label: string }]
+
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
 
@@ -494,11 +514,13 @@ model Chapter {
   scene            Scene?                  @relation(fields: [scene_id], references: [id], onDelete: SetNull)
   panels           Panel[]
   character_states ChapterCharacterState[] // Character states at end of chapter
+  suggested_scenes SuggestedScene[] // AI-suggested scenes for background generation
 
   @@index([story_id, chapter_order], map: "idx_chapters_story_order")
   @@index([story_id, is_key_chapter], map: "idx_chapters_key")
   @@index([story_id, publish_status], map: "idx_chapters_publish_status")
   @@index([scene_id], map: "idx_chapters_scene")
+  @@index([source_novel_chapter_id], map: "idx_chapters_source_novel")
   @@map("chapters")
 }
 
@@ -554,6 +576,39 @@ model SuggestedCharacter {
   @@index([story_id, generated], map: "idx_suggested_characters_story_generated")
   @@index([character_id], map: "idx_suggested_characters_character")
   @@map("suggested_characters")
+}
+
+// SuggestedScene - AI-suggested scenes for chapters (two-step background generation)
+// Similar to SuggestedCharacter pattern: analyze first, generate later
+model SuggestedScene {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chapter_id    String   @db.Uuid
+  name          String // Scene name (e.g., "夕阳下的操场", "图书馆内部")
+  description   String   @db.Text // Chinese description (100-200 chars)
+  scene_prompt  String   @db.Text // English scene description for AI image generation
+  scene_type    String // indoor/outdoor/urban/nature/fantasy/scifi/historical/abstract
+  atmosphere    String? // Atmosphere tags (e.g., "温馨", "紧张", "神秘")
+  lighting_hint String? // Lighting hint (e.g., "golden_hour", "moonlight")
+
+  // Generation tracking
+  generated        Boolean   @default(false) // Whether image has been generated
+  scene_id         String?   @db.Uuid // FK to Scene after generation
+  image_url        String? // Generated image URL (for quick preview)
+  optimized_prompt String?   @db.Text // LLM-optimized final prompt
+  generated_at     DateTime? @db.Timestamptz(6) // When image was generated
+  generation_cost  Int       @default(0) // Credits consumed for this scene
+
+  // Metadata
+  display_order Int      @default(0) // Display order in UI
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  chapter Chapter @relation(fields: [chapter_id], references: [id], onDelete: Cascade)
+  scene   Scene?  @relation(fields: [scene_id], references: [id], onDelete: SetNull)
+
+  @@index([chapter_id, generated], map: "idx_suggested_scenes_chapter_generated")
+  @@index([scene_id], map: "idx_suggested_scenes_scene")
+  @@map("suggested_scenes")
 }
 
 // Workflow - Automation workflow tracking

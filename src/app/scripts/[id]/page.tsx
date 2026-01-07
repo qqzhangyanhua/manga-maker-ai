@@ -25,6 +25,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { StoryDetailsSkeleton } from "./components/StoryDetailsSkeleton";
 import { StoryImagesGallery } from "./components/StoryImagesGallery";
 import { ScriptPageHeader } from "./components/ScriptPageHeader";
+import { NovelSourceCard } from "./components/NovelSourceCard";
 import { LayoutExportTab } from "./components/LayoutExportTab";
 import { useStoryDataOptimized } from "./hooks/useStoryDataOptimized";
 import { useCharacterAssets } from "./hooks/useCharacterAssets";
@@ -445,6 +446,13 @@ export default function ScriptDetailsPage() {
                     </Button>
                   )}
                 </div>
+
+                {/* 小说来源信息卡片 */}
+                <NovelSourceCard
+                  sourceNovel={data?.sourceNovel || null}
+                  sourceNovelId={data?.story.source_novel_id || null}
+                  storyId={storyId}
+                />
 
                 {/* 空状态引导 */}
                 {progressStats.stage === "empty" && (

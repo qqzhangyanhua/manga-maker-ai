@@ -14,6 +14,15 @@ export interface StoryCharacter {
 }
 
 /**
+ * 来源小说信息接口
+ */
+export interface SourceNovelInfo {
+  id: string;
+  title: string;
+  created_at: Date;
+}
+
+/**
  * 漫画风格接口（从数据库返回）
  */
 export interface ComicStyle {
@@ -39,6 +48,9 @@ export interface Story {
   style?: string | null; // 风格提示词（从 comic_style.prompt_prefix 或自定义）
   style_reference_image?: string | null; // 参考图URL（优先级最高）
   comic_style?: ComicStyle | null; // 关联的风格对象
+  // 小说来源追踪
+  source_type?: string | null; // "original" | "novel_adaptation"
+  source_novel_id?: string | null; // 来源小说项目ID
   // 连载模式支持
   is_serialized?: boolean; // 是否为连载作品
   serial_status?: string | null; // ongoing/completed/hiatus - 连载状态

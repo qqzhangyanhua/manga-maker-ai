@@ -167,17 +167,52 @@ export async function GET(
     });
     console.log(`[Story Images] Found ${generatedImages.length} images in generated_images table`);
 
-    // Get chapter info for images with chapter_id
-    const chapterIds = generatedImages
-      .map(img => img.chapter_id)
-      .filter((id): id is string => id !== null);
-    
+    // Get all chapter IDs for this story
     const chapters = await prisma.chapter.findMany({
-      where: { id: { in: chapterIds } },
+      where: { story_id: storyId },
       select: { id: true, title: true, chapter_order: true },
     });
-    
+    const chapterIdsForScenes = chapters.map(ch => ch.id);
+    console.log(`[Story Images] Found ${chapters.length} chapters for scene lookup`);
+
+    // Query Scene table for AI-generated backgrounds linked to chapters
+    const sceneImages = await prisma.scene.findMany({
+      where: {
+        user_id: payload.userId,
+        source_chapter_id: { in: chapterIdsForScenes },
+        is_ai_generated: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        image_url: true,
+        prompt: true,
+        scene_type: true,
+        source_chapter_id: true,
+        generation_cost: true,
+        generation_params: true,
+        created_at: true,
+      },
+      orderBy: { created_at: "desc" },
+    });
+    console.log(`[Story Images] Found ${sceneImages.length} AI-generated scene images`);
+
+    // Build chapter map (already have chapters from scene lookup)
     const chapterMap = new Map(chapters.map(ch => [ch.id, ch]));
+
+    // Get additional chapter info for images with chapter_id
+    const additionalChapterIds = generatedImages
+      .map(img => img.chapter_id)
+      .filter((id): id is string => id !== null && !chapterMap.has(id));
+
+    if (additionalChapterIds.length > 0) {
+      const additionalChapters = await prisma.chapter.findMany({
+        where: { id: { in: additionalChapterIds } },
+        select: { id: true, title: true, chapter_order: true },
+      });
+      additionalChapters.forEach(ch => chapterMap.set(ch.id, ch));
+    }
 
     // Get panel info for images with panel_ids
     const allPanelIds = generatedImages
@@ -200,6 +235,7 @@ export async function GET(
       source_type: string | null;
       source_id: string | null;
       created_at: string;
+      generation_cost?: number;
       chapter_info?: {
         id: string;
         title: string;
@@ -210,6 +246,12 @@ export async function GET(
         panel_order: number;
         description: string;
       }> | null;
+      scene_info?: {
+        id: string;
+        name: string;
+        scene_type: string;
+        description: string | null;
+      } | null;
     };
 
     const allImages: UnifiedImage[] = [
@@ -239,7 +281,7 @@ export async function GET(
         const panelInfo = (img.panel_ids || [])
           .map(pid => panelMap.get(pid))
           .filter((p): p is NonNullable<typeof p> => p !== undefined);
-        
+
         return {
           id: img.id,
           image_url: img.image_url,
@@ -254,6 +296,32 @@ export async function GET(
             chapter_order: chapterInfo.chapter_order,
           } : null,
           panel_info: panelInfo.length > 0 ? panelInfo : null,
+        };
+      }),
+      // From scenes table (AI-generated chapter backgrounds)
+      ...sceneImages.map(scene => {
+        const chapterInfo = scene.source_chapter_id ? chapterMap.get(scene.source_chapter_id) : null;
+
+        return {
+          id: scene.id,
+          image_url: scene.image_url || "",
+          prompt: scene.prompt || scene.description || "",
+          style: (scene.generation_params as any)?.style || null,
+          source_type: "scene" as const,
+          source_id: scene.id,
+          created_at: scene.created_at.toISOString(),
+          generation_cost: scene.generation_cost,
+          chapter_info: chapterInfo ? {
+            id: chapterInfo.id,
+            title: chapterInfo.title,
+            chapter_order: chapterInfo.chapter_order,
+          } : null,
+          scene_info: {
+            id: scene.id,
+            name: scene.name,
+            scene_type: scene.scene_type,
+            description: scene.description,
+          },
         };
       }),
     ];

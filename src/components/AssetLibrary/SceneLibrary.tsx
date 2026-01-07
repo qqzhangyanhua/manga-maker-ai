@@ -47,6 +47,11 @@ type Scene = {
   usage_count: number;
   created_at: string;
   updated_at: string;
+  source_chapter_id: string | null;
+  source_novel_id: string | null;
+  is_ai_generated: boolean;
+  generation_cost: number;
+  generation_params: any;
 };
 
 const sceneTypes = [
@@ -325,6 +330,12 @@ const SceneLibrary = () => {
                   <MapPin className="w-3 h-3" />
                   {getSceneTypeLabel(scene.scene_type)}
                 </span>
+                {scene.is_ai_generated && (
+                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-orange-500/80 text-white flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" />
+                    AI生成
+                  </span>
+                )}
               </div>
 
               {/* Hover Actions */}
@@ -390,8 +401,11 @@ const SceneLibrary = () => {
               )}
 
               {/* Stats */}
-              <div className="text-xs text-muted-foreground">
-                使用次数: {scene.usage_count}
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>使用次数: {scene.usage_count}</span>
+                {scene.is_ai_generated && scene.generation_cost > 0 && (
+                  <span className="text-orange-500">💰 {scene.generation_cost} 算力</span>
+                )}
               </div>
             </div>
           </div>

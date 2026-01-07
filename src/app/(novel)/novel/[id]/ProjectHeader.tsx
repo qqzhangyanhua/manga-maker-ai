@@ -5,9 +5,10 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Search, Download } from "lucide-react";
+import { Search, Download, Film } from "lucide-react";
 import { SearchDialog } from "./components/SearchDialog";
 import { ExportDialog } from "./components/ExportDialog";
+import { ConvertToComicDialog } from "./components/ConvertToComicDialog";
 import type { NovelProject, ChapterOutline } from "./types";
 import { toast } from "sonner";
 
@@ -26,6 +27,7 @@ export function ProjectHeader({
 }: ProjectHeaderProps) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [convertOpen, setConvertOpen] = useState(false);
 
   // 添加快捷键监听
   useEffect(() => {
@@ -98,6 +100,16 @@ export function ProjectHeader({
               <span className="text-xs">⌘</span>E
             </kbd>
           </Button>
+
+          {/* 转换为漫画按钮 */}
+          <Button
+            size="sm"
+            onClick={() => setConvertOpen(true)}
+            className="gap-2"
+          >
+            <Film className="w-4 h-4" />
+            转换为漫画
+          </Button>
         </div>
       </div>
 
@@ -115,6 +127,16 @@ export function ProjectHeader({
         projectTitle={project.title}
         open={exportOpen}
         onOpenChange={setExportOpen}
+      />
+
+      {/* 转换为漫画对话框 */}
+      <ConvertToComicDialog
+        isOpen={convertOpen}
+        onClose={() => setConvertOpen(false)}
+        projectId={projectId}
+        projectTitle={project.title}
+        outlines={outlines}
+        characters={Array.isArray(project.characters) ? project.characters as Array<{name: string; role?: string; description?: string}> : []}
       />
     </div>
   );

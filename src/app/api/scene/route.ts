@@ -8,6 +8,8 @@ import { prisma } from "@/lib/db";
  * 获取用户的场景列表
  * Query params:
  *  - scene_type: string (optional) - 过滤场景类型
+ *  - source_chapter_id: string (optional) - 过滤来源章节
+ *  - is_ai_generated: boolean (optional) - 过滤AI生成的场景
  */
 export async function GET(request: Request) {
   const cookieStore = await cookies();
@@ -25,16 +27,28 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const sceneType = searchParams.get("scene_type");
+    const sourceChapterId = searchParams.get("source_chapter_id");
+    const isAiGenerated = searchParams.get("is_ai_generated");
 
     const where: {
       user_id: string;
       scene_type?: string;
+      source_chapter_id?: string;
+      is_ai_generated?: boolean;
     } = {
       user_id: payload.userId,
     };
 
     if (sceneType) {
       where.scene_type = sceneType;
+    }
+
+    if (sourceChapterId) {
+      where.source_chapter_id = sourceChapterId;
+    }
+
+    if (isAiGenerated !== null && isAiGenerated !== undefined) {
+      where.is_ai_generated = isAiGenerated === "true";
     }
 
     const scenes = await prisma.scene.findMany({

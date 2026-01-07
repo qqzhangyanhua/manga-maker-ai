@@ -67,6 +67,29 @@ export async function GET(
             ? story.projects[0].id
             : null;
 
+        // Query source novel if story is an adaptation
+        let sourceNovel = null;
+        if (story.source_novel_id) {
+            const novel = await prisma.novelProject.findUnique({
+                where: { id: story.source_novel_id },
+                select: {
+                    id: true,
+                    title: true,
+                    user_id: true,
+                    created_at: true,
+                }
+            });
+
+            // Only return novel info if it exists and belongs to the same user
+            if (novel && novel.user_id === userId) {
+                sourceNovel = {
+                    id: novel.id,
+                    title: novel.title,
+                    created_at: novel.created_at,
+                };
+            }
+        }
+
         // Remove projects and story_characters from story object, but keep comic_style and chapters
         const { projects, chapters, story_characters, ...storyData } = story;
 
@@ -83,6 +106,7 @@ export async function GET(
             projectId,
             chapters: chapters || [],
             characters,
+            sourceNovel,
         };
     });
 }
