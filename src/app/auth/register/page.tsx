@@ -115,7 +115,7 @@ const RegisterForm = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen" style={{ backgroundColor: '#1a1410' }}>
       <div className="max-w-6xl mx-auto px-4 py-10 flex flex-col gap-8">
         <div className="flex items-center justify-between mt-4">
           <Link href="/" className="text-muted-foreground hover:text-foreground inline-flex items-center gap-2">
@@ -242,7 +242,7 @@ const RegisterForm = () => {
 };
 
 const RegisterLoading = () => (
-  <div className="min-h-screen bg-background flex items-center justify-center">
+  <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#1a1410' }}>
     <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
   </div>
 );

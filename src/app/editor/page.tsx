@@ -218,7 +218,7 @@ const EditorPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen" style={{ backgroundColor: '#1a1410' }}>
       <Navbar />
       <main className="pt-20 pb-12 px-4">
         <div className="max-w-7xl mx-auto space-y-8">

@@ -84,7 +84,7 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#0f0f13]">
+      <div className="min-h-screen" style={{ backgroundColor: '#1a1410' }}>
         <Navbar />
         <main className="pt-16 px-4 py-12">
           <div className="max-w-6xl mx-auto">
@@ -135,7 +135,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f0f13]">
+    <div className="min-h-screen" style={{ backgroundColor: '#1a1410' }}>
       <Navbar />
 
       <main className="pt-16">
