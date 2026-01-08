@@ -6,3 +6,6 @@ export { ShowcaseSection } from "./ShowcaseSection";
 export { PricingSection } from "./PricingSection";
 export { Navbar } from "./Navbar";
 export { NovelSection } from "./NovelSection";
+export { QuickAccessSection } from "./QuickAccessSection";
+export { TrialSection } from "./TrialSection";
+export { Footer } from "./Footer";
