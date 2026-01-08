@@ -5,3 +5,4 @@ export { HeroSection } from "./HeroSection";
 export { ShowcaseSection } from "./ShowcaseSection";
 export { PricingSection } from "./PricingSection";
 export { Navbar } from "./Navbar";
+export { NovelSection } from "./NovelSection";

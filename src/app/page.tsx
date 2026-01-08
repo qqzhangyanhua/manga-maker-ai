@@ -5,7 +5,7 @@ import Link from "next/link";
 import { BarChart3, BookOpen, FileText, Images, Play, ArrowRight, Layers, Sparkles, PenLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TrialDialog } from "@/components/TrialDialog";
-import { HeroSection, ShowcaseSection, Navbar } from "@/components/Landing";
+import { HeroSection, ShowcaseSection, Navbar, NovelSection } from "@/components/Landing";
 
 const recordShortcuts = [
   {
@@ -58,6 +58,9 @@ const HomePage = () => {
         {/* Hero Section with futuristic manga studio style */}
         <HeroSection onOpenTrial={() => setShowTrialDialog(true)} />
 
+        {/* Novel Generation Prompt Section */}
+        <NovelSection />
+
         {/* Showcase Section - Production Logs */}
         <ShowcaseSection />
 
@@ -72,27 +75,27 @@ const HomePage = () => {
 
               <div className="relative z-10">
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-orange-500/20 to-orange-600/10 mb-6 ring-2 ring-orange-500/30 shadow-lg shadow-orange-500/20">
-                <Play className="w-8 h-8 text-orange-500" />
-              </div>
-              <h2 className="text-3xl font-bold text-white mb-4">
-                30 秒体验 AI 漫画生成
-              </h2>
-              <p className="text-zinc-300 mb-6 max-w-xl mx-auto">
-                不需要注册，输入一句话描述，AI 立即为你生成 4 格漫画预览。
-                <br />
-                喜欢就注册保存，继续编辑。
-              </p>
-              <Button
-                size="lg"
-                className="relative bg-orange-500 hover:bg-orange-600 text-white border-0 overflow-hidden group"
-                onClick={() => setShowTrialDialog(true)}
-              >
-                {/* Shimmer effect */}
-                <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-                <Sparkles className="w-5 h-5 mr-2 relative z-10" />
-                <span className="relative z-10">立即体验</span>
-                <ArrowRight className="w-4 h-4 ml-2 relative z-10" />
-              </Button>
+                  <Play className="w-8 h-8 text-orange-500" />
+                </div>
+                <h2 className="text-3xl font-bold text-white mb-4">
+                  30 秒体验 AI 漫画生成
+                </h2>
+                <p className="text-zinc-300 mb-6 max-w-xl mx-auto">
+                  不需要注册，输入一句话描述，AI 立即为你生成 4 格漫画预览。
+                  <br />
+                  喜欢就注册保存，继续编辑。
+                </p>
+                <Button
+                  size="lg"
+                  className="relative bg-orange-500 hover:bg-orange-600 text-white border-0 overflow-hidden group"
+                  onClick={() => setShowTrialDialog(true)}
+                >
+                  {/* Shimmer effect */}
+                  <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                  <Sparkles className="w-5 h-5 mr-2 relative z-10" />
+                  <span className="relative z-10">立即体验</span>
+                  <ArrowRight className="w-4 h-4 ml-2 relative z-10" />
+                </Button>
               </div>
             </div>
           </div>
