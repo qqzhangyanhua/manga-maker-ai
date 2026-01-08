@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +32,37 @@ interface CreateCharacterDialogProps {
 
 type CreateMode = "manual" | "ai";
 
+const isAbortError = (error: unknown): boolean =>
+  error instanceof Error && error.name === "AbortError";
+
+const parseErrorResponse = async (response: Response): Promise<string> => {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType.includes("json")) {
+    try {
+      const data = await response.json();
+      if (data && typeof data === "object" && "error" in data && typeof data.error === "string") {
+        return data.error;
+      }
+      if (data && typeof data === "object" && "code" in data && data.code === "QUOTA_EXCEEDED") {
+        const { used, limit } = data as { used?: unknown; limit?: unknown };
+        if (typeof used === "number" && typeof limit === "number") {
+          return `今日图像生成配额已用完（${used}/${limit}）`;
+        }
+        return "今日图像生成配额已用完";
+      }
+    } catch {
+      // Fallback to text
+    }
+  }
+
+  try {
+    const text = await response.text();
+    return text.trim() || `请求失败 (${response.status})`;
+  } catch {
+    return `请求失败 (${response.status})`;
+  }
+};
+
 const CreateCharacterDialog = ({
   open,
   onOpenChange,
@@ -46,6 +77,16 @@ const CreateCharacterDialog = ({
   const [error, setError] = useState("");
   const { toast } = useToast();
 
+  const submitAbortRef = useRef<AbortController | null>(null);
+  const generateAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      submitAbortRef.current?.abort();
+      generateAbortRef.current?.abort();
+    };
+  }, []);
+
   // AI generation states
   const [stylePrompt, setStylePrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -58,24 +99,38 @@ const CreateCharacterDialog = ({
 
   // Fetch comic styles when dialog opens
   useEffect(() => {
-    if (open) {
-      const fetchStyles = async () => {
-        setStylesLoading(true);
-        try {
-          const response = await fetch("/api/comic-styles");
-          if (response.ok) {
-            const data = await response.json();
+    if (!open) return;
+
+    const controller = new AbortController();
+    let ignore = false;
+
+    const fetchStyles = async () => {
+      setStylesLoading(true);
+      try {
+        const response = await fetch("/api/comic-styles", { signal: controller.signal });
+        if (response.ok) {
+          const data = await response.json();
+          if (!ignore) {
             setStyles(data.data || []);
           }
-        } catch (error) {
+        }
+      } catch (error) {
+        if (!isAbortError(error)) {
           console.error("Error fetching comic styles:", error);
-        } finally {
+        }
+      } finally {
+        if (!ignore) {
           setStylesLoading(false);
         }
-      };
+      }
+    };
 
-      fetchStyles();
-    }
+    fetchStyles();
+
+    return () => {
+      ignore = true;
+      controller.abort();
+    };
   }, [open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -86,6 +141,10 @@ const CreateCharacterDialog = ({
       setError("角色名称不能为空");
       return;
     }
+
+    submitAbortRef.current?.abort();
+    const controller = new AbortController();
+    submitAbortRef.current = controller;
 
     setIsSubmitting(true);
 
@@ -121,11 +180,12 @@ const CreateCharacterDialog = ({
       const response = await fetch("/api/character", {
         method: "POST",
         body: formData,
+        signal: controller.signal,
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "创建角色失败");
+        const errorMessage = await parseErrorResponse(response);
+        throw new Error(errorMessage || "创建角色失败");
       }
 
       const result = await response.json();
@@ -133,10 +193,7 @@ const CreateCharacterDialog = ({
         throw new Error("创建角色返回数据异常");
       }
 
-      // 通知父组件刷新列表（避免重复请求）
-      await onSubmit(result.character as CharacterAsset);
-
-      // Reset form
+      // Reset form first
       setCreateMode("manual");
       setName("");
       setDescription("");
@@ -151,7 +208,15 @@ const CreateCharacterDialog = ({
         title: "角色创建成功",
         description: result.message || `${result.character.name} 已创建`,
       });
+
+      // 通知父组件刷新列表（解耦错误处理）
+      try {
+        await onSubmit(result.character as CharacterAsset);
+      } catch (callbackError) {
+        console.warn("角色创建成功，但列表刷新失败:", callbackError);
+      }
     } catch (err) {
+      if (isAbortError(err)) return;
       console.error("Create character error:", err);
       setError(err instanceof Error ? err.message : "创建失败，请重试");
       toast({
@@ -160,8 +225,11 @@ const CreateCharacterDialog = ({
         variant: "destructive",
       });
     } finally {
-      setIsSubmitting(false);
-      setUploadProgress("");
+      if (submitAbortRef.current === controller) {
+        setIsSubmitting(false);
+        setUploadProgress("");
+        submitAbortRef.current = null;
+      }
     }
   };
 
@@ -171,6 +239,10 @@ const CreateCharacterDialog = ({
       setError("请输入风格描述");
       return;
     }
+
+    generateAbortRef.current?.abort();
+    const controller = new AbortController();
+    generateAbortRef.current = controller;
 
     setError("");
     setIsGenerating(true);
@@ -183,14 +255,12 @@ const CreateCharacterDialog = ({
           style_prompt: stylePrompt.trim(),
           comic_style_id: selectedStyleId !== "__none__" ? selectedStyleId : null,
         }),
+        signal: controller.signal,
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        if (errorData.code === "QUOTA_EXCEEDED") {
-          throw new Error(`今日图像生成配额已用完（${errorData.used}/${errorData.limit}）`);
-        }
-        throw new Error(errorData.error || "生成失败");
+        const errorMessage = await parseErrorResponse(response);
+        throw new Error(errorMessage || "生成失败");
       }
 
       const result = await response.json();
@@ -205,6 +275,7 @@ const CreateCharacterDialog = ({
         description: "请确认信息后点击创建按钮保存角色",
       });
     } catch (err) {
+      if (isAbortError(err)) return;
       console.error("AI generation error:", err);
       setError(err instanceof Error ? err.message : "生成失败，请重试");
       toast({
@@ -213,7 +284,10 @@ const CreateCharacterDialog = ({
         variant: "destructive",
       });
     } finally {
-      setIsGenerating(false);
+      if (generateAbortRef.current === controller) {
+        setIsGenerating(false);
+        generateAbortRef.current = null;
+      }
     }
   };
 
@@ -236,8 +310,24 @@ const CreateCharacterDialog = ({
     setImageFiles(files);
   };
 
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      onOpenChange(true);
+      return;
+    }
+    handleClose();
+  };
+
+  const handleCreateModeChange = (value: string) => {
+    if (value !== "manual" && value !== "ai") return;
+    setError("");
+    setImageFiles([]);
+    setGeneratedImageUrl("");
+    setCreateMode(value);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl font-comic">
@@ -249,7 +339,7 @@ const CreateCharacterDialog = ({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={createMode} onValueChange={(v) => setCreateMode(v as CreateMode)} className="w-full">
+        <Tabs value={createMode} onValueChange={handleCreateModeChange} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="manual" className="flex items-center gap-2">
               <Upload className="w-4 h-4" />
@@ -353,7 +443,10 @@ const CreateCharacterDialog = ({
               </div>
 
               {error && (
-                <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+                <div
+                  role="alert"
+                  className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3"
+                >
                   {error}
                 </div>
               )}
@@ -520,7 +613,10 @@ const CreateCharacterDialog = ({
               )}
 
               {error && (
-                <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+                <div
+                  role="alert"
+                  className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3"
+                >
                   {error}
                 </div>
               )}

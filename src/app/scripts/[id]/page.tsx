@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Navbar } from "@/components/Landing";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
@@ -18,7 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Lock, BookOpen, Sparkles, PanelRight } from "lucide-react";
+import { Lock, BookOpen, Sparkles, PanelRight, Users } from "lucide-react";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
 import { AssetLibrarySidebar } from "@/components/AssetLibrarySidebar";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -46,6 +47,11 @@ import { ErrorBanner } from "@/components/common/ErrorBanner";
 import { BatchOperationBar } from "@/components/common/BatchOperationBar";
 import { useProgressCalculation } from "@/hooks/useProgressCalculation";
 import { useBatchSelection } from "@/hooks/useBatchSelection";
+import { SyncNovelCharactersDialog } from "./components/SyncNovelCharactersDialog";
+import { CharacterDetailDialog } from "./components/CharacterDetailDialog";
+import { CharacterCard } from "./components/CharacterCard";
+import { useNovelCharacterSync } from "./hooks/useNovelCharacterSync";
+import type { SelectedCharacter, CharacterInfo } from "./types/character";
 
 export default function ScriptDetailsPage() {
   const params = useParams();
@@ -107,6 +113,18 @@ export default function ScriptDetailsPage() {
   // AlertDialog state for batch delete confirmation
   const [showBatchDeleteDialog, setShowBatchDeleteDialog] = useState(false);
 
+  // Novel character sync
+  const novelCharacterSync = useNovelCharacterSync({
+    storyId,
+    sourceNovelId: data?.story?.source_novel_id || null,
+    suggestedCharacters: (data?.story as any)?.suggested_characters || [],
+    storyCharacters,
+  });
+
+  // 角色详情对话框状态
+  const [selectedCharacter, setSelectedCharacter] =
+    useState<SelectedCharacter | null>(null);
+
   // Focus mode: 通过路由跳转而不是状态切换
   const handleEnterFocusMode = useCallback(
     (panelId?: string) => {
@@ -117,6 +135,29 @@ export default function ScriptDetailsPage() {
     },
     [storyId, router]
   );
+
+  // 角色选择处理（性能优化：使用 useCallback 避免重复创建函数）
+  const handleCharacterSelect = useCallback(
+    (character: CharacterInfo, role: string) => {
+      setSelectedCharacter({ character, role });
+    },
+    []
+  );
+
+  // 关闭角色详情对话框
+  const handleCloseDetailDialog = useCallback(() => {
+    setSelectedCharacter(null);
+  }, []);
+
+  // 角色移除成功处理
+  const handleCharacterRemoveSuccess = useCallback(() => {
+    setSelectedCharacter(null);
+    void refetchStoryCharacters();
+    toast({
+      title: "角色已移除",
+      description: "角色列表已更新",
+    });
+  }, [refetchStoryCharacters, toast]);
 
   // Computed: 下一个章节序号
   const nextChapterOrder = useMemo(() => {
@@ -276,7 +317,7 @@ export default function ScriptDetailsPage() {
   }, [refreshStoryData, toast]);
 
   // Asset library handlers
-  const handleCharacterSelect = useCallback((character: { id: string; name: string }) => {
+  const handleAssetCharacterSelect = useCallback((character: { id: string; name: string }) => {
     toast({
       title: "角色已选择",
       description: `已选择角色: ${character.name}`,
@@ -453,6 +494,53 @@ export default function ScriptDetailsPage() {
                   sourceNovelId={data?.story.source_novel_id || null}
                   storyId={storyId}
                 />
+
+                {/* 关联角色列表 */}
+                {storyCharacters.length > 0 && (
+                  <Card className="mt-6">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <Users className="w-5 h-5" />
+                        关联角色
+                        <Badge variant="secondary" className="ml-auto">
+                          {storyCharacters.length}
+                        </Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {storyCharacters.map((sc) => (
+                          <CharacterCard
+                            key={sc.character.id}
+                            character={sc.character}
+                            role={sc.role}
+                            onSelect={handleCharacterSelect}
+                          />
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* 小说角色同步提示 */}
+                {novelCharacterSync.shouldShowSyncPrompt && (
+                  <div className="mt-6">
+                    <ActionPrompt
+                      icon={<Sparkles className="w-full h-full" />}
+                      message={`检测到此剧本来自小说「${data?.sourceNovel?.title || ""}」，发现 ${novelCharacterSync.charactersWithStatus.filter((c) => !c.generated).length} 个角色尚未同步`}
+                      variant="info"
+                      action={
+                        <Button
+                          onClick={novelCharacterSync.openDialog}
+                          className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700"
+                        >
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          同步角色设定
+                        </Button>
+                      }
+                    />
+                  </div>
+                )}
 
                 {/* 空状态引导 */}
                 {progressStats.stage === "empty" && (
@@ -661,7 +749,7 @@ export default function ScriptDetailsPage() {
                         characters={characterAssets}
                         scenes={[]}
                         isLoading={isCharactersLoading}
-                        onCharacterSelect={handleCharacterSelect}
+                        onCharacterSelect={handleAssetCharacterSelect}
                         onSceneSelect={handleSceneSelect}
                       />
                     </SheetContent>
@@ -685,6 +773,32 @@ export default function ScriptDetailsPage() {
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
+
+                {/* 小说角色同步对话框 */}
+                <SyncNovelCharactersDialog
+                  open={novelCharacterSync.dialogOpen}
+                  onOpenChange={novelCharacterSync.closeDialog}
+                  storyId={storyId}
+                  suggestedCharacters={novelCharacterSync.charactersWithStatus}
+                  onSuccess={() => {
+                    novelCharacterSync.closeDialog();
+                    void refetchStoryCharacters();
+                    toast({
+                      title: "刷新成功",
+                      description: "角色列表已更新",
+                    });
+                  }}
+                />
+
+                {/* 角色详情对话框 */}
+                <CharacterDetailDialog
+                  open={!!selectedCharacter}
+                  onOpenChange={handleCloseDetailDialog}
+                  character={selectedCharacter?.character || null}
+                  role={selectedCharacter?.role || ""}
+                  storyId={storyId}
+                  onRemoveSuccess={handleCharacterRemoveSuccess}
+                />
               </div>
             </div>
           </main>
