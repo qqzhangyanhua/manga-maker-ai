@@ -86,7 +86,7 @@ export function QuickAccessSection() {
             <div className="max-w-7xl mx-auto relative z-10">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
                     <div>
-                        <h2 className="text-3xl font-bold text-white mb-2 flex items-center gap-2">
+                        <h2 className="text-3xl font-bold text-white mb-2 flex items-center gap-2 tracking-tight">
                             <Sparkles className="w-6 h-6 text-orange-500" />
                             快速入口
                         </h2>
@@ -149,7 +149,7 @@ export function QuickAccessSection() {
 
                                     <div className="mt-auto">
                                         <h3 className={cn(
-                                            "text-xl font-bold mb-2 text-zinc-100 group-hover:text-white transition-colors",
+                                            "text-xl font-bold mb-2 text-zinc-100 group-hover:text-white transition-colors tracking-tight",
                                             // 如果是 theme color 可以稍微带点色相，但保持白色为主更有质感
                                         )}>
                                             {item.title}

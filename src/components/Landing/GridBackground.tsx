@@ -16,6 +16,7 @@ export function GridBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[]>([]);
   const animationRef = useRef<number>(0);
+  const mouseRef = useRef<{ x: number; y: number }>({ x: -1000, y: -1000 });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -29,6 +30,14 @@ export function GridBackground() {
     const resizeCanvas = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      mouseRef.current = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      };
     };
 
     const createParticles = (count: number) => {
@@ -52,7 +61,6 @@ export function GridBackground() {
       ctx.strokeStyle = "rgba(82, 82, 91, 0.15)";
       ctx.lineWidth = 1;
 
-      // Vertical lines
       for (let x = 0; x < canvas.width; x += gridSize) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
@@ -60,7 +68,6 @@ export function GridBackground() {
         ctx.stroke();
       }
 
-      // Horizontal lines
       for (let y = 0; y < canvas.height; y += gridSize) {
         ctx.beginPath();
         ctx.moveTo(0, y);
@@ -71,6 +78,23 @@ export function GridBackground() {
 
     const drawParticles = () => {
       particlesRef.current.forEach((particle) => {
+        // Simple physics: move away from mouse if close
+        const dx = particle.x - mouseRef.current.x;
+        const dy = particle.y - mouseRef.current.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const interactionRadius = 150;
+
+        if (distance < interactionRadius) {
+          const forceDirectionX = dx / distance;
+          const forceDirectionY = dy / distance;
+          const force = (interactionRadius - distance) / interactionRadius;
+          const directionX = forceDirectionX * force * 2; // Repulsion strength
+          const directionY = forceDirectionY * force * 2;
+
+          particle.x += directionX;
+          particle.y += directionY;
+        }
+
         ctx.beginPath();
         ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
         ctx.fillStyle = particle.color;
@@ -78,7 +102,17 @@ export function GridBackground() {
         ctx.fill();
         ctx.globalAlpha = 1;
 
-        // Update position
+        // Connect particles if close to mouse for constellation effect
+        if (distance < 120) {
+          ctx.beginPath();
+          ctx.moveTo(particle.x, particle.y);
+          ctx.lineTo(mouseRef.current.x, mouseRef.current.y);
+          ctx.strokeStyle = `rgba(249, 115, 22, ${0.2 * (1 - distance / 120)})`; // Orange connection
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+
+        // Standard update
         particle.x += particle.vx;
         particle.y += particle.vy;
 
@@ -93,15 +127,13 @@ export function GridBackground() {
     const animate = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Draw enhanced gradient background - from deep blue-black to deep purple-black
       const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-      gradient.addColorStop(0, "#0f0f13"); // Lighter than pure black
-      gradient.addColorStop(0.5, "#0d0d12"); // Mid tone with slight blue
-      gradient.addColorStop(1, "#120e15"); // Deep purple-black at bottom
+      gradient.addColorStop(0, "#0f0f13");
+      gradient.addColorStop(0.5, "#0d0d12");
+      gradient.addColorStop(1, "#120e15");
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Add radial gradient orbs for depth
       const orb1 = ctx.createRadialGradient(
         canvas.width * 0.2,
         canvas.height * 0.3,
@@ -110,7 +142,7 @@ export function GridBackground() {
         canvas.height * 0.3,
         canvas.width * 0.5
       );
-      orb1.addColorStop(0, "rgba(249, 115, 22, 0.03)"); // Orange glow
+      orb1.addColorStop(0, "rgba(249, 115, 22, 0.03)");
       orb1.addColorStop(1, "transparent");
       ctx.fillStyle = orb1;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -123,7 +155,7 @@ export function GridBackground() {
         canvas.height * 0.7,
         canvas.width * 0.4
       );
-      orb2.addColorStop(0, "rgba(139, 92, 246, 0.02)"); // Purple glow
+      orb2.addColorStop(0, "rgba(139, 92, 246, 0.02)");
       orb2.addColorStop(1, "transparent");
       ctx.fillStyle = orb2;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -135,13 +167,15 @@ export function GridBackground() {
     };
 
     resizeCanvas();
-    particlesRef.current = createParticles(50);
+    particlesRef.current = createParticles(60); // Increased particle count slightly
     animate();
 
     window.addEventListener("resize", resizeCanvas);
+    window.addEventListener("mousemove", handleMouseMove);
 
     return () => {
       window.removeEventListener("resize", resizeCanvas);
+      window.removeEventListener("mousemove", handleMouseMove);
       cancelAnimationFrame(animationRef.current);
     };
   }, []);
@@ -150,7 +184,7 @@ export function GridBackground() {
     <canvas
       ref={canvasRef}
       className="absolute inset-0 z-0"
-      style={{ pointerEvents: "none" }}
+      style={{ pointerEvents: "none" }} // Keep visual only
     />
   );
 }

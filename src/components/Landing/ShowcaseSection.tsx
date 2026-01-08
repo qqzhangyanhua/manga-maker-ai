@@ -155,9 +155,10 @@ export function ShowcaseSection() {
             }}
           />
 
+          {/* Scroll Container with Edge Mask */}
           <div
             ref={scrollRef}
-            className="flex gap-4 overflow-x-auto pb-4 px-4 scrollbar-hide"
+            className="flex gap-4 overflow-x-auto pb-4 px-4 scrollbar-hide [mask-image:linear-gradient(to_right,transparent,black_20px,black_calc(100%-20px),transparent)]"
             style={{
               scrollbarWidth: "none",
               msOverflowStyle: "none",

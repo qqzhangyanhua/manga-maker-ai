@@ -104,16 +104,16 @@ export function Navbar({ className }: NavbarProps) {
     <>
       <header
         className={cn(
-          "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
-          "border-b border-zinc-800",
+          "fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out",
+          "border-b",
           isScrolled
-            ? "bg-[#09090b]/95 backdrop-blur-md"
-            : "bg-[#09090b]/80 backdrop-blur-sm",
+            ? "h-14 bg-[#09090b]/90 backdrop-blur-xl border-zinc-800 shadow-2xl shadow-black/50"
+            : "h-20 bg-transparent border-transparent backdrop-blur-none",
           className
         )}
       >
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
+        <div className="max-w-7xl mx-auto px-4 h-full">
+          <div className="flex items-center justify-between h-full">
             {/* Left: Logo + Links */}
             <div className="flex items-center gap-8">
               {/* Logo */}

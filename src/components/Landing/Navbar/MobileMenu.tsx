@@ -39,7 +39,7 @@ export function MobileMenu({
       {/* Menu Panel */}
       <div
         className={cn(
-          "absolute top-16 left-0 right-0 bottom-0 bg-[#09090b] border-t border-zinc-800",
+          "absolute top-16 left-0 right-0 bottom-0 bg-[#09090b]/95 backdrop-blur-xl border-t border-zinc-800",
           "overflow-y-auto transition-transform duration-300",
           isOpen ? "translate-y-0" : "-translate-y-full"
         )}
@@ -151,32 +151,32 @@ export function MobileMenu({
                   {workspaceMenuItems
                     .filter((category) => !category.adminOnly || userRole === "admin")
                     .map((category) => (
-                    <div key={category.category}>
-                      {/* Category Header */}
-                      <div className="px-2 py-1 text-xs font-mono text-orange-500 uppercase tracking-wider">
-                        {category.category}
-                      </div>
-                      {/* Category Items */}
-                      <div className="space-y-1">
-                        {category.items.map((item) => (
-                          <Link
-                            key={item.title}
-                            href={item.href}
-                            className="flex items-center gap-3 p-3 bg-zinc-900/50 hover:bg-zinc-900 transition-colors"
-                            onClick={onClose}
-                          >
-                            <item.icon className="w-4 h-4 text-orange-500" />
-                            <div>
-                              <div className="text-sm text-white">{item.title}</div>
-                              <div className="text-xs text-zinc-500">
-                                {item.description}
+                      <div key={category.category}>
+                        {/* Category Header */}
+                        <div className="px-2 py-1 text-xs font-mono text-orange-500 uppercase tracking-wider">
+                          {category.category}
+                        </div>
+                        {/* Category Items */}
+                        <div className="space-y-1">
+                          {category.items.map((item) => (
+                            <Link
+                              key={item.title}
+                              href={item.href}
+                              className="flex items-center gap-3 p-3 bg-zinc-900/50 hover:bg-zinc-900 transition-colors"
+                              onClick={onClose}
+                            >
+                              <item.icon className="w-4 h-4 text-orange-500" />
+                              <div>
+                                <div className="text-sm text-white">{item.title}</div>
+                                <div className="text-xs text-zinc-500">
+                                  {item.description}
+                                </div>
                               </div>
-                            </div>
-                          </Link>
-                        ))}
+                            </Link>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               </div>
             </div>

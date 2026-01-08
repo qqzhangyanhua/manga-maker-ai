@@ -84,7 +84,7 @@ export function HeroSection({ onOpenTrial }: HeroSectionProps) {
             </span>
           </div>
 
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-4">
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-4 tracking-tight">
             <span className="text-orange-500">
               故事到漫画
             </span>
@@ -288,17 +288,17 @@ export function HeroSection({ onOpenTrial }: HeroSectionProps) {
         {/* Stats Bar - Industrial Style */}
         <div className="flex items-center justify-center gap-8 md:gap-12">
           <div className="text-center">
-            <div className="text-2xl md:text-3xl font-bold font-mono text-orange-500">2.4M</div>
+            <div className="text-2xl md:text-3xl font-bold font-mono text-orange-500 tracking-tighter">2.4M</div>
             <div className="text-xs font-mono text-zinc-500 uppercase tracking-wider">Render Ops</div>
           </div>
           <div className="w-px h-8 bg-zinc-700" />
           <div className="text-center">
-            <div className="text-2xl md:text-3xl font-bold font-mono text-emerald-500">99.97%</div>
+            <div className="text-2xl md:text-3xl font-bold font-mono text-emerald-500 tracking-tighter">99.97%</div>
             <div className="text-xs font-mono text-zinc-500 uppercase tracking-wider">Uptime</div>
           </div>
           <div className="w-px h-8 bg-zinc-700" />
           <div className="text-center">
-            <div className="text-2xl md:text-3xl font-bold font-mono text-white">128</div>
+            <div className="text-2xl md:text-3xl font-bold font-mono text-white tracking-tighter">128</div>
             <div className="text-xs font-mono text-zinc-500 uppercase tracking-wider">Active Nodes</div>
           </div>
         </div>

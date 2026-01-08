@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useEffect } from "react";
+
 import Link from "next/link";
 import { Github, Twitter, Disc, Activity } from "lucide-react";
 
@@ -40,6 +42,16 @@ const footerLinks = [
 ];
 
 export function Footer() {
+    const [time, setTime] = useState<string>("");
+
+    useEffect(() => {
+        setTime(new Date().toTimeString().split(' ')[0]);
+        const timer = setInterval(() => {
+            setTime(new Date().toTimeString().split(' ')[0]);
+        }, 1000);
+        return () => clearInterval(timer);
+    }, []);
+
     return (
         <footer className="relative border-t border-zinc-800 bg-[#0c0c0e] pt-16 pb-8 overflow-hidden">
             {/* Background Gradients */}
@@ -51,7 +63,7 @@ export function Footer() {
 
                     {/* Brand Column */}
                     <div className="lg:col-span-2">
-                        <Link href="/" className="inline-block text-2xl font-bold bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500 bg-clip-text text-transparent mb-6">
+                        <Link href="/" className="inline-block text-2xl font-bold bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500 bg-clip-text text-transparent mb-6 tracking-tight">
                             ComicAI
                         </Link>
                         <p className="text-zinc-400 text-sm leading-relaxed mb-6 max-w-xs">
@@ -113,8 +125,8 @@ export function Footer() {
                     <p className="text-zinc-600 text-xs text-center md:text-left">
                         &copy; {new Date().getFullYear()} ComicAI Inc. All rights reserved.
                     </p>
-                    <div className="flex items-center gap-6 text-xs text-zinc-600">
-                        <span>Server Time: {new Date().toTimeString().split(' ')[0]}</span>
+                    <div className="flex items-center gap-6 text-xs text-zinc-600 font-mono">
+                        <span>Server Time: {time || "--:--:--"}</span>
                         <span>v2.4.0-beta</span>
                     </div>
                 </div>
