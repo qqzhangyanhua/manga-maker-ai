@@ -43,6 +43,8 @@ import type { ReferenceImage } from "../FocusMode/types";
 import type { Panel } from "../../types/script-editor.types";
 import { usePanelImageGeneration } from "../../hooks/usePanelImageGeneration";
 import { useScriptData } from "../../providers/ScriptDataProvider";
+import { GenerateCharacterImageDialog } from "../GenerateCharacterImageDialog";
+import type { Character } from "@prisma/client";
 
 interface PanelConfigSidebarProps {
   className?: string;
@@ -52,7 +54,7 @@ interface PanelConfigSidebarProps {
 
 export function PanelConfigSidebar({ className, storyId, projectId }: PanelConfigSidebarProps) {
   const { state, actions, characters, panels, setPreviewImage, setGenerationState } = useFocusMode();
-  const { refetchAll } = useScriptData();
+  const { refetchAll, storyCharacters } = useScriptData();
 
   // 使用共享的图片生成 Hook
   const {
@@ -76,6 +78,10 @@ export function PanelConfigSidebar({ className, storyId, projectId }: PanelConfi
 
   // 参考图选择器状态
   const [referenceImageSelectorOpen, setReferenceImageSelectorOpen] = useState(false);
+
+  // 角色图片生成对话框状态
+  const [generateImageDialogOpen, setGenerateImageDialogOpen] = useState(false);
+  const [selectedCharacterForGeneration, setSelectedCharacterForGeneration] = useState<Character | null>(null);
 
   // 同步当前面板数据到本地状态
   useEffect(() => {
@@ -137,6 +143,21 @@ export function PanelConfigSidebar({ className, storyId, projectId }: PanelConfi
       // 错误处理已在 Hook 中完成，这里确保状态重置
       setGenerationState?.(false, 0);
     }
+  };
+
+  // 过滤出当前故事关联的角色
+  const storyCharacterIds = new Set(storyCharacters.map(sc => sc.character_id));
+  const filteredCharacters = characters.filter(char => storyCharacterIds.has(char.id));
+
+  // 打开角色图片生成对话框
+  const handleOpenGenerateDialog = (character: Character) => {
+    setSelectedCharacterForGeneration(character);
+    setGenerateImageDialogOpen(true);
+  };
+
+  // 图片生成成功回调
+  const handleGenerationSuccess = async () => {
+    await refetchAll();
   };
 
   // 图像生成模型选项
@@ -296,49 +317,67 @@ export function PanelConfigSidebar({ className, storyId, projectId }: PanelConfi
                 </div>
               </AccordionTrigger>
               <AccordionContent className="pt-2 space-y-2">
-                {characters.length > 0 ? (
+                {filteredCharacters.length > 0 ? (
                   <div className="grid grid-cols-2 gap-2">
-                    {characters.map((character) => {
+                    {filteredCharacters.map((character) => {
                       const isSelected = state.config.selectedCharacters.includes(character.id);
+                      const hasImage = character.reference_image || character.base_image_url;
+                      
                       return (
-                        <button
-                          key={character.id}
-                          onClick={() => {
-                            const newSelection = isSelected
-                              ? state.config.selectedCharacters.filter((id) => id !== character.id)
-                              : [...state.config.selectedCharacters, character.id];
-                            actions.updateConfig({ selectedCharacters: newSelection });
-                          }}
-                          className={cn(
-                            "flex flex-col items-center gap-2 p-2 rounded-lg border-2 transition-all",
-                            isSelected
-                              ? "border-orange-500 bg-orange-500/10"
-                              : "border-gray-700 bg-black/30 hover:border-gray-600"
+                        <div key={character.id} className="relative">
+                          <button
+                            onClick={() => {
+                              const newSelection = isSelected
+                                ? state.config.selectedCharacters.filter((id) => id !== character.id)
+                                : [...state.config.selectedCharacters, character.id];
+                              actions.updateConfig({ selectedCharacters: newSelection });
+                            }}
+                            className={cn(
+                              "flex flex-col items-center gap-2 p-2 rounded-lg border-2 transition-all w-full",
+                              isSelected
+                                ? "border-orange-500 bg-orange-500/10"
+                                : "border-gray-700 bg-black/30 hover:border-gray-600"
+                            )}
+                          >
+                            {hasImage ? (
+                              <div className="w-full aspect-square rounded overflow-hidden">
+                                <img
+                                  src={character.reference_image || character.base_image_url || ""}
+                                  alt={character.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-full aspect-square rounded bg-gray-800 flex items-center justify-center">
+                                <User className="w-6 h-6 text-gray-600" />
+                              </div>
+                            )}
+                            <span className="text-xs text-white truncate w-full text-center">
+                              {character.name}
+                            </span>
+                          </button>
+                          
+                          {/* 生成图片按钮 - 仅当角色没有图片时显示 */}
+                          {!hasImage && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenGenerateDialog(character as Character);
+                              }}
+                              disabled={isGenerating}
+                              className="absolute bottom-1 right-1 p-1.5 bg-orange-500 hover:bg-orange-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              title={character.description ? `根据描述生成: ${character.description.slice(0, 30)}...` : "生成角色图片"}
+                            >
+                              <Sparkles className="w-3 h-3 text-white" />
+                            </button>
                           )}
-                        >
-                          {character.reference_image ? (
-                            <div className="w-full aspect-square rounded overflow-hidden">
-                              <img
-                                src={character.reference_image}
-                                alt={character.name}
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                          ) : (
-                            <div className="w-full aspect-square rounded bg-gray-800 flex items-center justify-center">
-                              <User className="w-6 h-6 text-gray-600" />
-                            </div>
-                          )}
-                          <span className="text-xs text-white truncate w-full text-center">
-                            {character.name}
-                          </span>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
                 ) : (
                   <p className="text-xs text-gray-500 text-center py-4">
-                    暂无可用角色
+                    当前故事暂无关联角色
                   </p>
                 )}
               </AccordionContent>
@@ -505,6 +544,14 @@ export function PanelConfigSidebar({ className, storyId, projectId }: PanelConfi
           }}
         />
       )}
+
+      {/* 角色图片生成对话框 */}
+      <GenerateCharacterImageDialog
+        open={generateImageDialogOpen}
+        onOpenChange={setGenerateImageDialogOpen}
+        character={selectedCharacterForGeneration}
+        onSuccess={handleGenerationSuccess}
+      />
     </div>
   );
 }
