@@ -92,13 +92,15 @@ export function ShowcaseSection() {
   }, []);
 
   return (
-    <section className="relative py-24 bg-gradient-to-b from-[#0f0f13] via-[#0d0d12] to-[#0c0c0e]">
+    <section className="relative py-24" style={{ 
+      background: 'linear-gradient(to bottom, #1a1410, rgba(41, 28, 20, 0.5), #1a1410)' 
+    }}>
       <div className="max-w-7xl mx-auto">
         {/* Section Header */}
         <div className="px-4 mb-12">
           <div className="flex items-center gap-2 mb-4">
             <Terminal className="w-5 h-5 text-orange-500" />
-            <span className="text-sm font-mono uppercase tracking-widest text-zinc-500">
+            <span className="text-sm font-mono uppercase tracking-widest text-stone-500">
               生产日志
             </span>
           </div>
@@ -107,7 +109,7 @@ export function ShowcaseSection() {
               <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">
                 创作展示
               </h2>
-              <p className="text-zinc-300 max-w-xl">
+              <p className="text-stone-300 max-w-xl">
                 用户作品档案，每一帧都记录着 AI 渲染的精确参数
               </p>
             </div>
@@ -117,7 +119,8 @@ export function ShowcaseSection() {
               <Button
                 variant="outline"
                 size="icon"
-                className="border-zinc-700 bg-zinc-900 hover:bg-zinc-800 hover:border-zinc-600 text-zinc-400 hover:text-white"
+                className="border-amber-900/40 hover:border-amber-800/60 text-stone-400 hover:text-white"
+                style={{ backgroundColor: 'rgba(41, 28, 20, 0.5)' }}
                 onClick={() => scroll("left")}
               >
                 <ChevronLeft className="w-5 h-5" />
@@ -125,7 +128,8 @@ export function ShowcaseSection() {
               <Button
                 variant="outline"
                 size="icon"
-                className="border-zinc-700 bg-zinc-900 hover:bg-zinc-800 hover:border-zinc-600 text-zinc-400 hover:text-white"
+                className="border-amber-900/40 hover:border-amber-800/60 text-stone-400 hover:text-white"
+                style={{ backgroundColor: 'rgba(41, 28, 20, 0.5)' }}
                 onClick={() => scroll("right")}
               >
                 <ChevronRight className="w-5 h-5" />
@@ -178,7 +182,7 @@ export function ShowcaseSection() {
 
         {/* 移动端滑动提示 */}
         <div className="md:hidden flex justify-center mt-4 px-4">
-          <div className="flex items-center gap-2 text-xs text-zinc-500">
+          <div className="flex items-center gap-2 text-xs text-stone-500">
             <ChevronLeft className="w-4 h-4" />
             <span className="font-mono">滑动浏览</span>
             <ChevronRight className="w-4 h-4" />
@@ -316,8 +320,8 @@ function ShowcaseCard({ item, index, mousePosition, isContainerHovering }: Showc
         </div>
 
         {/* ID Badge */}
-        <div className="absolute top-3 left-3 px-2 py-1 bg-black/60 backdrop-blur-sm border border-zinc-700">
-          <span className="text-xs font-mono text-zinc-400">
+        <div className="absolute top-3 left-3 px-2 py-1 backdrop-blur-sm border border-amber-900/40" style={{ backgroundColor: 'rgba(41, 28, 20, 0.6)' }}>
+          <span className="text-xs font-mono text-stone-400">
             LOG_{item.id}
           </span>
         </div>
@@ -326,21 +330,21 @@ function ShowcaseCard({ item, index, mousePosition, isContainerHovering }: Showc
         <div className="absolute inset-0 bg-gradient-to-b from-orange-500/0 via-orange-500/10 to-orange-500/0 opacity-0 group-hover:opacity-100 group-hover:animate-scan-down transition-opacity" />
 
         {/* Metadata Overlay Bar - Bottom */}
-        <div className="absolute bottom-0 left-0 right-0 bg-black/80 backdrop-blur-sm border-t border-zinc-800 p-3">
-          <div className="flex items-center justify-between font-mono text-[10px] text-zinc-400">
+        <div className="absolute bottom-0 left-0 right-0 backdrop-blur-sm border-t border-amber-900/40 p-3" style={{ backgroundColor: 'rgba(41, 28, 20, 0.9)' }}>
+          <div className="flex items-center justify-between font-mono text-[10px] text-stone-400">
             <span>
               RENDER_TIME: <span className="text-orange-500">{item.meta.renderTime}</span>
             </span>
             <span className="text-zinc-600">|</span>
             <span>
-              SEED: <span className="text-zinc-300">{item.meta.seed}</span>
+              SEED: <span className="text-stone-300">{item.meta.seed}</span>
             </span>
-            <span className="text-zinc-600">|</span>
+            <span className="text-stone-600">|</span>
             <span>
               RES: <span className="text-emerald-500">{item.meta.resolution}</span>
             </span>
           </div>
-          <div className="flex items-center justify-between font-mono text-[10px] text-zinc-500 mt-1">
+          <div className="flex items-center justify-between font-mono text-[10px] text-stone-500 mt-1">
             <span>MODEL: {item.meta.model}</span>
             <span>IDX: {String(index).padStart(3, "0")}</span>
           </div>
@@ -352,7 +356,7 @@ function ShowcaseCard({ item, index, mousePosition, isContainerHovering }: Showc
         <h4 className="text-white font-medium group-hover:text-orange-500 transition-colors">
           {item.title}
         </h4>
-        <p className="text-xs font-mono text-zinc-500 mt-1">
+        <p className="text-xs font-mono text-stone-500 mt-1">
           FRAME_COUNT: 24 | STATUS: COMPLETE
         </p>
       </div>

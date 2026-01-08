@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Warm Luxury Palette Options</title>
+  <style>
+    :root {
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 40px;
+      background: #f5f5f4;
+      font-family: var(--font-sans);
+      color: #1c1917;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 40px;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, #451a03 0%, #b45309 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    p.subtitle {
+      color: #78716c;
+      font-size: 1.1rem;
+    }
+
+    .palette-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 30px;
+    }
+
+    .palette-card {
+      background: white;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s ease;
+      position: relative;
+    }
+
+    .palette-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.15);
+    }
+
+    .preview-window {
+      height: 160px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      position: relative;
+    }
+
+    .preview-card {
+      padding: 16px;
+      border-radius: 12px;
+      margin-top: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .preview-circle {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .preview-lines {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .preview-line {
+      height: 6px;
+      border-radius: 3px;
+      width: 100%;
+      opacity: 0.6;
+    }
+
+    .preview-line.short {
+      width: 60%;
+    }
+
+    .palette-info {
+      padding: 24px;
+      background: white;
+    }
+
+    .palette-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin: 0 0 4px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .palette-tag {
+      font-size: 0.75rem;
+      padding: 4px 8px;
+      border-radius: 100px;
+      background: #f5f5f4;
+      color: #57534e;
+      font-weight: 600;
+    }
+
+    .palette-desc {
+      font-size: 0.9rem;
+      color: #78716c;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    .swatch-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .swatch-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.9rem;
+    }
+
+    .swatch-label {
+      color: #a8a29e;
+      font-family: monospace;
+    }
+
+    .swatch-preview {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .swatch-dot {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .swatch-code {
+      font-family: monospace;
+      color: #44403c;
+      font-weight: 600;
+    }
+
+    /* Option 1: Current Warm Luxury (Stone/Orange) */
+    .opt-1-bg {
+      background-color: #1a1410;
+    }
+
+    /* stone-950+ */
+    .opt-1-card {
+      background-color: #291c14;
+    }
+
+    /* Lighter warm card */
+    .opt-1-primary {
+      background-color: #f97316;
+    }
+
+    /* orange-500 */
+    .opt-1-text {
+      color: #fafaf9;
+    }
+
+    /* stone-50 */
+    .opt-1-subtext {
+      background-color: #a8a29e;
+    }
+
+    /* stone-400 */
+
+    /* Option 2: Deep Cocoa (Rich Brown/Amber) */
+    .opt-2-bg {
+      background-color: #15100e;
+    }
+
+    /* Very rich dark brown */
+    .opt-2-card {
+      background-color: #261f1d;
+    }
+
+    .opt-2-primary {
+      background-color: #d97706;
+    }
+
+    /* amber-600 */
+    .opt-2-text {
+      color: #fffbeb;
+    }
+
+    /* amber-50 */
+    .opt-2-subtext {
+      background-color: #b59f96;
+    }
+
+    /* Option 3: Obsidian Gold (Dark Warm Gray/Yellow) */
+    .opt-3-bg {
+      background-color: #0c0a09;
+    }
+
+    /* stone-950 (Original) */
+    .opt-3-card {
+      background-color: #1c1917;
+    }
+
+    /* stone-900 */
+    .opt-3-primary {
+      background-color: #eab308;
+    }
+
+    /* yellow-500 */
+    .opt-3-text {
+      color: #e7e5e4;
+    }
+
+    /* stone-200 */
+    .opt-3-subtext {
+      background-color: #78716c;
+    }
+
+    /* Option 4: Warm Charcoal (Neutral Warm/Coral) */
+    .opt-4-bg {
+      background-color: #18181b;
+    }
+
+    /* zinc-950 (Cooler but warm accented) */
+    .opt-4-card {
+      background-color: #27272a;
+    }
+
+    /* zinc-900 */
+    .opt-4-primary {
+      background-color: #fb7185;
+    }
+
+    /* rose-400 */
+    .opt-4-text {
+      color: #f4f4f5;
+    }
+
+    /* zinc-100 */
+    .opt-4-subtext {
+      background-color: #a1a1aa;
+    }
+
+    /* Option 5: Midnight Coffee (Deepest Brown/Gold) */
+    .opt-5-bg {
+      background-color: #110e0d;
+    }
+
+    /* Extremely dark brown */
+    .opt-5-card {
+      background-color: #1e1917;
+    }
+
+    .opt-5-primary {
+      background-color: #b45309;
+    }
+
+    /* amber-700 */
+    .opt-5-text {
+      color: #f5f5f4;
+    }
+
+    .opt-5-subtext {
+      background-color: #8c8683;
+    }
+
+    .current-badge {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 2px 6px;
+      background: #dcfce7;
+      color: #166534;
+      border-radius: 4px;
+      font-size: 0.7em;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <header>
+      <h1>Warm Luxury Comparison</h1>
+      <p class="subtitle">5 种不同的“暖色调”方案供您选择。请点击下方卡片查看详细色值。</p>
+    </header>
+
+    <div class="palette-grid">
+
+      <!-- Option 1 -->
+      <div class="palette-card">
+        <div class="preview-window opt-1-bg">
+          <div style="color: white; font-weight: bold; margin-bottom: 5px;">Current Enhanced</div>
+          <div class="opt-1-text" style="font-size: 0.9em; opacity: 0.8;">Warm Coffee Look</div>
+          <div class="preview-card opt-1-card">
+            <div class="preview-circle opt-1-primary"></div>
+            <div class="preview-lines">
+              <div class="preview-line opt-1-subtext"></div>
+              <div class="preview-line short opt-1-subtext"></div>
+            </div>
+          </div>
+        </div>
+        <div class="palette-info">
+          <div class="palette-title">
+            1. Cafe Noir
+            <span class="palette-tag">Current</span>
+          </div>
+          <p class="palette-desc">目前使用的方案。显着的红棕色倾向，配合高饱和橙色，呈现出明显的“咖啡感”。</p>
+          <div class="swatch-list">
+            <div class="swatch-row">
+              <span class="swatch-label">Background</span>
+              <div class="swatch-preview">
+                <span class="swatch-code">#1A1410</span>
+                <div class="swatch-dot opt-1-bg"></div>
+              </div>
+            </div>
+            <div class="swatch-row">
+              <span class="swatch-label">Card Surface</span>
+              <div class="swatch-preview">
+                <span class="swatch-code">#291C14</span>
+                <div class="swatch-dot opt-1-card"></div>
+              </div>
+            </div>
+            <div class="swatch-row">
+              <span class="swatch-label">Accent</span>
+              <div class="swatch-preview">
+                <span class="swatch-code">#F97316</span>
+                <div class="swatch-dot opt-1-primary"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Option 2 -->
+      <div class="palette-card">
+        <div class="preview-window opt-2-bg">
+          <div style="color: white; font-weight: bold; margin-bottom: 5px;">Deep Cocoa</div>
+          <div class="opt-2-text" style="font-size: 0.9em; opacity: 0.8;">Richer Brown Tones</div>
+          <div class="preview-card opt-2-card">
+            <div class="preview-circle opt-2-primary"></div>
+            <div class="preview-lines">
+              <div class="preview-line opt-2-subtext"></div>
+              <div class="preview-line short opt-2-subtext"></div>
+            </div>
+          </div>
+        </div>
+        <div class="palette-info">
+          <div class="palette-title">
+            2. Deep Cocoa
+          </div>
+          <p class="palette-desc">比当前方案更“沉稳”的深可可色。降低了红色倾向，增加了黑色比重，更加内敛。</p>
+          <div class="swatch-list">
+            <div class="swatch-row">
+              <span class="swatch-label">Background</span>
+              <div class="swatch-preview">
+                <span class="swatch-code">#15100E</span>
+                <div class="swatch-dot opt-2-bg"></div>
+              </div>
+            </div>
+            <div class="swatch-row">
+              <span class="swatch-label">Card Surface</span>
+              <div class="swatch-preview">
+                <span class="swatch-code">#261F1D</span>
+                <div class="swatch-dot opt-2-card"></div>
+              </div>
+            </div>
+            <div class="swatch-row">
+              <span class="swatch-label">Accent</span>
+              <div class="swatch-preview">
+                <span class="swatch-code">#D97706</span>
+                <div class="swatch-dot opt-2-primary"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Option 3 -->
+      <div class="palette-card">
+        <div class="preview-window opt-3-bg">
+          <div style="color: white; font-weight: bold; margin-bottom: 5px;">Obsidian Gold</div>
+          <div class="opt-3-text" style="font-size: 0.9em; opacity: 0.8;">Classic Contrast</div>
+          <div class="preview-card opt-3-card">
+            <div class="preview-circle opt-3-primary"></div>
+            <div class="preview-lines">
+              <div class="preview-line opt-3-subtext"></div>
+              <div class="preview-line short opt-3-subtext"></div>
+            </div>
+          </div>
+        </div>
+        <div class="palette-info">
+          <div class="palette-title">
+            3. Obsidian Gold
+          </div>
+          <p class="palette-desc">回归经典的 Stone-950 暖黑，搭配亮金色。这是最接近“黑金”奢华感的配色，对比度极高。</p>
+          <div class="swatch-list">
+            <div class="swatch-row">
+              <span class="swatch-label">Background</span>
+              <div class="swatch-preview">
+                <span class="swatch-code">#0C0A09</span>
+                <div class="swatch-dot opt-3-bg"></div>
+              </div>
+            </div>
+            <div class="swatch-row">
+              <span class="swatch-label">Card Surface</span>
+              <div class="swatch-preview">
+                <span class="swatch-code">#1C1917</span>
+                <div class="swatch-dot opt-3-card"></div>
+              </div>
+            </div>
+            <div class="swatch-row">
+              <span class="swatch-label">Accent</span>
+              <div class="swatch-preview">
+                <span class="swatch-code">#EAB308</span>
+                <div class="swatch-dot opt-3-primary"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Option 5 -->
+      <div class="palette-card">
+        <div class="preview-window opt-5-bg">
+          <div style="color: white; font-weight: bold; margin-bottom: 5px;">Midnight Coffee</div>
+          <div class="opt-5-text" style="font-size: 0.9em; opacity: 0.8;">Darkest Warm</div>
+          <div class="preview-card opt-5-card">
+            <div class="preview-circle opt-5-primary"></div>
+            <div class="preview-lines">
+              <div class="preview-line opt-5-subtext"></div>
+              <div class="preview-line short opt-5-subtext"></div>
+            </div>
+          </div>
+        </div>
+        <div class="palette-info">
+          <div class="palette-title">
+            4. Midnight Coffee
+          </div>
+          <p class="palette-desc">极其深邃的暖棕色，几乎接近纯黑，但在强光下会泛出微弱的咖啡色泽。适合极简主义。</p>
+          <div class="swatch-list">
+            <div class="swatch-row">
+              <span class="swatch-label">Background</span>
+              <div class="swatch-preview">
+                <span class="swatch-code">#110E0D</span>
+                <div class="swatch-dot opt-5-bg"></div>
+              </div>
+            </div>
+            <div class="swatch-row">
+              <span class="swatch-label">Card Surface</span>
+              <div class="swatch-preview">
+                <span class="swatch-code">#1E1917</span>
+                <div class="swatch-dot opt-5-card"></div>
+              </div>
+            </div>
+            <div class="swatch-row">
+              <span class="swatch-label">Accent</span>
+              <div class="swatch-preview">
+                <span class="swatch-code">#B45309</span>
+                <div class="swatch-dot opt-5-primary"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+
+</html>

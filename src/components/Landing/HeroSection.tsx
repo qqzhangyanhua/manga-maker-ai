@@ -181,7 +181,7 @@ export function HeroSection({ onOpenTrial }: HeroSectionProps) {
                   <div
                     key={panel}
                     className={cn(
-                      "relative bg-zinc-900/60 rounded border-2 border-zinc-700 overflow-hidden transition-all duration-500",
+                      "relative bg-card/40 rounded border-2 border-white/5 overflow-hidden transition-all duration-500",
                       showStoryboard && "border-orange-500/50"
                     )}
                     style={{
@@ -305,7 +305,9 @@ export function HeroSection({ onOpenTrial }: HeroSectionProps) {
       </div>
 
       {/* 底部渐变 */}
-      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#0f0f13] to-transparent z-10" />
+      <div className="absolute bottom-0 left-0 right-0 h-32 z-10" style={{ 
+        background: 'linear-gradient(to top, #1a1410, transparent)' 
+      }} />
 
       {/* 自定义动画样式 */}
       <style jsx>{`
@@ -378,14 +380,14 @@ function PipelineCard({
     <div
       className={cn(
         "relative rounded-2xl border backdrop-blur-xl transition-all duration-500 shadow-xl overflow-hidden",
-        "bg-zinc-900/50",
-        active ? "border-zinc-600" : "border-zinc-800",
+        active ? "border-amber-900/40" : "border-amber-950/30",
         glow && "shadow-2xl shadow-orange-500/30 border-orange-500/60"
       )}
+      style={{ backgroundColor: 'rgba(41, 28, 20, 0.6)' }}
     >
       {/* 顶部高光 */}
       <div className={cn(
-        "absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent transition-opacity",
+        "absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-700/50 to-transparent transition-opacity",
         active ? "opacity-100" : "opacity-50"
       )} />
 
@@ -399,7 +401,7 @@ function PipelineCard({
         <div className="flex items-center gap-3 mb-4">
           <div className={cn(
             "p-2 rounded-lg transition-colors",
-            active ? "text-orange-500 bg-orange-500/10" : "text-zinc-500 bg-zinc-800"
+            active ? "text-orange-500 bg-orange-500/10" : "text-amber-700 bg-amber-950/50"
           )}>
             <Icon className="w-5 h-5" />
           </div>

@@ -12,7 +12,7 @@ export function UserStatusPill({ credits, avatarUrl, onLogout }: UserStatusPillP
     <div
       className={cn(
         "flex items-center gap-2 px-2 py-1.5",
-        "bg-zinc-900/50 border border-zinc-800",
+        "bg-stone-900/50 border border-zinc-800",
         "hover:border-zinc-700 transition-colors"
       )}
     >

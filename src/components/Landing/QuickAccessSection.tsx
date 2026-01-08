@@ -11,11 +11,11 @@ const items = [
         href: "/novel",
         icon: PenLine,
         span: "md:col-span-2",
-        theme: "purple", // 对应 NovelSection 的紫色
-        bgGradient: "from-purple-500/10 via-purple-500/5 to-transparent",
-        borderHover: "group-hover:border-purple-500/50",
-        iconColor: "text-purple-400",
-        iconBg: "bg-purple-500/10",
+        theme: "amber", // Primary Action - Amber/Gold
+        bgGradient: "from-amber-500/10 via-amber-500/5 to-transparent",
+        borderHover: "group-hover:border-amber-500/50",
+        iconColor: "text-amber-500",
+        iconBg: "bg-amber-500/10",
     },
     {
         title: "分镜项目",
@@ -23,11 +23,11 @@ const items = [
         href: "/projects",
         icon: BookOpen,
         span: "md:col-span-1",
-        theme: "orange", // 对应 HeroSection 的橙色
-        bgGradient: "from-orange-500/10 via-orange-500/5 to-transparent",
-        borderHover: "group-hover:border-orange-500/50",
-        iconColor: "text-orange-400",
-        iconBg: "bg-orange-500/10",
+        theme: "stone", // Secondary - Warm Stone
+        bgGradient: "from-stone-500/10 via-stone-500/5 to-transparent",
+        borderHover: "group-hover:border-stone-500/50",
+        iconColor: "text-stone-400",
+        iconBg: "bg-stone-500/10",
     },
     {
         title: "剧本记录",
@@ -35,11 +35,11 @@ const items = [
         href: "/scripts",
         icon: FileText,
         span: "md:col-span-1",
-        theme: "blue",
-        bgGradient: "from-blue-500/10 via-blue-500/5 to-transparent",
-        borderHover: "group-hover:border-blue-500/50",
-        iconColor: "text-blue-400",
-        iconBg: "bg-blue-500/10",
+        theme: "stone",
+        bgGradient: "from-stone-500/10 via-stone-500/5 to-transparent",
+        borderHover: "group-hover:border-stone-500/50",
+        iconColor: "text-stone-400",
+        iconBg: "bg-stone-500/10",
     },
     {
         title: "生成图库",
@@ -47,11 +47,11 @@ const items = [
         href: "/generated",
         icon: Images,
         span: "md:col-span-1",
-        theme: "pink", // 对应 ShowcaseSection 的一些色彩
-        bgGradient: "from-pink-500/10 via-pink-500/5 to-transparent",
-        borderHover: "group-hover:border-pink-500/50",
-        iconColor: "text-pink-400",
-        iconBg: "bg-pink-500/10",
+        theme: "amber", // Secondary Highlight
+        bgGradient: "from-amber-500/5 via-amber-500/0 to-transparent",
+        borderHover: "group-hover:border-amber-500/30",
+        iconColor: "text-amber-400",
+        iconBg: "bg-amber-500/5",
     },
     {
         title: "示例项目",
@@ -59,11 +59,11 @@ const items = [
         href: "/samples",
         icon: Layers,
         span: "md:col-span-1",
-        theme: "emerald",
-        bgGradient: "from-emerald-500/10 via-emerald-500/5 to-transparent",
-        borderHover: "group-hover:border-emerald-500/50",
-        iconColor: "text-emerald-400",
-        iconBg: "bg-emerald-500/10",
+        theme: "stone",
+        bgGradient: "from-stone-500/10 via-stone-500/5 to-transparent",
+        borderHover: "group-hover:border-stone-500/50",
+        iconColor: "text-stone-400",
+        iconBg: "bg-stone-500/10",
     },
 ];
 
@@ -79,18 +79,20 @@ const adminItem = {
 
 export function QuickAccessSection() {
     return (
-        <section className="px-4 py-24 bg-gradient-to-b from-zinc-900/30 to-zinc-900/50 relative overflow-hidden">
+        <section className="px-4 py-24 relative overflow-hidden" style={{ 
+          background: 'linear-gradient(to bottom, rgba(41, 28, 20, 0.3), transparent)' 
+        }}>
             {/* 装饰性背景 */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] bg-zinc-900/0 radial-gradient-mask" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] bg-orange-500/8 blur-[120px] rounded-full" />
 
             <div className="max-w-7xl mx-auto relative z-10">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
                     <div>
                         <h2 className="text-3xl font-bold text-white mb-2 flex items-center gap-2 tracking-tight">
-                            <Sparkles className="w-6 h-6 text-orange-500" />
+                            <Sparkles className="w-6 h-6 text-amber-500" />
                             快速入口
                         </h2>
-                        <p className="text-zinc-400">
+                        <p className="text-stone-400">
                             您的创作工作台，直达核心功能
                         </p>
                     </div>
@@ -98,7 +100,8 @@ export function QuickAccessSection() {
                     {/* Admin Link - Compact Style */}
                     <Link
                         href={adminItem.href}
-                        className="group flex items-center gap-2 px-4 py-2 rounded-full border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 transition-colors text-sm text-zinc-500 hover:text-zinc-300"
+                        className="group flex items-center gap-2 px-4 py-2 rounded-full border border-amber-900/40 hover:border-amber-800/60 transition-colors text-sm text-stone-500 hover:text-stone-300"
+                        style={{ backgroundColor: 'rgba(41, 28, 20, 0.5)' }}
                     >
                         <adminItem.icon className="w-4 h-4" />
                         <span>{adminItem.title}</span>
@@ -115,11 +118,12 @@ export function QuickAccessSection() {
                                 key={item.title}
                                 href={item.href}
                                 className={cn(
-                                    "group relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/40 backdrop-blur-sm transition-all duration-300",
+                                    "group relative overflow-hidden rounded-2xl border border-amber-900/40 backdrop-blur-sm transition-all duration-300",
                                     "hover:-translate-y-1 hover:shadow-xl",
                                     item.span,
                                     item.borderHover
                                 )}
+                                style={{ backgroundColor: 'rgba(41, 28, 20, 0.4)' }}
                             >
                                 {/* 内部渐变背景 - Hover时增强 */}
                                 <div className={cn(
@@ -149,12 +153,12 @@ export function QuickAccessSection() {
 
                                     <div className="mt-auto">
                                         <h3 className={cn(
-                                            "text-xl font-bold mb-2 text-zinc-100 group-hover:text-white transition-colors tracking-tight",
+                                            "text-xl font-bold mb-2 text-stone-100 group-hover:text-white transition-colors tracking-tight",
                                             // 如果是 theme color 可以稍微带点色相，但保持白色为主更有质感
                                         )}>
                                             {item.title}
                                         </h3>
-                                        <p className="text-sm text-zinc-400 leading-relaxed max-w-[90%]">
+                                        <p className="text-sm text-stone-400 leading-relaxed max-w-[90%]">
                                             {item.description}
                                         </p>
                                     </div>

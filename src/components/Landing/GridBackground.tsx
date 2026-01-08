@@ -128,9 +128,9 @@ export function GridBackground() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-      gradient.addColorStop(0, "#0f0f13");
-      gradient.addColorStop(0.5, "#0d0d12");
-      gradient.addColorStop(1, "#120e15");
+      gradient.addColorStop(0, "#0c0a09"); // Warm Black Top (Stone 950)
+      gradient.addColorStop(0.5, "#1c1917"); // Warm Black Middle (Stone 900)
+      gradient.addColorStop(1, "#292524"); // Warm Black Bottom (Stone 800)
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -142,7 +142,7 @@ export function GridBackground() {
         canvas.height * 0.3,
         canvas.width * 0.5
       );
-      orb1.addColorStop(0, "rgba(249, 115, 22, 0.03)");
+      orb1.addColorStop(0, "rgba(245, 158, 11, 0.05)"); // Amber glow
       orb1.addColorStop(1, "transparent");
       ctx.fillStyle = orb1;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -155,7 +155,7 @@ export function GridBackground() {
         canvas.height * 0.7,
         canvas.width * 0.4
       );
-      orb2.addColorStop(0, "rgba(139, 92, 246, 0.02)");
+      orb2.addColorStop(0, "rgba(120, 113, 108, 0.05)"); // Stone glow
       orb2.addColorStop(1, "transparent");
       ctx.fillStyle = orb2;
       ctx.fillRect(0, 0, canvas.width, canvas.height);

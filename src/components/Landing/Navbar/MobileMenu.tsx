@@ -39,7 +39,7 @@ export function MobileMenu({
       {/* Menu Panel */}
       <div
         className={cn(
-          "absolute top-16 left-0 right-0 bottom-0 bg-[#09090b]/95 backdrop-blur-xl border-t border-zinc-800",
+          "absolute top-16 left-0 right-0 bottom-0 bg-background/95 backdrop-blur-xl border-t border-zinc-800",
           "overflow-y-auto transition-transform duration-300",
           isOpen ? "translate-y-0" : "-translate-y-full"
         )}

@@ -83,27 +83,27 @@ export function NovelSection() {
     }, []);
 
     return (
-        <section className="py-24 bg-[#0a0a0c] relative overflow-hidden border-t border-zinc-900">
+        <section className="py-24 relative overflow-hidden border-t border-amber-950/50" style={{ backgroundColor: '#1a1410' }}>
             {/* Background Glows */}
-            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-purple-500/5 blur-[100px] rounded-full" />
-            <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-orange-500/5 blur-[100px] rounded-full" />
+            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-orange-500/5 blur-[100px] rounded-full" />
+            <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-amber-500/5 blur-[100px] rounded-full" />
 
             <div className="max-w-7xl mx-auto px-4 relative z-10">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
 
                     {/* Left: Text Content */}
                     <div>
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-sm font-medium mb-6">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 text-sm font-medium mb-6">
                             <Bot className="w-4 h-4" />
                             <span>AI 辅助写作</span>
                         </div>
 
-                        <h2 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-500 mb-6">
+                        <h2 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-stone-500 mb-6">
                             给出一个灵感，<br />
                             <span className="text-white">收获一部巨作</span>
                         </h2>
 
-                        <p className="text-xl text-zinc-400 mb-8 leading-relaxed">
+                        <p className="text-xl text-stone-400 mb-8 leading-relaxed">
                             卡在第一句话？不知道如何发展剧情？
                             <br />
                             只需输入简单的故事构思，AI 就能帮你构建世界观、塑造角色、
@@ -111,13 +111,13 @@ export function NovelSection() {
                         </p>
 
                         <div className="flex flex-col sm:flex-row gap-4">
-                            <Button asChild size="lg" className="bg-purple-600 hover:bg-purple-700 text-white border-0 shadow-lg shadow-purple-500/20">
+                            <Button asChild size="lg" className="bg-orange-600 hover:bg-orange-700 text-white border-0 shadow-lg shadow-orange-500/20">
                                 <Link href="/novel">
                                     <PenLine className="w-5 h-5 mr-2" />
                                     开始创作
                                 </Link>
                             </Button>
-                            <Button asChild variant="outline" size="lg" className="border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-800">
+                            <Button asChild variant="outline" size="lg" className="border-stone-700 text-stone-300 hover:text-white hover:bg-stone-900">
                                 <Link href="/samples">
                                     查看示例
                                     <ArrowRight className="w-4 h-4 ml-2" />
@@ -129,16 +129,16 @@ export function NovelSection() {
                     {/* Right: Animation Demo */}
                     <div className="relative">
                         {/* Window Frame */}
-                        <div className="relative rounded-2xl bg-zinc-900/50 backdrop-blur-xl border border-zinc-800/50 shadow-2xl overflow-hidden aspect-[4/3] lg:aspect-square flex flex-col">
+                        <div className="relative rounded-2xl backdrop-blur-xl border border-amber-900/40 shadow-2xl overflow-hidden aspect-[4/3] lg:aspect-square flex flex-col" style={{ backgroundColor: 'rgba(41, 28, 20, 0.5)' }}>
 
                             {/* Window Header */}
-                            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 bg-zinc-900/80">
+                            <div className="flex items-center justify-between px-4 py-3 border-b border-amber-900/40" style={{ backgroundColor: 'rgba(26, 20, 16, 0.8)' }}>
                                 <div className="flex gap-2">
                                     <div className="w-3 h-3 rounded-full bg-red-500/20 border border-red-500/50" />
                                     <div className="w-3 h-3 rounded-full bg-yellow-500/20 border border-yellow-500/50" />
                                     <div className="w-3 h-3 rounded-full bg-green-500/20 border border-green-500/50" />
                                 </div>
-                                <div className="text-xs text-zinc-500 font-mono">AI Novel Writer</div>
+                                <div className="text-xs text-stone-500 font-mono">AI Novel Writer</div>
                                 <div className="w-8" />
                             </div>
 
@@ -150,13 +150,13 @@ export function NovelSection() {
                                     "mb-6 transition-all duration-500",
                                     stage === "input" ? "opacity-100" : "opacity-50 blur-[1px]"
                                 )}>
-                                    <div className="text-purple-400 text-xs mb-2 uppercase tracking-wider flex items-center gap-2">
+                                    <div className="text-orange-400 text-xs mb-2 uppercase tracking-wider flex items-center gap-2">
                                         <Keyboard className="w-3 h-3" />
                                         Input Prompt
                                     </div>
-                                    <div className="bg-black/50 rounded-lg p-4 text-zinc-300 border border-zinc-800 min-h-[80px]">
+                                    <div className="rounded-lg p-4 text-stone-300 border border-amber-900/40 min-h-[80px]" style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}>
                                         {typedPrompt}
-                                        <span className="animate-pulse inline-block w-2 h-4 bg-purple-500 align-middle ml-1" />
+                                        <span className="animate-pulse inline-block w-2 h-4 bg-orange-500 align-middle ml-1" />
                                     </div>
                                 </div>
 
@@ -173,13 +173,13 @@ export function NovelSection() {
                                                     idx <= processingStep ? "translate-x-0 opacity-100" : "-translate-x-2 opacity-0 h-0"
                                                 )}>
                                                     {idx === processingStep && stage === "processing" ? (
-                                                        <div className="w-4 h-4 rounded-full border-2 border-purple-500 border-t-transparent animate-spin" />
+                                                        <div className="w-4 h-4 rounded-full border-2 border-orange-500 border-t-transparent animate-spin" />
                                                     ) : (
-                                                        <div className="w-4 h-4 rounded-full bg-purple-500/20 text-purple-500 flex items-center justify-center text-[10px]">✓</div>
+                                                        <div className="w-4 h-4 rounded-full bg-orange-500/20 text-orange-500 flex items-center justify-center text-[10px]">✓</div>
                                                     )}
                                                     <span className={cn(
-                                                        "text-zinc-400",
-                                                        idx === processingStep && "text-purple-300"
+                                                        "text-stone-400",
+                                                        idx === processingStep && "text-orange-300"
                                                     )}>{step}</span>
                                                 </div>
                                             ))}
@@ -190,19 +190,19 @@ export function NovelSection() {
                                 {/* 3. Generated Novel Content */}
                                 {stage === "output" && (
                                     <div className="flex-1 overflow-hidden relative animate-in fade-in slide-in-from-bottom-4 duration-700">
-                                        <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-zinc-900/0 to-transparent z-10" />
+                                        <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-stone-900/0 to-transparent z-10" />
 
-                                        <div className="h-full bg-zinc-950/50 rounded-lg border border-zinc-800 p-4 overflow-y-auto custom-scrollbar">
+                                        <div className="h-full rounded-lg border border-amber-900/40 p-4 overflow-y-auto custom-scrollbar" style={{ backgroundColor: 'rgba(26, 20, 16, 0.5)' }}>
                                             {novelText.map((line, idx) => (
                                                 <p key={idx} className={cn(
-                                                    "mb-2 leading-relaxed text-zinc-300 transition-all duration-500",
+                                                    "mb-2 leading-relaxed text-stone-300 transition-all duration-500",
                                                     idx === 0 ? "text-lg font-bold text-white mb-4" : "text-sm",
                                                     "opacity-0 animate-in fade-in slide-in-from-bottom-2 fill-mode-forwards"
                                                 )} style={{ animationDelay: `${idx * 100}ms` }}>
                                                     {line || <span className="h-4 block" />}
                                                 </p>
                                             ))}
-                                            <div className="h-8 animate-pulse bg-zinc-800/20 rounded w-2/3 mt-2" />
+                                            <div className="h-8 animate-pulse bg-stone-800/20 rounded w-2/3 mt-2" />
                                         </div>
                                     </div>
                                 )}
@@ -211,13 +211,13 @@ export function NovelSection() {
 
                             {/* Processing Overlay Effect */}
                             {stage === "processing" && (
-                                <div className="absolute inset-0 bg-gradient-to-t from-purple-500/5 to-transparent pointer-events-none" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-orange-500/5 to-transparent pointer-events-none" />
                             )}
                         </div>
 
                         {/* Decorative Elements around window */}
-                        <div className="absolute -top-12 -right-12 w-24 h-24 bg-purple-500/20 blur-xl rounded-full" />
-                        <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-blue-500/10 blur-xl rounded-full" />
+                        <div className="absolute -top-12 -right-12 w-24 h-24 bg-orange-500/20 blur-xl rounded-full" />
+                        <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-amber-500/10 blur-xl rounded-full" />
                     </div>
 
                 </div>

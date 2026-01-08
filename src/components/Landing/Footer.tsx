@@ -53,10 +53,10 @@ export function Footer() {
     }, []);
 
     return (
-        <footer className="relative border-t border-zinc-800 bg-[#0c0c0e] pt-16 pb-8 overflow-hidden">
+        <footer className="relative border-t border-amber-950/50 pt-16 pb-8 overflow-hidden" style={{ backgroundColor: '#1a1410' }}>
             {/* Background Gradients */}
             <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-orange-500/5 blur-[100px] rounded-full pointer-events-none -translate-y-1/2" />
-            <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-purple-500/5 blur-[100px] rounded-full pointer-events-none translate-y-1/3" />
+            <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-amber-500/5 blur-[100px] rounded-full pointer-events-none translate-y-1/3" />
 
             <div className="max-w-7xl mx-auto px-4 relative z-10">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-12 mb-16">
@@ -66,7 +66,7 @@ export function Footer() {
                         <Link href="/" className="inline-block text-2xl font-bold bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500 bg-clip-text text-transparent mb-6 tracking-tight">
                             ComicAI
                         </Link>
-                        <p className="text-zinc-400 text-sm leading-relaxed mb-6 max-w-xs">
+                        <p className="text-stone-400 text-sm leading-relaxed mb-6 max-w-xs">
                             让创意不再受限于绘画技能。<br />
                             ComicAI 致力于为创作者提供最强大的 AI 辅助漫画创作工具，从剧本到成稿，一气呵成。
                         </p>
@@ -76,7 +76,7 @@ export function Footer() {
                                 <Link
                                     key={social.label}
                                     href={social.href}
-                                    className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:border-orange-500/50 hover:bg-orange-500/10 transition-all duration-300"
+                                    className="w-10 h-10 rounded-full bg-stone-900 border border-stone-800 flex items-center justify-center text-stone-400 hover:text-white hover:border-orange-500/50 hover:bg-orange-500/10 transition-all duration-300"
                                 >
                                     <social.icon className="w-5 h-5" />
                                 </Link>
@@ -95,7 +95,7 @@ export function Footer() {
                                     <li key={link.label}>
                                         <Link
                                             href={link.href}
-                                            className="text-sm text-zinc-500 hover:text-orange-400 transition-colors"
+                                            className="text-sm text-stone-500 hover:text-orange-400 transition-colors"
                                         >
                                             {link.label}
                                         </Link>
@@ -121,11 +121,11 @@ export function Footer() {
                 </div>
 
                 {/* Bottom Bar */}
-                <div className="pt-8 border-t border-zinc-800 flex flex-col md:flex-row items-center justify-between gap-4">
-                    <p className="text-zinc-600 text-xs text-center md:text-left">
+                <div className="pt-8 border-t border-stone-800 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <p className="text-stone-600 text-xs text-center md:text-left">
                         &copy; {new Date().getFullYear()} ComicAI Inc. All rights reserved.
                     </p>
-                    <div className="flex items-center gap-6 text-xs text-zinc-600 font-mono">
+                    <div className="flex items-center gap-6 text-xs text-stone-600 font-mono">
                         <span>Server Time: {time || "--:--:--"}</span>
                         <span>v2.4.0-beta</span>
                     </div>

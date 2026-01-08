@@ -9,8 +9,8 @@ export const metadata: Metadata = {
 };
 
 const RootLayout = ({ children }: { children: ReactNode }) => (
-  <html lang="zh-CN" suppressHydrationWarning>
-    <body className="bg-background text-foreground antialiased">
+  <html lang="zh-CN" suppressHydrationWarning className="dark">
+    <body className="text-foreground antialiased" style={{ backgroundColor: '#1a1410' }}>
       <Providers>{children}</Providers>
     </body>
   </html>

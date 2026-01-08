@@ -11,7 +11,7 @@ const HomePage = () => {
   const [showTrialDialog, setShowTrialDialog] = useState(false);
 
   return (
-    <div className="min-h-screen bg-[#0f0f13]">
+    <div className="min-h-screen" style={{ backgroundColor: '#1a1410' }}>
       {/* Navbar */}
       <Navbar />
 
