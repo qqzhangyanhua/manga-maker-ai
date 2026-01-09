@@ -29,6 +29,7 @@ import {
   Eye,
   Loader2,
   Sparkles, // Phase 2.1
+  BookOpen,
 } from "lucide-react";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ROLE_LABELS, ROLE_COLORS } from "../constants/characterRoles";
@@ -308,6 +309,19 @@ export function StoryCharactersManager({
         </div>
 
         <div className="flex gap-2">
+          {/* 查看小说按钮 */}
+          {sourceNovelId && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open(`/novels/${sourceNovelId}`, '_blank')}
+              className="gap-2"
+            >
+              <BookOpen className="w-4 h-4" />
+              查看小说
+            </Button>
+          )}
+
           {/* 导入小说角色按钮 */}
           {sourceNovelId && (
             <Button
@@ -428,10 +442,10 @@ export function StoryCharactersManager({
                   {/* 加载状态覆盖层 */}
                   {(regeneratingId === sc.character.id ||
                     uploadingId === sc.character.id) && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-lg">
-                      <Loader2 className="w-8 h-8 text-white animate-spin" />
-                    </div>
-                  )}
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-lg">
+                        <Loader2 className="w-8 h-8 text-white animate-spin" />
+                      </div>
+                    )}
                 </div>
 
                 {/* 角色信息 */}
