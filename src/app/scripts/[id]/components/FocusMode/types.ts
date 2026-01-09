@@ -90,6 +90,7 @@ export interface FocusModeActions {
   // 生成操作
   generateImage: () => Promise<void>;
   cancelGeneration: () => void;
+  batchGenerateChapter?: (chapterId: string) => Promise<void>;
   
   // 编辑操作
   updatePanelDescription: (description: string) => Promise<void>;

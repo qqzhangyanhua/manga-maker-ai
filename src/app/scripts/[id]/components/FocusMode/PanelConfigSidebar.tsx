@@ -45,6 +45,8 @@ import { usePanelImageGeneration } from "../../hooks/usePanelImageGeneration";
 import { useScriptData } from "../../providers/ScriptDataProvider";
 import { GenerateCharacterImageDialog } from "../GenerateCharacterImageDialog";
 import type { Character } from "@prisma/client";
+import { useErrorHandler } from "../../hooks/useErrorHandler";
+import { useLoadingState } from "../../hooks/useLoadingState";
 
 interface PanelConfigSidebarProps {
   className?: string;
@@ -55,6 +57,8 @@ interface PanelConfigSidebarProps {
 export function PanelConfigSidebar({ className, storyId, projectId }: PanelConfigSidebarProps) {
   const { state, actions, characters, panels, setPreviewImage, setGenerationState } = useFocusMode();
   const { refetchAll, storyCharacters } = useScriptData();
+  const { handleError, handleSuccess } = useErrorHandler();
+  const { withLoading, isLoadingKey } = useLoadingState({ timeout: 120000 }); // 2分钟超时
 
   // 使用共享的图片生成 Hook
   const {
@@ -64,10 +68,12 @@ export function PanelConfigSidebar({ className, storyId, projectId }: PanelConfi
     onSuccess: (imageUrl) => {
       setPreviewImage?.(imageUrl);
       setGenerationState?.(false, 0);
+      handleSuccess("图片生成成功", "已自动保存到当前分镜");
     },
     onPanelUpdate: refetchAll,
-    onError: () => {
+    onError: (error) => {
       setGenerationState?.(false, 0);
+      handleError(error, "图片生成");
     },
   });
 
@@ -103,13 +109,20 @@ export function PanelConfigSidebar({ className, storyId, projectId }: PanelConfi
   };
 
   const handleSaveChanges = async () => {
-    if (localDescription !== state.currentPanel?.description) {
-      await actions.updatePanelDescription(localDescription);
-    }
-    if (localPrompt !== state.currentPanel?.prompt_used) {
-      await actions.updatePanelPrompt(localPrompt);
-    }
-    setHasUnsavedChanges(false);
+    await withLoading(async () => {
+      try {
+        if (localDescription !== state.currentPanel?.description) {
+          await actions.updatePanelDescription(localDescription);
+        }
+        if (localPrompt !== state.currentPanel?.prompt_used) {
+          await actions.updatePanelPrompt(localPrompt);
+        }
+        setHasUnsavedChanges(false);
+        handleSuccess("保存成功", "分镜信息已更新");
+      } catch (error) {
+        handleError(error, "保存分镜");
+      }
+    }, "save-panel");
   };
 
   const handleResetConfig = () => {
@@ -129,20 +142,22 @@ export function PanelConfigSidebar({ className, storyId, projectId }: PanelConfi
       || state.currentPanel.prompt_used
       || "Generate comic panel image";
 
-    try {
-      await generateImage(state.currentPanel.id, {
-        customPrompt: prompt,
-        negativePrompt: state.config.negativePrompt,
-        modelName: state.config.modelName,
-        aspectRatio: state.config.aspectRatio,
-        numInferenceSteps: state.config.numInferenceSteps,
-        guidanceScale: state.config.guidanceScale,
-        referenceImages: state.config.referenceImages,
-      });
-    } catch (error) {
-      // 错误处理已在 Hook 中完成，这里确保状态重置
-      setGenerationState?.(false, 0);
-    }
+    await withLoading(async () => {
+      try {
+        await generateImage(state.currentPanel.id, {
+          customPrompt: prompt,
+          negativePrompt: state.config.negativePrompt,
+          modelName: state.config.modelName,
+          aspectRatio: state.config.aspectRatio,
+          numInferenceSteps: state.config.numInferenceSteps,
+          guidanceScale: state.config.guidanceScale,
+          referenceImages: state.config.referenceImages,
+        });
+      } catch (error) {
+        // 错误处理已在 Hook 中完成，这里确保状态重置
+        setGenerationState?.(false, 0);
+      }
+    }, `generate-${state.currentPanel.id}`);
   };
 
   // 过滤出当前故事关联的角色
@@ -233,10 +248,20 @@ export function PanelConfigSidebar({ className, storyId, projectId }: PanelConfi
           {hasUnsavedChanges && (
             <Button
               onClick={handleSaveChanges}
+              disabled={isLoadingKey("save-panel")}
               className="w-full bg-blue-600 hover:bg-blue-700"
             >
-              <Save className="w-4 h-4 mr-2" />
-              保存修改
+              {isLoadingKey("save-panel") ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  保存中...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  保存修改
+                </>
+              )}
             </Button>
           )}
 

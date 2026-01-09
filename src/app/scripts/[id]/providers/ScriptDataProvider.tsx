@@ -55,12 +55,22 @@ export function ScriptDataProvider({ storyId, children }: ScriptDataProviderProp
 
   // 统一刷新方法
   const refetchAll = useCallback(async () => {
-    await Promise.all([
+    const results = await Promise.allSettled([
       refetchStory(),
       refetchPanels(),
       refetchCharacters(),
       refetchStoryCharacters(),
     ]);
+
+    // 检查失败的请求
+    const failed = results.filter((r) => r.status === "rejected");
+    if (failed.length > 0) {
+      console.error("部分数据刷新失败:", failed);
+      // 不抛出错误，允许部分成功
+    }
+
+    // 返回成功的数量
+    return results.filter((r) => r.status === "fulfilled").length;
   }, [refetchStory, refetchPanels, refetchCharacters, refetchStoryCharacters]);
 
   // Context 值
@@ -68,13 +78,13 @@ export function ScriptDataProvider({ storyId, children }: ScriptDataProviderProp
     // 核心数据
     storyId,
     projectId: data?.projectId || null,
-    story: (data?.story as unknown as Story) || null,
-    chapters: (data?.chapters as unknown as Chapter[]) || [],
-    panels: (data?.panels as unknown as Panel[]) || [],
+    story: data?.story || null,
+    chapters: data?.chapters || [],
+    panels: data?.panels || [],
 
     // 角色数据
-    characterAssets: (characterAssets as unknown as Character[]) || [],
-    storyCharacters: (storyCharacters as unknown as StoryCharacter[]) || [],
+    characterAssets: characterAssets || [],
+    storyCharacters: storyCharacters || [],
 
     // 加载状态
     isLoading,

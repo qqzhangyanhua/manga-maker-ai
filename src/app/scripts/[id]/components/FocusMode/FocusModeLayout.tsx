@@ -5,14 +5,16 @@
  * Three-column layout for focus mode editing
  */
 
-import { useEffect } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { X, Keyboard } from "lucide-react";
+import { X, Keyboard, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useFocusMode } from "../../contexts/FocusModeContext";
 import { ChapterPanelNav } from "./ChapterPanelNav";
 import { PanelPreviewCenter } from "./PanelPreviewCenter";
 import { PanelConfigSidebar } from "./PanelConfigSidebar";
+import { BatchGenerationDialog } from "./BatchGenerationDialog";
+import { useScriptOperations } from "../../providers/ScriptOperationsProvider";
 
 interface FocusModeLayoutProps {
   className?: string;
@@ -22,7 +24,15 @@ interface FocusModeLayoutProps {
 }
 
 export function FocusModeLayout({ className, storyId, projectId, onPanelUpdate }: FocusModeLayoutProps) {
-  const { state, actions } = useFocusMode();
+  const { state, actions, panels, chapters } = useFocusMode();
+  const { handleBatchGenerate } = useScriptOperations();
+  const [batchDialogOpen, setBatchDialogOpen] = useState(false);
+
+  // 获取当前章节
+  const currentChapter = useMemo(() => {
+    if (!state.currentPanel) return null;
+    return chapters.find((ch) => ch.id === state.currentPanel?.chapter_id);
+  }, [state.currentPanel, chapters]);
 
   // 键盘快捷键
   useEffect(() => {
@@ -85,6 +95,19 @@ export function FocusModeLayout({ className, storyId, projectId, onPanelUpdate }
         </div>
 
         <div className="flex items-center gap-2">
+          {/* 批量生成按钮 */}
+          {currentChapter && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setBatchDialogOpen(true)}
+              className="text-orange-400 border-orange-400/50 hover:bg-orange-400/10"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              批量生成章节
+            </Button>
+          )}
+
           {/* 快捷键提示 */}
           <div className="hidden md:flex items-center gap-4 text-xs text-gray-500">
             <div className="flex items-center gap-1">
@@ -134,6 +157,18 @@ export function FocusModeLayout({ className, storyId, projectId, onPanelUpdate }
           />
         </div>
       )}
+
+      {/* 批量生成对话框 */}
+      <BatchGenerationDialog
+        open={batchDialogOpen}
+        onOpenChange={setBatchDialogOpen}
+        chapter={currentChapter}
+        panels={panels}
+        onGenerate={async (panelIds) => {
+          await handleBatchGenerate(panelIds);
+          onPanelUpdate();
+        }}
+      />
     </div>
   );
 }

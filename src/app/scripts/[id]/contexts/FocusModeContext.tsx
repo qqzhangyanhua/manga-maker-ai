@@ -139,7 +139,17 @@ export function FocusModeProvider({
   const state: FocusModeState = useMemo(
     () => ({
       currentPanelId,
-      currentPanel: currentPanel as unknown as FocusModeState["currentPanel"],
+      currentPanel: currentPanel ? {
+        id: currentPanel.id,
+        chapter_id: currentPanel.chapter_id || "",
+        panel_order: currentPanel.panel_order,
+        description: currentPanel.description || "",
+        prompt_used: currentPanel.prompt_used,
+        generated_image: currentPanel.generated_image,
+        image_generation_status: currentPanel.image_generation_status,
+        created_at: currentPanel.created_at.toISOString(),
+        updated_at: currentPanel.updated_at.toISOString(),
+      } : null,
       config,
       isGenerating,
       generationProgress,
@@ -192,9 +202,9 @@ export function FocusModeProvider({
     () => ({
       state,
       actions,
-      panels: panels as unknown as FocusModeContextValue["panels"],
-      chapters: chapters as unknown as FocusModeContextValue["chapters"],
-      characters: characters as unknown as FocusModeContextValue["characters"],
+      panels,
+      chapters,
+      characters,
       isLoading: false,
       setPreviewImage,
       toggleShowOriginal,

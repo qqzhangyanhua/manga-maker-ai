@@ -17,17 +17,20 @@ import {
   ZoomIn,
   Download,
   Maximize2,
+  History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useFocusMode } from "../../contexts/FocusModeContext";
+import { PanelHistoryDialog } from "./PanelHistoryDialog";
 
 interface PanelPreviewCenterProps {
   className?: string;
 }
 
 export function PanelPreviewCenter({ className }: PanelPreviewCenterProps) {
-  const { state, actions, panels } = useFocusMode();
+  const { state, actions, panels, setPreviewImage } = useFocusMode();
   const [isImageLoaded, setIsImageLoaded] = useState(false);
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
 
   const currentPanel = state.currentPanel;
   const currentIndex = panels.findIndex((p) => p.id === state.currentPanelId);
@@ -90,6 +93,15 @@ export function PanelPreviewCenter({ className }: PanelPreviewCenterProps) {
         <div className="flex items-center gap-2">
           {displayImageUrl && (
             <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setHistoryDialogOpen(true)}
+                className="text-gray-400 hover:text-white"
+              >
+                <History className="w-4 h-4 mr-2" />
+                历史记录
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
@@ -215,6 +227,17 @@ export function PanelPreviewCenter({ className }: PanelPreviewCenterProps) {
           </div>
         </div>
       )}
+
+      {/* 历史记录对话框 */}
+      <PanelHistoryDialog
+        open={historyDialogOpen}
+        onOpenChange={setHistoryDialogOpen}
+        panelId={currentPanel?.id || null}
+        currentImageUrl={displayImageUrl}
+        onSelectImage={(imageUrl) => {
+          setPreviewImage?.(imageUrl);
+        }}
+      />
     </div>
   );
 }
