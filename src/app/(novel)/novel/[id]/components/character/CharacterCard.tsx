@@ -58,7 +58,7 @@ export function CharacterCard({ character, onEdit, onDelete }: CharacterCardProp
         {(character.traits || []).length > 0 && (
           <div className="flex flex-wrap gap-1">
             {(character.traits || []).slice(0, 3).map((trait, i) => (
-              <Badge key={i} variant="outline" className="text-xs">
+              <Badge key={`trait-${trait}-${i}`} variant="outline" className="text-xs">
                 {trait}
               </Badge>
             ))}

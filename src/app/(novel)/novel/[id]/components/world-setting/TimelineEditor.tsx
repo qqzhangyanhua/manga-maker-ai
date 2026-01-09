@@ -35,7 +35,7 @@ export function TimelineEditor({ timeline, onChange }: TimelineEditorProps) {
   };
 
   // 按年份排序显示
-  const sortedTimeline = [...timeline].sort((a, b) => a.year.localeCompare(b.year));
+  const sortedTimeline = [...timeline].sort((a, b) => a.date.localeCompare(b.date));
 
   return (
     <div className="space-y-4">
@@ -47,16 +47,16 @@ export function TimelineEditor({ timeline, onChange }: TimelineEditorProps) {
         {sortedTimeline.map((event, sortedIndex) => {
           // 找到原始索引以便更新
           const originalIndex = timeline.findIndex(
-            (e) => e.year === event.year && e.event === event.event
+            (e) => e.date === event.date && e.event === event.event
           );
           return (
-            <Card key={sortedIndex}>
+            <Card key={event.id || `timeline-${event.date}-${sortedIndex}`}>
               <CardContent className="flex items-center gap-4 p-4">
                 <div className="flex-1 grid grid-cols-3 gap-4">
                   <Input
-                    value={event.year}
+                    value={event.date}
                     onChange={(e) =>
-                      updateTimelineEvent(originalIndex, "year", e.target.value)
+                      updateTimelineEvent(originalIndex, "date", e.target.value)
                     }
                     placeholder="年份/时期"
                   />

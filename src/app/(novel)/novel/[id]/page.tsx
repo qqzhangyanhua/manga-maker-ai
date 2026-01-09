@@ -1,5 +1,6 @@
 /**
  * 小说项目详情页 - 章节管理和编辑
+ * 重构版本：修复类型安全、数据同步、错误处理问题
  */
 "use client";
 
@@ -14,7 +15,6 @@ import { ChaptersTab } from "./ChaptersTab";
 import { useNovelProject } from "./useNovelProject";
 import { denormalizeOutline } from "./types";
 import type { ChapterOutline } from "./types";
-import type { WorldSetting } from "./components/world-setting";
 
 // 组件导入
 import { ProjectSettings } from "./components/ProjectSettings";
@@ -24,25 +24,50 @@ import { OutlineEditor } from "./components/OutlineEditor";
 import { GenerateOutlineDialog } from "./components/GenerateOutlineDialog";
 import { ContinueOutlineDialog } from "./components/ContinueOutlineDialog";
 
-export default function NovelProjectPage() {
+// ✅ 新增：错误边界和状态组件
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ErrorState } from "@/components/ErrorState";
+import { SaveIndicator } from "@/components/SaveIndicator";
+
+function NovelProjectPageContent() {
   const params = useParams();
   const projectId = params.id as string;
 
+  // ✅ 使用重构后的 Hook
   const {
     project,
     outlines,
+    characters,
+    worldSetting,
     selectedChapter,
     loading,
-    setProject,
-    setOutlines,
+    error,
+    saveStatus,
+    lastSaved,
     setSelectedChapter,
     handleCreateChapter,
     handleChapterUpdate,
     handleSaveOutlines,
+    handleSaveCharacters,
+    handleSaveWorldSetting,
+    handleUpdateProject,
+    refetch,
   } = useNovelProject(projectId);
 
   const [isGenerateOutlineDialogOpen, setIsGenerateOutlineDialogOpen] = useState(false);
   const [isContinueOutlineDialogOpen, setIsContinueOutlineDialogOpen] = useState(false);
+
+  // ✅ 错误状态处理
+  if (error) {
+    return (
+      <ErrorState
+        error={error}
+        title="加载项目失败"
+        description="无法加载项目数据，请检查项目是否存在或稍后重试。"
+        onRetry={refetch}
+      />
+    );
+  }
 
   // 加载骨架屏
   if (loading || !project) {
@@ -72,56 +97,36 @@ export default function NovelProjectPage() {
   // 处理续写大纲完成
   const handleContinueOutlineGenerated = async (newChapters: ChapterOutline[]) => {
     const updatedOutlines = [...outlines, ...newChapters];
-    setOutlines(updatedOutlines);
 
-    // 自动保存
-    const backendOutlines = updatedOutlines.map(denormalizeOutline);
-    await fetch(`/api/novel/projects/${projectId}/outlines`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ outlines: backendOutlines }),
-    });
-  };
-
-  // 保存角色
-  const handleSaveCharacters = async (characters: unknown[]) => {
-    const response = await fetch(`/api/novel/projects/${projectId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ characters }),
-    });
-    if (response.ok) {
-      const updated = await response.json();
-      setProject(updated);
-    } else {
-      throw new Error("保存失败");
-    }
-  };
-
-  // 保存世界观
-  const handleSaveWorldSetting = async (worldSetting: WorldSetting) => {
-    const response = await fetch(`/api/novel/projects/${projectId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ world_setting: worldSetting }),
-    });
-    if (response.ok) {
-      const updated = await response.json();
-      setProject(updated);
-    } else {
-      throw new Error("保存失败");
+    // ✅ 使用统一的保存方法
+    try {
+      const backendOutlines = updatedOutlines.map(denormalizeOutline);
+      await handleUpdateProject({ outlines: backendOutlines as never[] });
+      toast.success("大纲续写成功");
+    } catch (err) {
+      console.error("续写大纲保存失败:", err);
     }
   };
 
   return (
     <div className="container mx-auto py-6 px-4 max-w-7xl">
-      {/* 项目头部 */}
-      <ProjectHeader
-        project={project}
-        projectId={projectId}
-        outlines={outlines}
-        onSelectChapter={setSelectedChapter}
-      />
+      {/* 项目头部 + 保存指示器 */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <ProjectHeader
+            project={project}
+            projectId={projectId}
+            outlines={outlines}
+            onSelectChapter={setSelectedChapter}
+          />
+          {/* ✅ 自动保存指示器 */}
+          <SaveIndicator
+            status={saveStatus}
+            lastSaved={lastSaved}
+            className="ml-4"
+          />
+        </div>
+      </div>
 
       {/* 主内容区 */}
       <Tabs defaultValue="chapters" className="space-y-4">
@@ -170,25 +175,32 @@ export default function NovelProjectPage() {
         </TabsContent>
 
         <TabsContent value="characters">
+          {/* ✅ 使用类型安全的 characters */}
           <CharacterManager
             projectId={projectId}
-            initialCharacters={Array.isArray(project.characters) ? project.characters as never[] : []}
+            initialCharacters={characters}
             outlines={outlines}
             onSave={handleSaveCharacters}
           />
         </TabsContent>
 
         <TabsContent value="world">
+          {/* ✅ 使用类型安全的 worldSetting */}
           <WorldSettingEditor
             projectId={projectId}
-            initialData={project.world_setting as never}
+            initialData={worldSetting}
             outlines={outlines}
             onSave={handleSaveWorldSetting}
           />
         </TabsContent>
 
         <TabsContent value="settings">
-          <ProjectSettings project={project} onUpdate={setProject} />
+          <ProjectSettings 
+            project={project} 
+            onUpdate={(updates) => {
+              handleUpdateProject(updates);
+            }} 
+          />
         </TabsContent>
       </Tabs>
 
@@ -198,7 +210,7 @@ export default function NovelProjectPage() {
         onClose={() => setIsGenerateOutlineDialogOpen(false)}
         projectId={projectId}
         onGenerated={(generatedOutlines) => {
-          setOutlines(generatedOutlines);
+          handleSaveOutlines(generatedOutlines);
           toast.success("大纲已生成并保存");
         }}
       />
@@ -213,5 +225,14 @@ export default function NovelProjectPage() {
         onGenerated={handleContinueOutlineGenerated}
       />
     </div>
+  );
+}
+
+// ✅ 导出包装了错误边界的组件
+export default function NovelProjectPage() {
+  return (
+    <ErrorBoundary>
+      <NovelProjectPageContent />
+    </ErrorBoundary>
   );
 }

@@ -8,7 +8,9 @@
       "Bash(uvicorn:*)",
       "Bash(ls:*)",
       "Bash(grep:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(test:*)",
+      "Bash(/Users/zhangyanhua/ls/bin/python3:*)"
     ]
   }
 }

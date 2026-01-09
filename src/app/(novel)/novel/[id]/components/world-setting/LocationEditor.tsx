@@ -38,7 +38,7 @@ export function LocationEditor({ locations, onChange }: LocationEditorProps) {
         添加地点
       </Button>
       {locations.map((location, index) => (
-        <Card key={index}>
+        <Card key={location.id || `location-${index}`}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               地点 {index + 1}

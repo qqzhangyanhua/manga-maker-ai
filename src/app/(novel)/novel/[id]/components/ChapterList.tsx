@@ -37,7 +37,7 @@ export function ChapterList({
     return (
       <div className="p-4 space-y-2">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-16 bg-gray-100 rounded animate-pulse" />
+          <div key={`skeleton-${i}`} className="h-16 bg-gray-100 rounded animate-pulse" />
         ))}
       </div>
     );
@@ -56,7 +56,7 @@ export function ChapterList({
       <div className="p-2 space-y-2">
         {chapters.map((chapter) => (
           <button
-            key={chapter.chapterNumber}
+            key={chapter._tempId || `chapter-${chapter.chapterNumber}`}
             onClick={() => onSelect(chapter)}
             className={cn(
               "w-full text-left p-3 rounded-lg transition-all",

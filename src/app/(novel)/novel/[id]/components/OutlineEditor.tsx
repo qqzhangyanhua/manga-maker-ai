@@ -47,19 +47,27 @@ interface ChapterOutline {
 }
 
 /**
+ * 生成临时唯一ID
+ */
+function generateTempId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+}
+
+/**
  * 确保 outline 对象所有字段都正确初始化
  */
-function ensureOutlineFields(outline: any): ChapterOutline {
+function ensureOutlineFields(outline: ChapterOutline): ChapterOutline {
   return {
-    chapterNumber: outline.chapterNumber ?? outline.chapter_number ?? 0,
+    _tempId: outline._tempId || generateTempId(),
+    chapterNumber: outline.chapterNumber ?? (outline as unknown as { chapter_number?: number }).chapter_number ?? 0,
     title: outline.title ?? "",
     outline: outline.outline ?? "",
     keyEvents: Array.isArray(outline.keyEvents) ? outline.keyEvents :
-               Array.isArray(outline.key_events) ? outline.key_events : [],
+               Array.isArray((outline as unknown as { key_events?: string[] }).key_events) ? (outline as unknown as { key_events: string[] }).key_events : [],
     characters: Array.isArray(outline.characters) ? outline.characters : [],
     plotLines: Array.isArray(outline.plotLines) ? outline.plotLines :
-               Array.isArray(outline.plot_lines) ? outline.plot_lines : [],
-    isKeyChapter: outline.isKeyChapter ?? outline.is_key_chapter ?? false,
+               Array.isArray((outline as unknown as { plot_lines?: string[] }).plot_lines) ? (outline as unknown as { plot_lines: string[] }).plot_lines : [],
+    isKeyChapter: outline.isKeyChapter ?? (outline as unknown as { is_key_chapter?: boolean }).is_key_chapter ?? false,
   };
 }
 
@@ -128,6 +136,7 @@ export function OutlineEditor({
     setOutlines([
       ...outlines,
       {
+        _tempId: generateTempId(),
         chapterNumber: newChapterNumber,
         title: `第${newChapterNumber}章`,
         outline: "",
@@ -246,7 +255,7 @@ export function OutlineEditor({
       <div className="space-y-3">
         {outlines.map((outline, index) => (
           <Card
-            key={index}
+            key={outline._tempId || `outline-${outline.chapterNumber}-${index}`}
             className={outline.isKeyChapter ? "border-yellow-500 border-2" : ""}
           >
             <CardHeader className="pb-3">
@@ -385,7 +394,7 @@ export function OutlineEditor({
                 {outline.keyEvents.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {outline.keyEvents.map((event, i) => (
-                      <Badge key={i} variant="destructive" className="text-xs">
+                      <Badge key={`event-${event}-${i}`} variant="destructive" className="text-xs">
                         {event}
                       </Badge>
                     ))}
@@ -394,7 +403,7 @@ export function OutlineEditor({
                 {outline.characters.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {outline.characters.map((char, i) => (
-                      <Badge key={i} variant="secondary" className="text-xs">
+                      <Badge key={`char-${char}-${i}`} variant="secondary" className="text-xs">
                         {char}
                       </Badge>
                     ))}
@@ -403,7 +412,7 @@ export function OutlineEditor({
                 {outline.plotLines.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {outline.plotLines.map((plot, i) => (
-                      <Badge key={i} variant="outline" className="text-xs">
+                      <Badge key={`plot-${plot}-${i}`} variant="outline" className="text-xs">
                         {plot}
                       </Badge>
                     ))}

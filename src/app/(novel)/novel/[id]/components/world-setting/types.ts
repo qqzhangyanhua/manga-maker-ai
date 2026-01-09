@@ -1,66 +1,47 @@
 /**
  * 世界观设定模块类型定义
+ * 更新版本：重新导出主类型文件中的类型，保持兼容性
  */
 
-/**
- * 地点
- */
-export interface Location {
-  name: string;
-  description: string;
-  type: string; // 城市、森林、山脉等
-}
+// ✅ 导入并重新导出主类型文件中的类型
+import type {
+  Location as BaseLocation,
+  Faction as BaseFaction,
+  Rule as BaseRule,
+  TimelineEvent as BaseTimelineEvent,
+  WorldSetting as BaseWorldSetting,
+} from "../../types";
 
-/**
- * 派系
- */
-export interface Faction {
-  name: string;
-  description: string;
-  leader: string;
-  members: string[];
-}
-
-/**
- * 规则
- */
-export interface Rule {
-  title: string;
-  description: string;
-  category: string; // 魔法、科技、社会等
-}
-
-/**
- * 时间线事件
- */
-export interface TimelineEvent {
-  year: string;
-  event: string;
-  importance: "high" | "medium" | "low";
-}
-
-/**
- * 世界观设定
- */
-export interface WorldSetting {
-  locations: Location[];
-  factions: Faction[];
-  rules: Rule[];
-  timeline: TimelineEvent[];
-}
+export type Location = BaseLocation;
+export type Faction = BaseFaction;
+export type Rule = BaseRule;
+export type TimelineEvent = BaseTimelineEvent;
+export type WorldSetting = BaseWorldSetting;
 
 /**
  * 地点类型选项
+ * ✅ 更新为英文值，符合类型定义
  */
 export const LOCATION_TYPES = [
-  "城市", "村庄", "森林", "山脉", "海洋", "沙漠", "平原", "洞穴", "遗迹", "其他"
+  { value: "indoor", label: "室内" },
+  { value: "outdoor", label: "室外" },
+  { value: "urban", label: "城市" },
+  { value: "nature", label: "自然" },
+  { value: "fantasy", label: "奇幻" },
+  { value: "scifi", label: "科幻" },
+  { value: "other", label: "其他" },
 ] as const;
 
 /**
  * 规则分类选项
+ * ✅ 更新为英文值，符合类型定义
  */
 export const RULE_CATEGORIES = [
-  "魔法", "科技", "社会", "政治", "经济", "宗教", "军事", "其他"
+  { value: "magic", label: "魔法" },
+  { value: "technology", label: "科技" },
+  { value: "social", label: "社会" },
+  { value: "natural", label: "自然" },
+  { value: "other", label: "其他" },
 ] as const;
 
 /**
@@ -79,30 +60,37 @@ export function ensureWorldSettingFields(data: Partial<WorldSetting> | null): Wo
   return {
     locations: Array.isArray(data?.locations)
       ? data.locations.map((loc) => ({
+          id: loc?.id,
           name: loc?.name ?? "",
           description: loc?.description ?? "",
-          type: loc?.type ?? "",
+          type: (loc?.type as "indoor" | "outdoor" | "urban" | "nature" | "fantasy" | "scifi" | "other") ?? "other",
+          atmosphere: loc?.atmosphere,
         }))
       : [],
     factions: Array.isArray(data?.factions)
       ? data.factions.map((faction) => ({
+          id: faction?.id,
           name: faction?.name ?? "",
           description: faction?.description ?? "",
-          leader: faction?.leader ?? "",
-          members: Array.isArray(faction?.members) ? faction.members : [],
+          leader: faction?.leader,
+          members: faction?.members,
+          goals: faction?.goals,
         }))
       : [],
     rules: Array.isArray(data?.rules)
       ? data.rules.map((rule) => ({
+          id: rule?.id,
           title: rule?.title ?? "",
-          description: rule?.description ?? "",
-          category: rule?.category ?? "",
+          content: rule?.content ?? "",
+          category: (rule?.category as "magic" | "technology" | "social" | "natural" | "other") ?? "other",
         }))
       : [],
     timeline: Array.isArray(data?.timeline)
       ? data.timeline.map((event) => ({
-          year: event?.year ?? "",
+          id: event?.id,
+          date: event?.date ?? "",
           event: event?.event ?? "",
+          description: event?.description,
           importance: event?.importance ?? "medium",
         }))
       : [],
@@ -113,26 +101,26 @@ export function ensureWorldSettingFields(data: Partial<WorldSetting> | null): Wo
  * 创建新地点
  */
 export function createNewLocation(): Location {
-  return { name: "", description: "", type: "" };
+  return { name: "", description: "", type: "other" };
 }
 
 /**
  * 创建新派系
  */
 export function createNewFaction(): Faction {
-  return { name: "", description: "", leader: "", members: [] };
+  return { name: "", description: "" };
 }
 
 /**
  * 创建新规则
  */
 export function createNewRule(): Rule {
-  return { title: "", description: "", category: "" };
+  return { title: "", content: "", category: "other" };
 }
 
 /**
  * 创建新时间线事件
  */
 export function createNewTimelineEvent(): TimelineEvent {
-  return { year: "", event: "", importance: "medium" };
+  return { date: "", event: "", importance: "medium" };
 }

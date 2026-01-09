@@ -271,7 +271,7 @@ export function ConvertToComicDialog({
                                 </div>
                                 {chapter.keyEvents.map((event, idx) => (
                                   <label
-                                    key={idx}
+                                    key={`event-${chapter.chapterNumber}-${idx}`}
                                     className="flex items-start gap-3 p-2 rounded-md hover:bg-muted cursor-pointer"
                                   >
                                     <Checkbox
@@ -327,7 +327,7 @@ export function ConvertToComicDialog({
                   </div>
                   {characters.map((char) => (
                     <label
-                      key={char.name}
+                      key={`char-${char.name}`}
                       className="flex items-start gap-3 p-3 rounded-md hover:bg-muted cursor-pointer border"
                     >
                       <Checkbox

@@ -220,7 +220,7 @@ export function GenerateWorldSettingDialog({
                     </div>
                     <div className="space-y-2">
                       {suggestedWorldSetting.locations.map((location, index) => (
-                        <Card key={index}>
+                        <Card key={`location-${location.name}-${index}`}>
                           <CardContent className="pt-4">
                             <div className="flex items-start gap-3">
                               <Checkbox
@@ -253,7 +253,7 @@ export function GenerateWorldSettingDialog({
                     </div>
                     <div className="space-y-2">
                       {suggestedWorldSetting.factions.map((faction, index) => (
-                        <Card key={index}>
+                        <Card key={`faction-${faction.name}-${index}`}>
                           <CardContent className="pt-4">
                             <div className="flex items-start gap-3">
                               <Checkbox
@@ -271,10 +271,10 @@ export function GenerateWorldSettingDialog({
                                     {faction.leader}
                                   </p>
                                 )}
-                                {faction.members.length > 0 && (
+                                {faction.members && faction.members.length > 0 && (
                                   <div className="flex flex-wrap gap-1 mt-2">
                                     {faction.members.map((member, i) => (
-                                      <Badge key={i} variant="secondary" className="text-xs">
+                                      <Badge key={`member-${member}-${i}`} variant="secondary" className="text-xs">
                                         {member}
                                       </Badge>
                                     ))}
@@ -298,7 +298,7 @@ export function GenerateWorldSettingDialog({
                     </div>
                     <div className="space-y-2">
                       {suggestedWorldSetting.rules.map((rule, index) => (
-                        <Card key={index}>
+                        <Card key={`rule-${rule.title}-${index}`}>
                           <CardContent className="pt-4">
                             <div className="flex items-start gap-3">
                               <Checkbox
@@ -311,7 +311,7 @@ export function GenerateWorldSettingDialog({
                                   <Badge variant="outline">{rule.category}</Badge>
                                 </div>
                                 <p className="text-sm text-muted-foreground mt-1">
-                                  {rule.description}
+                                  {rule.content}
                                 </p>
                               </div>
                             </div>
@@ -331,7 +331,7 @@ export function GenerateWorldSettingDialog({
                     </div>
                     <div className="space-y-2">
                       {suggestedWorldSetting.timeline.map((event, index) => (
-                        <Card key={index}>
+                        <Card key={`timeline-${event.date}-${index}`}>
                           <CardContent className="pt-4">
                             <div className="flex items-start gap-3">
                               <Checkbox
@@ -340,7 +340,7 @@ export function GenerateWorldSettingDialog({
                               />
                               <div className="flex-1">
                                 <div className="flex items-center gap-2">
-                                  <h4 className="font-medium">{event.year}</h4>
+                                  <h4 className="font-medium">{event.date}</h4>
                                   <Badge
                                     variant={
                                       event.importance === "high"

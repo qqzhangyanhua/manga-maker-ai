@@ -38,7 +38,7 @@ export function FactionEditor({ factions, onChange }: FactionEditorProps) {
         添加派系
       </Button>
       {factions.map((faction, index) => (
-        <Card key={index}>
+        <Card key={faction.id || `faction-${index}`}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               派系 {index + 1}

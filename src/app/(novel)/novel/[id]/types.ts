@@ -6,6 +6,7 @@
  * 章节大纲（前端格式 - camelCase）
  */
 export interface ChapterOutline {
+  _tempId?: string; // 临时唯一ID，用于React key，不存储到数据库
   chapterNumber: number;
   title: string;
   outline: string;
@@ -35,6 +36,79 @@ export interface ChapterOutlineBackend {
 }
 
 /**
+ * 角色定义
+ */
+export interface Character {
+  id: string;
+  name: string;
+  role: "protagonist" | "antagonist" | "supporting" | "minor";
+  description: string;
+  traits: string[];
+  relationships: Array<{
+    characterId: string;
+    characterName?: string;
+    relation: string;
+    description?: string;
+  }>;
+  appearance?: string;
+  background?: string;
+}
+
+/**
+ * 地点定义
+ */
+export interface Location {
+  id?: string;
+  name: string;
+  description: string;
+  type: "indoor" | "outdoor" | "urban" | "nature" | "fantasy" | "scifi" | "other";
+  atmosphere?: string;
+}
+
+/**
+ * 势力定义
+ */
+export interface Faction {
+  id?: string;
+  name: string;
+  description: string;
+  leader?: string;
+  members?: string[];
+  goals?: string;
+}
+
+/**
+ * 规则定义
+ */
+export interface Rule {
+  id?: string;
+  title: string;
+  content: string;
+  category?: "magic" | "technology" | "social" | "natural" | "other";
+}
+
+/**
+ * 时间线事件
+ */
+export interface TimelineEvent {
+  id?: string;
+  date: string;
+  event: string;
+  description?: string;
+  importance?: "high" | "medium" | "low";
+}
+
+/**
+ * 世界观设定
+ */
+export interface WorldSetting {
+  locations: Location[];
+  factions: Faction[];
+  rules: Rule[];
+  timeline: TimelineEvent[];
+}
+
+/**
  * 小说项目
  */
 export interface NovelProject {
@@ -46,9 +120,19 @@ export interface NovelProject {
   status: string;
   total_words: number;
   chapter_count: number;
-  world_setting: Record<string, unknown> | null;
-  characters: unknown[] | null;
+  cover_image: string | null;
+  world_setting: WorldSetting | null;
+  characters: Character[] | null;
   outlines: ChapterOutline[] | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * 生成临时唯一ID（用于React key）
+ */
+function generateTempId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
 
 /**
@@ -56,6 +140,7 @@ export interface NovelProject {
  */
 export function normalizeOutline(outline: Partial<ChapterOutlineBackend & ChapterOutline>): ChapterOutline {
   return {
+    _tempId: (outline as ChapterOutline)._tempId || generateTempId(),
     chapterNumber: outline.chapterNumber ?? outline.chapter_number ?? 0,
     title: outline.title ?? "",
     outline: outline.outline ?? "",
@@ -73,17 +158,20 @@ export function normalizeOutline(outline: Partial<ChapterOutlineBackend & Chapte
  * 转换前端 camelCase 格式的 outline 为后端 snake_case 格式
  */
 export function denormalizeOutline(outline: ChapterOutline): ChapterOutlineBackend {
+  // 移除临时ID字段(_tempId)，不存储到数据库
+  const { _tempId: _, ...rest } = outline;
+
   return {
-    chapter_number: outline.chapterNumber,
-    title: outline.title,
-    outline: outline.outline,
-    key_events: outline.keyEvents,
-    characters: outline.characters,
-    plot_lines: outline.plotLines,
-    is_key_chapter: outline.isKeyChapter,
-    content: outline.content,
-    word_count: outline.wordCount,
-    status: outline.status,
+    chapter_number: rest.chapterNumber,
+    title: rest.title,
+    outline: rest.outline,
+    key_events: rest.keyEvents,
+    characters: rest.characters,
+    plot_lines: rest.plotLines,
+    is_key_chapter: rest.isKeyChapter,
+    content: rest.content,
+    word_count: rest.wordCount,
+    status: rest.status,
   };
 }
 
@@ -92,6 +180,7 @@ export function denormalizeOutline(outline: ChapterOutline): ChapterOutlineBacke
  */
 export function createNewChapter(chapterNumber: number): ChapterOutline {
   return {
+    _tempId: generateTempId(),
     chapterNumber,
     title: `第 ${chapterNumber} 章`,
     outline: "",
@@ -103,4 +192,59 @@ export function createNewChapter(chapterNumber: number): ChapterOutline {
     wordCount: 0,
     status: "draft",
   };
+}
+
+/**
+ * 验证角色数据
+ */
+export function isValidCharacter(obj: unknown): obj is Character {
+  if (!obj || typeof obj !== "object") return false;
+  const c = obj as Record<string, unknown>;
+  return (
+    typeof c.name === "string" &&
+    typeof c.description === "string" &&
+    ["protagonist", "antagonist", "supporting", "minor"].includes(c.role as string)
+  );
+}
+
+/**
+ * 验证世界观数据
+ */
+export function isValidWorldSetting(obj: unknown): obj is WorldSetting {
+  if (!obj || typeof obj !== "object") return false;
+  const w = obj as Record<string, unknown>;
+  return (
+    Array.isArray(w.locations) &&
+    Array.isArray(w.factions) &&
+    Array.isArray(w.rules) &&
+    Array.isArray(w.timeline)
+  );
+}
+
+/**
+ * 初始化空世界观
+ */
+export function createEmptyWorldSetting(): WorldSetting {
+  return {
+    locations: [],
+    factions: [],
+    rules: [],
+    timeline: [],
+  };
+}
+
+/**
+ * 初始化空角色数组
+ */
+export function normalizeCharacters(characters: unknown): Character[] {
+  if (!Array.isArray(characters)) return [];
+  return characters.filter(isValidCharacter);
+}
+
+/**
+ * 初始化世界观数据
+ */
+export function normalizeWorldSetting(worldSetting: unknown): WorldSetting {
+  if (isValidWorldSetting(worldSetting)) return worldSetting;
+  return createEmptyWorldSetting();
 }

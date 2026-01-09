@@ -111,11 +111,19 @@ export function GenerateCharactersDialog({
       return;
     }
 
+    // 角色映射：中文 -> 英文
+    const roleMapping: Record<string, "protagonist" | "antagonist" | "supporting" | "minor"> = {
+      "主角": "protagonist",
+      "反派": "antagonist",
+      "配角": "supporting",
+      "路人": "minor",
+    };
+
     // 转换为标准角色格式
     const characters = selectedCharacters.map((char) => ({
-      id: Date.now().toString() + Math.random().toString(36),
+      id: `char_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       name: char.name,
-      role: char.role,
+      role: (roleMapping[char.role] || "supporting") as "protagonist" | "antagonist" | "supporting" | "minor",
       description: char.description,
       traits: char.traits,
       appearance: char.appearance,
@@ -214,7 +222,7 @@ export function GenerateCharactersDialog({
                 <div className="space-y-3">
                   {suggestedCharacters.map((character, index) => (
                     <Card
-                      key={index}
+                      key={`character-${character.name}-${index}`}
                       className={`cursor-pointer transition-all ${
                         character.selected
                           ? "border-primary shadow-sm"
@@ -241,7 +249,7 @@ export function GenerateCharactersDialog({
                             {character.traits.length > 0 && (
                               <div className="flex flex-wrap gap-1">
                                 {character.traits.map((trait, i) => (
-                                  <Badge key={i} variant="outline" className="text-xs">
+                                  <Badge key={`trait-${trait}-${i}`} variant="outline" className="text-xs">
                                     {trait}
                                   </Badge>
                                 ))}

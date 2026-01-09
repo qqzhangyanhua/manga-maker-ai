@@ -251,7 +251,7 @@ export function BatchImportDialog({
                 <div className="space-y-3">
                   {previewChapters.map((chapter, index) => (
                     <div
-                      key={index}
+                      key={`preview-chapter-${index}`}
                       className="rounded-lg border p-3 space-y-2"
                     >
                       <div className="flex items-center justify-between">

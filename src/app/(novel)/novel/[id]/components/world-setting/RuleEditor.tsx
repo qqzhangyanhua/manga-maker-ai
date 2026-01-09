@@ -38,7 +38,7 @@ export function RuleEditor({ rules, onChange }: RuleEditorProps) {
         添加规则
       </Button>
       {rules.map((rule, index) => (
-        <Card key={index}>
+        <Card key={rule.id || `rule-${index}`}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               规则 {index + 1}
@@ -73,8 +73,8 @@ export function RuleEditor({ rules, onChange }: RuleEditorProps) {
             <div>
               <label className="text-sm font-medium">详细说明</label>
               <Textarea
-                value={rule.description}
-                onChange={(e) => updateRule(index, "description", e.target.value)}
+                value={rule.content}
+                onChange={(e) => updateRule(index, "content", e.target.value)}
                 placeholder="详细描述这个规则的运作方式、限制、特例..."
                 rows={4}
               />

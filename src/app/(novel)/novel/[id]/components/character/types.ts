@@ -1,55 +1,33 @@
 /**
  * 角色管理模块类型定义
+ * 更新版本：导出主类型文件中的类型，保持兼容性
  */
 
+// ✅ 导入并重新导出主类型文件中的类型
+import type { Character as BaseCharacter, ChapterOutline as BaseChapterOutline } from "../../types";
+
+export type Character = BaseCharacter;
+export type ChapterOutline = BaseChapterOutline;
+
 /**
- * 角色关系
+ * 角色关系（扩展定义，兼容旧代码）
  */
 export interface CharacterRelationship {
   characterId: string;
-  characterName: string;
-  type: string; // 朋友、敌人、恋人、师徒等
-  description: string;
-}
-
-/**
- * 角色
- */
-export interface Character {
-  id: string;
-  name: string;
-  role: string; // 主角、配角、反派等
-  description: string;
-  traits: string[]; // 性格特征
-  appearance: string; // 外貌描述
-  background: string; // 背景故事
-  relationships: CharacterRelationship[];
-}
-
-/**
- * 章节大纲（用于 AI 分析）
- */
-export interface ChapterOutline {
-  chapterNumber: number;
-  title: string;
-  outline: string;
-  keyEvents: string[];
-  characters: string[];
-  plotLines: string[];
-  isKeyChapter: boolean;
-  content?: string;
-  wordCount?: number;
-  status?: "draft" | "completed";
+  characterName?: string; // 可选，用于显示
+  relation: string; // 朋友、敌人、恋人、师徒等
+  description?: string;
 }
 
 /**
  * 角色定位选项
+ * ✅ 更新为英文值，符合类型定义
  */
 export const CHARACTER_ROLES = [
-  { value: "主角", label: "主角" },
-  { value: "配角", label: "配角" },
-  { value: "反派", label: "反派" },
-  { value: "路人", label: "路人" },
+  { value: "protagonist", label: "主角" },
+  { value: "supporting", label: "配角" },
+  { value: "antagonist", label: "反派" },
+  { value: "minor", label: "路人" },
 ] as const;
 
 /**
@@ -67,15 +45,26 @@ export const RELATIONSHIP_TYPES = [
 /**
  * 确保 character 对象所有字段都正确初始化
  */
-export function ensureCharacterFields(character: Partial<Character>): Character {
+export function ensureCharacterFields(character: Partial<Character> & { role?: string }): Character {
+  // ✅ 角色定位映射：中文 -> 英文
+  const roleMapping: Record<string, "protagonist" | "antagonist" | "supporting" | "minor"> = {
+    "主角": "protagonist",
+    "反派": "antagonist",
+    "配角": "supporting",
+    "路人": "minor",
+  };
+
+  const normalizedRole = character.role as string;
+  const role = (roleMapping[normalizedRole] || character.role || "supporting") as "protagonist" | "antagonist" | "supporting" | "minor";
+
   return {
-    id: character.id ?? Date.now().toString(),
+    id: character.id ?? `char_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     name: character.name ?? "",
-    role: character.role ?? "配角",
+    role,
     description: character.description ?? "",
     traits: Array.isArray(character.traits) ? character.traits : [],
-    appearance: character.appearance ?? "",
-    background: character.background ?? "",
+    appearance: character.appearance,
+    background: character.background,
     relationships: Array.isArray(character.relationships) ? character.relationships : [],
   };
 }
@@ -85,29 +74,47 @@ export function ensureCharacterFields(character: Partial<Character>): Character 
  */
 export function createNewCharacter(): Character {
   return {
-    id: Date.now().toString(),
+    id: `char_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     name: "",
-    role: "配角",
+    role: "supporting",
     description: "",
     traits: [],
-    appearance: "",
-    background: "",
     relationships: [],
   };
 }
 
 /**
  * 获取角色定位颜色
+ * ✅ 支持英文和中文角色定位
  */
 export function getRoleColor(role: string): string {
   switch (role) {
+    case "protagonist":
     case "主角":
       return "bg-red-500";
+    case "supporting":
     case "配角":
       return "bg-blue-500";
+    case "antagonist":
     case "反派":
       return "bg-purple-500";
+    case "minor":
+    case "路人":
+      return "bg-gray-500";
     default:
       return "bg-gray-500";
   }
+}
+
+/**
+ * 获取角色定位中文显示
+ */
+export function getRoleLabel(role: string): string {
+  const labelMapping: Record<string, string> = {
+    "protagonist": "主角",
+    "antagonist": "反派",
+    "supporting": "配角",
+    "minor": "路人",
+  };
+  return labelMapping[role] || role;
 }

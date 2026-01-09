@@ -60,7 +60,7 @@ export function CharacterEditDialog({
     const newRelationship: CharacterRelationship = {
       characterId: "",
       characterName: "",
-      type: "朋友",
+      relation: "朋友",
       description: "",
     };
     setEditingCharacter({
@@ -204,7 +204,7 @@ export function CharacterEditDialog({
                 </Button>
               </div>
               {editingCharacter.relationships.map((rel, index) => (
-                <Card key={index} className="p-3">
+                <Card key={`relationship-${rel.characterId}-${index}`} className="p-3">
                   <div className="grid grid-cols-3 gap-2">
                     <Input
                       value={rel.characterName}
@@ -214,9 +214,9 @@ export function CharacterEditDialog({
                       placeholder="角色名称"
                     />
                     <select
-                      value={rel.type}
+                      value={rel.relation}
                       onChange={(e) =>
-                        updateRelationship(index, "type", e.target.value)
+                        updateRelationship(index, "relation", e.target.value)
                       }
                       className="rounded-md border px-2 py-1"
                     >

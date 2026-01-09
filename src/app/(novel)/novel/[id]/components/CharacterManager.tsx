@@ -1,5 +1,6 @@
 /**
  * 角色管理组件
+ * 更新版本：使用统一的类型系统
  */
 "use client";
 
@@ -21,11 +22,11 @@ import { GenerateCharactersDialog } from "./GenerateCharactersDialog";
 import {
   CharacterCard,
   CharacterEditDialog,
-  type Character,
-  type ChapterOutline,
   ensureCharacterFields,
   createNewCharacter,
 } from "./character";
+// ✅ 使用主类型文件中的类型
+import type { Character, ChapterOutline } from "../types";
 
 interface CharacterManagerProps {
   projectId: string;
