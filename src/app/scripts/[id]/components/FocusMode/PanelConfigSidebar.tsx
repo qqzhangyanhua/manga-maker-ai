@@ -47,6 +47,7 @@ import { GenerateCharacterImageDialog } from "../GenerateCharacterImageDialog";
 import type { Character } from "@prisma/client";
 import { useErrorHandler } from "../../hooks/useErrorHandler";
 import { useLoadingState } from "../../hooks/useLoadingState";
+import { buildCompletePrompt, extractCharacterNames } from "@/lib/panel-prompt-builder";
 
 interface PanelConfigSidebarProps {
   className?: string;
@@ -136,28 +137,184 @@ export function PanelConfigSidebar({ className, storyId, projectId }: PanelConfi
     // 开始生成时设置状态
     setGenerationState?.(true, 0);
 
-    // 如果用户没有填写自定义提示词，使用 panel 的 description 或 prompt_used
-    const prompt = state.config.customPrompt
-      || state.currentPanel.description
-      || state.currentPanel.prompt_used
-      || "Generate comic panel image";
+    // 🎯 方案 A + B: 智能选择基础提示词
+    // 优先级: customPrompt > description > visual_prompt
+    // 避免使用 prompt_used（可能包含旧的增强指令）
+    let basePrompt = state.config.customPrompt;
+    
+    if (!basePrompt) {
+      // 转换 Panel 类型为兼容格式
+      const panelData = {
+        description: state.currentPanel.description,
+        visual_prompt: null, // FocusModePanel 没有 visual_prompt
+        prompt_used: state.currentPanel.prompt_used,
+      };
+      
+      // 使用 description，避免 prompt_used
+      basePrompt = panelData.description || panelData.prompt_used || "Generate comic panel image";
+    }
+
+    // 🎨 方案 A: 智能收集角色参考图（从选中的角色）
+    const selectedCharacterRefs = await collectCharacterReferenceImages(
+      state.config.selectedCharacters,
+      state.config.referenceImages
+    );
+
+    // 🎨 方案 B: 从描述中提取角色名称并查找参考图
+    const extractedCharacterRefs = await collectCharacterRefsFromDescription(
+      basePrompt,
+      state.config.selectedCharacters
+    );
+
+    // 合并两种方案的参考图（去重）
+    const allReferenceImages = mergeReferenceImages(
+      selectedCharacterRefs,
+      extractedCharacterRefs
+    );
+
+    // 🎯 使用提示词构建器构建完整提示词
+    const selectedCharacters = characters.filter((c) =>
+      state.config.selectedCharacters.includes(c.id)
+    );
+
+    const enhancedPrompt = buildCompletePrompt(
+      {
+        description: basePrompt,
+        camera_angle: null,
+        shot_size: null,
+      } as any,
+      selectedCharacters as any[],
+      {
+        preferredSource: "description",
+        includeCameraInfo: false, // FocusModePanel 没有镜头信息
+        includeStyleInstructions: true,
+        hasReferenceImages: allReferenceImages.length > 0,
+        customStyle: "Japanese manga/comic style",
+      }
+    );
+
+    console.log("📝 生成配置:", {
+      basePrompt: basePrompt.substring(0, 100) + "...",
+      selectedCharacters: selectedCharacters.map((c) => c.name),
+      referenceImageCount: allReferenceImages.length,
+      enhancedPromptLength: enhancedPrompt.length,
+    });
 
     await withLoading(async () => {
       try {
         await generateImage(state.currentPanel.id, {
-          customPrompt: prompt,
+          customPrompt: enhancedPrompt,
           negativePrompt: state.config.negativePrompt,
           modelName: state.config.modelName,
           aspectRatio: state.config.aspectRatio,
           numInferenceSteps: state.config.numInferenceSteps,
           guidanceScale: state.config.guidanceScale,
-          referenceImages: state.config.referenceImages,
+          referenceImages: allReferenceImages,
         });
       } catch (error) {
         // 错误处理已在 Hook 中完成，这里确保状态重置
         setGenerationState?.(false, 0);
       }
     }, `generate-${state.currentPanel.id}`);
+  };
+
+  /**
+   * 方案 B: 从描述中提取角色名称并查找参考图
+   */
+  const collectCharacterRefsFromDescription = async (
+    description: string,
+    excludeIds: string[]
+  ): Promise<ReferenceImage[]> => {
+    const result: ReferenceImage[] = [];
+
+    // 提取角色名称
+    const characterNames = extractCharacterNames(description);
+    if (characterNames.length === 0) {
+      return result;
+    }
+
+    console.log(`🔍 从描述中提取到角色名称: ${characterNames.join(", ")}`);
+
+    // 查找匹配的角色（排除已选中的）
+    for (const name of characterNames) {
+      const character = characters.find(
+        (c) => c.name === name && !excludeIds.includes(c.id)
+      );
+
+      if (character) {
+        const referenceUrl = character.reference_image || character.base_image_url;
+        if (referenceUrl) {
+          result.push({
+            id: `extracted-${character.id}`,
+            url: referenceUrl,
+            label: `提取的角色: ${character.name}`,
+            type: "character",
+          });
+          console.log(`✓ 自动添加角色参考图: ${character.name} → ${referenceUrl}`);
+        }
+      }
+    }
+
+    return result;
+  };
+
+  /**
+   * 合并参考图并去重
+   */
+  const mergeReferenceImages = (
+    ...imageLists: ReferenceImage[][]
+  ): ReferenceImage[] => {
+    const seen = new Set<string>();
+    const result: ReferenceImage[] = [];
+
+    for (const list of imageLists) {
+      for (const img of list) {
+        if (!seen.has(img.url)) {
+          seen.add(img.url);
+          result.push(img);
+        }
+      }
+    }
+
+    return result;
+  };
+
+  /**
+   * 智能收集角色参考图
+   * 将用户选择的角色参考图与手动选择的参考图合并
+   */
+  const collectCharacterReferenceImages = async (
+    selectedCharacterIds: string[],
+    manualReferenceImages: ReferenceImage[]
+  ): Promise<ReferenceImage[]> => {
+    const result: ReferenceImage[] = [...manualReferenceImages];
+
+    // 遍历选中的角色，获取它们的参考图
+    for (const characterId of selectedCharacterIds) {
+      const character = characters.find((c) => c.id === characterId);
+      if (!character) continue;
+
+      // 查找角色的最佳参考图（优先级：reference_image → base_image_url）
+      const referenceUrl = character.reference_image || character.base_image_url;
+      if (referenceUrl) {
+        // 检查是否已存在（避免重复）
+        const exists = result.some((img) => img.url === referenceUrl);
+        if (!exists) {
+          result.push({
+            id: `character-${characterId}`,
+            url: referenceUrl,
+            label: `角色: ${character.name}`,
+            type: "character",
+          });
+          console.log(`✓ 添加角色参考图: ${character.name} → ${referenceUrl}`);
+        }
+      } else {
+        console.warn(`⚠️ 角色 ${character.name} 没有可用的参考图`);
+      }
+    }
+
+    console.log(`✓ 共收集 ${result.length} 张参考图（${manualReferenceImages.length} 手动 + ${result.length - manualReferenceImages.length} 角色）`);
+    return result;
   };
 
   // 过滤出当前故事关联的角色
@@ -342,6 +499,12 @@ export function PanelConfigSidebar({ className, storyId, projectId }: PanelConfi
                 </div>
               </AccordionTrigger>
               <AccordionContent className="pt-2 space-y-2">
+                {/* 提示信息 */}
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 mb-3">
+                  <p className="text-xs text-blue-400">
+                    💡 选择的角色将自动使用其参考图生成，保持人物外观一致
+                  </p>
+                </div>
                 {filteredCharacters.length > 0 ? (
                   <div className="grid grid-cols-2 gap-2">
                     {filteredCharacters.map((character) => {

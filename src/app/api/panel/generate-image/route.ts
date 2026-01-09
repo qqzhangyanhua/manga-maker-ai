@@ -112,7 +112,21 @@ export async function POST(req: Request) {
     }
 
     // Phase 2: Build enhanced prompt using bound assets
-    let enhancedPrompt = prompt;
+    // 🎯 优化：使用 description 作为基础，而不是直接使用 prompt（可能是 prompt_used）
+    let basePrompt = prompt;
+    
+    // 如果 prompt 包含增强指令，说明可能是 prompt_used，尝试使用 description
+    const hasEnhancedInstructions = 
+      prompt.includes("Characters in this scene:") ||
+      prompt.includes("Important: Please generate") ||
+      prompt.includes("Art style:");
+    
+    if (hasEnhancedInstructions && panel.description) {
+      console.warn("⚠️ 检测到增强指令，使用 description 作为基础提示词");
+      basePrompt = panel.description;
+    }
+    
+    let enhancedPrompt = basePrompt;
 
     // Add character information
     if (panel.character) {

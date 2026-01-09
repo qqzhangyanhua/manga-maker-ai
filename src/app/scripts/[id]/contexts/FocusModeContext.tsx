@@ -147,8 +147,12 @@ export function FocusModeProvider({
         prompt_used: currentPanel.prompt_used,
         generated_image: currentPanel.generated_image,
         image_generation_status: currentPanel.image_generation_status,
-        created_at: currentPanel.created_at.toISOString(),
-        updated_at: currentPanel.updated_at.toISOString(),
+        created_at: currentPanel.created_at instanceof Date
+          ? currentPanel.created_at.toISOString()
+          : currentPanel.created_at,
+        updated_at: currentPanel.updated_at instanceof Date
+          ? currentPanel.updated_at.toISOString()
+          : currentPanel.updated_at,
       } : null,
       config,
       isGenerating,
