@@ -1,25 +1,14 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useCallback, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Navbar } from "@/components/Landing";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Lock, BookOpen, Sparkles, PanelRight, Users } from "lucide-react";
+import { Lock, BookOpen, Sparkles, PanelRight } from "lucide-react";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
 import { AssetLibrarySidebar } from "@/components/AssetLibrarySidebar";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -28,31 +17,28 @@ import { StoryImagesGallery } from "./components/StoryImagesGallery";
 import { ScriptPageHeader } from "./components/ScriptPageHeader";
 import { NovelSourceCard } from "./components/NovelSourceCard";
 import { LayoutExportTab } from "./components/LayoutExportTab";
+import { BatchOperationsManager } from "./components/BatchOperationsManager";
+import { DialogsManager } from "./components/DialogsManager";
 import { useStoryDataOptimized } from "./hooks/useStoryDataOptimized";
 import { useCharacterAssets } from "./hooks/useCharacterAssets";
 import { useStoryCharacters } from "./hooks/useStoryCharacters";
 import { useUIState, TAB_VALUES } from "./hooks/useUIState";
 import { useScriptPageHandlers } from "./hooks/useScriptPageHandlers";
 import { useScriptContextValues } from "./hooks/useScriptContextValues";
+import { useAssetApplication } from "./hooks/useAssetApplication";
 import { formatErrorForToast } from "./utils/errorHandling";
 import { GenerationProgress } from "./components/GenerationProgress";
-import { GeneratePanelsDialog } from "./components/GeneratePanelsDialog";
 import { SerialChapterList } from "@/components/SerialChapterList";
-import { CreateChapterDialog } from "@/components/CreateChapterDialog";
 import { ImportTextDialog } from "@/components/StoryScript/ImportTextDialog";
 import { ScriptEditorProvider } from "./contexts/ScriptEditorContext";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ActionPrompt } from "@/components/common/ActionPrompt";
 import { ErrorBanner } from "@/components/common/ErrorBanner";
-import { BatchOperationBar } from "@/components/common/BatchOperationBar";
 import { useProgressCalculation } from "@/hooks/useProgressCalculation";
 import { useBatchSelection } from "@/hooks/useBatchSelection";
-import { SyncNovelCharactersDialog } from "./components/SyncNovelCharactersDialog";
-import { CharacterDetailDialog } from "./components/CharacterDetailDialog";
-import { CharacterCard } from "./components/CharacterCard";
 import { StoryCharactersManager } from "./components/StoryCharactersManager";
 import { useNovelCharacterSync } from "./hooks/useNovelCharacterSync";
-import type { SelectedCharacter, CharacterInfo } from "./types/character";
+import type { CharacterInfo } from "./types/character";
 
 export default function ScriptDetailsPage() {
   const params = useParams();
@@ -88,8 +74,8 @@ export default function ScriptDetailsPage() {
 
   // Progress calculation
   const progressStats = useProgressCalculation({
-    chapters: (data?.chapters || []) as any,
-    panels: (data?.panels || []) as any,
+    chapters: data?.chapters || [],
+    panels: data?.panels || [],
   });
 
   // Batch selection for panels
@@ -97,10 +83,6 @@ export default function ScriptDetailsPage() {
     data?.panels || [],
     { getId: (panel: { id: string }) => panel.id }
   );
-
-  // Batch operations state
-  const [batchGenerating, setBatchGenerating] = useState(false);
-  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
 
   // Error state management
   const [errorState, setErrorState] = useState<string | null>(null);
@@ -111,20 +93,21 @@ export default function ScriptDetailsPage() {
   // Import text dialog state
   const [importTextDialogOpen, setImportTextDialogOpen] = useState(false);
 
-  // AlertDialog state for batch delete confirmation
-  const [showBatchDeleteDialog, setShowBatchDeleteDialog] = useState(false);
-
   // Novel character sync
   const novelCharacterSync = useNovelCharacterSync({
     storyId,
     sourceNovelId: data?.story?.source_novel_id || null,
-    suggestedCharacters: (data?.story as any)?.suggested_characters || [],
+    suggestedCharacters: data?.story?.suggested_characters || [],
     storyCharacters,
   });
 
-  // 角色详情对话框状态
-  const [selectedCharacter, setSelectedCharacter] =
-    useState<SelectedCharacter | null>(null);
+  // Asset application hook
+  const { applyCharacterToPanels, applySceneToPanels } = useAssetApplication({
+    selectedPanelIds: Array.from(panelSelection.selected),
+    onRefresh: async () => {
+      await refetchPanels();
+    },
+  });
 
   // Focus mode: 通过路由跳转而不是状态切换
   const handleEnterFocusMode = useCallback(
@@ -136,29 +119,6 @@ export default function ScriptDetailsPage() {
     },
     [storyId, router]
   );
-
-  // 角色选择处理（性能优化：使用 useCallback 避免重复创建函数）
-  const handleCharacterSelect = useCallback(
-    (character: CharacterInfo, role: string) => {
-      setSelectedCharacter({ character, role });
-    },
-    []
-  );
-
-  // 关闭角色详情对话框
-  const handleCloseDetailDialog = useCallback(() => {
-    setSelectedCharacter(null);
-  }, []);
-
-  // 角色移除成功处理
-  const handleCharacterRemoveSuccess = useCallback(() => {
-    setSelectedCharacter(null);
-    void refetchStoryCharacters();
-    toast({
-      title: "角色已移除",
-      description: "角色列表已更新",
-    });
-  }, [refetchStoryCharacters, toast]);
 
   // Computed: 下一个章节序号
   const nextChapterOrder = useMemo(() => {
@@ -189,100 +149,6 @@ export default function ScriptDetailsPage() {
     openGenerateDialog: uiActions.openGenerateDialog,
     refetchPanels,
   });
-
-  // Batch operations handlers
-  const handleBatchGenerate = useCallback(async () => {
-    const selectedIds = panelSelection.getSelectedItems();
-    const selectedPanels = (data?.panels || []).filter((p: { id: string }) =>
-      selectedIds.includes(p.id)
-    );
-    if (selectedPanels.length === 0) return;
-
-    // 过滤出有 prompt_used 的分镜
-    const panelsWithPrompt = selectedPanels.filter((p: { prompt_used?: string }) => p.prompt_used);
-    if (panelsWithPrompt.length === 0) {
-      setErrorState("选中的分镜都没有提示词，请先生成提示词");
-      return;
-    }
-
-    setBatchGenerating(true);
-    setBatchProgress({ current: 0, total: panelsWithPrompt.length });
-
-    try {
-      const response = await fetch("/api/panel/batch-generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          panel_ids: panelsWithPrompt.map((p: { id: string }) => p.id),
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "批量生成失败");
-      }
-
-      const result = await response.json();
-
-      toast({
-        title: "批量生成完成",
-        description: `成功: ${result.succeeded}, 失败: ${result.failed}, 跳过: ${result.skipped}`,
-        variant: result.failed > 0 ? "destructive" : "default",
-      });
-
-      // 清除选择并刷新数据
-      panelSelection.deselectAll();
-      await refetchPanels();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "批量生成失败";
-      setErrorState(message);
-      console.error("批量生成失败:", error);
-    } finally {
-      setBatchGenerating(false);
-      setBatchProgress({ current: 0, total: 0 });
-    }
-  }, [panelSelection, refetchPanels, toast]);
-
-  const handleBatchDelete = useCallback(async () => {
-    const selectedCount = panelSelection.selectedCount;
-    if (selectedCount === 0) return;
-
-    // 打开确认对话框
-    setShowBatchDeleteDialog(true);
-  }, [panelSelection.selectedCount]);
-
-  // 确认批量删除
-  const confirmBatchDelete = useCallback(async () => {
-    try {
-      const response = await fetch("/api/panel/batch-delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          panel_ids: Array.from(panelSelection.selected),
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "批量删除失败");
-      }
-
-      toast({
-        title: "删除成功",
-        description: `已删除 ${panelSelection.selectedCount} 个分镜`,
-      });
-
-      // 清除选择并刷新数据
-      panelSelection.deselectAll();
-      await refetchPanels();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "批量删除失败";
-      setErrorState(message);
-      console.error("批量删除失败:", error);
-    } finally {
-      setShowBatchDeleteDialog(false);
-    }
-  }, [panelSelection, refetchPanels, toast]);
 
   // 生成章节背景图
   const handleGenerateBackground = useCallback(async (
@@ -317,36 +183,26 @@ export default function ScriptDetailsPage() {
     }
   }, [refreshStoryData, toast]);
 
-  // Asset library handlers
-  const handleAssetCharacterSelect = useCallback((character: { id: string; name: string }) => {
-    toast({
-      title: "角色已选择",
-      description: `已选择角色: ${character.name}`,
-    });
-    // TODO: 实现角色应用到分镜的逻辑
-    setSidebarOpen(false);
-  }, [toast]);
+  // Asset library handlers - 应用角色和场景到选中的分镜
+  const handleAssetCharacterSelect = useCallback(
+    async (character: { id: string; name: string }) => {
+      const success = await applyCharacterToPanels(character);
+      if (success) {
+        setSidebarOpen(false);
+      }
+    },
+    [applyCharacterToPanels]
+  );
 
-  const handleSceneSelect = useCallback((scene: { id: string; name: string }) => {
-    toast({
-      title: "场景已选择",
-      description: `已选择场景: ${scene.name}`,
-    });
-    // TODO: 实现场景应用到分镜的逻辑
-    setSidebarOpen(false);
-  }, [toast]);
-
-  // Import text success handler
-  const handleImportTextSuccess = useCallback((chapterId: string) => {
-    setImportTextDialogOpen(false);
-    // 刷新数据
-    void refreshStoryData();
-    // 可选：跳转到新生成的章节
-    toast({
-      title: "导入成功",
-      description: "已成功生成分镜，刷新页面查看",
-    });
-  }, [refreshStoryData, toast]);
+  const handleSceneSelect = useCallback(
+    async (scene: { id: string; name: string }) => {
+      const success = await applySceneToPanels(scene);
+      if (success) {
+        setSidebarOpen(false);
+      }
+    },
+    [applySceneToPanels]
+  );
 
   // Sync form with fetched data
   useEffect(() => {
@@ -464,13 +320,11 @@ export default function ScriptDetailsPage() {
                     <ScriptPageHeader
                       title={data.story.title}
                       chapters={data.chapters || []}
-                      panels={(data.panels || []) as any}
+                      panels={data.panels || []}
                       onCreateChapter={() => {
                         uiActions.openChapterDialog("create", nextChapterOrder);
                       }}
-                      onImportText={() => {
-                        setImportTextDialogOpen(true);
-                      }}
+                      onImportText={() => setImportTextDialogOpen(true)}
                       onEnterFocusMode={() => handleEnterFocusMode()}
                     />
                   </div>
@@ -615,21 +469,11 @@ export default function ScriptDetailsPage() {
 
                   {/* 章节创作视图 */}
                   <TabsContent value={TAB_VALUES.SERIAL} className="mt-0">
-                    {/* 批量操作工具栏 */}
-                    {panelSelection.selectedCount > 0 && (
-                      <div className="mb-4">
-                        <BatchOperationBar
-                          selectedCount={panelSelection.selectedCount}
-                          totalCount={data?.panels.length || 0}
-                          onSelectAll={panelSelection.selectAll}
-                          onDeselectAll={panelSelection.deselectAll}
-                          onBatchGenerate={handleBatchGenerate}
-                          onBatchDelete={handleBatchDelete}
-                          isGenerating={batchGenerating}
-                          generatingProgress={batchProgress}
-                        />
-                      </div>
-                    )}
+                    {/* 批量操作管理器 */}
+                    <BatchOperationsManager
+                      panels={data?.panels || []}
+                      onRefresh={refetchPanels}
+                    />
 
                     <SerialChapterList
                       storyId={storyId}
@@ -669,7 +513,9 @@ export default function ScriptDetailsPage() {
                         storyId={storyId}
                         sourceNovelId={data?.story.source_novel_id || null}
                         storyCharacters={storyCharacters}
-                        onCharacterSelect={handleCharacterSelect}
+                        onCharacterSelect={(character: CharacterInfo, role: string) => {
+                          // 角色选择逻辑已在 StoryCharactersManager 内部处理
+                        }}
                         onRefresh={() => refetchStoryCharacters()}
                       />
                     </div>
@@ -696,35 +542,20 @@ export default function ScriptDetailsPage() {
 
                 <GenerationProgress progress={progress} onCancel={cancelGeneration} />
 
-                <GeneratePanelsDialog
-                  open={uiState.generateDialog.open}
-                  existingPanelCount={
-                    uiState.generateDialog.pendingChapterId
-                      ? (data?.panels || []).filter(
-                          (p) => p.chapter_id === uiState.generateDialog.pendingChapterId
-                        ).length
-                      : 0
-                  }
-                  onOpenChange={(open) => {
-                    if (!open) uiActions.closeGenerateDialog();
-                  }}
-                  onConfirm={(mode, panelCount) => {
-                    if (uiState.generateDialog.pendingChapterId) {
-                      executeGeneration(uiState.generateDialog.pendingChapterId, mode, panelCount);
-                    }
-                  }}
-                />
-
-                <CreateChapterDialog
-                  open={uiState.chapterDialog.open}
-                  onOpenChange={(open) => {
-                    if (!open) uiActions.closeChapterDialog();
-                  }}
+                {/* 对话框管理器 */}
+                <DialogsManager
                   storyId={storyId}
-                  nextChapterOrder={uiState.chapterDialog.nextOrder}
-                  onSuccess={() => {
-                    void refreshStoryData();
-                  }}
+                  projectId={data?.projectId || null}
+                  panels={data?.panels || []}
+                  uiState={uiState}
+                  uiActions={uiActions}
+                  nextChapterOrder={nextChapterOrder}
+                  suggestedCharacters={data?.story?.suggested_characters || []}
+                  storyCharacters={storyCharacters}
+                  novelCharacterSync={novelCharacterSync}
+                  onRefresh={refreshStoryData}
+                  onRefetchStoryCharacters={refetchStoryCharacters}
+                  onExecuteGeneration={executeGeneration}
                 />
 
                 {/* 导入文本对话框 */}
@@ -733,7 +564,14 @@ export default function ScriptDetailsPage() {
                   onOpenChange={setImportTextDialogOpen}
                   storyId={storyId}
                   projectId={data?.projectId || ""}
-                  onSuccess={handleImportTextSuccess}
+                  onSuccess={() => {
+                    setImportTextDialogOpen(false);
+                    void refreshStoryData();
+                    toast({
+                      title: "导入成功",
+                      description: "已成功生成分镜，刷新页面查看",
+                    });
+                  }}
                 />
 
                 {/* 资源库侧边栏 (新布局) */}
@@ -743,6 +581,11 @@ export default function ScriptDetailsPage() {
                       <SheetHeader className="px-6 py-4 border-b border-gray-800">
                         <SheetTitle>素材库</SheetTitle>
                       </SheetHeader>
+                      <div className="p-4 bg-blue-500/10 border-b border-blue-500/20">
+                        <p className="text-sm text-blue-400">
+                          💡 提示：先选择分镜，然后选择角色或场景，即可批量应用
+                        </p>
+                      </div>
                       <AssetLibrarySidebar
                         storyId={storyId}
                         projectId={data?.projectId || null}
@@ -755,50 +598,6 @@ export default function ScriptDetailsPage() {
                     </SheetContent>
                   </Sheet>
                 )}
-
-                {/* 批量删除确认对话框 */}
-                <AlertDialog open={showBatchDeleteDialog} onOpenChange={setShowBatchDeleteDialog}>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>确认删除</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        确定要删除 {panelSelection.selectedCount} 个分镜吗？此操作无法撤销。
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>取消</AlertDialogCancel>
-                      <AlertDialogAction onClick={confirmBatchDelete} className="bg-destructive hover:bg-destructive/90">
-                        删除
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-
-                {/* 小说角色同步对话框 */}
-                <SyncNovelCharactersDialog
-                  open={novelCharacterSync.dialogOpen}
-                  onOpenChange={novelCharacterSync.closeDialog}
-                  storyId={storyId}
-                  suggestedCharacters={novelCharacterSync.charactersWithStatus}
-                  onSuccess={() => {
-                    novelCharacterSync.closeDialog();
-                    void refetchStoryCharacters();
-                    toast({
-                      title: "刷新成功",
-                      description: "角色列表已更新",
-                    });
-                  }}
-                />
-
-                {/* 角色详情对话框 */}
-                <CharacterDetailDialog
-                  open={!!selectedCharacter}
-                  onOpenChange={handleCloseDetailDialog}
-                  character={selectedCharacter?.character || null}
-                  role={selectedCharacter?.role || ""}
-                  storyId={storyId}
-                  onRemoveSuccess={handleCharacterRemoveSuccess}
-                />
               </div>
             </div>
           </main>

@@ -27,6 +27,7 @@ import { recordGenerationLog } from "@/lib/generation-log";
 import { findBestReferenceImage } from "@/lib/character-reference";
 import { callImageGenerationByType, base64ToBuffer } from "@/lib/image-generation";
 import { minioClient, MINIO_BUCKET, ensureBucketExists, getPublicUrl } from "@/lib/minio";
+import { runWithConcurrencyLimit } from "@/lib/concurrency-control";
 
 interface GenerateResult {
   panel_id: string;
@@ -143,119 +144,123 @@ export async function POST(req: Request) {
     // 确保 MinIO bucket 存在
     await ensureBucketExists();
 
-    // 顺序生成图片（避免并发过高）
-    const results: GenerateResult[] = [];
+    // 使用并发控制生成图片（最多3个并发）
+    const results = await runWithConcurrencyLimit(
+      panelsWithPrompt,
+      async (panel): Promise<GenerateResult> => {
+        try {
+          // 构建增强提示词
+          let enhancedPrompt = panel.prompt_used || "";
 
-    for (const panel of panelsWithPrompt) {
-      try {
-        // 构建增强提示词
-        let enhancedPrompt = panel.prompt_used || "";
+          // 添加角色信息
+          if (panel.character) {
+            const charDesc = panel.character.base_prompt || panel.character.name;
+            enhancedPrompt += `, character: ${charDesc}`;
 
-        // 添加角色信息
-        if (panel.character) {
-          const charDesc = panel.character.base_prompt || panel.character.name;
-          enhancedPrompt += `, character: ${charDesc}`;
+            if (panel.expression_type) {
+              enhancedPrompt += `, expression: ${panel.expression_type}`;
+            }
 
-          if (panel.expression_type) {
-            enhancedPrompt += `, expression: ${panel.expression_type}`;
+            if (panel.outfit) {
+              enhancedPrompt += `, wearing: ${panel.outfit.outfit_name}`;
+            }
           }
 
-          if (panel.outfit) {
-            enhancedPrompt += `, wearing: ${panel.outfit.outfit_name}`;
+          // 添加场景信息
+          if (panel.scene) {
+            enhancedPrompt += `, background: ${panel.scene.name} (${panel.scene.scene_type})`;
           }
-        }
 
-        // 添加场景信息
-        if (panel.scene) {
-          enhancedPrompt += `, background: ${panel.scene.name} (${panel.scene.scene_type})`;
-        }
+          // 收集参考图
+          const referenceImages: string[] = [];
 
-        // 收集参考图
-        const referenceImages: string[] = [];
+          if (panel.character) {
+            const characterRef = findBestReferenceImage({
+              id: panel.character.id,
+              name: panel.character.name,
+              reference_image: panel.character.reference_image,
+              base_image_url: panel.character.base_image_url,
+              expressions: panel.character.expressions,
+              views: panel.character.views,
+            });
 
-        if (panel.character) {
-          const characterRef = findBestReferenceImage({
-            id: panel.character.id,
-            name: panel.character.name,
-            reference_image: panel.character.reference_image,
-            base_image_url: panel.character.base_image_url,
-            expressions: panel.character.expressions,
-            views: panel.character.views,
+            if (characterRef) {
+              referenceImages.push(characterRef);
+            }
+          }
+
+          if (panel.outfit?.image_url) {
+            referenceImages.push(panel.outfit.image_url);
+          }
+
+          if (panel.scene?.image_url) {
+            referenceImages.push(panel.scene.image_url);
+          }
+
+          // 构建完整提示词
+          const stylePrompt = style || panel.project.style || "manga style";
+          const fullPrompt = `${enhancedPrompt}, ${stylePrompt}, high quality, detailed`;
+
+          console.log(`🚀 批量生成 - 分镜 ${panel.id}: ${fullPrompt.substring(0, 80)}...`);
+
+          // 调用图片生成
+          const result = await callImageGenerationByType({
+            providerType: "image_generation",
+            prompt: fullPrompt,
+            width: 1024,
+            height: 768,
+            referenceImageUrls: referenceImages,
           });
 
-          if (characterRef) {
-            referenceImages.push(characterRef);
+          if (!result.success || !result.images || result.images.length === 0) {
+            throw new Error(result.error || "图片生成失败");
           }
+
+          // 上传到 MinIO
+          const imageBuffer = base64ToBuffer(result.images[0]);
+          const timestamp = Date.now();
+          const objectName = `generated/${userId}/panel/${timestamp}_${panel.id}.png`;
+
+          await minioClient.putObject(
+            MINIO_BUCKET,
+            objectName,
+            imageBuffer,
+            imageBuffer.length,
+            { "Content-Type": "image/png" }
+          );
+
+          const imageUrl = getPublicUrl(objectName);
+
+          // 更新分镜
+          await prisma.panel.update({
+            where: { id: panel.id },
+            data: {
+              generated_image: imageUrl,
+            },
+          });
+
+          console.log(`✅ 分镜 ${panel.id} 生成成功`);
+
+          return {
+            panel_id: panel.id,
+            success: true,
+            image_url: imageUrl,
+          };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "未知错误";
+          console.error(`❌ 分镜 ${panel.id} 生成失败:`, message);
+
+          return {
+            panel_id: panel.id,
+            success: false,
+            error: message,
+          };
         }
-
-        if (panel.outfit?.image_url) {
-          referenceImages.push(panel.outfit.image_url);
-        }
-
-        if (panel.scene?.image_url) {
-          referenceImages.push(panel.scene.image_url);
-        }
-
-        // 构建完整提示词
-        const stylePrompt = style || panel.project.style || "manga style";
-        const fullPrompt = `${enhancedPrompt}, ${stylePrompt}, high quality, detailed`;
-
-        console.log(`🚀 批量生成 - 分镜 ${panel.id}: ${fullPrompt.substring(0, 80)}...`);
-
-        // 调用图片生成
-        const result = await callImageGenerationByType({
-          providerType: "image_generation",
-          prompt: fullPrompt,
-          width: 1024,
-          height: 768,
-          referenceImageUrls: referenceImages,
-        });
-
-        if (!result.success || !result.images || result.images.length === 0) {
-          throw new Error(result.error || "图片生成失败");
-        }
-
-        // 上传到 MinIO
-        const imageBuffer = base64ToBuffer(result.images[0]);
-        const timestamp = Date.now();
-        const objectName = `generated/${userId}/panel/${timestamp}_${panel.id}.png`;
-
-        await minioClient.putObject(
-          MINIO_BUCKET,
-          objectName,
-          imageBuffer,
-          imageBuffer.length,
-          { "Content-Type": "image/png" }
-        );
-
-        const imageUrl = getPublicUrl(objectName);
-
-        // 更新分镜
-        await prisma.panel.update({
-          where: { id: panel.id },
-          data: {
-            generated_image: imageUrl,
-          },
-        });
-
-        results.push({
-          panel_id: panel.id,
-          success: true,
-          image_url: imageUrl,
-        });
-
-        console.log(`✅ 分镜 ${panel.id} 生成成功`);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "未知错误";
-        console.error(`❌ 分镜 ${panel.id} 生成失败:`, message);
-
-        results.push({
-          panel_id: panel.id,
-          success: false,
-          error: message,
-        });
+      },
+      {
+        limit: 3, // 最多3个并发
       }
-    }
+    );
 
     // 统计结果
     const succeeded = results.filter((r) => r.success).length;

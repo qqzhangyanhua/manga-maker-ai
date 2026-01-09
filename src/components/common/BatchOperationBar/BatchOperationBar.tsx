@@ -32,7 +32,7 @@ export function BatchOperationBar({
         <div className="flex items-center gap-2">
           <Checkbox
             checked={isAllSelected}
-            {...({ indeterminate: isSomeSelected } as any)}
+            indeterminate={isSomeSelected}
             onCheckedChange={(checked) => {
               if (checked) {
                 onSelectAll();

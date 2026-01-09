@@ -34,6 +34,15 @@ export interface ComicStyle {
 }
 
 /**
+ * 建议角色接口
+ */
+export interface SuggestedCharacter {
+  name: string;
+  role: string;
+  description?: string;
+}
+
+/**
  * 故事接口
  */
 export interface Story {
@@ -51,6 +60,7 @@ export interface Story {
   // 小说来源追踪
   source_type?: string | null; // "original" | "novel_adaptation"
   source_novel_id?: string | null; // 来源小说项目ID
+  suggested_characters?: SuggestedCharacter[]; // 建议的角色列表（从小说中提取）
   // 连载模式支持
   is_serialized?: boolean; // 是否为连载作品
   serial_status?: string | null; // ongoing/completed/hiatus - 连载状态
