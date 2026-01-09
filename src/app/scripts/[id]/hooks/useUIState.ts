@@ -9,6 +9,7 @@ import type { Panel, StoryFormData } from '../types/script-editor.types';
 // Tab 类型常量
 export const TAB_VALUES = {
   SERIAL: 'serial',
+  CHARACTERS: 'characters',
   GALLERY: 'gallery',
   LAYOUT: 'layout',
 } as const;

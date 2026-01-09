@@ -23,11 +23,21 @@ import { Sparkles, Loader2, Palette, Upload, Wand2 } from "lucide-react";
 import ImageUpload from "./ImageUpload";
 import { useToast } from "@/hooks/use-toast";
 import type { CharacterAsset, ComicStyle } from "./CharacterLibrary";
+import { RoleSelector, type CharacterRole } from "@/components/character/RoleSelector";
+import type { CharacterRecommendation } from "@/app/scripts/[id]/types/ai-recommendation";
 
 interface CreateCharacterDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (character: CharacterAsset) => Promise<void>;
+  onSubmit: (character: CharacterAsset, role?: CharacterRole) => Promise<void>;
+
+  // Phase 2.0 optional props
+  defaultRole?: CharacterRole;
+  showRoleSelector?: boolean;
+  contextMode?: 'library' | 'story';
+
+  // Phase 2.1: AI 推荐支持
+  recommendations?: CharacterRecommendation[];
 }
 
 type CreateMode = "manual" | "ai";
@@ -67,6 +77,10 @@ const CreateCharacterDialog = ({
   open,
   onOpenChange,
   onSubmit,
+  defaultRole = "supporting",
+  showRoleSelector = false,
+  contextMode = 'library',
+  recommendations = [], // Phase 2.1
 }: CreateCharacterDialogProps) => {
   const [createMode, setCreateMode] = useState<CreateMode>("manual");
   const [name, setName] = useState("");
@@ -77,8 +91,23 @@ const CreateCharacterDialog = ({
   const [error, setError] = useState("");
   const { toast } = useToast();
 
+  // Phase 2.0: Role selection state
+  const [selectedRole, setSelectedRole] = useState<CharacterRole>(defaultRole);
+
   const submitAbortRef = useRef<AbortController | null>(null);
   const generateAbortRef = useRef<AbortController | null>(null);
+
+  // Phase 2.1: 处理推荐点击 - 自动填充描述
+  const handleRecommendationClick = (recommendation: CharacterRecommendation) => {
+    // 如果用户还没有填写描述，使用 AI 推荐的描述
+    if (!description.trim()) {
+      setDescription(recommendation.suggested_description);
+      toast({
+        title: "AI 推荐已应用",
+        description: `已自动填充${getRoleLabel(recommendation.role)}角色的典型描述`,
+      });
+    }
+  };
 
   useEffect(() => {
     return () => {
@@ -201,6 +230,7 @@ const CreateCharacterDialog = ({
       setStylePrompt("");
       setGeneratedImageUrl("");
       setSelectedStyleId("__none__");
+      setSelectedRole(defaultRole); // Reset to default role
       setUploadProgress("");
       onOpenChange(false);
 
@@ -210,8 +240,9 @@ const CreateCharacterDialog = ({
       });
 
       // 通知父组件刷新列表（解耦错误处理）
+      // Phase 2.0: Pass selected role to callback
       try {
-        await onSubmit(result.character as CharacterAsset);
+        await onSubmit(result.character as CharacterAsset, showRoleSelector ? selectedRole : undefined);
       } catch (callbackError) {
         console.warn("角色创建成功，但列表刷新失败:", callbackError);
       }
@@ -300,6 +331,7 @@ const CreateCharacterDialog = ({
       setStylePrompt("");
       setGeneratedImageUrl("");
       setSelectedStyleId("__none__");
+      setSelectedRole(defaultRole); // Reset to default role
       setUploadProgress("");
       setError("");
       onOpenChange(false);
@@ -403,6 +435,17 @@ const CreateCharacterDialog = ({
                   {description.length}/500 字符 · 详细的描述有助于生成更准确的角色
                 </p>
               </div>
+
+              {/* Phase 2.0: Role Selector (only in story context) */}
+              {showRoleSelector && (
+                <RoleSelector
+                  value={selectedRole}
+                  onChange={setSelectedRole}
+                  disabled={isSubmitting}
+                  recommendations={recommendations}
+                  onRecommendationClick={handleRecommendationClick}
+                />
+              )}
 
               {/* Comic Style Selection */}
               <div className="space-y-2">
@@ -609,6 +652,17 @@ const CreateCharacterDialog = ({
                       maxLength={500}
                     />
                   </div>
+
+                  {/* Phase 2.0: Role Selector (only in story context) */}
+                  {showRoleSelector && (
+                    <RoleSelector
+                      value={selectedRole}
+                      onChange={setSelectedRole}
+                      disabled={isSubmitting}
+                      recommendations={recommendations}
+                      onRecommendationClick={handleRecommendationClick}
+                    />
+                  )}
                 </div>
               )}
 
@@ -666,5 +720,18 @@ const CreateCharacterDialog = ({
     </Dialog>
   );
 };
+
+/**
+ * 获取角色类型标签
+ */
+function getRoleLabel(role: CharacterRole): string {
+  const labels: Record<CharacterRole, string> = {
+    protagonist: "主角",
+    antagonist: "反派",
+    supporting: "配角",
+    minor: "龙套",
+  };
+  return labels[role];
+}
 
 export default CreateCharacterDialog;

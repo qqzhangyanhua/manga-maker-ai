@@ -50,6 +50,7 @@ import { useBatchSelection } from "@/hooks/useBatchSelection";
 import { SyncNovelCharactersDialog } from "./components/SyncNovelCharactersDialog";
 import { CharacterDetailDialog } from "./components/CharacterDetailDialog";
 import { CharacterCard } from "./components/CharacterCard";
+import { StoryCharactersManager } from "./components/StoryCharactersManager";
 import { useNovelCharacterSync } from "./hooks/useNovelCharacterSync";
 import type { SelectedCharacter, CharacterInfo } from "./types/character";
 
@@ -495,33 +496,6 @@ export default function ScriptDetailsPage() {
                   storyId={storyId}
                 />
 
-                {/* 关联角色列表 */}
-                {storyCharacters.length > 0 && (
-                  <Card className="mt-6">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-lg">
-                        <Users className="w-5 h-5" />
-                        关联角色
-                        <Badge variant="secondary" className="ml-auto">
-                          {storyCharacters.length}
-                        </Badge>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {storyCharacters.map((sc) => (
-                          <CharacterCard
-                            key={sc.character.id}
-                            character={sc.character}
-                            role={sc.role}
-                            onSelect={handleCharacterSelect}
-                          />
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
                 {/* 小说角色同步提示 */}
                 {novelCharacterSync.shouldShowSyncPrompt && (
                   <div className="mt-6">
@@ -608,6 +582,19 @@ export default function ScriptDetailsPage() {
                       </div>
                     </TabsTrigger>
                     <TabsTrigger
+                      value={TAB_VALUES.CHARACTERS}
+                      className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-500 data-[state=active]:bg-transparent bg-transparent px-4 py-3 text-gray-400 data-[state=active]:text-white data-[state=active]:shadow-none"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>关联角色</span>
+                        {storyCharacters.length > 0 && (
+                          <Badge variant="secondary" className="ml-1">
+                            {storyCharacters.length}
+                          </Badge>
+                        )}
+                      </div>
+                    </TabsTrigger>
+                    <TabsTrigger
                       value={TAB_VALUES.GALLERY}
                       className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-500 data-[state=active]:bg-transparent bg-transparent px-4 py-3 text-gray-400 data-[state=active]:text-white data-[state=active]:shadow-none"
                       style={{ display: FEATURE_FLAGS.NEW_ASSET_SIDEBAR ? 'none' : 'flex' }}
@@ -673,6 +660,19 @@ export default function ScriptDetailsPage() {
                         toast({ title: "错误", description: msg, variant: "destructive" })
                       }
                     />
+                  </TabsContent>
+
+                  {/* 关联角色视图 */}
+                  <TabsContent value={TAB_VALUES.CHARACTERS} className="mt-0">
+                    <div className="bg-[#1a1a1f]/60 backdrop-blur-sm border border-gray-800/50 rounded-xl p-6">
+                      <StoryCharactersManager
+                        storyId={storyId}
+                        sourceNovelId={data?.story.source_novel_id || null}
+                        storyCharacters={storyCharacters}
+                        onCharacterSelect={handleCharacterSelect}
+                        onRefresh={() => refetchStoryCharacters()}
+                      />
+                    </div>
                   </TabsContent>
 
                   {/* 素材库视图 */}

@@ -12,6 +12,7 @@ export interface CharacterInfo {
   description: string | null;
   reference_image: string | null;
   style_prompt: string | null;
+  base_prompt?: string | null;
 }
 
 /**
