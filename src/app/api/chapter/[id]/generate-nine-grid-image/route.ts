@@ -192,6 +192,26 @@ export async function POST(
       },
     });
 
+    // 同时保存到素材库（GeneratedImage）
+    await prisma.generatedImage.create({
+      data: {
+        user_id: userId,
+        image_url: imageUrl,
+        prompt: promptCombined,
+        style: comic_style_id ? `九宫格 - ${comic_style_id}` : "九宫格",
+        source_type: "nine_grid",
+        source_id: nineGridImage.id,
+        chapter_id: chapterId,
+        panel_ids: panel_ids,
+        generation_params: {
+          mode: "from_panels",
+          panel_ids,
+          comic_style_id,
+          reference_image,
+        },
+      },
+    });
+
     // 记录生成日志
     await recordGenerationLog({
       userId,

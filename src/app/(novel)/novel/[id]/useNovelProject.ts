@@ -53,7 +53,14 @@ export function useNovelProject(projectId: string): UseNovelProjectResult {
   }, [project?.outlines]);
 
   const characters = useMemo(() => {
-    return normalizeCharacters(project?.characters);
+    const normalized = normalizeCharacters(project?.characters);
+    // 调试日志
+    console.log("[useNovelProject] Characters data:", {
+      raw: project?.characters,
+      normalized,
+      count: normalized.length
+    });
+    return normalized;
   }, [project?.characters]);
 
   const worldSetting = useMemo(() => {

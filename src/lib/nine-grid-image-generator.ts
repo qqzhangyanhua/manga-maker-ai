@@ -52,28 +52,26 @@ export async function generateNineGridImage(
   // 调用图像生成 API
   try {
     const result = await callImageGenerationByType({
+      providerType: "image_generation",
       prompt: nineGridPrompt,
-      negativePrompt: buildNegativePrompt(),
+      negative_prompt: buildNegativePrompt(),
       width: 1536,  // 3×3 布局，每格 512px
       height: 1536,
       steps: 30,
-      cfgScale: 7,
-      seed: -1,
-    }, userId);
+      cfg_scale: 7,
+      options: { userId },
+    });
+
+    // 检查生成结果
+    if (!result.success || !result.images || result.images.length === 0) {
+      throw new Error(result.error || "图像生成失败：未返回图片数据");
+    }
 
     // 将 base64 转换为 Buffer
-    if (result.image_base64) {
-      return Buffer.from(result.image_base64, "base64");
-    }
-
-    if (result.image_url) {
-      // 如果返回的是 URL，需要下载图片
-      const response = await fetch(result.image_url);
-      const arrayBuffer = await response.arrayBuffer();
-      return Buffer.from(arrayBuffer);
-    }
-
-    throw new Error("图像生成失败：未返回图片数据");
+    const base64Image = result.images[0];
+    // 移除 base64 前缀（如果有）
+    const base64Data = base64Image.replace(/^data:image\/\w+;base64,/, "");
+    return Buffer.from(base64Data, "base64");
   } catch (error) {
     console.error("九宫格图片生成失败:", error);
     throw error;

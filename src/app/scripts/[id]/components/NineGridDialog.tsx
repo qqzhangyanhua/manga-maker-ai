@@ -1,11 +1,11 @@
 /**
- * 九宫格图片生成对话框 V2（重构版）
- * 使用 useReducer 集中管理状态，避免无限循环
+ * 九宫格图片生成对话框（重构版）
+ * 精简主组件，职责清晰，易于维护
  */
 
 "use client";
 
-import { useReducer, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -34,378 +34,89 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Grid3x3, Info, Image as ImageIcon, Palette, CheckSquare } from "lucide-react";
+import { 
+  Loader2, 
+  Grid3x3, 
+  Info, 
+  Image as ImageIcon, 
+  Palette, 
+  Sparkles, 
+  List,
+  CheckCircle2,
+  RefreshCw,
+  Download,
+  Eye,
+} from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/utils";
-
-// ==================== 类型定义 ====================
-
-interface Chapter {
-  id: string;
-  title: string;
-  chapter_order: number;
-  summary?: string | null;
-}
-
-interface Panel {
-  id: string;
-  panel_order: number;
-  description: string;
-  visual_prompt: string;
-  generated_image?: string;
-}
-
-interface ComicStyle {
-  id: string;
-  style_key: string;
-  name_zh: string;
-  name_en: string;
-  prompt_prefix?: string | null;
-  image_url?: string | null;
-}
-
-interface CharacterAsset {
-  id: string;
-  name: string;
-  base_image_url: string | null;
-  comic_style?: ComicStyle | null;
-}
-
-interface NineGridDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  storyId: string;
-  projectId: string | null;
-  chapters: Chapter[];
-  onSuccess: () => void;
-}
-
-// ==================== 状态管理 ====================
-
-interface DialogState {
-  // 数据加载状态
-  chapterPanels: Panel[];
-  isLoadingPanels: boolean;
-  comicStyles: ComicStyle[];
-  isLoadingStyles: boolean;
-  characterAssets: CharacterAsset[];
-  isLoadingAssets: boolean;
-  
-  // 选择状态
-  selectedChapterId: string;
-  selectedPanelIds: string[];
-  
-  // 生成状态
-  isGenerating: boolean;
-}
-
-type DialogAction =
-  | { type: "SET_CHAPTER"; chapterId: string }
-  | { type: "SET_PANELS"; panels: Panel[] }
-  | { type: "SET_LOADING_PANELS"; loading: boolean }
-  | { type: "SET_STYLES"; styles: ComicStyle[] }
-  | { type: "SET_LOADING_STYLES"; loading: boolean }
-  | { type: "SET_ASSETS"; assets: CharacterAsset[] }
-  | { type: "SET_LOADING_ASSETS"; loading: boolean }
-  | { type: "TOGGLE_PANEL"; panelId: string }
-  | { type: "SELECT_FIRST_9" }  // ✅ 移除 panels 参数，从 state 直接获取
-  | { type: "CLEAR_SELECTION" }
-  | { type: "SET_GENERATING"; generating: boolean }
-  | { type: "RESET" };
-
-const initialState: DialogState = {
-  chapterPanels: [],
-  isLoadingPanels: false,
-  comicStyles: [],
-  isLoadingStyles: false,
-  characterAssets: [],
-  isLoadingAssets: false,
-  selectedChapterId: "",
-  selectedPanelIds: [],
-  isGenerating: false,
-};
-
-function dialogReducer(state: DialogState, action: DialogAction): DialogState {
-  switch (action.type) {
-    case "SET_CHAPTER":
-      // 切换章节时，清空分镜选择
-      return {
-        ...state,
-        selectedChapterId: action.chapterId,
-        selectedPanelIds: [],
-        chapterPanels: [],
-      };
-      
-    case "SET_PANELS":
-      return {
-        ...state,
-        chapterPanels: action.panels,
-      };
-      
-    case "SET_LOADING_PANELS":
-      return {
-        ...state,
-        isLoadingPanels: action.loading,
-      };
-      
-    case "SET_STYLES":
-      return {
-        ...state,
-        comicStyles: action.styles,
-      };
-      
-    case "SET_LOADING_STYLES":
-      return {
-        ...state,
-        isLoadingStyles: action.loading,
-      };
-      
-    case "SET_ASSETS":
-      return {
-        ...state,
-        characterAssets: action.assets,
-      };
-      
-    case "SET_LOADING_ASSETS":
-      return {
-        ...state,
-        isLoadingAssets: action.loading,
-      };
-      
-    case "TOGGLE_PANEL": {
-      const { panelId } = action;
-      const { selectedPanelIds } = state;
-      
-      if (selectedPanelIds.includes(panelId)) {
-        // 取消选择
-        return {
-          ...state,
-          selectedPanelIds: selectedPanelIds.filter((id) => id !== panelId),
-        };
-      } else if (selectedPanelIds.length < 9) {
-        // 添加选择
-        return {
-          ...state,
-          selectedPanelIds: [...selectedPanelIds, panelId],
-        };
-      }
-      return state;
-    }
-      
-    case "SELECT_FIRST_9": {
-      // ✅ 直接从 state 获取 chapterPanels，不需要从 action 传递
-      const first9 = state.chapterPanels.slice(0, 9).map((p) => p.id);
-      return {
-        ...state,
-        selectedPanelIds: first9,
-      };
-    }
-      
-    case "CLEAR_SELECTION":
-      return {
-        ...state,
-        selectedPanelIds: [],
-      };
-      
-    case "SET_GENERATING":
-      return {
-        ...state,
-        isGenerating: action.generating,
-      };
-      
-    case "RESET":
-      return initialState;
-      
-    default:
-      return state;
-  }
-}
+import { Progress } from "@/components/ui/progress";
+import { Card, CardContent } from "@/components/ui/card";
+import { useNineGridDialog } from "./useNineGridDialog";
+import { PanelSelector } from "./PanelSelector";
+import type { 
+  NineGridDialogProps, 
+  FormData, 
+  GenerateNineGridRequest,
+  GenerateFromPlotRequest,
+  GenerationStep,
+} from "./types";
 
 // ==================== 表单验证 ====================
 
 const formSchema = z.object({
+  mode: z.enum(["from-panels", "from-plot"]),
   chapterId: z.string().min(1, "请选择章节"),
+  plotSummary: z.string().optional(),
   comicStyleId: z.string().optional(),
   referenceImageId: z.string().optional(),
+}).refine((data) => {
+  // 从剧情生成时，必须提供剧情概述
+  if (data.mode === "from-plot") {
+    return data.plotSummary && data.plotSummary.trim().length > 0;
+  }
+  return true;
+}, {
+  message: "请输入剧情概述",
+  path: ["plotSummary"],
 });
-
-type FormData = z.infer<typeof formSchema>;
 
 // ==================== 主组件 ====================
 
 export function NineGridDialog({
   open,
   onOpenChange,
-  storyId,
   projectId,
   chapters,
   onSuccess,
 }: NineGridDialogProps) {
   const { toast } = useToast();
-  const [state, dispatch] = useReducer(dialogReducer, initialState);
+  const [generationStep, setGenerationStep] = useState<GenerationStep | null>(null);
 
+  // 表单管理
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      mode: "from-panels",
       chapterId: "",
+      plotSummary: "",
       comicStyleId: "none",
       referenceImageId: "none",
     },
   });
 
-  // ==================== 数据加载 ====================
+  // 状态管理
+  const { state, handlers } = useNineGridDialog({ open, form });
+  
+  // 监听模式变化
+  const currentMode = form.watch("mode");
 
-  const loadChapterPanels = useCallback(async (chapterId: string) => {
-    dispatch({ type: "SET_LOADING_PANELS", loading: true });
-    try {
-      const response = await fetch(`/api/chapter/${chapterId}/panels`);
-      if (response.ok) {
-        const data = await response.json();
-        const panels = data.panels || [];
-        
-        // 设置分镜数据
-        dispatch({ type: "SET_PANELS", panels });
-        
-        // ✅ 自动选择前9个分镜（如果有足够的分镜）
-        if (panels.length >= 9) {
-          dispatch({ type: "SELECT_FIRST_9" });
-        } else if (panels.length > 0 && panels.length < 9) {
-          // 提示用户分镜不足
-          toast({
-            title: "提示",
-            description: `当前章节有 ${panels.length} 个分镜，少于 9 个，无法生成九宫格`,
-            variant: "default",
-          });
-        }
-      }
-    } catch (error) {
-      console.error("加载章节分镜失败:", error);
-      toast({
-        title: "加载失败",
-        description: "无法加载章节分镜",
-        variant: "destructive",
-      });
-    } finally {
-      dispatch({ type: "SET_LOADING_PANELS", loading: false });
-    }
-  }, [toast]);
-
-  const loadComicStyles = useCallback(async () => {
-    dispatch({ type: "SET_LOADING_STYLES", loading: true });
-    try {
-      const response = await fetch("/api/comic-styles?enabled=true");
-      if (response.ok) {
-        const data = await response.json();
-        dispatch({ type: "SET_STYLES", styles: data.data || [] });
-      }
-    } catch (error) {
-      console.error("加载漫画风格失败:", error);
-    } finally {
-      dispatch({ type: "SET_LOADING_STYLES", loading: false });
-    }
-  }, []);
-
-  const loadCharacterAssets = useCallback(async () => {
-    dispatch({ type: "SET_LOADING_ASSETS", loading: true });
-    try {
-      const response = await fetch("/api/character");
-      if (response.ok) {
-        const data = await response.json();
-        const assetsWithImage = (data.characters || []).filter(
-          (char: CharacterAsset) => char.base_image_url
-        );
-        dispatch({ type: "SET_ASSETS", assets: assetsWithImage });
-      }
-    } catch (error) {
-      console.error("加载角色素材失败:", error);
-    } finally {
-      dispatch({ type: "SET_LOADING_ASSETS", loading: false });
-    }
-  }, []);
-
-  // ==================== 副作用 ====================
-
-  // ✅ 使用 useRef 存储 form，避免依赖变化
-  const formRef = useRef(form);
-  useEffect(() => {
-    formRef.current = form;
-  }, [form]);
-
-  // 对话框打开时加载数据
-  useEffect(() => {
-    if (open) {
-      loadComicStyles();
-      loadCharacterAssets();
-    } else {
-      // 关闭时重置状态
-      dispatch({ type: "RESET" });
-      // ✅ 使用 ref 访问 form，避免依赖 form 对象
-      formRef.current.reset();
-    }
-  }, [open, loadComicStyles, loadCharacterAssets]); // ✅ 移除 form 依赖
-
-  // ✅ 使用 form.watch 的订阅模式，避免在组件顶层调用
-  useEffect(() => {
-    const subscription = form.watch((value, { name }) => {
-      const newChapterId = value.chapterId;
-      
-      // 只在章节真正变化时处理
-      if (name === "chapterId" && newChapterId && newChapterId !== state.selectedChapterId) {
-        dispatch({ type: "SET_CHAPTER", chapterId: newChapterId });
-        loadChapterPanels(newChapterId);
-      }
-    });
-    
-    return () => subscription.unsubscribe();
-  }, [form, state.selectedChapterId, loadChapterPanels]); // ✅ 明确的依赖
-
-  // ==================== 事件处理 ====================
-
-  // ✅ 使用 useRef 存储最新的 chapterPanels，避免依赖整个数组
-  const chapterPanelsRef = useRef<Panel[]>([]);
-  useEffect(() => {
-    chapterPanelsRef.current = state.chapterPanels;
-  }, [state.chapterPanels]);
-
-  const handlePanelToggle = useCallback((panelId: string) => {
-    dispatch({ type: "TOGGLE_PANEL", panelId });
-  }, []);
-
-  const handleSelectFirst9 = useCallback(() => {
-    const panels = chapterPanelsRef.current;
-    
-    // ✅ 边界条件 1: 没有分镜
-    if (panels.length === 0) {
-      toast({
-        title: "提示",
-        description: "当前章节没有分镜，请先生成分镜",
-        variant: "default",
-      });
-      return;
-    }
-    
-    // ✅ 边界条件 2: 分镜少于 9 个
-    if (panels.length < 9) {
-      toast({
-        title: "提示",
-        description: `当前章节只有 ${panels.length} 个分镜，少于 9 个`,
-        variant: "default",
-      });
-      return;
-    }
-    
-    // ✅ 正常情况: 选择前 9 个
-    dispatch({ type: "SELECT_FIRST_9" });
-  }, [dispatch, toast]); // ✅ 稳定的依赖，函数引用不会因为 chapterPanels 变化而改变
-
-  const handleClearSelection = useCallback(() => {
-    dispatch({ type: "CLEAR_SELECTION" });
-  }, []);
+  // ==================== 表单提交 ====================
 
   const handleSubmit = async (data: FormData) => {
+    // 验证项目ID
     if (!projectId) {
       toast({
         title: "错误",
@@ -415,6 +126,17 @@ export function NineGridDialog({
       return;
     }
 
+    // 根据模式调用不同的处理函数
+    if (data.mode === "from-plot") {
+      await handleGenerateFromPlot(data);
+    } else {
+      await handleGenerateFromPanels(data);
+    }
+  };
+
+  // 从现有分镜生成
+  const handleGenerateFromPanels = async (data: FormData) => {
+    // 验证选择数量
     if (state.selectedPanelIds.length !== 9) {
       toast({
         title: "错误",
@@ -424,9 +146,10 @@ export function NineGridDialog({
       return;
     }
 
-    dispatch({ type: "SET_GENERATING", generating: true });
+    handlers.setGenerating(true);
 
     try {
+      // 构建请求参数
       const selectedStyle =
         data.comicStyleId && data.comicStyleId !== "none"
           ? state.comicStyles.find((s) => s.id === data.comicStyleId)
@@ -437,6 +160,15 @@ export function NineGridDialog({
           ? state.characterAssets.find((a) => a.id === data.referenceImageId)
           : undefined;
 
+      const requestBody: GenerateNineGridRequest = {
+        project_id: projectId!,
+        panel_ids: state.selectedPanelIds,
+        comic_style_id: selectedStyle?.id,
+        style_prompt: selectedStyle?.prompt_prefix,
+        reference_image: selectedAsset?.base_image_url ?? undefined,
+      };
+
+      // 发送请求
       const response = await fetch(
         `/api/chapter/${data.chapterId}/generate-nine-grid-image`,
         {
@@ -444,13 +176,7 @@ export function NineGridDialog({
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            project_id: projectId,
-            panel_ids: state.selectedPanelIds,
-            comic_style_id: selectedStyle?.id,
-            style_prompt: selectedStyle?.prompt_prefix,
-            reference_image: selectedAsset?.base_image_url,
-          }),
+          body: JSON.stringify(requestBody),
         }
       );
 
@@ -460,14 +186,16 @@ export function NineGridDialog({
         throw new Error(result.error || "生成失败");
       }
 
+      // 设置生成结果（不关闭对话框）
+      handlers.setResult(result.image_url!);
+
+      // 成功提示
       toast({
         title: "生成成功",
         description: "九宫格图片已生成并保存到素材库",
       });
 
-      dispatch({ type: "RESET" });
-      form.reset();
-      onOpenChange(false);
+      // 通知父组件刷新
       onSuccess();
     } catch (error) {
       console.error("九宫格生成失败:", error);
@@ -477,29 +205,216 @@ export function NineGridDialog({
         variant: "destructive",
       });
     } finally {
-      dispatch({ type: "SET_GENERATING", generating: false });
+      handlers.setGenerating(false);
     }
   };
 
-  // ==================== 计算值 ====================
+  // 从剧情概述生成
+  const handleGenerateFromPlot = async (data: FormData) => {
+    if (!data.plotSummary || data.plotSummary.trim().length === 0) {
+      toast({
+        title: "错误",
+        description: "请输入剧情概述",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  const canSelectFirst9 = useMemo(
-    () => state.chapterPanels.length >= 9,
-    [state.chapterPanels.length]
-  );
+    handlers.setGenerating(true);
+    setGenerationStep({ current: 1, total: 2, message: "正在生成分镜提示词..." });
 
-  const canClearSelection = useMemo(
-    () => state.selectedPanelIds.length > 0,
-    [state.selectedPanelIds.length]
-  );
+    try {
+      // 获取参考图URL
+      const selectedAsset =
+        data.referenceImageId && data.referenceImageId !== "none"
+          ? state.characterAssets.find((a) => a.id === data.referenceImageId)
+          : undefined;
 
-  const isValidSelection = useMemo(
-    () => state.selectedPanelIds.length === 9,
-    [state.selectedPanelIds.length]
-  );
+      const requestBody: GenerateFromPlotRequest = {
+        project_id: projectId!,
+        plot_summary: data.plotSummary!,
+        comic_style_id: data.comicStyleId && data.comicStyleId !== "none" ? data.comicStyleId : undefined,
+        reference_image: selectedAsset?.base_image_url ?? undefined,
+      };
+
+      // 发送请求
+      const response = await fetch(
+        `/api/chapter/${data.chapterId}/generate-nine-grid-from-plot`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestBody),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "生成失败");
+      }
+
+      // 更新进度
+      setGenerationStep({ current: 2, total: 2, message: "正在生成九宫格图片..." });
+
+      // 设置生成结果（不关闭对话框）
+      handlers.setResult(result.image_url!, result.panels);
+
+      // 成功提示
+      toast({
+        title: "生成成功",
+        description: result.message || "九宫格图片已生成并保存到素材库",
+      });
+
+      // 通知父组件刷新
+      onSuccess();
+    } catch (error) {
+      console.error("九宫格生成失败:", error);
+      toast({
+        title: "生成失败",
+        description: error instanceof Error ? error.message : "未知错误",
+        variant: "destructive",
+      });
+    } finally {
+      handlers.setGenerating(false);
+      setGenerationStep(null);
+    }
+  };
+
+  // 重新生成
+  const handleRegenerate = () => {
+    handlers.clearResult();
+    setGenerationStep(null);
+  };
+
+  // 关闭对话框
+  const handleClose = () => {
+    handlers.handleReset();
+    form.reset();
+    setGenerationStep(null);
+    onOpenChange(false);
+  };
 
   // ==================== 渲染 ====================
 
+  // 如果有生成结果，显示结果页面
+  if (state.generatedImageUrl) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-green-500" />
+              九宫格生成成功
+            </DialogTitle>
+            <DialogDescription>
+              图片已保存到素材库，你可以重新生成或关闭窗口
+            </DialogDescription>
+          </DialogHeader>
+
+          <ScrollArea className="flex-1 pr-4">
+            <div className="space-y-6">
+              {/* 成功提示 */}
+              <Alert className="border-green-500 bg-green-50/50 dark:bg-green-950/20">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                <AlertDescription>
+                  九宫格图片已成功生成并保存到素材库！
+                </AlertDescription>
+              </Alert>
+
+              {/* 图片预览 */}
+              <Card>
+                <CardContent className="p-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold">生成的九宫格图片</h3>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(state.generatedImageUrl!, "_blank")}
+                        >
+                          <Eye className="w-4 h-4 mr-2" />
+                          查看大图
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const a = document.createElement("a");
+                            a.href = state.generatedImageUrl!;
+                            a.download = `nine-grid-${Date.now()}.png`;
+                            a.click();
+                          }}
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          下载
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="relative rounded-lg overflow-hidden border bg-muted/30">
+                      <img
+                        src={state.generatedImageUrl}
+                        alt="生成的九宫格图片"
+                        className="w-full h-auto"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 分镜提示词（如果有） */}
+              {state.generatedPanels && state.generatedPanels.length > 0 && (
+                <Card>
+                  <CardContent className="p-6">
+                    <h3 className="text-lg font-semibold mb-4">生成的分镜提示词</h3>
+                    <div className="grid grid-cols-1 gap-3">
+                      {state.generatedPanels.map((panel, index) => (
+                        <div
+                          key={index}
+                          className="p-3 rounded-lg border bg-muted/30"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center font-semibold text-sm">
+                              {panel.panel_order}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-muted-foreground mb-1">
+                                {panel.description}
+                              </p>
+                              <p className="text-xs text-muted-foreground/70">
+                                {panel.visual_prompt}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </ScrollArea>
+
+          <DialogFooter className="mt-4">
+            <Button
+              variant="outline"
+              onClick={handleRegenerate}
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              重新生成
+            </Button>
+            <Button onClick={handleClose}>
+              关闭
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // 生成表单页面
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -525,9 +440,61 @@ export function NineGridDialog({
                   <Info className="h-4 w-4" />
                   <AlertDescription className="text-sm">
                     九宫格图片将 9 个分镜组合成一张 3×3 布局的图片，展现连续的视觉叙事。
-                    选择的分镜将按顺序排列（从左到右，从上到下）。
+                    {currentMode === "from-panels" 
+                      ? "选择的分镜将按顺序排列（从左到右，从上到下）。"
+                      : "AI 将根据剧情自动生成 9 个连续的分镜并合成九宫格图片。"}
                   </AlertDescription>
                 </Alert>
+
+                {/* 生成进度 */}
+                {generationStep && (
+                  <Alert className="border-orange-500 bg-orange-50/50 dark:bg-orange-950/20">
+                    <Loader2 className="h-4 w-4 animate-spin text-orange-500" />
+                    <AlertDescription>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>{generationStep.message}</span>
+                          <span className="text-orange-600 font-medium">
+                            步骤 {generationStep.current ?? 0}/{generationStep.total}
+                          </span>
+                        </div>
+                        <Progress 
+                          value={generationStep.current ? (generationStep.current / generationStep.total) * 100 : 0} 
+                          className="h-2"
+                        />
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {/* 模式选择 */}
+                <FormField
+                  control={form.control}
+                  name="mode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>生成模式</FormLabel>
+                      <Tabs value={field.value} onValueChange={field.onChange}>
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="from-panels" className="flex items-center gap-2">
+                            <List className="w-4 h-4" />
+                            从现有分镜
+                          </TabsTrigger>
+                          <TabsTrigger value="from-plot" className="flex items-center gap-2">
+                            <Sparkles className="w-4 h-4" />
+                            从剧情生成
+                          </TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                      <FormDescription>
+                        {field.value === "from-panels" 
+                          ? "从章节中选择 9 个现有分镜生成九宫格"
+                          : "输入剧情概述，AI 自动生成 9 个分镜并合成九宫格"}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 {/* 章节选择 */}
                 <FormField
@@ -539,7 +506,7 @@ export function NineGridDialog({
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="选择包含分镜的章节" />
+                            <SelectValue placeholder="选择章节" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -550,113 +517,50 @@ export function NineGridDialog({
                           ))}
                         </SelectContent>
                       </Select>
-                      <FormDescription>选择章节后，可以勾选该章节的分镜</FormDescription>
+                      <FormDescription>
+                        {currentMode === "from-panels" 
+                          ? "选择包含分镜的章节"
+                          : "选择要生成九宫格的章节"}
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
-                {/* 分镜选择区域 */}
-                {state.selectedChapterId && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between mb-3">
-                      <label className="flex items-center gap-2 text-sm font-medium">
-                        <CheckSquare className="w-4 h-4" />
-                        选择 9 个分镜 *
-                        <span className="text-sm font-normal text-muted-foreground">
-                          (已选 {state.selectedPanelIds.length}/9)
-                        </span>
-                      </label>
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={handleSelectFirst9}
-                          disabled={!canSelectFirst9}
-                        >
-                          选择前9个
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={handleClearSelection}
-                          disabled={!canClearSelection}
-                        >
-                          清空选择
-                        </Button>
-                      </div>
-                    </div>
-
-                    {state.isLoadingPanels ? (
-                      <div className="flex items-center justify-center py-8">
-                        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                        <span className="ml-2 text-sm text-muted-foreground">
-                          加载分镜中...
-                        </span>
-                      </div>
-                    ) : state.chapterPanels.length === 0 ? (
-                      <div className="text-center py-8 text-muted-foreground">
-                        该章节暂无分镜，请先生成分镜
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 gap-3 max-h-[400px] overflow-y-auto border rounded-lg p-4">
-                        {state.chapterPanels.map((panel) => {
-                          const isSelected = state.selectedPanelIds.includes(panel.id);
-                          const selectionIndex = state.selectedPanelIds.indexOf(panel.id);
-
-                          return (
-                            <div
-                              key={panel.id}
-                              className={cn(
-                                "flex items-start gap-3 p-3 rounded-lg border-2 transition-all cursor-pointer",
-                                isSelected
-                                  ? "border-orange-500 bg-orange-50/50 dark:bg-orange-950/20"
-                                  : "border-transparent bg-muted/30 hover:bg-muted/50"
-                              )}
-                              onClick={() => handlePanelToggle(panel.id)}
-                            >
-                              <Checkbox
-                                checked={isSelected}
-                                disabled={!isSelected && state.selectedPanelIds.length >= 9}
-                                className="mt-1 pointer-events-none"
-                              />
-
-                              {panel.generated_image && (
-                                <img
-                                  src={panel.generated_image}
-                                  alt={`分镜 ${panel.panel_order}`}
-                                  className="w-20 h-20 rounded object-cover"
-                                />
-                              )}
-
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="font-medium">分镜 {panel.panel_order}</span>
-                                  {isSelected && (
-                                    <span className="px-2 py-0.5 text-xs font-medium bg-orange-500 text-white rounded">
-                                      位置 {selectionIndex + 1}
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-sm text-muted-foreground line-clamp-2">
-                                  {panel.description}
-                                </p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                {/* 从剧情生成：剧情输入 */}
+                {currentMode === "from-plot" && (
+                  <FormField
+                    control={form.control}
+                    name="plotSummary"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>剧情概述 *</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            {...field}
+                            placeholder="请输入剧情概述，例如：一个年轻的剑客在森林中遇到了神秘的老人，老人传授给他失传已久的剑法。剑客从怀疑到信任，最终领悟了剑法的真谛。"
+                            className="min-h-[120px] resize-none"
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          描述你想要展现的故事情节，AI 将生成 9 个连续的分镜
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
                     )}
+                  />
+                )}
 
-                    <p className="text-sm text-muted-foreground mt-2">
-                      点击分镜卡片进行选择，选中的分镜将按顺序排列在九宫格中
-                    </p>
-                    {!isValidSelection && state.chapterPanels.length > 0 && (
-                      <p className="text-sm text-destructive mt-1">请选择恰好 9 个分镜</p>
-                    )}
-                  </div>
+                {/* 从现有分镜：分镜选择区域 */}
+                {currentMode === "from-panels" && state.selectedChapterId && (
+                  <PanelSelector
+                    panels={state.chapterPanels}
+                    selectedPanelIds={state.selectedPanelIds}
+                    isLoading={state.isLoadingPanels}
+                    onPanelToggle={handlers.handlePanelToggle}
+                    onSelectFirst9={handlers.handleSelectFirst9}
+                    onClearSelection={handlers.handleClearSelection}
+                  />
                 )}
 
                 {/* 漫画风格选择 */}
@@ -741,33 +645,10 @@ export function NineGridDialog({
 
                       {/* 参考图预览 */}
                       {field.value && field.value !== "none" && (
-                        <div className="mt-2 p-3 bg-muted/50 rounded-lg">
-                          {(() => {
-                            const selectedAsset = state.characterAssets.find(
-                              (a) => a.id === field.value
-                            );
-                            if (!selectedAsset) return null;
-                            return (
-                              <div className="flex items-center gap-3">
-                                {selectedAsset.base_image_url && (
-                                  <img
-                                    src={selectedAsset.base_image_url}
-                                    alt={selectedAsset.name}
-                                    className="w-16 h-16 rounded object-cover"
-                                  />
-                                )}
-                                <div>
-                                  <div className="font-medium">{selectedAsset.name}</div>
-                                  {selectedAsset.comic_style && (
-                                    <div className="text-sm text-muted-foreground">
-                                      风格：{selectedAsset.comic_style.name_zh}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })()}
-                        </div>
+                        <ReferenceImagePreview
+                          assetId={field.value}
+                          assets={state.characterAssets}
+                        />
                       )}
                     </FormItem>
                   )}
@@ -784,11 +665,18 @@ export function NineGridDialog({
               >
                 取消
               </Button>
-              <Button type="submit" disabled={state.isGenerating || !isValidSelection}>
+              <Button
+                type="submit"
+                disabled={
+                  state.isGenerating || 
+                  (currentMode === "from-panels" && state.selectedPanelIds.length !== 9) ||
+                  (currentMode === "from-plot" && !form.watch("plotSummary")?.trim())
+                }
+              >
                 {state.isGenerating ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    生成中...
+                    {generationStep?.message || "生成中..."}
                   </>
                 ) : (
                   <>
@@ -802,5 +690,52 @@ export function NineGridDialog({
         </Form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ==================== 子组件 ====================
+
+interface ReferenceImagePreviewProps {
+  assetId: string;
+  assets: Array<{
+    id: string;
+    name: string;
+    base_image_url: string | null;
+    comic_style?: {
+      name_zh: string;
+    } | null;
+  }>;
+}
+
+/**
+ * 参考图预览组件
+ */
+function ReferenceImagePreview({ assetId, assets }: ReferenceImagePreviewProps) {
+  const selectedAsset = assets.find((a) => a.id === assetId);
+
+  if (!selectedAsset) {
+    return null;
+  }
+
+  return (
+    <div className="mt-2 p-3 bg-muted/50 rounded-lg">
+      <div className="flex items-center gap-3">
+        {selectedAsset.base_image_url && (
+          <img
+            src={selectedAsset.base_image_url}
+            alt={selectedAsset.name}
+            className="w-16 h-16 rounded object-cover"
+          />
+        )}
+        <div>
+          <div className="font-medium">{selectedAsset.name}</div>
+          {selectedAsset.comic_style && (
+            <div className="text-sm text-muted-foreground">
+              风格：{selectedAsset.comic_style.name_zh}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

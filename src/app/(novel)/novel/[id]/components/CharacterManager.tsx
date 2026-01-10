@@ -120,6 +120,7 @@ export function CharacterManager({
             onClick={() => setIsGenerateDialogOpen(true)}
             variant="outline"
             disabled={outlines.length === 0}
+            title={outlines.length === 0 ? "请先创建章节大纲" : ""}
           >
             <Sparkles className="mr-2 h-4 w-4" />
             AI 生成角色
@@ -135,17 +136,50 @@ export function CharacterManager({
         </div>
       </div>
 
-      {/* 角色卡片网格 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {characters.map((character) => (
-          <CharacterCard
-            key={character.id}
-            character={character}
-            onEdit={openEditDialog}
-            onDelete={setDeleteCharacterId}
-          />
-        ))}
-      </div>
+      {/* 角色卡片网格或空状态 */}
+      {characters.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed border-gray-300 rounded-lg">
+          <div className="text-center space-y-4">
+            <div className="text-gray-400 text-6xl">👥</div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                暂无角色
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">
+                {outlines.length === 0
+                  ? "请先创建章节大纲，然后使用 AI 生成角色"
+                  : "点击上方按钮添加角色或使用 AI 生成角色"}
+              </p>
+            </div>
+            <div className="flex gap-2 justify-center">
+              {outlines.length > 0 && (
+                <Button
+                  onClick={() => setIsGenerateDialogOpen(true)}
+                  variant="default"
+                >
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  AI 生成角色
+                </Button>
+              )}
+              <Button onClick={() => openEditDialog(null)} variant="outline">
+                <Plus className="mr-2 h-4 w-4" />
+                手动添加
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {characters.map((character) => (
+            <CharacterCard
+              key={character.id}
+              character={character}
+              onEdit={openEditDialog}
+              onDelete={setDeleteCharacterId}
+            />
+          ))}
+        </div>
+      )}
 
       {/* 编辑对话框 */}
       <CharacterEditDialog

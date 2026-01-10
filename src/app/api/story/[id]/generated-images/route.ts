@@ -156,18 +156,35 @@ export async function GET(
     });
     console.log(`[Story Images] Found ${panels.length} panels with images`);
 
+    // Get all chapter IDs for this story to filter generated_images
+    const allChapters = await prisma.chapter.findMany({
+      where: { story_id: storyId },
+      select: { id: true },
+    });
+    const chapterIds = allChapters.map(ch => ch.id);
+
     // Also get images from generated_images table with chapter and panel info
+    // Include all source types: panel, nine_grid, character, etc.
     const generatedImages = await prisma.generatedImage.findMany({
       where: {
         user_id: payload.userId,
-        source_type: "panel",
-        source_id: { in: projectIds },
+        OR: [
+          // Images linked to this story's chapters
+          {
+            chapter_id: { in: chapterIds },
+          },
+          // Legacy: Images with source_type "panel" and source_id in projectIds
+          {
+            source_type: "panel",
+            source_id: { in: projectIds },
+          },
+        ],
       },
       orderBy: { created_at: "desc" },
     });
     console.log(`[Story Images] Found ${generatedImages.length} images in generated_images table`);
 
-    // Get all chapter IDs for this story
+    // Get full chapter info for building chapter map
     const chapters = await prisma.chapter.findMany({
       where: { story_id: storyId },
       select: { id: true, title: true, chapter_order: true },

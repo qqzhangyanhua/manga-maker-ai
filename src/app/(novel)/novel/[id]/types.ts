@@ -37,21 +37,22 @@ export interface ChapterOutlineBackend {
 
 /**
  * 角色定义
+ * 修复版本：role 支持任意字符串，不仅限于枚举值
  */
 export interface Character {
   id: string;
   name: string;
-  role: "protagonist" | "antagonist" | "supporting" | "minor";
+  role: string; // 角色类型（可以是任意描述，如 "现代青年，穿越者"）
   description: string;
-  traits: string[];
-  relationships: Array<{
+  traits?: string[]; // 可选：性格特征
+  relationships?: Array<{
     characterId: string;
     characterName?: string;
     relation: string;
     description?: string;
-  }>;
-  appearance?: string;
-  background?: string;
+  }>; // 可选：关系网络
+  appearance?: string; // 可选：外貌描述
+  background?: string; // 可选：背景故事
 }
 
 /**
@@ -196,15 +197,23 @@ export function createNewChapter(chapterNumber: number): ChapterOutline {
 
 /**
  * 验证角色数据
+ * 修复版本：更宽松的验证，只要求必要字段
  */
 export function isValidCharacter(obj: unknown): obj is Character {
   if (!obj || typeof obj !== "object") return false;
   const c = obj as Record<string, unknown>;
-  return (
-    typeof c.name === "string" &&
-    typeof c.description === "string" &&
-    ["protagonist", "antagonist", "supporting", "minor"].includes(c.role as string)
-  );
+
+  // 必须有 name（名称是最基本的要求）
+  if (typeof c.name !== "string" || c.name.trim() === "") return false;
+
+  // description 可以为空字符串，但必须存在
+  if (c.description !== undefined && typeof c.description !== "string") return false;
+
+  // role 字段存在即可（不再严格限制枚举值）
+  // 因为 AI 生成的角色可能有各种角色描述
+  if (c.role !== undefined && typeof c.role !== "string") return false;
+
+  return true;
 }
 
 /**
@@ -235,10 +244,20 @@ export function createEmptyWorldSetting(): WorldSetting {
 
 /**
  * 初始化空角色数组
+ * 修复版本：添加数据标准化逻辑
  */
 export function normalizeCharacters(characters: unknown): Character[] {
   if (!Array.isArray(characters)) return [];
-  return characters.filter(isValidCharacter);
+
+  return characters
+    .filter(isValidCharacter)
+    .map((c) => ({
+      ...c,
+      // 确保必填字段有默认值
+      description: c.description || "",
+      traits: c.traits || [],
+      relationships: c.relationships || [],
+    }));
 }
 
 /**
