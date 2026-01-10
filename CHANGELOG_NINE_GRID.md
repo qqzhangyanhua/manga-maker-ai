@@ -284,25 +284,7 @@
 
 ---
 
-## 回滚方案
 
-如需回滚此功能：
-
-1. **删除新增文件**：
-   ```bash
-   rm src/lib/nine-grid-generator.ts
-   rm src/app/api/chapter/[id]/generate-nine-grid/route.ts
-   rm src/app/scripts/[id]/components/NineGridDialog.tsx
-   rm src/lib/__tests__/nine-grid-generator.test.ts
-   rm docs/NINE_GRID_FEATURE.md
-   ```
-
-2. **还原修改文件**：
-   ```bash
-   git checkout src/app/scripts/[id]/components/ScriptPageHeader.tsx
-   git checkout src/app/scripts/[id]/components/ScriptPageTopBar.tsx
-   git checkout src/app/scripts/[id]/page.tsx
-   ```
 
 3. **清理数据库**（可选）：
    ```sql

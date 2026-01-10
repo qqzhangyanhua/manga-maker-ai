@@ -2,18 +2,7 @@ import { Button } from "@/components/ui/button";
 import { PanelRight } from "lucide-react";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
 import { ScriptPageHeader } from "./ScriptPageHeader";
-
-interface ScriptPageTopBarProps {
-  title: string;
-  chapters: unknown[];
-  panels: unknown[];
-  nextChapterOrder: number;
-  onCreateChapter: () => void;
-  onImportText: () => void;
-  onEnterFocusMode: () => void;
-  onOpenSidebar: () => void;
-  onOpenNineGrid?: () => void;
-}
+import type { ScriptPageTopBarProps } from "../types/component-props.types";
 
 export function ScriptPageTopBar({
   title,
@@ -31,8 +20,8 @@ export function ScriptPageTopBar({
       <div className="flex-1">
         <ScriptPageHeader
           title={title}
-          chapters={chapters as never}
-          panels={panels as never}
+          chapters={chapters}
+          panels={panels}
           onCreateChapter={onCreateChapter}
           onImportText={onImportText}
           onEnterFocusMode={onEnterFocusMode}

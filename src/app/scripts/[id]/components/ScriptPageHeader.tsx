@@ -8,28 +8,8 @@
 import { Button } from "@/components/ui/button";
 import { BookOpen, TrendingUp, FileText, Maximize2, Grid3x3 } from "lucide-react";
 import { useMemo } from "react";
-
-interface Chapter {
-  id: string;
-  published_at?: string | null;
-}
-
-interface Panel {
-  id: string;
-  chapter_id: string;
-  generated_image?: string;
-  image_url?: string | null;
-}
-
-interface ScriptPageHeaderProps {
-  title: string;
-  chapters: Chapter[];
-  panels: Panel[];
-  onCreateChapter: () => void;
-  onImportText: () => void;
-  onEnterFocusMode?: () => void;
-  onOpenNineGrid?: () => void;
-}
+import type { ScriptPageHeaderProps } from "../types/component-props.types";
+import type { Chapter, Panel } from "../types/domain.types";
 
 export function ScriptPageHeader({
   title,

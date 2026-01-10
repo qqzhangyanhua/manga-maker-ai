@@ -2,16 +2,7 @@ import { Button } from "@/components/ui/button";
 import { BookOpen, Sparkles } from "lucide-react";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ActionPrompt } from "@/components/common/ActionPrompt";
-import type { ProgressStats } from "@/hooks/useProgressCalculation";
-
-interface ScriptPageGuidanceProps {
-  progressStats: ProgressStats;
-  chapters: Array<{ id: string }>;
-  nextChapterOrder: number;
-  onCreateChapter: () => void;
-  onGeneratePanelsForChapter: (chapterId: string) => void;
-  onSetCurrentChapter: (chapterId: string) => void;
-}
+import type { ScriptPageGuidanceProps } from "../types/component-props.types";
 
 export function ScriptPageGuidance({
   progressStats,

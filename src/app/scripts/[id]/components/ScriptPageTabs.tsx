@@ -8,43 +8,7 @@ import { StoryCharactersManager } from "./StoryCharactersManager";
 import { StoryImagesGallery } from "./StoryImagesGallery";
 import { LayoutExportTab } from "./LayoutExportTab";
 import { BatchOperationsManager } from "./BatchOperationsManager";
-
-interface ScriptPageTabsProps {
-  activeTab: string;
-  storyId: string;
-  projectId: string | null;
-  sourceNovelId: string | null;
-  storyTitle: string;
-  storyStyle?: string;
-  chapters: unknown[];
-  panels: unknown[];
-  storyCharacters: unknown[];
-  characterAssets: unknown[];
-  isCharactersLoading: boolean;
-  isGenerating: boolean;
-  streamingPanels: unknown[];
-  progressStats: {
-    totalChapters: number;
-    completedChapters: number;
-    totalPanels: number;
-  };
-  nextChapterOrder: number;
-  onTabChange: (value: string) => void;
-  onCreateChapter: () => void;
-  onGenerateNext: () => void;
-  onGeneratePanels: (chapterId: string) => void;
-  onGenerateBackground: (
-    chapterId: string,
-    params: { scene_type: string; style: string; prompt?: string; negative_prompt?: string }
-  ) => Promise<void>;
-  onDeletePanel: (panelId: string) => Promise<void>;
-  onImageGenerated: (panelId: string, imageUrl: string) => void;
-  onCharactersRefresh: () => void;
-  onStoryCharactersRefresh: () => void;
-  onRefreshStoryData: () => Promise<void>;
-  onRefetchPanels: () => Promise<void>;
-  onError: (message: string) => void;
-}
+import type { ScriptPageTabsProps } from "../types/component-props.types";
 
 export function ScriptPageTabs({
   activeTab,
@@ -125,16 +89,16 @@ export function ScriptPageTabs({
 
       {/* 章节创作视图 */}
       <TabsContent value={TAB_VALUES.SERIAL} className="mt-0">
-        <BatchOperationsManager panels={panels as never} onRefresh={onRefetchPanels} />
+        <BatchOperationsManager panels={panels} onRefresh={onRefetchPanels} />
         <SerialChapterList
           storyId={storyId}
           projectId={projectId}
-          chapters={chapters as never}
-          panels={panels as never}
-          characters={characterAssets as never}
+          chapters={chapters}
+          panels={panels}
+          characters={characterAssets}
           charactersLoading={isCharactersLoading}
           isGeneratingPanels={isGenerating}
-          streamingPanels={streamingPanels as never}
+          streamingPanels={streamingPanels}
           storyStyle={storyStyle}
           onRefresh={onRefreshStoryData}
           onCreateChapter={onCreateChapter}
@@ -154,7 +118,7 @@ export function ScriptPageTabs({
           <StoryCharactersManager
             storyId={storyId}
             sourceNovelId={sourceNovelId}
-            storyCharacters={storyCharacters as never}
+            storyCharacters={storyCharacters}
             onCharacterSelect={() => {
               // 角色选择逻辑已在 StoryCharactersManager 内部处理
             }}
@@ -175,8 +139,8 @@ export function ScriptPageTabs({
         <LayoutExportTab
           storyId={storyId}
           projectId={projectId}
-          chapters={chapters as never}
-          panels={panels as never}
+          chapters={chapters}
+          panels={panels}
           storyTitle={storyTitle}
         />
       </TabsContent>

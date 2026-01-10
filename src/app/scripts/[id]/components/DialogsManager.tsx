@@ -9,49 +9,7 @@ import { SyncNovelCharactersDialog } from "./SyncNovelCharactersDialog";
 import { CharacterDetailDialog } from "./CharacterDetailDialog";
 import type { UIState, UIActions } from "../hooks/useUIState";
 import type { SelectedCharacter, CharacterInfo } from "../types/character";
-
-interface Panel {
-  id: string;
-  chapter_id?: string;
-  [key: string]: unknown;
-}
-
-interface SuggestedCharacter {
-  name: string;
-  role: string;
-  description?: string;
-  [key: string]: unknown;
-}
-
-interface StoryCharacter {
-  id: string;
-  character_id: string;
-  role: string;
-  [key: string]: unknown;
-}
-
-interface DialogsManagerProps {
-  storyId: string;
-  projectId: string | null;
-  panels: Panel[];
-  uiState: UIState;
-  uiActions: UIActions;
-  nextChapterOrder: number;
-  suggestedCharacters: SuggestedCharacter[];
-  storyCharacters: StoryCharacter[];
-  novelCharacterSync: {
-    dialogOpen: boolean;
-    charactersWithStatus: Array<{ name: string; role: string; generated: boolean }>;
-    closeDialog: () => void;
-  };
-  onRefresh: () => Promise<void>;
-  onRefetchStoryCharacters: () => Promise<void>;
-  onExecuteGeneration: (
-    chapterId: string,
-    mode: "overwrite" | "append",
-    panelCount?: number
-  ) => Promise<void>;
-}
+import type { DialogsManagerProps } from "../types/component-props.types";
 
 export function DialogsManager({
   storyId,
@@ -128,20 +86,22 @@ export function DialogsManager({
       {/* 导入文本对话框 - 由外部控制 */}
 
       {/* 小说角色同步对话框 */}
-      <SyncNovelCharactersDialog
-        open={novelCharacterSync.dialogOpen}
-        onOpenChange={novelCharacterSync.closeDialog}
-        storyId={storyId}
-        suggestedCharacters={novelCharacterSync.charactersWithStatus}
-        onSuccess={() => {
-          novelCharacterSync.closeDialog();
-          void onRefetchStoryCharacters();
-          toast({
-            title: "刷新成功",
-            description: "角色列表已更新",
-          });
-        }}
-      />
+      {novelCharacterSync.dialogOpen && (
+        <SyncNovelCharactersDialog
+          open={novelCharacterSync.dialogOpen}
+          onOpenChange={novelCharacterSync.closeDialog}
+          storyId={storyId}
+          suggestedCharacters={novelCharacterSync.charactersWithStatus}
+          onSuccess={() => {
+            novelCharacterSync.closeDialog();
+            void onRefetchStoryCharacters();
+            toast({
+              title: "刷新成功",
+              description: "角色列表已更新",
+            });
+          }}
+        />
+      )}
 
       {/* 角色详情对话框 */}
       <CharacterDetailDialog

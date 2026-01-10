@@ -31,6 +31,7 @@ import { useProgressCalculation } from "@/hooks/useProgressCalculation";
 import { useBatchSelection } from "@/hooks/useBatchSelection";
 import { useNovelCharacterSync } from "./hooks/useNovelCharacterSync";
 import { NineGridDialog } from "./components/NineGridDialog";
+import { validateBackgroundParams, ValidationError } from "./utils/inputValidation";
 
 export default function ScriptDetailsPage() {
   const params = useParams();
@@ -73,15 +74,15 @@ export default function ScriptDetailsPage() {
   // UI state
   const { state: uiState, actions: uiActions } = useUIState();
 
-  // Progress calculation
+  // Progress calculation - 使用 as unknown 解决类型系统冲突
   const progressStats = useProgressCalculation({
-    chapters: (data?.chapters || []) as never,
-    panels: (data?.panels || []) as never,
+    chapters: (data?.chapters || []) as unknown as Parameters<typeof useProgressCalculation>[0]['chapters'],
+    panels: (data?.panels || []) as unknown as Parameters<typeof useProgressCalculation>[0]['panels'],
   });
 
   // Batch selection for panels
   const panelSelection = useBatchSelection(
-    (data?.panels || []) as never,
+    data?.panels || [],
     { getId: (panel: { id: string }) => panel.id }
   );
 
@@ -97,15 +98,9 @@ export default function ScriptDetailsPage() {
   // Nine grid dialog state
   const [nineGridDialogOpen, setNineGridDialogOpen] = useState(false);
 
-  // ✅ 稳定的 chapters 引用
-  const stableChapters = useMemo(() => {
-    return (data?.chapters || []) as never;
-  }, [data?.chapters]);
-
-  // ✅ 稳定的 projectId 引用
-  const stableProjectId = useMemo(() => {
-    return data?.projectId || null;
-  }, [data?.projectId]);
+  // ✅ 使用 useMemo 确保引用稳定,避免子组件不必要的重渲染
+  const chapters = useMemo(() => data?.chapters || [], [data?.chapters]);
+  const projectId = data?.projectId || null;
 
   // ✅ 稳定的 onSuccess 回调（refreshStoryData 现在是稳定的）
   const handleNineGridSuccess = useCallback(() => {
@@ -117,12 +112,16 @@ export default function ScriptDetailsPage() {
     });
   }, [refreshStoryData, toast]); // refreshStoryData 现在引用稳定
 
-  // Novel character sync
+  // Novel character sync - 修复类型错误
   const novelCharacterSync = useNovelCharacterSync({
     storyId,
     sourceNovelId: data?.story?.source_novel_id || null,
     suggestedCharacters: data?.story?.suggested_characters || [],
-    storyCharacters,
+    storyCharacters: storyCharacters.map(sc => ({
+      character: {
+        name: 'name' in sc.character ? (sc.character.name as string) : '',
+      },
+    })),
   });
 
   // Asset application hook
@@ -144,11 +143,10 @@ export default function ScriptDetailsPage() {
     [storyId, router]
   );
 
-  // Computed: 下一个章节序号
+  // Computed: 下一个章节序号 (保留 useMemo,因为有计算逻辑)
   const nextChapterOrder = useMemo(() => {
-    const chapters = data?.chapters || [];
     return chapters.length > 0 ? Math.max(...chapters.map((ch) => ch.chapter_order)) + 1 : 1;
-  }, [data?.chapters]);
+  }, [chapters]);
 
   // Event handlers
   const {
@@ -174,16 +172,19 @@ export default function ScriptDetailsPage() {
     refetchPanels,
   });
 
-  // 生成章节背景图
+  // 生成章节背景图 - 添加输入验证
   const handleGenerateBackground = useCallback(async (
     chapterId: string,
     params: { scene_type: string; style: string; prompt?: string; negative_prompt?: string }
   ) => {
     try {
+      // ✅ 验证输入参数
+      const validatedParams = validateBackgroundParams(params);
+
       const response = await fetch(`/api/chapter/${chapterId}/generate-background`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(params),
+        body: JSON.stringify(validatedParams),
       });
 
       const result = await response.json();
@@ -200,6 +201,16 @@ export default function ScriptDetailsPage() {
       // 刷新故事数据以显示新的背景图
       await refreshStoryData();
     } catch (error) {
+      // ✅ 区分验证错误和其他错误
+      if (error instanceof ValidationError) {
+        toast({
+          title: "参数验证失败",
+          description: error.message,
+          variant: "destructive",
+        });
+        return; // 验证错误不需要抛出
+      }
+      
       const message = error instanceof Error ? error.message : "生成背景图失败";
       setErrorState(message);
       console.error("生成背景图失败:", error);
@@ -436,12 +447,12 @@ export default function ScriptDetailsPage() {
                 <DialogsManager
                   storyId={storyId}
                   projectId={data?.projectId || null}
-                  panels={(data?.panels || []) as never}
+                  panels={data?.panels || []}
                   uiState={uiState}
                   uiActions={uiActions}
                   nextChapterOrder={nextChapterOrder}
-                  suggestedCharacters={(data?.story?.suggested_characters || []) as never}
-                  storyCharacters={storyCharacters as never}
+                  suggestedCharacters={data?.story?.suggested_characters || []}
+                  storyCharacters={storyCharacters}
                   novelCharacterSync={novelCharacterSync}
                   onRefresh={refreshStoryData}
                   onRefetchStoryCharacters={async () => {
@@ -471,8 +482,8 @@ export default function ScriptDetailsPage() {
                   open={nineGridDialogOpen}
                   onOpenChange={setNineGridDialogOpen}
                   storyId={storyId}
-                  projectId={stableProjectId}
-                  chapters={stableChapters}
+                  projectId={projectId}
+                  chapters={chapters}
                   onSuccess={handleNineGridSuccess}
                 />
 

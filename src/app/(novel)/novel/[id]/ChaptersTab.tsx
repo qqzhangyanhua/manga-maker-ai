@@ -65,6 +65,7 @@ export function ChaptersTab({
                 selectedChapter={selectedChapter}
                 onSelect={onSelectChapter}
                 loading={loading}
+                genre={project.genre || "default"}
               />
             </CardContent>
           </Card>

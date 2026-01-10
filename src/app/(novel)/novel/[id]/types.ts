@@ -248,3 +248,23 @@ export function normalizeWorldSetting(worldSetting: unknown): WorldSetting {
   if (isValidWorldSetting(worldSetting)) return worldSetting;
   return createEmptyWorldSetting();
 }
+
+/**
+ * 镜头密度模式
+ */
+export type DensityMode = "sparse" | "standard" | "dense";
+
+/**
+ * 镜头数量预估结果
+ */
+export interface PanelEstimation {
+  estimatedCount: number;      // 预估镜头数（核心数值）
+  minCount: number;             // 最少镜头数（下界）
+  maxCount: number;             // 最多镜头数（上界）
+  wordCount: number;            // 章节字数统计
+  baseDensity: number;          // 基础密度（字/镜）
+  genre: string;                // 故事类型
+  estimatedCredits: number;     // 预估消耗 credits
+  densityMode: DensityMode;     // 当前密度模式
+  warnings: string[];           // 警告信息（如章节过长/过短）
+}
