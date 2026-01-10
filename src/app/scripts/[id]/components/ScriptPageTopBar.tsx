@@ -12,6 +12,7 @@ interface ScriptPageTopBarProps {
   onImportText: () => void;
   onEnterFocusMode: () => void;
   onOpenSidebar: () => void;
+  onOpenNineGrid?: () => void;
 }
 
 export function ScriptPageTopBar({
@@ -23,6 +24,7 @@ export function ScriptPageTopBar({
   onImportText,
   onEnterFocusMode,
   onOpenSidebar,
+  onOpenNineGrid,
 }: ScriptPageTopBarProps) {
   return (
     <div className="flex items-center justify-between mb-6">
@@ -34,6 +36,7 @@ export function ScriptPageTopBar({
           onCreateChapter={onCreateChapter}
           onImportText={onImportText}
           onEnterFocusMode={onEnterFocusMode}
+          onOpenNineGrid={onOpenNineGrid}
         />
       </div>
 

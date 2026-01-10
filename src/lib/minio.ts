@@ -67,3 +67,38 @@ export function getPublicUrl(objectName: string): string {
   const protocol = process.env.MINIO_USE_SSL === "true" ? "https" : "http";
   return `${protocol}://${endpoint}/${MINIO_BUCKET}/${objectName}`;
 }
+
+/**
+ * 上传文件到 MinIO
+ * @param buffer 文件 Buffer
+ * @param filename 文件名
+ * @param contentType 内容类型
+ * @returns 公开访问的 URL
+ */
+export async function uploadToMinIO(
+  buffer: Buffer,
+  filename: string,
+  contentType: string = "application/octet-stream"
+): Promise<string> {
+  try {
+    // 确保 bucket 存在
+    await ensureBucketExists();
+
+    // 上传文件
+    await minioClient.putObject(
+      MINIO_BUCKET,
+      filename,
+      buffer,
+      buffer.length,
+      {
+        "Content-Type": contentType,
+      }
+    );
+
+    // 返回公开访问的 URL
+    return getPublicUrl(filename);
+  } catch (error) {
+    console.error("上传到 MinIO 失败:", error);
+    throw error;
+  }
+}

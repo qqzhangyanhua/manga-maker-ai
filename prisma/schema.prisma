@@ -1123,3 +1123,22 @@ model NovelQuota {
 
   @@map("novel_quotas")
 }
+
+// 九宫格图片记录
+model NineGridImage {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id           String   @db.Uuid
+  chapter_id        String   @db.Uuid
+  panel_ids         String[] // 9个分镜ID
+  image_url         String   // MinIO URL
+  prompt_combined   String   @db.Text // 组合后的提示词
+  comic_style_id    String?  @db.Uuid
+  reference_image   String?
+  
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([user_id], map: "idx_nine_grid_images_user")
+  @@index([chapter_id], map: "idx_nine_grid_images_chapter")
+  @@map("nine_grid_images")
+}

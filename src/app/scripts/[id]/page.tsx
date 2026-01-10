@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useMemo, useState } from "react";
+import { useEffect, useCallback, useMemo, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Navbar } from "@/components/Landing";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ import { ErrorBanner } from "@/components/common/ErrorBanner";
 import { useProgressCalculation } from "@/hooks/useProgressCalculation";
 import { useBatchSelection } from "@/hooks/useBatchSelection";
 import { useNovelCharacterSync } from "./hooks/useNovelCharacterSync";
+import { NineGridDialog } from "./components/NineGridDialog";
 
 export default function ScriptDetailsPage() {
   const params = useParams();
@@ -56,9 +57,18 @@ export default function ScriptDetailsPage() {
     refetch: refetchStoryCharacters,
   } = useStoryCharacters(storyId, { enabled });
 
-  const refreshStoryData = useCallback(async () => {
-    await Promise.all([refetchStory(), refetchPanels()]);
+  // ✅ 使用 useRef 存储 refetch 函数，避免依赖变化导致无限循环
+  const refetchFunctionsRef = useRef({ refetchStory, refetchPanels });
+  useEffect(() => {
+    refetchFunctionsRef.current = { refetchStory, refetchPanels };
   }, [refetchStory, refetchPanels]);
+
+  const refreshStoryData = useCallback(async () => {
+    await Promise.all([
+      refetchFunctionsRef.current.refetchStory(),
+      refetchFunctionsRef.current.refetchPanels(),
+    ]);
+  }, []); // ✅ 空依赖数组，函数引用永不变化
 
   // UI state
   const { state: uiState, actions: uiActions } = useUIState();
@@ -83,6 +93,29 @@ export default function ScriptDetailsPage() {
 
   // Import text dialog state
   const [importTextDialogOpen, setImportTextDialogOpen] = useState(false);
+
+  // Nine grid dialog state
+  const [nineGridDialogOpen, setNineGridDialogOpen] = useState(false);
+
+  // ✅ 稳定的 chapters 引用
+  const stableChapters = useMemo(() => {
+    return (data?.chapters || []) as never;
+  }, [data?.chapters]);
+
+  // ✅ 稳定的 projectId 引用
+  const stableProjectId = useMemo(() => {
+    return data?.projectId || null;
+  }, [data?.projectId]);
+
+  // ✅ 稳定的 onSuccess 回调（refreshStoryData 现在是稳定的）
+  const handleNineGridSuccess = useCallback(() => {
+    setNineGridDialogOpen(false);
+    void refreshStoryData();
+    toast({
+      title: "生成成功",
+      description: "已成功生成九宫格分镜",
+    });
+  }, [refreshStoryData, toast]); // refreshStoryData 现在引用稳定
 
   // Novel character sync
   const novelCharacterSync = useNovelCharacterSync({
@@ -317,6 +350,7 @@ export default function ScriptDetailsPage() {
                   onImportText={() => setImportTextDialogOpen(true)}
                   onEnterFocusMode={() => handleEnterFocusMode()}
                   onOpenSidebar={() => setSidebarOpen(true)}
+                  onOpenNineGrid={() => setNineGridDialogOpen(true)}
                 />
 
                 {/* 小说来源信息卡片 */}
@@ -430,6 +464,16 @@ export default function ScriptDetailsPage() {
                       description: "已成功生成分镜，刷新页面查看",
                     });
                   }}
+                />
+
+                {/* 九宫格对话框 */}
+                <NineGridDialog
+                  open={nineGridDialogOpen}
+                  onOpenChange={setNineGridDialogOpen}
+                  storyId={storyId}
+                  projectId={stableProjectId}
+                  chapters={stableChapters}
+                  onSuccess={handleNineGridSuccess}
                 />
 
                 {/* 资源库侧边栏 (新布局) */}

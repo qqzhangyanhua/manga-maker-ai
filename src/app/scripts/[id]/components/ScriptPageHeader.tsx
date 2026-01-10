@@ -6,7 +6,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { BookOpen, TrendingUp, FileText, Maximize2 } from "lucide-react";
+import { BookOpen, TrendingUp, FileText, Maximize2, Grid3x3 } from "lucide-react";
 import { useMemo } from "react";
 
 interface Chapter {
@@ -28,6 +28,7 @@ interface ScriptPageHeaderProps {
   onCreateChapter: () => void;
   onImportText: () => void;
   onEnterFocusMode?: () => void;
+  onOpenNineGrid?: () => void;
 }
 
 export function ScriptPageHeader({
@@ -37,6 +38,7 @@ export function ScriptPageHeader({
   onCreateChapter,
   onImportText,
   onEnterFocusMode,
+  onOpenNineGrid,
 }: ScriptPageHeaderProps) {
   const stats = useMemo(() => {
     const publishedCount = chapters.filter((ch) => ch.published_at).length;
@@ -90,6 +92,18 @@ export function ScriptPageHeader({
             <FileText className="w-4 h-4 mr-2" />
             导入文本
           </Button>
+          {/* 九宫格生成按钮 - 仅在有章节时显示 */}
+          {chapters.length > 0 && onOpenNineGrid && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onOpenNineGrid}
+              className="border-orange-500/50 hover:border-orange-500 text-orange-400 hover:text-orange-300 hover:bg-orange-500/10"
+            >
+              <Grid3x3 className="w-4 h-4 mr-2" />
+              九宫格
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
