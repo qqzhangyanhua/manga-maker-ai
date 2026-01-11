@@ -6,9 +6,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Card, CardContent } from "@/components/ui/card";
+import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, ExternalLink, Plus } from "lucide-react";
+import { BookOpen, ExternalLink, ArrowRight } from "lucide-react";
 import type { SourceNovelInfo } from "../types/script-editor.types";
 
 interface NovelSourceCardProps {
@@ -32,19 +32,15 @@ export function NovelSourceCard({
   // 小说已删除的情况
   if (!sourceNovel) {
     return (
-      <Card className="bg-gray-500/5 border-gray-500/20">
-        <CardContent className="flex items-center gap-4 py-3 px-4">
-          <div className="flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-gray-400" />
-            <span className="text-sm text-gray-400">改编自小说</span>
-          </div>
-          <span className="text-sm text-gray-500">（原小说已删除）</span>
-        </CardContent>
-      </Card>
+      <GlassCard className="mb-6 p-4 border-zinc-800 bg-zinc-900/30">
+        <div className="flex items-center gap-3">
+          <BookOpen className="w-4 h-4 text-zinc-500" />
+          <span className="text-sm text-zinc-500">来源小说已删除</span>
+        </div>
+      </GlassCard>
     );
   }
 
-  // 正常显示
   const formatDate = (date: Date) => {
     return new Date(date).toLocaleDateString("zh-CN", {
       year: "numeric",
@@ -54,55 +50,41 @@ export function NovelSourceCard({
   };
 
   const handleContinueConvert = () => {
-    // 跳转到小说页面
     router.push(`/novel/${sourceNovel.id}`);
   };
 
   return (
-    <Card className="bg-blue-500/5 border-blue-500/20">
-      <CardContent className="flex items-center gap-4 py-3 px-4">
-        {/* 左侧：来源标识 */}
-        <div className="flex items-center gap-2 min-w-[100px]">
-          <BookOpen className="w-4 h-4 text-blue-400" />
-          <span className="text-sm text-blue-300">改编自小说</span>
-        </div>
+    <GlassCard className="mb-6 p-4 border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10 transition-colors group">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4 overflow-hidden">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 shrink-0">
+            <BookOpen className="w-3.5 h-3.5 text-blue-400" />
+            <span className="text-xs font-medium text-blue-300">改编自小说</span>
+          </div>
 
-        {/* 中间：小说信息 */}
-        <div className="flex-1 min-w-0">
-          <Link
-            href={`/novel/${sourceNovel.id}`}
-            className="font-medium text-white hover:text-blue-300 transition-colors truncate block"
-          >
-            {sourceNovel.title}
-          </Link>
-          <p className="text-xs text-gray-400">
-            转换于 {formatDate(sourceNovel.created_at)}
-          </p>
-        </div>
-
-        {/* 右侧：操作按钮 */}
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1.5"
-            asChild
-          >
-            <Link href={`/novel/${sourceNovel.id}`}>
-              <ExternalLink className="w-3.5 h-3.5" />
-              查看原小说
+          <div className="flex flex-col min-w-0">
+            <Link
+              href={`/novel/${sourceNovel.id}`}
+              className="font-medium text-blue-100 hover:text-white transition-colors truncate flex items-center gap-2 group-hover:underline decoration-blue-500/30 underline-offset-4"
+            >
+              {sourceNovel.title}
+              <ExternalLink className="w-3 h-3 opacity-50" />
             </Link>
-          </Button>
-          <Button
-            size="sm"
-            className="gap-1.5 bg-blue-600 hover:bg-blue-700"
-            onClick={handleContinueConvert}
-          >
-            <Plus className="w-3.5 h-3.5" />
-            继续转换章节
-          </Button>
+            <span className="text-[10px] text-blue-400/60 truncate">
+              转换时间: {formatDate(sourceNovel.created_at)}
+            </span>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+
+        <Button
+          size="sm"
+          className="bg-blue-600 hover:bg-blue-500 text-white border-0 shadow-lg shadow-blue-500/20 shrink-0"
+          onClick={handleContinueConvert}
+        >
+          继续转换
+          <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+        </Button>
+      </div>
+    </GlassCard>
   );
 }

@@ -3,20 +3,19 @@
 import { Suspense, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Mail, ShieldCheck, ArrowLeft, Sparkles, Loader2 } from "lucide-react";
+import { Mail, ShieldCheck, ArrowLeft, Sparkles, Loader2, Lock, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { useToast } from "@/hooks/use-toast";
+import { GlassCard } from "@/components/ui/glass-card";
 
 const RegisterForm = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
 
-  // 获取 trial 参数
   const trialId = searchParams.get("trial");
   const hasTrialWork = !!trialId;
 
@@ -81,7 +80,6 @@ const RegisterForm = () => {
         return;
       }
 
-      // 如果有 trialId，尝试关联体验作品
       if (trialId) {
         try {
           const claimRes = await fetch("/api/trial/claim", {
@@ -101,7 +99,6 @@ const RegisterForm = () => {
           }
         } catch (claimError) {
           console.error("关联体验作品失败:", claimError);
-          // 关联失败不影响注册成功
         }
       }
 
@@ -115,126 +112,166 @@ const RegisterForm = () => {
   };
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#1a1410' }}>
-      <div className="max-w-6xl mx-auto px-4 py-10 flex flex-col gap-8">
-        <div className="flex items-center justify-between mt-4">
-          <Link href="/" className="text-muted-foreground hover:text-foreground inline-flex items-center gap-2">
-            <ArrowLeft className="w-4 h-4" />
-            返回首页
-          </Link>
-          <Link href="/auth/login" className="text-sm text-muted-foreground hover:text-foreground">
-            已有账号？去登录
-          </Link>
-        </div>
+    <div className="min-h-screen bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-black to-black py-12 sm:px-6 lg:px-8 flex flex-col justify-center">
+      {/* Background Glows */}
+      <div className="fixed top-0 left-0 w-full h-[500px] bg-orange-500/5 blur-[120px] pointer-events-none select-none" />
+      <div className="fixed bottom-0 right-0 w-[500px] h-[500px] bg-purple-500/5 blur-[120px] pointer-events-none select-none" />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="space-y-4">
-            <h1 className="text-3xl md:text-4xl font-bold flex items-center gap-3">
-              <ShieldCheck className="w-8 h-8 text-primary" />
-              注册 ComicAI 账号
-            </h1>
-            <p className="text-muted-foreground">
-              完成邮箱验证后即可使用分镜生成、剧本创作等功能，验证码将发送到你的邮箱，10 分钟内有效。
-            </p>
+      <div className="sm:mx-auto sm:w-full sm:max-w-2xl relative z-10 px-4 sm:px-0">
+        <Link href="/" className="flex items-center justify-center gap-2 mb-8 text-zinc-400 hover:text-white transition-colors">
+          <ArrowLeft className="w-4 h-4" />
+          <span>返回首页</span>
+        </Link>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+          {/* Left Info Panel */}
+          <div className="lg:col-span-2 space-y-6 text-center lg:text-left">
+            <div>
+              <h2 className="text-3xl font-bold tracking-tight text-white mb-2">
+                创建账号
+              </h2>
+              <p className="text-zinc-400">
+                加入 ComicAI，开始您的创作之旅。只需几步即可完成注册。
+              </p>
+            </div>
 
-            {/* 体验作品保存提示 */}
             {hasTrialWork && (
-              <div className="rounded-lg border-2 border-primary/50 bg-primary/5 p-4 space-y-2">
-                <h3 className="font-semibold flex items-center gap-2 text-primary">
+              <GlassCard className="p-4 bg-orange-500/10 border-orange-500/30">
+                <h3 className="font-semibold flex items-center gap-2 text-orange-400 mb-1">
                   <Sparkles className="w-4 h-4" />
-                  保存你的体验作品
+                  保存体验作品
                 </h3>
-                <p className="text-sm text-muted-foreground">
-                  完成注册后，你刚才生成的 4 格漫画将自动保存到你的账号，你可以继续编辑和导出。
+                <p className="text-xs text-zinc-400">
+                  注册后，您刚才生成的 4 格漫画将自动保存到您的账号。
                 </p>
-              </div>
+              </GlassCard>
             )}
 
-            <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-              <h3 className="font-semibold flex items-center gap-2">
-                <Mail className="w-4 h-4" />
-                验证码说明
-              </h3>
-              <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
-                <li>验证码为 6 位数字，10 分钟内有效</li>
-                <li>同一邮箱只保留最近一次验证码</li>
-                <li>如果未收到邮件，请检查垃圾箱或稍后再试</li>
-              </ul>
+            <div className="hidden lg:block space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-zinc-800/50 text-orange-500">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-white">安全保障</h4>
+                  <p className="text-xs text-zinc-500 mt-1">邮箱验证确保您的账户安全，密码加密存储。</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-zinc-800/50 text-blue-500">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-white">无限创意</h4>
+                  <p className="text-xs text-zinc-500 mt-1">注册即享免费算力，体验 AI 辅助漫画创作。</p>
+                </div>
+              </div>
             </div>
           </div>
 
-          <Card className="shadow-lg border-border/80">
-            <CardHeader>
-              <CardTitle>注册并验证邮箱</CardTitle>
-              <CardDescription>填写邮箱获取验证码，完成注册后将自动登录</CardDescription>
-            </CardHeader>
-
-            <CardContent>
-              <form className="space-y-4" onSubmit={handleRegister}>
+          {/* Right Form Panel */}
+          <div className="lg:col-span-3">
+            <GlassCard className="py-8 px-4 sm:px-8 border-zinc-800 bg-zinc-900/40 backdrop-blur-xl">
+              <form className="space-y-5" onSubmit={handleRegister}>
                 <div className="space-y-2">
-                  <Label htmlFor="email">邮箱</Label>
+                  <Label htmlFor="email" className="text-zinc-300">邮箱地址</Label>
                   <div className="flex gap-2">
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="you@example.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                      className="flex-1"
-                    />
-                    <Button type="button" variant="outline" onClick={handleSendCode} disabled={sending || countdown > 0}>
-                      {countdown > 0 ? `${countdown}s 后重发` : "发送验证码"}
+                    <div className="relative flex-1">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Mail className="h-5 w-5 text-zinc-500" />
+                      </div>
+                      <Input
+                        id="email"
+                        type="email"
+                        required
+                        placeholder="name@example.com"
+                        className="pl-10 bg-zinc-950/50 border-zinc-700 focus:border-orange-500/50 focus:ring-orange-500/20 text-white placeholder:text-zinc-600"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                      />
+                    </div>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={handleSendCode} 
+                      disabled={sending || countdown > 0}
+                      className="whitespace-nowrap border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                    >
+                      {countdown > 0 ? `${countdown}s 后重发` : "获取验证码"}
                     </Button>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="name">昵称（可选）</Label>
-                  <Input
-                    id="name"
-                    placeholder="用于展示的昵称"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                  />
+                  <Label htmlFor="code" className="text-zinc-300">验证码</Label>
+                  <div className="flex justify-center sm:justify-start">
+                    <InputOTP maxLength={6} value={code} onChange={setCode}>
+                      <InputOTPGroup className="gap-2">
+                        {[0, 1, 2, 3, 4, 5].map((index) => (
+                          <InputOTPSlot 
+                            key={index} 
+                            index={index} 
+                            className="bg-zinc-950/50 border-zinc-700 text-white w-10 h-12 sm:w-12 sm:h-14" 
+                          />
+                        ))}
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password">密码</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="至少 8 位，建议含字母数字"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
+                  <Label htmlFor="name" className="text-zinc-300">昵称 (可选)</Label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <User className="h-5 w-5 text-zinc-500" />
+                    </div>
+                    <Input
+                      id="name"
+                      placeholder="您的称呼"
+                      className="pl-10 bg-zinc-950/50 border-zinc-700 focus:border-orange-500/50 focus:ring-orange-500/20 text-white placeholder:text-zinc-600"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>邮箱验证码</Label>
-                  <InputOTP maxLength={6} value={code} onChange={setCode}>
-                    <InputOTPGroup>
-                      {[0, 1, 2, 3, 4, 5].map((index) => (
-                        <InputOTPSlot key={index} index={index} />
-                      ))}
-                    </InputOTPGroup>
-                  </InputOTP>
+                  <Label htmlFor="password" className="text-zinc-300">设置密码</Label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Lock className="h-5 w-5 text-zinc-500" />
+                    </div>
+                    <Input
+                      id="password"
+                      type="password"
+                      required
+                      placeholder="至少 8 位字符"
+                      className="pl-10 bg-zinc-950/50 border-zinc-700 focus:border-orange-500/50 focus:ring-orange-500/20 text-white placeholder:text-zinc-600"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                  </div>
                 </div>
 
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "注册中..." : "完成注册并登录"}
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20 py-5 font-semibold text-base mt-2"
+                >
+                  {loading ? "注册中..." : "完成注册"}
                 </Button>
               </form>
-            </CardContent>
 
-            <CardFooter className="text-sm text-muted-foreground justify-center">
-              已有账号？
-              <Link href="/auth/login" className="text-primary ml-1 hover:underline">
-                去登录
-              </Link>
-            </CardFooter>
-          </Card>
+              <div className="mt-6 text-center">
+                <p className="text-sm text-zinc-500">
+                  已有账号？{" "}
+                  <Link href="/auth/login" className="text-orange-400 hover:text-orange-300 font-medium hover:underline">
+                    直接登录
+                  </Link>
+                </p>
+              </div>
+            </GlassCard>
+          </div>
         </div>
       </div>
     </div>
@@ -242,8 +279,8 @@ const RegisterForm = () => {
 };
 
 const RegisterLoading = () => (
-  <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#1a1410' }}>
-    <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+  <div className="min-h-screen bg-black flex items-center justify-center">
+    <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
   </div>
 );
 

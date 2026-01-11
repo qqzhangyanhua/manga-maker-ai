@@ -6,10 +6,10 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { BookOpen, TrendingUp, FileText, Maximize2, Grid3x3 } from "lucide-react";
+import { BookOpen, TrendingUp, FileText, Maximize2, Grid3x3, Wand2 } from "lucide-react";
 import { useMemo } from "react";
+import { GlassCard } from "@/components/ui/glass-card";
 import type { ScriptPageHeaderProps } from "../types/component-props.types";
-import type { Chapter, Panel } from "../types/domain.types";
 
 export function ScriptPageHeader({
   title,
@@ -26,7 +26,6 @@ export function ScriptPageHeader({
     const completionRate =
       panels.length > 0 ? Math.round((completedPanels / panels.length) * 100) : 0;
 
-    // 计算完成的章节数（该章节的所有分镜都有图像）
     const completedChapters = chapters.filter((chapter) => {
       const chapterPanels = panels.filter((p) => p.chapter_id === chapter.id);
       if (chapterPanels.length === 0) return false;
@@ -42,22 +41,22 @@ export function ScriptPageHeader({
   }, [chapters, panels]);
 
   return (
-    <div className="mb-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded bg-gradient-to-br from-orange-500 to-purple-500 flex items-center justify-center">
-            <BookOpen className="w-4 h-4 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-white">{title}</h1>
-        </div>
+    <div className="mb-6 space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/20">
+            <BookOpen className="w-5 h-5 text-white" />
+          </div>
+          <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">{title}</h1>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           {/* 专注模式按钮 - 仅在有分镜时显示 */}
           {panels.length > 0 && onEnterFocusMode && (
             <Button
               variant="outline"
               size="sm"
               onClick={onEnterFocusMode}
-              className="border-purple-500/50 hover:border-purple-500 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
+              className="border-purple-500/30 hover:border-purple-500 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 bg-purple-500/5"
             >
               <Maximize2 className="w-4 h-4 mr-2" />
               专注编辑
@@ -67,7 +66,7 @@ export function ScriptPageHeader({
             variant="outline"
             size="sm"
             onClick={onImportText}
-            className="border-gray-700 hover:border-gray-600 text-gray-300 hover:text-white"
+            className="border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white"
           >
             <FileText className="w-4 h-4 mr-2" />
             导入文本
@@ -78,7 +77,7 @@ export function ScriptPageHeader({
               variant="outline"
               size="sm"
               onClick={onOpenNineGrid}
-              className="border-orange-500/50 hover:border-orange-500 text-orange-400 hover:text-orange-300 hover:bg-orange-500/10"
+              className="border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white"
             >
               <Grid3x3 className="w-4 h-4 mr-2" />
               九宫格
@@ -87,14 +86,15 @@ export function ScriptPageHeader({
           <Button
             variant="outline"
             size="sm"
-            className="border-gray-700 hover:border-gray-600 text-orange-500 hover:text-orange-400"
+            className="border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white"
           >
+            <Wand2 className="w-4 h-4 mr-2" />
             AI 续写
           </Button>
           <Button
             size="sm"
             onClick={onCreateChapter}
-            className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
+            className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg shadow-orange-500/20"
           >
             + 创建章节
           </Button>
@@ -102,28 +102,28 @@ export function ScriptPageHeader({
       </div>
 
       {/* 统计信息卡片 */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {/* 章节统计 */}
-        <div className="bg-[#1a1a1f]/60 backdrop-blur-sm border border-gray-800/50 rounded-lg p-3">
-          <div className="text-xs text-gray-400 mb-1">章节进度</div>
-          <div className="flex items-baseline gap-2">
+        <GlassCard className="p-4 flex flex-col items-center justify-center text-center hover:bg-zinc-900/60 transition-colors">
+          <div className="text-xs text-zinc-500 mb-1 uppercase tracking-wider">章节进度</div>
+          <div className="flex items-baseline gap-1">
             <span className="text-2xl font-bold text-white">{stats.completedChapters}</span>
-            <span className="text-sm text-gray-400">/ {chapters.length}</span>
+            <span className="text-sm text-zinc-500">/ {chapters.length}</span>
           </div>
-        </div>
+        </GlassCard>
 
         {/* 分镜统计 */}
-        <div className="bg-[#1a1a1f]/60 backdrop-blur-sm border border-gray-800/50 rounded-lg p-3">
-          <div className="text-xs text-gray-400 mb-1">分镜进度</div>
-          <div className="flex items-baseline gap-2">
+        <GlassCard className="p-4 flex flex-col items-center justify-center text-center hover:bg-zinc-900/60 transition-colors">
+          <div className="text-xs text-zinc-500 mb-1 uppercase tracking-wider">分镜进度</div>
+          <div className="flex items-baseline gap-1">
             <span className="text-2xl font-bold text-white">{stats.completedPanels}</span>
-            <span className="text-sm text-gray-400">/ {panels.length}</span>
+            <span className="text-sm text-zinc-500">/ {panels.length}</span>
           </div>
-        </div>
+        </GlassCard>
 
         {/* 完成度 */}
-        <div className="bg-[#1a1a1f]/60 backdrop-blur-sm border border-gray-800/50 rounded-lg p-3">
-          <div className="text-xs text-gray-400 mb-1">完成度</div>
+        <GlassCard className="p-4 flex flex-col items-center justify-center text-center hover:bg-zinc-900/60 transition-colors border-orange-500/20">
+          <div className="text-xs text-orange-500/80 mb-1 uppercase tracking-wider">完成度</div>
           <div className="flex items-center gap-2">
             <span className="text-2xl font-bold text-orange-400">
               {stats.completionRate}%
@@ -132,16 +132,16 @@ export function ScriptPageHeader({
               <TrendingUp className="w-4 h-4 text-green-400" />
             )}
           </div>
-        </div>
+        </GlassCard>
 
         {/* 已发布 */}
-        <div className="bg-[#1a1a1f]/60 backdrop-blur-sm border border-gray-800/50 rounded-lg p-3">
-          <div className="text-xs text-gray-400 mb-1">已发布</div>
-          <div className="flex items-baseline gap-2">
+        <GlassCard className="p-4 flex flex-col items-center justify-center text-center hover:bg-zinc-900/60 transition-colors">
+          <div className="text-xs text-zinc-500 mb-1 uppercase tracking-wider">已发布</div>
+          <div className="flex items-baseline gap-1">
             <span className="text-2xl font-bold text-white">{stats.publishedCount}</span>
-            <span className="text-sm text-gray-400">章</span>
+            <span className="text-sm text-zinc-500">章</span>
           </div>
-        </div>
+        </GlassCard>
       </div>
     </div>
   );

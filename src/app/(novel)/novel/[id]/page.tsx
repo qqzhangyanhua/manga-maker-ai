@@ -61,25 +61,35 @@ function NovelProjectPageContent() {
   // ✅ 错误状态处理
   if (error) {
     return (
-      <ErrorState
-        error={error}
-        title="加载项目失败"
-        description="无法加载项目数据，请检查项目是否存在或稍后重试。"
-        onRetry={refetch}
-      />
+      <div className="min-h-screen bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-black to-black flex items-center justify-center">
+        <ErrorState
+          error={error}
+          title="加载项目失败"
+          description="无法加载项目数据，请检查项目是否存在或稍后重试。"
+          onRetry={refetch}
+        />
+      </div>
     );
   }
 
   // 加载骨架屏
   if (loading || !project) {
     return (
-      <div className="container mx-auto py-8">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-zinc-800 rounded w-1/3 mb-4"></div>
-          <div className="h-4 bg-zinc-800 rounded w-1/2"></div>
-          <div className="grid grid-cols-12 gap-6 mt-8">
-            <div className="col-span-3 h-96 bg-zinc-800 rounded"></div>
-            <div className="col-span-9 h-96 bg-zinc-800 rounded"></div>
+      <div className="min-h-screen bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-black to-black">
+        <div className="container mx-auto py-12 px-4 max-w-7xl">
+          <div className="animate-pulse space-y-8">
+            <div className="flex justify-between items-center">
+               <div className="space-y-3 w-1/3">
+                 <div className="h-10 bg-zinc-800 rounded-lg w-full"></div>
+                 <div className="h-4 bg-zinc-800 rounded w-2/3"></div>
+               </div>
+               <div className="h-10 w-32 bg-zinc-800 rounded"></div>
+            </div>
+            <div className="h-12 bg-zinc-800 rounded-lg w-full"></div>
+            <div className="grid grid-cols-12 gap-6 mt-8">
+              <div className="col-span-3 h-[600px] bg-zinc-800/50 rounded-xl border border-zinc-800"></div>
+              <div className="col-span-9 h-[600px] bg-zinc-800/50 rounded-xl border border-zinc-800"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -110,8 +120,12 @@ function NovelProjectPageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="container mx-auto py-8 px-4 max-w-7xl space-y-8">
+    <div className="min-h-screen bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-black to-black">
+      {/* 装饰性光晕 */}
+      <div className="fixed top-20 left-1/4 w-96 h-96 bg-orange-500/5 blur-[120px] rounded-full pointer-events-none" />
+      <div className="fixed bottom-20 right-1/4 w-96 h-96 bg-purple-500/5 blur-[120px] rounded-full pointer-events-none" />
+
+      <div className="container mx-auto py-8 px-4 max-w-7xl space-y-8 relative z-10">
         {/* 项目头部 + 保存指示器 */}
         <div className="flex items-center justify-between">
           <ProjectHeader
@@ -130,30 +144,30 @@ function NovelProjectPageContent() {
 
         {/* 主内容区 */}
         <Tabs defaultValue="chapters" className="space-y-6">
-          <TabsList className="bg-zinc-900/50 border border-zinc-800 p-1 h-auto">
-            <TabsTrigger value="chapters" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white transition-all">
+          <TabsList className="bg-zinc-900/60 backdrop-blur-md border border-zinc-800 p-1 h-auto rounded-xl">
+            <TabsTrigger value="chapters" className="rounded-lg data-[state=active]:bg-orange-500 data-[state=active]:text-white transition-all py-2 px-4">
               <BookOpen className="h-4 w-4 mr-2" />
               章节管理
             </TabsTrigger>
-            <TabsTrigger value="outline" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white transition-all">
+            <TabsTrigger value="outline" className="rounded-lg data-[state=active]:bg-orange-500 data-[state=active]:text-white transition-all py-2 px-4">
               <FileText className="h-4 w-4 mr-2" />
               故事大纲
             </TabsTrigger>
-            <TabsTrigger value="characters" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white transition-all">
+            <TabsTrigger value="characters" className="rounded-lg data-[state=active]:bg-orange-500 data-[state=active]:text-white transition-all py-2 px-4">
               <Users className="h-4 w-4 mr-2" />
               角色管理
             </TabsTrigger>
-            <TabsTrigger value="world" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white transition-all">
+            <TabsTrigger value="world" className="rounded-lg data-[state=active]:bg-orange-500 data-[state=active]:text-white transition-all py-2 px-4">
               <Globe className="h-4 w-4 mr-2" />
               世界观
             </TabsTrigger>
-            <TabsTrigger value="settings" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white transition-all">
+            <TabsTrigger value="settings" className="rounded-lg data-[state=active]:bg-orange-500 data-[state=active]:text-white transition-all py-2 px-4">
               <Settings className="h-4 w-4 mr-2" />
               项目设置
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="chapters" className="space-y-4">
+          <TabsContent value="chapters" className="space-y-4 focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
             <ChaptersTab
               project={project}
               outlines={outlines}
@@ -165,7 +179,7 @@ function NovelProjectPageContent() {
             />
           </TabsContent>
 
-          <TabsContent value="outline">
+          <TabsContent value="outline" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
             <GlassCard className="p-6">
               <OutlineEditor
                 projectId={projectId}
@@ -176,7 +190,7 @@ function NovelProjectPageContent() {
             </GlassCard>
           </TabsContent>
 
-          <TabsContent value="characters">
+          <TabsContent value="characters" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
             <GlassCard className="p-6">
               {/* ✅ 使用类型安全的 characters */}
               <CharacterManager
@@ -188,7 +202,7 @@ function NovelProjectPageContent() {
             </GlassCard>
           </TabsContent>
 
-          <TabsContent value="world">
+          <TabsContent value="world" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
             <GlassCard className="p-6">
               {/* ✅ 使用类型安全的 worldSetting */}
               <WorldSettingEditor
@@ -200,7 +214,7 @@ function NovelProjectPageContent() {
             </GlassCard>
           </TabsContent>
 
-          <TabsContent value="settings">
+          <TabsContent value="settings" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
             <GlassCard className="p-6">
               <ProjectSettings 
                 project={project} 

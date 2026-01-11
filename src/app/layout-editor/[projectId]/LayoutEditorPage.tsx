@@ -28,18 +28,18 @@ export function LayoutEditorPage({
   initialPages,
 }: LayoutEditorPageProps) {
   return (
-    <div className="h-screen flex flex-col bg-background">
+    <div className="h-screen flex flex-col bg-zinc-950 text-foreground overflow-hidden">
       {/* 顶部导航栏 */}
-      <header className="h-14 border-b flex items-center justify-between px-4 bg-background">
+      <header className="h-14 border-b border-zinc-800 flex items-center justify-between px-4 bg-zinc-900/50 backdrop-blur-md z-50">
         <div className="flex items-center gap-4">
-          <Link href={`/projects/${projectId}`}>
-            <Button variant="ghost" size="icon">
+          <Link href={`/projects`}>
+            <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white hover:bg-zinc-800">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <div>
-            <h1 className="text-sm font-medium">{projectName}</h1>
-            <p className="text-xs text-muted-foreground">排版编辑器</p>
+          <div className="flex flex-col">
+            <h1 className="text-sm font-medium text-zinc-100">{projectName}</h1>
+            <p className="text-[10px] text-zinc-500 uppercase tracking-wider">排版编辑器</p>
           </div>
         </div>
 
@@ -47,15 +47,15 @@ export function LayoutEditorPage({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white hover:bg-zinc-800">
                   <HelpCircle className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>
+              <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-300">
                 <div className="text-xs space-y-1">
-                  <p>Ctrl+S: 保存</p>
-                  <p>Delete: 删除选中对象</p>
-                  <p>滚轮: 缩放</p>
+                  <p><span className="text-orange-400">Ctrl+S</span>: 保存</p>
+                  <p><span className="text-orange-400">Delete</span>: 删除选中对象</p>
+                  <p><span className="text-orange-400">滚轮</span>: 缩放</p>
                 </div>
               </TooltipContent>
             </Tooltip>
@@ -64,7 +64,7 @@ export function LayoutEditorPage({
       </header>
 
       {/* 编辑器主体 */}
-      <main className="flex-1 overflow-hidden">
+      <main className="flex-1 overflow-hidden relative bg-[#1a1a1a]">
         <LayoutEditor projectId={projectId} initialPages={initialPages} />
       </main>
     </div>

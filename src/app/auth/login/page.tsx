@@ -3,12 +3,12 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogIn, Shield, ArrowLeft } from "lucide-react";
+import { LogIn, Shield, ArrowLeft, Mail, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { GlassCard } from "@/components/ui/glass-card";
 
 const LoginPage = () => {
   const router = useRouter();
@@ -48,83 +48,105 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#1a1410' }}>
-      <div className="max-w-5xl mx-auto px-4 py-10 flex flex-col gap-8">
-        <div className="flex items-center justify-between mt-4">
-          <Link href="/" className="text-muted-foreground hover:text-foreground inline-flex items-center gap-2">
-            <ArrowLeft className="w-4 h-4" />
-            返回首页
-          </Link>
-          <Link href="/auth/register" className="text-sm text-muted-foreground hover:text-foreground">
-            还没有账号？去注册
-          </Link>
-        </div>
+    <div className="min-h-screen bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-black to-black flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      {/* Background Glows */}
+      <div className="fixed top-0 left-0 w-full h-[500px] bg-orange-500/5 blur-[120px] pointer-events-none select-none" />
+      <div className="fixed bottom-0 right-0 w-[500px] h-[500px] bg-purple-500/5 blur-[120px] pointer-events-none select-none" />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-          <div className="space-y-4">
-            <h1 className="text-3xl md:text-4xl font-bold flex items-center gap-3">
-              <Shield className="w-8 h-8 text-primary" />
-              登录 ComicAI
-            </h1>
-            <p className="text-muted-foreground">
-              使用已验证的邮箱和密码登录，登录后即可同步使用分镜编辑、剧本创作等功能。
-            </p>
-            <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-              <h3 className="font-semibold flex items-center gap-2">
-                <LogIn className="w-4 h-4" />
-                使用提示
-              </h3>
-              <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
-                <li>确保邮箱已完成注册与验证</li>
-                <li>密码至少 8 位，区分大小写</li>
-                <li>如忘记密码，可重新注册并验证覆盖旧密码</li>
-              </ul>
+      <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
+        <Link href="/" className="flex items-center justify-center gap-2 mb-8 text-zinc-400 hover:text-white transition-colors">
+          <ArrowLeft className="w-4 h-4" />
+          <span>返回首页</span>
+        </Link>
+        <h2 className="text-center text-3xl font-bold tracking-tight text-white">
+          登录 ComicAI
+        </h2>
+        <p className="mt-2 text-center text-sm text-zinc-400">
+          继续您的漫画创作之旅
+        </p>
+      </div>
+
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10 px-4 sm:px-0">
+        <GlassCard className="py-8 px-4 sm:px-10 border-zinc-800 bg-zinc-900/40 backdrop-blur-xl">
+          <form className="space-y-6" onSubmit={handleLogin}>
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-zinc-300">邮箱地址</Label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Mail className="h-5 w-5 text-zinc-500" />
+                </div>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  placeholder="name@example.com"
+                  className="pl-10 bg-zinc-950/50 border-zinc-700 focus:border-orange-500/50 focus:ring-orange-500/20 text-white placeholder:text-zinc-600"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-zinc-300">密码</Label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Lock className="h-5 w-5 text-zinc-500" />
+                </div>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  placeholder="••••••••"
+                  className="pl-10 bg-zinc-950/50 border-zinc-700 focus:border-orange-500/50 focus:ring-orange-500/20 text-white placeholder:text-zinc-600"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20 py-5 font-semibold text-base"
+              >
+                {loading ? "登录中..." : "立即登录"}
+              </Button>
+            </div>
+          </form>
+
+          <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-zinc-700/50" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-[#121214] text-zinc-500 rounded-full">
+                  还没有账号？
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-6 text-center">
+              <Link href="/auth/register">
+                <Button variant="outline" className="w-full border-zinc-700 bg-zinc-800/30 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-zinc-600 py-5">
+                  注册新账号
+                </Button>
+              </Link>
             </div>
           </div>
-
-          <Card className="shadow-lg border-border/80">
-            <CardHeader>
-              <CardTitle>邮箱登录</CardTitle>
-              <CardDescription>输入邮箱与密码，成功后将写入安全 Cookie</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form className="space-y-4" onSubmit={handleLogin}>
-                <div className="space-y-2">
-                  <Label htmlFor="email">邮箱</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="password">密码</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="请输入密码"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "登录中..." : "登录"}
-                </Button>
-              </form>
-            </CardContent>
-            <CardFooter className="text-sm text-muted-foreground justify-center">
-              还没有账号？
-              <Link href="/auth/register" className="text-primary ml-1 hover:underline">
-                去注册
-              </Link>
-            </CardFooter>
-          </Card>
+        </GlassCard>
+        
+        {/* Helper Links */}
+        <div className="mt-6 text-center text-xs text-zinc-500 flex items-center justify-center gap-4">
+            <span className="flex items-center gap-1"><Shield className="w-3 h-3" /> 安全加密传输</span>
+            <span>|</span>
+            <span className="flex items-center gap-1"><LogIn className="w-3 h-3" /> 7天免登录</span>
         </div>
       </div>
     </div>

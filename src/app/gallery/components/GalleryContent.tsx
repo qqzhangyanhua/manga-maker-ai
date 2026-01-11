@@ -2,8 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import Link from "next/link";
-import { Loader2, TrendingUp, Clock, Eye, ArrowLeft } from "lucide-react";
+import { Loader2, TrendingUp, Clock, Eye, ArrowLeft, Filter } from "lucide-react";
 import { Navbar } from "@/components/Landing";
 import { Button } from "@/components/ui/button";
 import { GalleryGrid } from "./GalleryGrid";
@@ -24,31 +23,6 @@ export function GalleryContent(): JSX.Element {
     (searchParams.get("sort") as GallerySortType) || "latest"
   );
   const [page, setPage] = useState(parseInt(searchParams.get("page") || "1"));
-
-  // Spotlight effect state
-  const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
-  const [isHovering, setIsHovering] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Mouse tracking for spotlight effect
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!containerRef.current) return;
-
-    const rect = containerRef.current.getBoundingClientRect();
-    setMousePosition({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    });
-  }, []);
-
-  const handleMouseEnter = useCallback(() => {
-    setIsHovering(true);
-  }, []);
-
-  const handleMouseLeave = useCallback(() => {
-    setIsHovering(false);
-    setMousePosition(null);
-  }, []);
 
   // 加载画廊数据
   const loadGallery = async (): Promise<void> => {
@@ -111,145 +85,117 @@ export function GalleryContent(): JSX.Element {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f0f13]">
+    <div className="min-h-screen bg-[#0f0f13] text-foreground">
       <Navbar />
 
-      <main className="pt-16">
+      <main className="pt-24 px-4 sm:px-6 lg:px-8 pb-16 relative z-10">
         {/* 装饰性光晕 */}
-        <div className="fixed top-20 left-1/4 w-96 h-96 bg-orange-500/5 blur-3xl rounded-full pointer-events-none" />
-        <div className="fixed bottom-20 right-1/4 w-96 h-96 bg-purple-500/3 blur-3xl rounded-full pointer-events-none" />
+        <div className="fixed top-0 left-0 w-full h-[500px] bg-orange-500/5 blur-[120px] pointer-events-none select-none" />
+        <div className="fixed bottom-0 right-0 w-[500px] h-[500px] bg-purple-500/5 blur-[120px] pointer-events-none select-none" />
 
-        <div
-          ref={containerRef}
-          className="relative px-4 py-12"
-          onMouseMove={handleMouseMove}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-        >
-          {/* Global Spotlight Overlay */}
-          <div
-            className={cn(
-              "pointer-events-none absolute inset-0 z-30 transition-opacity duration-500",
-              isHovering ? "opacity-100" : "opacity-0"
-            )}
-            style={{
-              background: mousePosition
-                ? `radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(249, 115, 22, 0.08), transparent 40%)`
-                : "none",
-            }}
-          />
-
-          <div className="max-w-7xl mx-auto relative">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 text-zinc-400 hover:text-orange-500 transition-colors mb-6"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              返回首页
-            </Link>
-
-            {/* 标题 */}
-            <div className="mb-8">
-              <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500 bg-clip-text text-transparent mb-4">
-                作品画廊
-              </h1>
-              <p className="text-zinc-300 text-lg">
-                探索社区创作的精彩漫画作品，鼠标悬停查看生成提示词
-              </p>
-            </div>
-
-            {/* 筛选和排序 */}
-            <div className="mb-6 space-y-4">
-              {/* 风格筛选 */}
-              <div>
-                <h3 className="mb-2 text-sm font-semibold text-white">风格筛选</h3>
-                <StyleFilter
-                  selectedStyleId={selectedStyleId}
-                  onStyleChange={handleStyleChange}
-                />
-              </div>
-
-              {/* 排序方式 */}
-              <div>
-                <h3 className="mb-2 text-sm font-semibold text-white">排序方式</h3>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant={sort === "latest" ? "default" : "outline"}
+        <div className="max-w-[1600px] mx-auto relative">
+          
+          {/* 头部区域 */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
+             <div>
+                 <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">
+                    作品画廊 <span className="text-orange-500">.</span>
+                 </h1>
+                 <p className="text-zinc-400 text-lg">
+                    探索社区创作的精彩漫画作品，汲取灵感
+                 </p>
+             </div>
+             
+             {/* 排序按钮组 */}
+             <div className="flex bg-zinc-900/50 p-1 rounded-xl border border-zinc-800 backdrop-blur-md">
+                <Button
+                    variant="ghost"
                     size="sm"
                     onClick={() => handleSortChange("latest")}
-                    className={sort === "latest" ? "bg-orange-500 hover:bg-orange-600 text-white border-0" : "border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-orange-500/50"}
-                  >
-                    <Clock className="mr-1 h-3 w-3" />
-                    最新发布
-                  </Button>
-                  <Button
-                    variant={sort === "popular" ? "default" : "outline"}
+                    className={cn(
+                        "rounded-lg px-4 hover:bg-zinc-800 hover:text-white transition-all",
+                        sort === "latest" ? "bg-zinc-800 text-white shadow-sm" : "text-zinc-400"
+                    )}
+                >
+                    <Clock className="mr-2 h-3.5 w-3.5" />
+                    最新
+                </Button>
+                <Button
+                    variant="ghost"
                     size="sm"
                     onClick={() => handleSortChange("popular")}
-                    className={sort === "popular" ? "bg-orange-500 hover:bg-orange-600 text-white border-0" : "border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-orange-500/50"}
-                  >
-                    <TrendingUp className="mr-1 h-3 w-3" />
+                    className={cn(
+                        "rounded-lg px-4 hover:bg-zinc-800 hover:text-white transition-all",
+                        sort === "popular" ? "bg-zinc-800 text-white shadow-sm" : "text-zinc-400"
+                    )}
+                >
+                    <TrendingUp className="mr-2 h-3.5 w-3.5" />
                     热门
-                  </Button>
-                  <Button
-                    variant={sort === "views" ? "default" : "outline"}
+                </Button>
+                <Button
+                    variant="ghost"
                     size="sm"
                     onClick={() => handleSortChange("views")}
-                    className={sort === "views" ? "bg-orange-500 hover:bg-orange-600 text-white border-0" : "border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-orange-500/50"}
+                    className={cn(
+                        "rounded-lg px-4 hover:bg-zinc-800 hover:text-white transition-all",
+                        sort === "views" ? "bg-zinc-800 text-white shadow-sm" : "text-zinc-400"
+                    )}
+                >
+                    <Eye className="mr-2 h-3.5 w-3.5" />
+                    浏览
+                </Button>
+             </div>
+          </div>
+
+          {/* 筛选区域 */}
+          <div className="mb-8 flex items-center gap-3">
+             <div className="flex items-center justify-center w-8 h-8 rounded-full bg-zinc-800 text-zinc-400">
+                <Filter className="w-4 h-4" />
+             </div>
+             <StyleFilter
+                selectedStyleId={selectedStyleId}
+                onStyleChange={handleStyleChange}
+            />
+          </div>
+
+          {/* 加载状态 */}
+          {loading && (
+            <div className="flex min-h-[400px] items-center justify-center">
+              <Loader2 className="h-10 w-10 animate-spin text-orange-500" />
+            </div>
+          )}
+
+          {/* 画廊网格 */}
+          {!loading && data && (
+            <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
+              <GalleryGrid items={data.items} />
+
+              {/* 分页 */}
+              {data.totalPages > 1 && (
+                <div className="mt-16 flex items-center justify-center gap-4">
+                  <Button
+                    variant="outline"
+                    disabled={page === 1}
+                    onClick={() => handlePageChange(page - 1)}
+                    className="border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-zinc-700 px-6"
                   >
-                    <Eye className="mr-1 h-3 w-3" />
-                    浏览量
+                    上一页
+                  </Button>
+                  <span className="text-sm font-mono text-zinc-500 px-4 py-2 bg-zinc-900 rounded-lg border border-zinc-800">
+                    {page} / {data.totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    disabled={page === data.totalPages}
+                    onClick={() => handlePageChange(page + 1)}
+                    className="border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-zinc-700 px-6"
+                  >
+                    下一页
                   </Button>
                 </div>
-              </div>
+              )}
             </div>
-
-            {/* 加载状态 */}
-            {loading && (
-              <div className="flex min-h-[400px] items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
-              </div>
-            )}
-
-            {/* 画廊网格 */}
-            {!loading && data && (
-              <>
-                <GalleryGrid items={data.items} />
-
-                {/* 分页 */}
-                {data.totalPages > 1 && (
-                  <div className="mt-8 flex items-center justify-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={page === 1}
-                      onClick={() => handlePageChange(page - 1)}
-                      className="border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-orange-500/50"
-                    >
-                      上一页
-                    </Button>
-                    <span className="text-sm text-zinc-400">
-                      第 {page} / {data.totalPages} 页
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={page === data.totalPages}
-                      onClick={() => handlePageChange(page + 1)}
-                      className="border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-orange-500/50"
-                    >
-                      下一页
-                    </Button>
-                  </div>
-                )}
-
-                {/* 总数统计 */}
-                <div className="mt-4 text-center text-sm text-zinc-400">
-                  共 {data.total} 件作品
-                </div>
-              </>
-            )}
-          </div>
+          )}
         </div>
       </main>
     </div>

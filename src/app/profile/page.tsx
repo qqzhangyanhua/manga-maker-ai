@@ -17,18 +17,17 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { Navbar } from "@/components/Landing";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { GlassCard } from "@/components/ui/glass-card";
 import { EditProfileDialog } from "./components/EditProfileDialog";
 import { ChangePasswordDialog } from "./components/ChangePasswordDialog";
 import { TransactionsDialog } from "./components/TransactionsDialog";
 import { RechargeDialog } from "./components/RechargeDialog";
-import type { UserInfo } from "./types";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
@@ -84,15 +83,16 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: '#1a1410' }}>
+      <div className="min-h-screen bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-black to-black">
         <Navbar />
-        <main className="pt-16 px-4 py-12">
-          <div className="max-w-6xl mx-auto">
-            <Skeleton className="h-12 w-48 mb-8 bg-zinc-800" />
+        <main className="pt-24 px-4 sm:px-6 lg:px-8 pb-16">
+          <div className="max-w-6xl mx-auto space-y-8">
+            <Skeleton className="h-12 w-48 bg-zinc-800" />
+            <Skeleton className="h-[200px] w-full bg-zinc-800 rounded-xl" />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Skeleton className="h-64 bg-zinc-800" />
-              <Skeleton className="h-64 bg-zinc-800" />
-              <Skeleton className="h-64 bg-zinc-800" />
+              <Skeleton className="h-64 bg-zinc-800 rounded-xl" />
+              <Skeleton className="h-64 bg-zinc-800 rounded-xl" />
+              <Skeleton className="h-64 bg-zinc-800 rounded-xl" />
             </div>
           </div>
         </main>
@@ -112,14 +112,14 @@ export default function ProfilePage() {
 
   const getRoleBadge = (role: string | null) => {
     if (role === "admin") {
-      return <Badge className="bg-orange-500 text-white">管理员</Badge>;
+      return <Badge className="bg-orange-500 text-white border-0 shadow-lg shadow-orange-500/20">管理员</Badge>;
     }
-    return <Badge variant="outline">用户</Badge>;
+    return <Badge variant="outline" className="border-zinc-700 text-zinc-400">用户</Badge>;
   };
 
   const getStatusBadge = (status: string | null) => {
     if (status === "active") {
-      return <Badge className="bg-emerald-500 text-white">正常</Badge>;
+      return <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 border">正常</Badge>;
     }
     if (status === "suspended") {
       return <Badge variant="destructive">已停用</Badge>;
@@ -135,17 +135,17 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#1a1410' }}>
+    <div className="min-h-screen bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-black to-black">
       <Navbar />
 
-      <main className="pt-16">
+      <main className="pt-24 pb-16">
         {/* 装饰性光晕 */}
-        <div className="fixed top-20 left-1/4 w-96 h-96 bg-orange-500/5 blur-3xl rounded-full pointer-events-none" />
-        <div className="fixed bottom-20 right-1/4 w-96 h-96 bg-purple-500/3 blur-3xl rounded-full pointer-events-none" />
+        <div className="fixed top-20 left-1/4 w-96 h-96 bg-orange-500/5 blur-[120px] rounded-full pointer-events-none" />
+        <div className="fixed bottom-20 right-1/4 w-96 h-96 bg-purple-500/5 blur-[120px] rounded-full pointer-events-none" />
 
         <div
           ref={containerRef}
-          className="relative px-4 py-12"
+          className="relative px-4 sm:px-6 lg:px-8"
           onMouseMove={handleMouseMove}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
@@ -164,350 +164,325 @@ export default function ProfilePage() {
           />
 
           <div className="max-w-6xl mx-auto relative space-y-8">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 text-zinc-400 hover:text-orange-500 transition-colors mb-6"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              返回首页
-            </Link>
+            <div className="flex flex-col gap-6">
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-orange-500 transition-colors w-fit"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                返回首页
+              </Link>
 
-            <div>
-              <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500 bg-clip-text text-transparent mb-4">
-                个人中心
-              </h1>
-              <p className="text-zinc-300 text-lg">管理您的账户信息和偏好设置</p>
+              <div>
+                <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500 bg-clip-text text-transparent mb-4 tracking-tight">
+                  个人中心
+                </h1>
+                <p className="text-zinc-400 text-lg">管理您的账户信息和偏好设置</p>
+              </div>
             </div>
-            {/* User Profile Card */}
-            <Card className="relative border-zinc-700 bg-zinc-900/60 backdrop-blur-md mb-6 overflow-hidden shadow-lg">
-              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
-              <CardContent className="pt-6 relative z-10">
-                <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
-                  {/* Avatar */}
-                  <Avatar className="w-24 h-24 border-2 border-orange-500">
-                <AvatarImage src={user.image || undefined} alt={user.name || "User"} />
-                <AvatarFallback className="bg-gradient-to-br from-orange-500 to-amber-500 text-black text-2xl font-bold">
-                  {getUserInitials(user.name, user.email)}
-                </AvatarFallback>
-              </Avatar>
 
-              {/* User Info */}
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <h2 className="text-2xl font-bold text-white">
-                    {user.name || "未设置昵称"}
-                  </h2>
-                  {getRoleBadge(user.role)}
-                  {getStatusBadge(user.status)}
+            {/* User Profile Card */}
+            <GlassCard className="relative p-8 overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-700 to-transparent" />
+              <div className="flex flex-col md:flex-row items-start md:items-center gap-8 relative z-10">
+                {/* Avatar */}
+                <Avatar className="w-24 h-24 border-4 border-zinc-900 ring-2 ring-orange-500/50 shadow-2xl">
+                  <AvatarImage src={user.image || undefined} alt={user.name || "User"} />
+                  <AvatarFallback className="bg-gradient-to-br from-orange-500 to-amber-500 text-white text-2xl font-bold">
+                    {getUserInitials(user.name, user.email)}
+                  </AvatarFallback>
+                </Avatar>
+
+                {/* User Info */}
+                <div className="flex-1 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-2xl font-bold text-white tracking-tight">
+                      {user.name || "未设置昵称"}
+                    </h2>
+                    {getRoleBadge(user.role)}
+                    {getStatusBadge(user.status)}
+                  </div>
+
+                  <div className="flex flex-wrap gap-4 text-sm">
+                    <div className="flex items-center gap-2 text-zinc-400">
+                      <Mail className="w-4 h-4" />
+                      <span>{user.email}</span>
+                      {user.verified && (
+                        <span className="text-emerald-500 text-xs bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">已验证</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-zinc-400">
+                      <Calendar className="w-4 h-4" />
+                      <span>注册于 {formattedDate}</span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-2 text-zinc-400">
-                    <Mail className="w-4 h-4" />
-                    <span>{user.email}</span>
-                    {user.verified && (
-                      <Badge variant="outline" className="text-xs">
-                        已验证
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 text-zinc-400">
-                    <Calendar className="w-4 h-4" />
-                    <span>注册于 {formattedDate}</span>
-                  </div>
+                {/* Actions */}
+                <div className="flex gap-3 w-full md:w-auto">
+                  <Button
+                    variant="outline"
+                    className="flex-1 md:flex-none gap-2 border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-orange-500/50"
+                    onClick={() => setEditProfileOpen(true)}
+                  >
+                    <SettingsIcon className="w-4 h-4" />
+                    编辑资料
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={handleLogout}
+                    className="flex-1 md:flex-none gap-2 text-red-400 hover:text-red-300 hover:bg-red-950/30"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    退出
+                  </Button>
                 </div>
               </div>
-
-                  {/* Actions */}
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-2 border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-orange-500/50"
-                      onClick={() => setEditProfileOpen(true)}
-                    >
-                      <SettingsIcon className="w-4 h-4" />
-                      编辑资料
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleLogout}
-                      className="gap-2 text-red-400 hover:text-red-300 hover:bg-red-950/20"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      退出登录
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            </GlassCard>
 
             {/* Main Content Tabs */}
-            <Tabs defaultValue="overview" className="space-y-6">
-              <TabsList className="bg-zinc-900/60 backdrop-blur-md border border-zinc-700">
-                <TabsTrigger value="overview" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">总览</TabsTrigger>
-                <TabsTrigger value="credits" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">算力管理</TabsTrigger>
-                <TabsTrigger value="settings" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">账户设置</TabsTrigger>
+            <Tabs defaultValue="overview" className="space-y-8">
+              <TabsList className="bg-zinc-900/50 backdrop-blur-md border border-zinc-800 p-1 rounded-xl">
+                <TabsTrigger 
+                  value="overview" 
+                  className="rounded-lg data-[state=active]:bg-orange-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-orange-500/20 transition-all"
+                >
+                  总览
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="credits" 
+                  className="rounded-lg data-[state=active]:bg-orange-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-orange-500/20 transition-all"
+                >
+                  算力管理
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="settings" 
+                  className="rounded-lg data-[state=active]:bg-orange-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-orange-500/20 transition-all"
+                >
+                  账户设置
+                </TabsTrigger>
               </TabsList>
 
               {/* Overview Tab */}
-              <TabsContent value="overview" className="space-y-6">
+              <TabsContent value="overview" className="space-y-6 focus-visible:outline-none animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {/* Credits Card */}
-                  <Card className="relative border-zinc-700 bg-zinc-900/60 backdrop-blur-md overflow-hidden shadow-lg">
-                    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
-                    <CardHeader className="relative z-10">
-                      <CardTitle className="flex items-center gap-2 text-white">
+                  <GlassCard className="p-6 flex flex-col justify-between hover:shadow-orange-500/10 transition-shadow">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 text-white font-medium">
                         <Zap className="w-5 h-5 text-orange-500" />
                         算力余额
-                      </CardTitle>
-                      <CardDescription className="text-zinc-400">当前可用算力</CardDescription>
-                    </CardHeader>
-                    <CardContent className="relative z-10">
-                      <div className="text-3xl font-bold text-emerald-500 mb-4">
+                      </div>
+                      <div className="text-4xl font-bold text-white tracking-tight">
                         {user.credits.toLocaleString()}
                       </div>
-                      <Button
-                        className="w-full bg-orange-500 hover:bg-orange-600 text-white gap-2 shadow-lg shadow-orange-500/20"
-                        onClick={() => setRechargeOpen(true)}
-                      >
-                        <CreditCard className="w-4 h-4" />
-                        充值算力
-                      </Button>
-                    </CardContent>
-                  </Card>
+                      <p className="text-sm text-zinc-500">当前可用算力</p>
+                    </div>
+                    <Button
+                      className="w-full mt-6 bg-orange-500 hover:bg-orange-600 text-white gap-2 shadow-lg shadow-orange-500/20"
+                      onClick={() => setRechargeOpen(true)}
+                    >
+                      <CreditCard className="w-4 h-4" />
+                      充值算力
+                    </Button>
+                  </GlassCard>
 
                   {/* Usage Card */}
-                  <Card className="relative border-zinc-700 bg-zinc-900/60 backdrop-blur-md overflow-hidden shadow-lg">
-                    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
-                    <CardHeader className="relative z-10">
-                      <CardTitle className="flex items-center gap-2 text-white">
+                  <GlassCard className="p-6 flex flex-col justify-between hover:shadow-blue-500/10 transition-shadow">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 text-white font-medium">
                         <TrendingUp className="w-5 h-5 text-blue-500" />
                         累计消耗
-                      </CardTitle>
-                      <CardDescription className="text-zinc-400">总算力使用量</CardDescription>
-                    </CardHeader>
-                    <CardContent className="relative z-10">
-                      <div className="text-3xl font-bold text-blue-500 mb-4">
+                      </div>
+                      <div className="text-4xl font-bold text-blue-400 tracking-tight">
                         {user.total_credits_used.toLocaleString()}
                       </div>
-                      <Button
-                        variant="outline"
-                        className="w-full gap-2 border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-orange-500/50"
-                        onClick={() => setTransactionsOpen(true)}
-                      >
-                        <History className="w-4 h-4" />
-                        查看明细
-                      </Button>
-                    </CardContent>
-                  </Card>
-
-                  {/* Account Status Card */}
-                  <Card className="relative border-zinc-700 bg-zinc-900/60 backdrop-blur-md overflow-hidden shadow-lg">
-                    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
-                    <CardHeader className="relative z-10">
-                      <CardTitle className="flex items-center gap-2 text-white">
-                        <Shield className="w-5 h-5 text-purple-500" />
-                        账户状态
-                      </CardTitle>
-                      <CardDescription className="text-zinc-400">权限与安全</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3 relative z-10">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-zinc-400">角色</span>
-                        {getRoleBadge(user.role)}
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-zinc-400">状态</span>
-                        {getStatusBadge(user.status)}
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-zinc-400">邮箱</span>
-                        {user.verified ? (
-                          <Badge variant="outline" className="text-emerald-500">
-                            已验证
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-amber-500">
-                            未验证
-                          </Badge>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Quick Links */}
-                <Card className="relative border-zinc-700 bg-zinc-900/60 backdrop-blur-md overflow-hidden shadow-lg">
-                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
-                  <CardHeader className="relative z-10">
-                    <CardTitle className="text-white">快速入口</CardTitle>
-                    <CardDescription className="text-zinc-400">常用功能</CardDescription>
-                  </CardHeader>
-                  <CardContent className="relative z-10">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      <Button
-                        variant="outline"
-                        className="h-auto py-4 flex-col gap-2 border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-orange-500/50"
-                        onClick={() => router.push("/scripts")}
-                      >
-                        <User className="w-5 h-5 text-orange-500" />
-                        <span className="text-sm">剧本记录</span>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="h-auto py-4 flex-col gap-2 border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-orange-500/50"
-                        onClick={() => router.push("/projects")}
-                      >
-                        <User className="w-5 h-5 text-blue-500" />
-                        <span className="text-sm">分镜项目</span>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="h-auto py-4 flex-col gap-2 border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-orange-500/50"
-                        onClick={() => router.push("/generated")}
-                      >
-                        <User className="w-5 h-5 text-purple-500" />
-                        <span className="text-sm">生成图库</span>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="h-auto py-4 flex-col gap-2 border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-orange-500/50"
-                        onClick={() => router.push("/assets")}
-                      >
-                        <User className="w-5 h-5 text-emerald-500" />
-                        <span className="text-sm">资产库</span>
-                      </Button>
+                      <p className="text-sm text-zinc-500">历史总消耗量</p>
                     </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* Credits Tab */}
-              <TabsContent value="credits" className="space-y-6">
-                <Card className="relative border-zinc-700 bg-zinc-900/60 backdrop-blur-md overflow-hidden shadow-lg">
-                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
-                  <CardHeader className="relative z-10">
-                    <CardTitle className="text-white">算力管理</CardTitle>
-                    <CardDescription className="text-zinc-400">查看和管理您的算力</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6 relative z-10">
-                    <div className="flex items-center justify-between p-4 bg-zinc-800/50 rounded-lg">
-                      <div>
-                        <div className="text-sm text-zinc-400 mb-1">当前余额</div>
-                        <div className="text-2xl font-bold text-emerald-500">
-                          {user.credits.toLocaleString()} 算力
-                        </div>
-                      </div>
-                      <Button
-                        className="bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20"
-                        onClick={() => setRechargeOpen(true)}
-                      >
-                        充值
-                      </Button>
-                    </div>
-
-                    <Separator className="bg-zinc-700" />
-
-                    <div>
-                      <h3 className="text-lg font-semibold text-white mb-4">使用统计</h3>
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between p-3 bg-zinc-800/30 rounded">
-                          <span className="text-sm text-zinc-400">累计消耗</span>
-                          <span className="font-mono font-semibold text-white">
-                            {user.total_credits_used.toLocaleString()}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-zinc-800/30 rounded">
-                          <span className="text-sm text-zinc-400">剩余算力</span>
-                          <span className="font-mono font-semibold text-emerald-500">
-                            {user.credits.toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
                     <Button
                       variant="outline"
-                      className="w-full gap-2 border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-orange-500/50"
+                      className="w-full mt-6 gap-2 border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white"
                       onClick={() => setTransactionsOpen(true)}
                     >
                       <History className="w-4 h-4" />
-                      查看交易记录
+                      查看明细
                     </Button>
-                  </CardContent>
-                </Card>
+                  </GlassCard>
+
+                  {/* Account Status Card */}
+                  <GlassCard className="p-6 flex flex-col justify-between hover:shadow-purple-500/10 transition-shadow">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 text-white font-medium">
+                        <Shield className="w-5 h-5 text-purple-500" />
+                        账户状态
+                      </div>
+                      <div className="space-y-3 pt-2">
+                        <div className="flex items-center justify-between p-2 bg-zinc-900/50 rounded-lg">
+                          <span className="text-sm text-zinc-400">角色权限</span>
+                          {getRoleBadge(user.role)}
+                        </div>
+                        <div className="flex items-center justify-between p-2 bg-zinc-900/50 rounded-lg">
+                          <span className="text-sm text-zinc-400">账户状态</span>
+                          {getStatusBadge(user.status)}
+                        </div>
+                        <div className="flex items-center justify-between p-2 bg-zinc-900/50 rounded-lg">
+                          <span className="text-sm text-zinc-400">邮箱验证</span>
+                          {user.verified ? (
+                            <span className="text-xs text-emerald-400 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> 已验证
+                            </span>
+                          ) : (
+                            <span className="text-xs text-amber-400 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> 未验证
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </GlassCard>
+                </div>
+
+                {/* Quick Links */}
+                <GlassCard className="p-6">
+                  <div className="mb-4">
+                    <h3 className="text-lg font-semibold text-white">快速入口</h3>
+                    <p className="text-sm text-zinc-500">常用功能快捷访问</p>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {[
+                      { icon: User, color: "text-orange-500", label: "剧本记录", href: "/scripts" },
+                      { icon: User, color: "text-blue-500", label: "分镜项目", href: "/projects" },
+                      { icon: User, color: "text-purple-500", label: "生成图库", href: "/generated" },
+                      { icon: User, color: "text-emerald-500", label: "资产库", href: "/assets" },
+                    ].map((item, i) => (
+                      <Button
+                        key={i}
+                        variant="outline"
+                        className="h-auto py-6 flex-col gap-3 border-zinc-800 bg-zinc-900/30 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-zinc-600 transition-all group"
+                        onClick={() => router.push(item.href)}
+                      >
+                        <div className={`p-3 rounded-full bg-zinc-900 group-hover:bg-zinc-800 transition-colors`}>
+                          <item.icon className={`w-6 h-6 ${item.color}`} />
+                        </div>
+                        <span className="text-sm font-medium">{item.label}</span>
+                      </Button>
+                    ))}
+                  </div>
+                </GlassCard>
+              </TabsContent>
+
+              {/* Credits Tab */}
+              <TabsContent value="credits" className="space-y-6 focus-visible:outline-none animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <GlassCard className="p-8">
+                  <div className="flex items-center justify-between mb-8">
+                    <div>
+                      <h3 className="text-xl font-semibold text-white">算力管理</h3>
+                      <p className="text-sm text-zinc-400">查看和管理您的算力资源</p>
+                    </div>
+                    <Button
+                      className="bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20"
+                      onClick={() => setRechargeOpen(true)}
+                    >
+                      <CreditCard className="w-4 h-4 mr-2" />
+                      立即充值
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                    <div className="p-6 rounded-2xl bg-gradient-to-br from-zinc-900 to-zinc-950 border border-zinc-800 relative overflow-hidden group">
+                       <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                         <Zap className="w-24 h-24 text-orange-500" />
+                       </div>
+                       <p className="text-zinc-400 text-sm mb-2">当前余额</p>
+                       <p className="text-4xl font-bold text-white tracking-tight">{user.credits.toLocaleString()} <span className="text-lg text-zinc-500 font-normal">算力</span></p>
+                    </div>
+                    <div className="p-6 rounded-2xl bg-gradient-to-br from-zinc-900 to-zinc-950 border border-zinc-800 relative overflow-hidden group">
+                       <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                         <TrendingUp className="w-24 h-24 text-blue-500" />
+                       </div>
+                       <p className="text-zinc-400 text-sm mb-2">累计消耗</p>
+                       <p className="text-4xl font-bold text-white tracking-tight">{user.total_credits_used.toLocaleString()} <span className="text-lg text-zinc-500 font-normal">算力</span></p>
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    className="w-full py-6 border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                    onClick={() => setTransactionsOpen(true)}
+                  >
+                    <History className="w-4 h-4 mr-2" />
+                    查看详细交易记录
+                  </Button>
+                </GlassCard>
               </TabsContent>
 
               {/* Settings Tab */}
-              <TabsContent value="settings" className="space-y-6">
-                <Card className="relative border-zinc-700 bg-zinc-900/60 backdrop-blur-md overflow-hidden shadow-lg">
-                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
-                  <CardHeader className="relative z-10">
-                    <CardTitle className="text-white">账户设置</CardTitle>
-                    <CardDescription className="text-zinc-400">管理您的账户信息和偏好设置</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4 relative z-10">
-                    <div className="space-y-2">
-                      <h3 className="text-sm font-medium text-white">基本信息</h3>
-                      <div className="p-4 bg-zinc-800/30 rounded space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-zinc-400">用户名</span>
-                          <span className="text-sm text-white">
-                            {user.name || "未设置"}
-                          </span>
+              <TabsContent value="settings" className="space-y-6 focus-visible:outline-none animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <GlassCard className="p-8">
+                  <div className="mb-8">
+                    <h3 className="text-xl font-semibold text-white">账户设置</h3>
+                    <p className="text-sm text-zinc-400">管理您的账户安全与偏好</p>
+                  </div>
+
+                  <div className="space-y-8">
+                    <section className="space-y-4">
+                      <h4 className="text-sm font-medium text-white uppercase tracking-wider opacity-70">基本信息</h4>
+                      <div className="bg-zinc-900/50 rounded-xl border border-zinc-800 overflow-hidden">
+                        <div className="p-4 flex items-center justify-between border-b border-zinc-800">
+                          <div>
+                            <p className="text-sm text-zinc-400">用户名</p>
+                            <p className="text-white font-medium">{user.name || "未设置"}</p>
+                          </div>
+                          <Button variant="ghost" size="sm" onClick={() => setEditProfileOpen(true)}>编辑</Button>
                         </div>
-                        <Separator className="bg-zinc-700" />
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-zinc-400">邮箱</span>
-                          <span className="text-sm text-white">{user.email}</span>
+                        <div className="p-4 flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-zinc-400">邮箱地址</p>
+                            <p className="text-white font-medium">{user.email}</p>
+                          </div>
+                          <Badge variant="outline" className="text-zinc-500 border-zinc-700">不可修改</Badge>
                         </div>
                       </div>
-                      <Button
-                        variant="outline"
-                        className="w-full gap-2 border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-orange-500/50"
-                        onClick={() => setEditProfileOpen(true)}
-                      >
-                        <SettingsIcon className="w-4 h-4" />
-                        编辑基本信息
-                      </Button>
-                    </div>
+                    </section>
 
-                    <Separator className="bg-zinc-700" />
-
-                    <div className="space-y-2">
-                      <h3 className="text-sm font-medium text-white">安全设置</h3>
-                      <div className="space-y-2">
-                        <Button
+                    <section className="space-y-4">
+                      <h4 className="text-sm font-medium text-white uppercase tracking-wider opacity-70">安全</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         <Button
                           variant="outline"
-                          className="w-full justify-start gap-2 border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-orange-500/50"
+                          className="justify-start h-12 border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-zinc-600"
                           onClick={() => setChangePasswordOpen(true)}
                         >
-                          <Shield className="w-4 h-4" />
-                          修改密码
+                          <Shield className="w-4 h-4 mr-3" />
+                          修改登录密码
                         </Button>
-                        <Button variant="outline" className="w-full justify-start gap-2 border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-orange-500/50">
-                          <Mail className="w-4 h-4" />
-                          更换邮箱
+                        <Button
+                          variant="outline"
+                          className="justify-start h-12 border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-zinc-600"
+                        >
+                          <Mail className="w-4 h-4 mr-3" />
+                          绑定新邮箱
                         </Button>
                       </div>
-                    </div>
+                    </section>
 
-                    <Separator className="bg-zinc-700" />
-
-                    <div className="space-y-2">
-                      <h3 className="text-sm font-medium text-red-400">危险操作</h3>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start gap-2 border-red-500/30 bg-red-950/20 text-red-400 hover:text-red-300 hover:bg-red-950/30 hover:border-red-500/50"
-                      >
-                        <LogOut className="w-4 h-4" />
-                        注销账户
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                    <section className="space-y-4">
+                      <h4 className="text-sm font-medium text-red-400 uppercase tracking-wider opacity-70">危险区域</h4>
+                      <div className="p-4 rounded-xl border border-red-900/30 bg-red-950/10 flex items-center justify-between">
+                        <div>
+                           <p className="text-white font-medium">注销账户</p>
+                           <p className="text-sm text-zinc-500">删除账户及其所有关联数据，此操作无法撤销。</p>
+                        </div>
+                        <Button
+                          variant="destructive"
+                          className="bg-red-900/50 hover:bg-red-900 text-red-200 border border-red-800/50"
+                        >
+                          注销账户
+                        </Button>
+                      </div>
+                    </section>
+                  </div>
+                </GlassCard>
               </TabsContent>
             </Tabs>
           </div>

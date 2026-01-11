@@ -1,18 +1,9 @@
-/**
- * 小说项目列表页面
- */
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, BookOpen, Clock, FileText, Sparkles, ImageIcon, Wand2, Trash2 } from "lucide-react";
 import {
@@ -28,6 +19,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { CreateProjectDialog } from "./components/CreateProjectDialog";
 import { InspirationModeDialog } from "./components/InspirationModeDialog";
+import { cn } from "@/lib/utils";
 
 interface NovelProject {
   id: string;
@@ -49,10 +41,31 @@ export default function NovelDashboard() {
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [inspirationDialogOpen, setInspirationDialogOpen] = useState(false);
-  const [generatingCover, setGeneratingCover] = useState<string | null>(null); // 正在生成封面的项目ID
+  const [generatingCover, setGeneratingCover] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<NovelProject | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Spotlight effect state
+  const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
+  const [isHovering, setIsHovering] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Mouse tracking for spotlight effect
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    setMousePosition({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+  }, []);
+
+  const handleMouseEnter = useCallback(() => setIsHovering(true), []);
+  const handleMouseLeave = useCallback(() => {
+    setIsHovering(false);
+    setMousePosition(null);
+  }, []);
 
   useEffect(() => {
     fetchProjects();
@@ -78,16 +91,12 @@ export default function NovelDashboard() {
   }
 
   async function handleGenerateCover(projectId: string, event: React.MouseEvent) {
-    event.stopPropagation(); // 防止触发项目点击
-
+    event.stopPropagation();
     try {
       setGeneratingCover(projectId);
-
       const response = await fetch(`/api/novel/projects/${projectId}/generate-cover`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
       });
 
@@ -97,12 +106,8 @@ export default function NovelDashboard() {
       }
 
       const data = await response.json();
-
-      // 更新本地项目列表中的封面
       setProjects((prev) =>
-        prev.map((p) =>
-          p.id === projectId ? { ...p, cover_image: data.cover_url } : p
-        )
+        prev.map((p) => (p.id === projectId ? { ...p, cover_image: data.cover_url } : p))
       );
     } catch (error) {
       console.error("生成封面失败:", error);
@@ -124,7 +129,6 @@ export default function NovelDashboard() {
 
   async function handleConfirmDelete() {
     if (!projectToDelete) return;
-
     try {
       setDeleting(true);
       const response = await fetch(`/api/novel/projects/${projectToDelete.id}`, {
@@ -136,12 +140,8 @@ export default function NovelDashboard() {
         throw new Error(error.error || "删除失败");
       }
 
-      // 从列表中移除
       setProjects((prev) => prev.filter((p) => p.id !== projectToDelete.id));
-      toast({
-        title: "删除成功",
-        description: `已删除小说「${projectToDelete.title}」`,
-      });
+      toast({ title: "删除成功", description: `已删除小说「${projectToDelete.title}」` });
     } catch (error) {
       console.error("删除项目失败:", error);
       toast({
@@ -157,208 +157,239 @@ export default function NovelDashboard() {
   }
 
   function getStatusBadge(status: string) {
-    const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "outline" }> = {
-      draft: { label: "草稿", variant: "outline" },
-      writing: { label: "创作中", variant: "default" },
-      completed: { label: "已完成", variant: "secondary" },
+    const statusMap: Record<string, { label: string; className: string }> = {
+      draft: { label: "草稿", className: "bg-zinc-800 text-zinc-400 border-zinc-700" },
+      writing: { label: "创作中", className: "bg-orange-500/10 text-orange-400 border-orange-500/20" },
+      completed: { label: "已完成", className: "bg-green-500/10 text-green-400 border-green-500/20" },
     };
-
     const config = statusMap[status] || statusMap.draft;
-    return <Badge variant={config.variant}>{config.label}</Badge>;
+    return <Badge variant="outline" className={config.className}>{config.label}</Badge>;
   }
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-7xl">
-      {/* 页头 */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">我的小说</h1>
-          <p className="text-muted-foreground mt-2">
-            使用 AI 辅助创作，让灵感变成精彩故事
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <Button
-            onClick={() => setInspirationDialogOpen(true)}
-            size="lg"
-            variant="outline"
-            className="border-purple-200 hover:border-purple-300 hover:bg-purple-50"
-          >
-            <Sparkles className="mr-2 h-4 w-4 text-purple-500" />
-            灵感模式
-          </Button>
-          <Button onClick={() => setCreateDialogOpen(true)} size="lg">
-            <Plus className="mr-2 h-4 w-4" />
-            新建项目
-          </Button>
-        </div>
-      </div>
+    <div className="min-h-screen bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-black to-black">
+      {/* 装饰性光晕 */}
+      <div className="fixed top-20 left-1/4 w-96 h-96 bg-orange-500/5 blur-[120px] rounded-full pointer-events-none" />
+      <div className="fixed bottom-20 right-1/4 w-96 h-96 bg-purple-500/5 blur-[120px] rounded-full pointer-events-none" />
 
-      {/* 项目列表 */}
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3].map((i) => (
-            <Card key={i} className="animate-pulse">
-              <CardHeader>
-                <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-              </CardHeader>
-              <CardContent>
-                <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
-                <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : projects.length === 0 ? (
-        <Card className="text-center py-12">
-          <CardContent>
-            <BookOpen className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">还没有项目</h3>
-            <p className="text-muted-foreground mb-6">
-              创建你的第一个小说项目，开始创作之旅
+      <div
+        ref={containerRef}
+        className="container mx-auto py-12 px-4 max-w-7xl relative"
+        onMouseMove={handleMouseMove}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        {/* Global Spotlight Overlay */}
+        <div
+          className={cn(
+            "pointer-events-none absolute inset-0 z-30 transition-opacity duration-500",
+            isHovering ? "opacity-100" : "opacity-0"
+          )}
+          style={{
+            background: mousePosition
+              ? `radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(249, 115, 22, 0.08), transparent 40%)`
+              : "none",
+          }}
+        />
+
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12 relative z-10">
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight text-white mb-2">我的小说 <span className="text-orange-500">.</span></h1>
+            <p className="text-zinc-400 text-lg">
+              使用 AI 辅助创作，让灵感变成精彩故事
             </p>
-            <Button onClick={() => setCreateDialogOpen(true)}>
+          </div>
+          <div className="flex gap-3">
+            <Button
+              onClick={() => setInspirationDialogOpen(true)}
+              size="lg"
+              variant="outline"
+              className="border-purple-500/30 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 hover:border-purple-500/50"
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              灵感模式
+            </Button>
+            <Button 
+              onClick={() => setCreateDialogOpen(true)} 
+              size="lg"
+              className="bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20"
+            >
               <Plus className="mr-2 h-4 w-4" />
               新建项目
             </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map((project) => (
-            <Card
-              key={project.id}
-              className="group hover:shadow-lg transition-shadow cursor-pointer overflow-hidden"
-              onClick={() => handleProjectClick(project.id)}
-            >
-              {/* 封面区域 */}
-              <div className="relative w-full h-48 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900">
-                {project.cover_image ? (
-                  <img
-                    src={project.cover_image}
-                    alt={project.title}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                    <ImageIcon className="h-12 w-12 mb-2" />
-                    <span className="text-sm">暂无封面</span>
-                  </div>
-                )}
-
-                {/* 生成封面按钮 */}
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={(e) => handleGenerateCover(project.id, e)}
-                  disabled={generatingCover === project.id}
-                >
-                  {generatingCover === project.id ? (
-                    <>
-                      <div className="animate-spin mr-2 h-3 w-3 border-2 border-current border-t-transparent rounded-full" />
-                      生成中...
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="mr-2 h-3 w-3" />
-                      {project.cover_image ? "重新生成" : "生成封面"}
-                    </>
-                  )}
-                </Button>
-
-                {/* 删除按钮 */}
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={(e) => handleDeleteClick(project, e)}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <CardTitle className="text-xl line-clamp-1">
-                    {project.title}
-                  </CardTitle>
-                  {getStatusBadge(project.status)}
-                </div>
-                {project.genre && (
-                  <Badge variant="outline" className="w-fit">
-                    {project.genre}
-                  </Badge>
-                )}
-              </CardHeader>
-
-              <CardContent>
-                <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
-                  {project.description || "暂无描述"}
-                </p>
-
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <FileText className="h-4 w-4" />
-                    <span>{project.chapter_count} 章</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <BookOpen className="h-4 w-4" />
-                    <span>{project.total_words.toLocaleString()} 字</span>
-                  </div>
-                </div>
-              </CardContent>
-
-              <CardFooter className="text-xs text-muted-foreground">
-                <Clock className="h-3 w-3 mr-1" />
-                更新于 {new Date(project.updated_at).toLocaleDateString()}
-              </CardFooter>
-            </Card>
-          ))}
+          </div>
         </div>
-      )}
 
-      {/* 创建项目对话框 */}
-      <CreateProjectDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-        onSuccess={() => {
-          setCreateDialogOpen(false);
-          fetchProjects();
-        }}
-      />
-
-      {/* 灵感模式对话框 */}
-      <InspirationModeDialog
-        isOpen={inspirationDialogOpen}
-        onClose={() => setInspirationDialogOpen(false)}
-        onProjectCreated={(projectId) => {
-          router.push(`/novel/${projectId}`);
-        }}
-      />
-
-      {/* 删除确认对话框 */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认删除</AlertDialogTitle>
-            <AlertDialogDescription>
-              确定要删除小说「{projectToDelete?.title}」吗？此操作将删除所有章节内容，且无法恢复。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              disabled={deleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+        {/* Project List */}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10">
+            {[1, 2, 3].map((i) => (
+              <GlassCard key={i} className="h-[320px] animate-pulse bg-zinc-900/50 border-zinc-800">
+                <div className="h-48 bg-zinc-800/50 w-full mb-4" />
+                <div className="p-4 space-y-3">
+                  <div className="h-6 bg-zinc-800 rounded w-3/4" />
+                  <div className="h-4 bg-zinc-800 rounded w-1/2" />
+                </div>
+              </GlassCard>
+            ))}
+          </div>
+        ) : projects.length === 0 ? (
+          <GlassCard className="text-center py-20 relative z-10 flex flex-col items-center">
+            <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center mb-6 ring-1 ring-white/10 shadow-xl">
+              <BookOpen className="h-10 w-10 text-zinc-600" />
+            </div>
+            <h3 className="text-xl font-semibold text-white mb-2">还没有项目</h3>
+            <p className="text-zinc-400 mb-8 max-w-sm">
+              创建你的第一个小说项目，开始创作之旅
+            </p>
+            <Button 
+              onClick={() => setCreateDialogOpen(true)}
+              className="bg-orange-500 hover:bg-orange-600 text-white"
             >
-              {deleting ? "删除中..." : "确认删除"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              <Plus className="mr-2 h-4 w-4" />
+              新建项目
+            </Button>
+          </GlassCard>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10">
+            {projects.map((project) => (
+              <GlassCard
+                key={project.id}
+                className="group p-0 overflow-hidden cursor-pointer hover:shadow-2xl hover:shadow-orange-500/10 transition-all duration-500 border-zinc-800 bg-zinc-900/40"
+                onClick={() => handleProjectClick(project.id)}
+              >
+                {/* Cover Area */}
+                <div className="relative w-full h-48 bg-zinc-900 overflow-hidden">
+                  {project.cover_image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={project.cover_image}
+                      alt={project.title}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-zinc-700 bg-zinc-900/50">
+                      <ImageIcon className="h-12 w-12 mb-2 opacity-50" />
+                      <span className="text-xs">暂无封面</span>
+                    </div>
+                  )}
+                  
+                  {/* Overlay Gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent opacity-60" />
+
+                  {/* Actions */}
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 bg-black/60 hover:bg-black/80 text-white backdrop-blur-md border border-white/10"
+                    onClick={(e) => handleGenerateCover(project.id, e)}
+                    disabled={generatingCover === project.id}
+                  >
+                    {generatingCover === project.id ? (
+                      <>
+                        <div className="animate-spin mr-2 h-3 w-3 border-2 border-current border-t-transparent rounded-full" />
+                        生成中...
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="mr-2 h-3 w-3" />
+                        {project.cover_image ? "重新生成" : "生成封面"}
+                      </>
+                    )}
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-300 -translate-y-2 group-hover:translate-y-0 shadow-lg"
+                    onClick={(e) => handleDeleteClick(project, e)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+
+                {/* Content */}
+                <div className="p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <h3 className="text-lg font-bold text-white line-clamp-1 group-hover:text-orange-400 transition-colors">
+                      {project.title}
+                    </h3>
+                    {getStatusBadge(project.status)}
+                  </div>
+                  
+                  {project.genre && (
+                    <Badge variant="outline" className="mb-3 bg-zinc-800/50 text-zinc-400 border-zinc-700">
+                      {project.genre}
+                    </Badge>
+                  )}
+
+                  <p className="text-sm text-zinc-400 line-clamp-2 mb-4 min-h-[2.5em]">
+                    {project.description || "暂无描述..."}
+                  </p>
+
+                  <div className="flex items-center justify-between text-xs text-zinc-500 border-t border-zinc-800 pt-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-1.5">
+                        <FileText className="h-3.5 w-3.5" />
+                        <span>{project.chapter_count} 章</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <BookOpen className="h-3.5 w-3.5" />
+                        <span>{project.total_words.toLocaleString()} 字</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span>{new Date(project.updated_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                </div>
+              </GlassCard>
+            ))}
+          </div>
+        )}
+
+        {/* Dialogs */}
+        <CreateProjectDialog
+          open={createDialogOpen}
+          onOpenChange={setCreateDialogOpen}
+          onSuccess={() => {
+            setCreateDialogOpen(false);
+            fetchProjects();
+          }}
+        />
+
+        <InspirationModeDialog
+          isOpen={inspirationDialogOpen}
+          onClose={() => setInspirationDialogOpen(false)}
+          onProjectCreated={(projectId) => {
+            router.push(`/novel/${projectId}`);
+          }}
+        />
+
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent className="bg-zinc-900 border-zinc-800 text-zinc-200">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-white">确认删除项目?</AlertDialogTitle>
+              <AlertDialogDescription className="text-zinc-400">
+                确定要删除小说 <span className="text-white font-medium">「{projectToDelete?.title}」</span> 吗？
+                <br />此操作将删除所有章节内容，且无法恢复。
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="bg-transparent border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">取消</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirmDelete}
+                disabled={deleting}
+                className="bg-red-600 hover:bg-red-700 text-white border-0"
+              >
+                {deleting ? "删除中..." : "确认删除"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </div>
   );
 }
