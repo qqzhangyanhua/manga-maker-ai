@@ -8,32 +8,32 @@
   :root {
     /* Light Mode Defaults */
     --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
+    --foreground: 240 10% 3.9%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 240 10% 3.9%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 240 10% 3.9%;
 
-    --primary: 25 95% 53%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 24.6 95% 53.1%; /* Orange-500 */
+    --primary-foreground: 0 0% 98%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222 47% 11%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 25 95% 53%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 24.6 95% 53.1%;
 
     --radius: 0.5rem;
 
@@ -68,66 +68,51 @@
   }
 
   .dark {
-    /* Dark Mode Overrides - Enhanced Warm Theme */
-    /* 增强暖色调 - 更高的饱和度和亮度 */
-    --background: 24 25% 8%;
-    /* 更暖的深棕色背景 */
-    --foreground: 40 15% 96%;
-    /* 暖白色前景 */
+    /* Dark Mode - AI Studio Style (Deep Zinc) */
+    --background: 240 10% 3.9%; /* #09090b */
+    --foreground: 0 0% 98%;
 
-    --card: 24 20% 12%;
-    /* 更暖的卡片背景 */
-    --card-foreground: 40 15% 96%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 24 20% 12%;
-    --popover-foreground: 40 15% 96%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
 
-    /* Primary is Orange/Amber */
-    --primary: 25 95% 53%;
-    /* orange-500 */
-    --primary-foreground: 0 0% 0%;
+    --primary: 24.6 95% 53.1%; /* Orange-500 */
+    --primary-foreground: 0 0% 98%;
 
-    --secondary: 24 18% 15%;
-    /* 更暖的次要色 */
-    --secondary-foreground: 40 15% 96%;
+    --secondary: 240 3.7% 15.9%; /* Zinc-900 */
+    --secondary-foreground: 0 0% 98%;
 
-    --muted: 24 18% 15%;
-    /* 更暖的静音色 */
-    --muted-foreground: 30 8% 50%;
-    /* 暖灰色文字 */
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
 
-    --accent: 24 18% 15%;
-    --accent-foreground: 40 15% 96%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
 
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 40 15% 96%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 24 15% 20%;
-    /* 更亮的暖色边框 */
-    --input: 24 15% 20%;
-    --ring: 25 95% 53%;
-    /* orange-500 */
+    --border: 240 3.7% 15.9%; /* Zinc-900 */
+    --input: 240 3.7% 15.9%;
+    --ring: 24.6 95% 53.1%;
 
     /* Gradients (Dark) */
-    --gradient-card: linear-gradient(145deg, hsl(var(--card)) 0%, hsl(24 20% 10%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(var(--card)) 0%, hsl(240 10% 4%) 100%);
     --gradient-glow: radial-gradient(circle at center, hsl(var(--primary) / 0.3) 0%, transparent 70%);
 
     /* Shadows (Dark) */
     --shadow-glow: 0 0 30px hsl(var(--primary) / 0.5);
-    --shadow-card: 0 10px 40px -10px hsl(24 15% 5% / 0.5);
+    --shadow-card: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
 
-    --sidebar-background: 24 20% 12%;
-    /* 更暖的侧边栏 */
-    --sidebar-foreground: 40 15% 96%;
-    --sidebar-primary: 25 95% 53%;
-    /* orange-500 */
-    --sidebar-primary-foreground: 0 0% 0%;
-    --sidebar-accent: 24 18% 15%;
-    /* 更暖的强调色 */
-    --sidebar-accent-foreground: 40 15% 96%;
-    --sidebar-border: 24 15% 20%;
-    /* 更亮的边框 */
-    --sidebar-ring: 25 95% 53%;
+    --sidebar-background: 240 10% 3.9%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 24.6 95% 53.1%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 24.6 95% 53.1%;
   }
 }
 
@@ -136,21 +121,17 @@
     @apply border-border;
   }
 
-  html {
-    background-color: #1a1410; /* 更暖的深棕色 - 增强暖色调 */
-  }
-
   body {
-    @apply text-foreground font-sans antialiased;
+    @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Nunito', sans-serif;
-    background-color: #1a1410 !important; /* 更暖的深棕色，强制覆盖 */
   }
 
-  h1,
-  h2,
-  h3 {
-    font-family: 'Bangers', cursive;
-    letter-spacing: 0.05em;
+  h1, h2, h3 {
+    /* Only apply Bangers for comic headers if needed, otherwise default to Sans for cleaner UI */
+    /* font-family: 'Bangers', cursive; */ 
+    /* Switching to modern Sans for standard UI headers */
+    @apply font-heading; 
+    letter-spacing: 0.025em;
   }
 
   /* Custom Selection Color */
@@ -180,8 +161,9 @@
 }
 
 @layer components {
+  /* Retain Comic Utilities for Comic Editor parts */
   .comic-title {
-    @apply text-transparent bg-clip-text;
+    @apply text-transparent bg-clip-text font-comic;
     background-image: var(--gradient-hero);
     text-shadow: 3px 3px 0 hsl(var(--background));
   }
@@ -191,143 +173,24 @@
     box-shadow: var(--shadow-comic);
   }
 
-  .comic-border-sm {
-    @apply border-2 border-foreground;
-    box-shadow: var(--shadow-comic-sm);
+  /* ... other comic styles ... */
+  
+  /* Glass Effect Utilities */
+  .glass-card {
+    @apply bg-zinc-900/50 backdrop-blur-sm border border-zinc-800 rounded-xl transition-all;
   }
-
-  .halftone-pattern {
-    background-image: radial-gradient(circle, hsl(var(--foreground) / 0.1) 1px, transparent 1px);
-    background-size: 8px 8px;
-  }
-
-  .comic-card {
-    @apply relative overflow-hidden rounded-lg;
-    background: var(--gradient-card);
-    border: 3px solid hsl(var(--foreground) / 0.2);
-  }
-
-  .comic-card:hover {
-    border-color: hsl(var(--primary));
-    box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
-  }
-
-  .glow-effect {
-    @apply relative;
-  }
-
-  .glow-effect::before {
-    content: '';
-    @apply absolute inset-0 rounded-full blur-3xl opacity-50;
-    background: var(--gradient-glow);
-    z-index: -1;
-  }
-
-  .action-lines {
-    background: repeating-linear-gradient(45deg,
-        transparent,
-        transparent 10px,
-        hsl(var(--primary) / 0.05) 10px,
-        hsl(var(--primary) / 0.05) 20px);
-  }
-
-  .float-animation {
-    animation: float 6s ease-in-out infinite;
-  }
-
-  .pulse-glow {
-    animation: pulseGlow 2s ease-in-out infinite;
+  
+  .glass-card-hover {
+    @apply hover:border-orange-500/50 hover:bg-zinc-900;
   }
 }
 
 @layer utilities {
-  .text-comic-shadow {
-    text-shadow: 2px 2px 0 hsl(var(--background)),
-      4px 4px 0 hsl(var(--primary) / 0.3);
-  }
-
   .font-comic {
     font-family: 'Bangers', cursive;
   }
-
-  .font-comic-body {
-    font-family: 'Comic Neue', cursive;
+  
+  .font-heading {
+    font-family: 'Poppins', sans-serif;
   }
-}
-
-@keyframes float {
-
-  0%,
-  100% {
-    transform: translateY(0px);
-  }
-
-  50% {
-    transform: translateY(-20px);
-  }
-}
-
-@keyframes pulseGlow {
-
-  0%,
-  100% {
-    box-shadow: 0 0 20px hsl(var(--primary) / 0.5);
-  }
-
-  50% {
-    box-shadow: 0 0 40px hsl(var(--primary) / 0.8);
-  }
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes scan {
-  0% {
-    transform: translateX(-100%);
-  }
-
-  100% {
-    transform: translateX(200%);
-  }
-}
-
-.animate-slide-in {
-  animation: slideIn 0.5s ease-out forwards;
-}
-
-.animate-slide-in-delay-1 {
-  animation: slideIn 0.5s ease-out 0.1s forwards;
-  opacity: 0;
-}
-
-.animate-slide-in-delay-2 {
-  animation: slideIn 0.5s ease-out 0.2s forwards;
-  opacity: 0;
-}
-
-.animate-slide-in-delay-3 {
-  animation: slideIn 0.5s ease-out 0.3s forwards;
-  opacity: 0;
-}
-
-.animate-scan {
-  animation: scan 2s ease-in-out infinite;
-}
-
-.delay-75 {
-  animation-delay: 75ms;
-}
-
-.delay-150 {
-  animation-delay: 150ms;
 }

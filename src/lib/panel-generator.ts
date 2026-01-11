@@ -39,7 +39,14 @@ export interface GeneratedPanel {
 
 const PANEL_GENERATION_SYSTEM_PROMPT = `你是一位资深漫画分镜师和视觉叙事专家，擅长将文字剧本转化为分镜脚本。
 
-任务：根据章节梗概，生成详细的分镜脚本（panel-by-panel breakdown）。
+任务：根据章节梗概和原文内容，生成详细的分镜脚本（panel-by-panel breakdown）。
+
+【重要】分镜生成原则：
+1. **强关联原文**：分镜必须忠实于原文情节、对话和场景描述
+2. **保留关键对话**：重要对话必须在分镜中体现，使用原文或改编后的对白
+3. **场景还原**：根据原文中的场景描述（环境、氛围、光线等）设计画面
+4. **角色一致性**：严格遵循角色设定中的外貌、性格、服装描述
+5. **情节连贯性**：分镜顺序要符合原文的叙事逻辑和时间线
 
 输出要求（严格JSON格式）：
 {
@@ -116,7 +123,14 @@ const PANEL_GENERATION_SYSTEM_PROMPT = `你是一位资深漫画分镜师和视�
    - 建立镜头用pull_out揭示环境
    - 动作追逐用dolly或pan跟随
    - 震撼时刻用zoom+sudden制造冲击
-   - 避免过度使用运镜，60%分镜应为static`;
+   - 避免过度使用运镜，60%分镜应为static
+
+9. ✅ 小说改编特别要求：
+   - 如果提供了【章节原文】，必须严格遵循原文的情节发展
+   - 对话内容优先使用原文中的对白，可适当精简但不可改变语义
+   - 场景描述要参考原文中的环境细节（时间、地点、天气、光线等）
+   - 角色动作和表情要符合原文描述
+   - 如果提供了【登场角色】信息，visual_prompt中必须包含角色的外貌特征`;
 
 /**
  * Try to fix common JSON syntax errors and extract JSON from markdown
@@ -159,15 +173,23 @@ export async function generatePanelsFromChapter(
 - 请在 visual_prompt 中融合此风格特征`;
   }
 
+  // ✅ 增强用户提示词，强调小说原文的重要性
   const userPrompt = `
 故事标题：${storyTitle}
 故事类型：${genre}
 章节标题：${chapterTitle}
 
-章节梗概：
 ${chapterSummary}
 
 要求生成分镜数量：${panelCount || "根据内容决定（建议8-15个分镜）"}${styleInstruction}
+
+【重要提示】
+如果上述内容中包含【章节原文】，这是小说改编项目，请：
+1. 严格遵循原文的情节顺序和关键事件
+2. 保留原文中的重要对话（可适当精简但不改变含义）
+3. 根据原文的场景描述设计画面（环境、氛围、光线等）
+4. 如果有【登场角色】信息，在 visual_prompt 中必须包含角色的外貌特征
+5. 如果有【世界观】信息，确保场景设计符合世界观设定
 
 请根据以上信息，生成详细的分镜脚本。确保每个分镜都有清晰的视觉描述和构图设计。
 `.trim();

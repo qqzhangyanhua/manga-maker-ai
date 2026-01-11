@@ -4,7 +4,7 @@
  */
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Dialog,
@@ -68,6 +68,8 @@ export function ConvertToComicDialog({
   const [selectedScenes, setSelectedScenes] = useState<Map<number, Set<number>>>(new Map());
   const [selectedCharacters, setSelectedCharacters] = useState<Set<string>>(new Set());
   const [step, setStep] = useState<"scenes" | "characters">("scenes");
+  const [existingStory, setExistingStory] = useState<{ id: string; title: string } | null>(null);
+  const [checkingExisting, setCheckingExisting] = useState(true);
 
   // 计算选中的场景总数
   const totalSelectedScenes = useMemo(() => {
@@ -80,6 +82,32 @@ export function ConvertToComicDialog({
 
   // 预估分镜数量（每个场景约 3-4 个分镜）
   const estimatedPanels = totalSelectedScenes * 3;
+
+  // ✅ 检测是否已经转换过
+  useEffect(() => {
+    if (!isOpen) return;
+
+    async function checkExistingStory() {
+      try {
+        setCheckingExisting(true);
+        const response = await fetch(`/api/novel/projects/${projectId}/check-comic-story`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.exists) {
+            setExistingStory({ id: data.story_id, title: data.story_title });
+          } else {
+            setExistingStory(null);
+          }
+        }
+      } catch (err) {
+        console.error("检测现有漫画项目失败:", err);
+      } finally {
+        setCheckingExisting(false);
+      }
+    }
+
+    checkExistingStory();
+  }, [isOpen, projectId]);
 
   // 切换场景选择
   function toggleScene(chapterNumber: number, sceneIndex: number) {
@@ -181,7 +209,7 @@ export function ConvertToComicDialog({
         const data = await response.json();
         toast.success(data.message || "转换成功");
         onClose();
-        // 跳转到新创建的故事页面
+        // 跳转到故事页面（可能是新创建的，也可能是已存在的）
         router.push(`/scripts/${data.story_id}`);
       } else {
         const error = await response.json();
@@ -204,7 +232,15 @@ export function ConvertToComicDialog({
             将《{projectTitle}》转换为漫画
           </DialogTitle>
           <DialogDescription>
-            选择要可视化的场景和角色，系统将创建漫画项目并生成分镜
+            {checkingExisting ? (
+              "正在检测现有漫画项目..."
+            ) : existingStory ? (
+              <>
+                检测到已转换的漫画项目《{existingStory.title}》，将追加新章节到该项目
+              </>
+            ) : (
+              "选择要可视化的场景和角色，系统将创建漫画项目并生成分镜"
+            )}
           </DialogDescription>
         </DialogHeader>
 

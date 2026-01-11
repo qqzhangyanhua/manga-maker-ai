@@ -110,31 +110,67 @@ export async function POST(
     const novelCharacters = (novelProject.characters as NovelCharacter[] | null) || [];
     const novelOutlines = (novelProject.outlines as ChapterOutline[] | null) || [];
 
-    // 创建 Story
-    const story = await prisma.story.create({
-      data: {
-        user_id: userId,
-        title: `${novelProject.title}（漫画改编）`,
-        premise: novelProject.description || `改编自小说《${novelProject.title}》`,
-        genre: mapNovelGenreToStoryGenre(novelProject.genre),
-        outline: buildStoryOutline(novelOutlines, selected_scenes) as object,
-        comic_style_id: comic_style_id || null,
-        source_type: "novel_adaptation",
+    // ✅ 检测是否已经转换过（查找关联到此小说的 Story）
+    let story = await prisma.story.findFirst({
+      where: {
         source_novel_id: projectId,
-        status: "draft",
+        user_id: userId,
+      },
+      include: {
+        chapters: {
+          orderBy: { chapter_order: "desc" },
+          take: 1, // 只取最后一个章节，用于计算新章节的 order
+        },
       },
     });
 
-    logInfo("Story created from novel", {
+    let isNewStory = false;
+
+    if (!story) {
+      // 如果不存在，创建新 Story
+      isNewStory = true;
+      story = await prisma.story.create({
+        data: {
+          user_id: userId,
+          title: `${novelProject.title}（漫画改编）`,
+          premise: novelProject.description || `改编自小说《${novelProject.title}》`,
+          genre: mapNovelGenreToStoryGenre(novelProject.genre),
+          outline: buildStoryOutline(novelOutlines, selected_scenes) as object,
+          comic_style_id: comic_style_id || null,
+          source_type: "novel_adaptation",
+          source_novel_id: projectId,
+          status: "draft",
+        },
+        include: {
+          chapters: true,
+        },
+      });
+    } else {
+      // 如果已存在，更新 Story 的 outline（合并新场景）
+      const existingOutline = story.outline as Record<string, unknown>;
+      const newOutline = buildStoryOutline(novelOutlines, selected_scenes);
+      const mergedOutline = mergeStoryOutlines(existingOutline, newOutline);
+
+      await prisma.story.update({
+        where: { id: story.id },
+        data: {
+          outline: mergedOutline as object,
+        },
+      });
+    }
+
+    logInfo(isNewStory ? "Story created from novel" : "Story found, appending chapters", {
       endpoint: "/api/novel/projects/[id]/convert-to-comic",
       userId,
       novelProjectId: projectId,
       storyId: story.id,
+      isNewStory,
     });
 
     // 创建 Chapters（基于选中的场景）
     const chaptersCreated: Array<{ id: string; title: string; order: number }> = [];
-    let chapterOrder = 1;
+    // ✅ 如果是追加模式，从现有章节的最大 order + 1 开始
+    let chapterOrder = story.chapters.length > 0 ? story.chapters[0].chapter_order + 1 : 1;
 
     for (const sceneSelection of selected_scenes) {
       const novelChapter = novelProject.chapters.find(
@@ -146,13 +182,16 @@ export async function POST(
 
       if (!novelChapter && !outline) continue;
 
-      // 构建章节摘要（用于分镜生成）
-      const summary = buildChapterSummary(
+      // ✅ 构建增强的章节摘要（包含完整上下文）
+      const summary = buildEnhancedChapterSummary(
         novelChapter?.content || "",
         novelChapter?.outline || outline?.outline || "",
         outline?.keyEvents || [],
         sceneSelection.scene_indices,
-        sceneSelection.custom_scenes
+        sceneSelection.custom_scenes,
+        novelCharacters,
+        novelProject.world_setting as Record<string, unknown> | null,
+        outline?.characters || []
       );
 
       const chapter = await prisma.chapter.create({
@@ -161,7 +200,7 @@ export async function POST(
           title: novelChapter?.title || outline?.title || `第${sceneSelection.chapter_number}章`,
           summary,
           chapter_order: chapterOrder,
-          content: novelChapter?.content || null,
+          content: novelChapter?.content || null, // ✅ 保存完整章节内容
           is_key_chapter: novelChapter?.is_key_chapter || outline?.isKeyChapter || false,
           source_novel_chapter_id: novelChapter?.id || null,
           source_scene_markers: sceneSelection.scene_indices.map((idx, i) => ({
@@ -259,11 +298,14 @@ export async function POST(
       success: true,
       story_id: story.id,
       story_title: story.title,
+      is_new_story: isNewStory,
       chapters_created: chaptersCreated.length,
       chapters: chaptersCreated,
       characters_created: charactersCreated,
       characters_linked: charactersLinked,
-      message: `成功将小说转换为漫画项目，共创建 ${chaptersCreated.length} 个章节`,
+      message: isNewStory
+        ? `成功创建漫画项目，共生成 ${chaptersCreated.length} 个章节`
+        : `成功追加到现有漫画项目，新增 ${chaptersCreated.length} 个章节`,
     });
   } catch (error) {
     logError("Novel to comic conversion failed", error, {
@@ -330,21 +372,28 @@ function buildStoryOutline(
   };
 }
 
-function buildChapterSummary(
+/**
+ * ✅ 增强版章节摘要构建函数
+ * 包含完整的小说上下文信息，用于生成高质量的分镜
+ */
+function buildEnhancedChapterSummary(
   content: string,
   outline: string,
   keyEvents: string[],
   selectedIndices: number[],
-  customScenes?: string[]
+  customScenes: string[] | undefined,
+  characters: NovelCharacter[],
+  worldSetting: Record<string, unknown> | null,
+  chapterCharacters: string[]
 ): string {
   const parts: string[] = [];
 
-  // 章节大纲
+  // 1. 章节大纲
   if (outline) {
-    parts.push(`【章节概要】${outline}`);
+    parts.push(`【章节概要】\n${outline}`);
   }
 
-  // 选中的关键事件
+  // 2. 选中的关键场景（分镜生成的核心依据）
   const selectedEvents = selectedIndices
     .map((idx) => keyEvents[idx])
     .filter(Boolean);
@@ -352,18 +401,65 @@ function buildChapterSummary(
     parts.push(`【关键场景】\n${selectedEvents.map((e, i) => `${i + 1}. ${e}`).join("\n")}`);
   }
 
-  // 自定义场景
+  // 3. 自定义场景
   if (customScenes && customScenes.length > 0) {
     parts.push(`【自定义场景】\n${customScenes.map((s, i) => `${i + 1}. ${s}`).join("\n")}`);
   }
 
-  // 截取内容摘要（前500字）
+  // 4. ✅ 本章登场角色信息（用于分镜生成时的角色描述）
+  const relevantCharacters = characters.filter((c) => chapterCharacters.includes(c.name));
+  if (relevantCharacters.length > 0) {
+    const charDescriptions = relevantCharacters.map((c) => {
+      const traits = c.traits ? ` | 特点: ${c.traits.join("、")}` : "";
+      return `- ${c.name}${c.role ? `（${c.role}）` : ""}: ${c.description || ""}${traits}`;
+    });
+    parts.push(`【登场角色】\n${charDescriptions.join("\n")}`);
+  }
+
+  // 5. ✅ 世界观设定（场景和氛围的重要参考）
+  if (worldSetting) {
+    const settingParts: string[] = [];
+    if (worldSetting.locations && Array.isArray(worldSetting.locations)) {
+      const locations = (worldSetting.locations as Array<{ name: string; description?: string }>)
+        .slice(0, 3)
+        .map((loc) => `${loc.name}${loc.description ? `: ${loc.description}` : ""}`)
+        .join("、");
+      if (locations) settingParts.push(`场景: ${locations}`);
+    }
+    if (worldSetting.rules && Array.isArray(worldSetting.rules)) {
+      const rules = (worldSetting.rules as string[]).slice(0, 2).join("、");
+      if (rules) settingParts.push(`规则: ${rules}`);
+    }
+    if (settingParts.length > 0) {
+      parts.push(`【世界观】\n${settingParts.join("\n")}`);
+    }
+  }
+
+  // 6. ✅ 完整章节内容（最重要的上下文，用于理解情节和对话）
   if (content && content.length > 0) {
-    const excerpt = content.slice(0, 500);
-    parts.push(`【内容片段】${excerpt}${content.length > 500 ? "..." : ""}`);
+    // 保留完整内容，不截断（分镜生成时需要完整上下文）
+    parts.push(`【章节原文】\n${content}`);
   }
 
   return parts.join("\n\n");
+}
+
+/**
+ * 合并 Story 的 outline（追加模式）
+ */
+function mergeStoryOutlines(
+  existing: Record<string, unknown>,
+  newOutline: Record<string, unknown>
+): Record<string, unknown> {
+  const existingActs = (existing.acts || []) as Array<unknown>;
+  const newActs = (newOutline.acts || []) as Array<unknown>;
+  const existingScenes = (existing.scenes || []) as Array<unknown>;
+  const newScenes = (newOutline.scenes || []) as Array<unknown>;
+
+  return {
+    acts: [...existingActs, ...newActs],
+    scenes: [...existingScenes, ...newScenes],
+  };
 }
 
 function buildCharacterStylePrompt(character: NovelCharacter): string {

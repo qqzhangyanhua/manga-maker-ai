@@ -1,0 +1,333 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Comic+Neue:wght@400;700&family=Nunito:wght@400;600;700;800&family=Poppins:wght@400;500;600;700&family=Open+Sans:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  :root {
+    /* Light Mode Defaults */
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 25 95% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 25 95% 53%;
+
+    --radius: 0.5rem;
+
+    /* Comic Colors (Shared) */
+    --comic-red: 358 85% 55%;
+    --comic-yellow: 45 100% 55%;
+    --comic-blue: 195 100% 50%;
+    --comic-purple: 280 80% 60%;
+    --comic-green: 140 70% 45%;
+    --comic-orange: 25 95% 53%;
+    --comic-pink: 330 85% 60%;
+
+    /* Gradients (Light) */
+    --gradient-hero: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--comic-orange)) 50%, hsl(45 100% 55%) 100%);
+    --gradient-card: linear-gradient(145deg, #ffffff 0%, #f3f4f6 100%);
+    --gradient-glow: radial-gradient(circle at center, hsl(var(--primary) / 0.2) 0%, transparent 70%);
+
+    /* Shadows (Light) */
+    --shadow-comic: 4px 4px 0px hsl(var(--foreground));
+    --shadow-comic-sm: 2px 2px 0px hsl(var(--foreground));
+    --shadow-glow: 0 0 30px hsl(var(--primary) / 0.3);
+    --shadow-card: 0 10px 40px -10px rgba(0, 0, 0, 0.1);
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 25 95% 53%;
+  }
+
+  .dark {
+    /* Dark Mode Overrides - Enhanced Warm Theme */
+    /* 增强暖色调 - 更高的饱和度和亮度 */
+    --background: 24 25% 8%;
+    /* 更暖的深棕色背景 */
+    --foreground: 40 15% 96%;
+    /* 暖白色前景 */
+
+    --card: 24 20% 12%;
+    /* 更暖的卡片背景 */
+    --card-foreground: 40 15% 96%;
+
+    --popover: 24 20% 12%;
+    --popover-foreground: 40 15% 96%;
+
+    /* Primary is Orange/Amber */
+    --primary: 25 95% 53%;
+    /* orange-500 */
+    --primary-foreground: 0 0% 0%;
+
+    --secondary: 24 18% 15%;
+    /* 更暖的次要色 */
+    --secondary-foreground: 40 15% 96%;
+
+    --muted: 24 18% 15%;
+    /* 更暖的静音色 */
+    --muted-foreground: 30 8% 50%;
+    /* 暖灰色文字 */
+
+    --accent: 24 18% 15%;
+    --accent-foreground: 40 15% 96%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 40 15% 96%;
+
+    --border: 24 15% 20%;
+    /* 更亮的暖色边框 */
+    --input: 24 15% 20%;
+    --ring: 25 95% 53%;
+    /* orange-500 */
+
+    /* Gradients (Dark) */
+    --gradient-card: linear-gradient(145deg, hsl(var(--card)) 0%, hsl(24 20% 10%) 100%);
+    --gradient-glow: radial-gradient(circle at center, hsl(var(--primary) / 0.3) 0%, transparent 70%);
+
+    /* Shadows (Dark) */
+    --shadow-glow: 0 0 30px hsl(var(--primary) / 0.5);
+    --shadow-card: 0 10px 40px -10px hsl(24 15% 5% / 0.5);
+
+    --sidebar-background: 24 20% 12%;
+    /* 更暖的侧边栏 */
+    --sidebar-foreground: 40 15% 96%;
+    --sidebar-primary: 25 95% 53%;
+    /* orange-500 */
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 24 18% 15%;
+    /* 更暖的强调色 */
+    --sidebar-accent-foreground: 40 15% 96%;
+    --sidebar-border: 24 15% 20%;
+    /* 更亮的边框 */
+    --sidebar-ring: 25 95% 53%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    background-color: #1a1410; /* 更暖的深棕色 - 增强暖色调 */
+  }
+
+  body {
+    @apply text-foreground font-sans antialiased;
+    font-family: 'Nunito', sans-serif;
+    background-color: #1a1410 !important; /* 更暖的深棕色，强制覆盖 */
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: 'Bangers', cursive;
+    letter-spacing: 0.05em;
+  }
+
+  /* Custom Selection Color */
+  ::selection {
+    background-color: hsl(var(--primary) / 0.3);
+    color: white;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.5);
+  }
+}
+
+@layer components {
+  .comic-title {
+    @apply text-transparent bg-clip-text;
+    background-image: var(--gradient-hero);
+    text-shadow: 3px 3px 0 hsl(var(--background));
+  }
+
+  .comic-border {
+    @apply border-4 border-foreground;
+    box-shadow: var(--shadow-comic);
+  }
+
+  .comic-border-sm {
+    @apply border-2 border-foreground;
+    box-shadow: var(--shadow-comic-sm);
+  }
+
+  .halftone-pattern {
+    background-image: radial-gradient(circle, hsl(var(--foreground) / 0.1) 1px, transparent 1px);
+    background-size: 8px 8px;
+  }
+
+  .comic-card {
+    @apply relative overflow-hidden rounded-lg;
+    background: var(--gradient-card);
+    border: 3px solid hsl(var(--foreground) / 0.2);
+  }
+
+  .comic-card:hover {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+  }
+
+  .glow-effect {
+    @apply relative;
+  }
+
+  .glow-effect::before {
+    content: '';
+    @apply absolute inset-0 rounded-full blur-3xl opacity-50;
+    background: var(--gradient-glow);
+    z-index: -1;
+  }
+
+  .action-lines {
+    background: repeating-linear-gradient(45deg,
+        transparent,
+        transparent 10px,
+        hsl(var(--primary) / 0.05) 10px,
+        hsl(var(--primary) / 0.05) 20px);
+  }
+
+  .float-animation {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .pulse-glow {
+    animation: pulseGlow 2s ease-in-out infinite;
+  }
+}
+
+@layer utilities {
+  .text-comic-shadow {
+    text-shadow: 2px 2px 0 hsl(var(--background)),
+      4px 4px 0 hsl(var(--primary) / 0.3);
+  }
+
+  .font-comic {
+    font-family: 'Bangers', cursive;
+  }
+
+  .font-comic-body {
+    font-family: 'Comic Neue', cursive;
+  }
+}
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes pulseGlow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.5);
+  }
+
+  50% {
+    box-shadow: 0 0 40px hsl(var(--primary) / 0.8);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scan {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+.animate-slide-in {
+  animation: slideIn 0.5s ease-out forwards;
+}
+
+.animate-slide-in-delay-1 {
+  animation: slideIn 0.5s ease-out 0.1s forwards;
+  opacity: 0;
+}
+
+.animate-slide-in-delay-2 {
+  animation: slideIn 0.5s ease-out 0.2s forwards;
+  opacity: 0;
+}
+
+.animate-slide-in-delay-3 {
+  animation: slideIn 0.5s ease-out 0.3s forwards;
+  opacity: 0;
+}
+
+.animate-scan {
+  animation: scan 2s ease-in-out infinite;
+}
+
+.delay-75 {
+  animation-delay: 75ms;
+}
+
+.delay-150 {
+  animation-delay: 150ms;
+}
