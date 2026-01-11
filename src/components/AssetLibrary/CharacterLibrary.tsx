@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Sparkles, Eye, Loader2, Trash2, Filter } from "lucide-react";
+import { Plus, Sparkles, Eye, Loader2, Trash2, Filter, MoreHorizontal, User } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,11 +11,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import CharacterDetailView from "./CharacterDetailView";
 import RelationshipChart from "./RelationshipChart";
 import CreateCharacterDialog from "./CreateCharacterDialog";
+import { GlassCard } from "@/components/ui/glass-card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export interface ComicStyle {
   id: string;
@@ -71,8 +79,6 @@ const CharacterLibrary = () => {
         if (response.ok) {
           const data = await response.json();
           setStyles(data.data || []);
-        } else {
-          console.error("Failed to fetch comic styles");
         }
       } catch (error) {
         console.error("Error fetching comic styles:", error);
@@ -89,21 +95,16 @@ const CharacterLibrary = () => {
     const fetchCharacters = async () => {
       try {
         setIsLoading(true);
-
-        // Build query params based on selected style
         const params = new URLSearchParams();
         if (selectedStyleId) {
           params.append("style_id", selectedStyleId);
         }
-
         const url = `/api/character${params.toString() ? `?${params.toString()}` : ""}`;
         const response = await fetch(url);
 
         if (response.ok) {
           const data = await response.json();
           setCharacters(data.characters);
-        } else {
-          console.error("Failed to fetch characters");
         }
       } catch (error) {
         console.error("Error fetching characters:", error);
@@ -157,7 +158,6 @@ const CharacterLibrary = () => {
         throw new Error(error.error || "删除失败");
       }
     } catch (error) {
-      console.error("Delete character error:", error);
       toast({
         title: "删除失败",
         description: error instanceof Error ? error.message : "请稍后重试",
@@ -171,31 +171,16 @@ const CharacterLibrary = () => {
   };
 
   const getStatusBadge = (status: CharacterAsset["training_status"]) => {
+    const baseClasses = "px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md shadow-lg";
     switch (status) {
       case "ready":
-        return (
-          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-comic-green/20 text-comic-green border border-comic-green/30">
-            可用
-          </span>
-        );
+        return <span className={cn(baseClasses, "bg-green-500/20 text-green-400 border border-green-500/30")}>Ready</span>;
       case "training":
-        return (
-          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-comic-yellow/20 text-comic-yellow border border-comic-yellow/30 animate-pulse">
-            训练中
-          </span>
-        );
-      case "pending":
-        return (
-          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-muted text-muted-foreground border border-border">
-            待训练
-          </span>
-        );
+        return <span className={cn(baseClasses, "bg-orange-500/20 text-orange-400 border border-orange-500/30 animate-pulse")}>Training</span>;
       case "failed":
-        return (
-          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-comic-red/20 text-comic-red border border-comic-red/30">
-            失败
-          </span>
-        );
+        return <span className={cn(baseClasses, "bg-red-500/20 text-red-400 border border-red-500/30")}>Failed</span>;
+      default:
+        return <span className={cn(baseClasses, "bg-zinc-500/20 text-zinc-400 border border-zinc-500/30")}>Draft</span>;
     }
   };
 
@@ -235,286 +220,185 @@ const CharacterLibrary = () => {
         onSubmit={handleCreateNew}
       />
       
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h2 className="font-comic text-2xl text-foreground">角色一致性引擎</h2>
-            <p className="text-muted-foreground">
-              打造"数字演员"，保持角色在不同分镜中的一致性
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handleOpenRelationshipChart}>
-              <Eye className="w-4 h-4" />
-              角色关系图谱
-            </Button>
-            <Button variant="comic" onClick={() => setIsCreateDialogOpen(true)}>
-              <Plus className="w-4 h-4" />
-              创建新角色
-            </Button>
-          </div>
-        </div>
-
-        {/* Style Filter */}
-        {!stylesLoading && styles.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm text-zinc-400">
-              <Filter className="w-4 h-4" />
-              <span>按风格筛选</span>
-            </div>
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              <button
+      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        {/* Actions & Filters */}
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none mask-fade-right">
+              <Button
+                variant={!selectedStyleId ? "default" : "outline"}
+                size="sm"
                 onClick={() => setSelectedStyleId(null)}
                 className={cn(
-                  "px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all",
-                  "border backdrop-blur-md",
-                  !selectedStyleId
-                    ? "bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/20"
-                    : "bg-zinc-900/60 text-zinc-300 border-zinc-700 hover:border-orange-500/50"
+                  "rounded-full transition-all border-zinc-700/50",
+                  !selectedStyleId ? "bg-orange-500 hover:bg-orange-600 text-white border-transparent" : "text-zinc-400 hover:text-white hover:bg-zinc-800"
                 )}
               >
-                全部风格
-                {!selectedStyleId && (
-                  <span className="ml-2 text-xs opacity-75">({characters.length})</span>
-                )}
-              </button>
-              <button
-                onClick={() => setSelectedStyleId("null")}
-                className={cn(
-                  "px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all",
-                  "border backdrop-blur-md",
-                  selectedStyleId === "null"
-                    ? "bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/20"
-                    : "bg-zinc-900/60 text-zinc-300 border-zinc-700 hover:border-orange-500/50"
-                )}
-              >
-                无风格
-              </button>
+                全部
+              </Button>
               {styles.map((style) => (
-                <button
+                <Button
                   key={style.id}
+                  variant={selectedStyleId === style.id ? "default" : "outline"}
+                  size="sm"
                   onClick={() => setSelectedStyleId(style.id)}
                   className={cn(
-                    "px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all",
-                    "border backdrop-blur-md flex items-center gap-2",
-                    selectedStyleId === style.id
-                      ? "bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/20"
-                      : "bg-zinc-900/60 text-zinc-300 border-zinc-700 hover:border-orange-500/50"
+                    "rounded-full transition-all border-zinc-700/50 flex items-center gap-2",
+                    selectedStyleId === style.id 
+                      ? "bg-orange-500 hover:bg-orange-600 text-white border-transparent" 
+                      : "text-zinc-400 hover:text-white hover:bg-zinc-800"
                   )}
                 >
                   {style.image_url && (
-                    <img
-                      src={style.image_url}
-                      alt={style.name_zh}
-                      className="w-5 h-5 rounded object-cover"
-                    />
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={style.image_url} alt="" className="w-4 h-4 rounded-full object-cover" />
                   )}
-                  <span>{style.name_zh}</span>
-                  <span className={cn(
-                    "px-2 py-0.5 rounded-full text-xs font-semibold",
-                    style.tag_color
-                  )}>
-                    {style.name_en}
-                  </span>
-                </button>
+                  {style.name_zh}
+                </Button>
               ))}
             </div>
-          </div>
-        )}
 
-      {/* Loading State */}
-      {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      )}
-
-        {/* Empty State */}
-        {!isLoading && characters.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground mb-4">还没有角色，创建第一个"数字演员"吧！</p>
-            <Button variant="comic" onClick={() => setIsCreateDialogOpen(true)}>
-              <Plus className="w-4 h-4" />
-              创建新角色
-            </Button>
-          </div>
-        )}
-
-      {/* Character Grid */}
-      {!isLoading && characters.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {characters.map((character) => (
-            <div
-              key={character.id}
-              className="comic-card group cursor-pointer transition-all duration-300 hover:ring-2 hover:ring-primary"
-              onClick={() => handleViewCharacter(character)}
-            >
-              {/* Image */}
-              <div className="aspect-square relative overflow-hidden rounded-t-lg">
-                {character.base_image_url ? (
-                  <img
-                    src={character.base_image_url}
-                    alt={character.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-muted flex items-center justify-center">
-                    <span className="text-6xl">👤</span>
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
-
-                {/* Status Badge */}
-                <div className="absolute top-3 right-3">
-                  {getStatusBadge(character.training_status)}
-                </div>
-
-                {/* Style Badge */}
-                {character.comic_style && (
-                  <div className="absolute top-3 left-3">
-                    <span className={cn(
-                      "px-2 py-1 rounded-full text-xs font-semibold backdrop-blur-md",
-                      character.comic_style.tag_color
-                    )}>
-                      {character.comic_style.name_en}
-                    </span>
-                  </div>
-                )}
-
-                {/* Quick Actions */}
-                <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="comic"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleViewCharacter(character);
-                    }}
-                  >
-                    <Eye className="w-4 h-4" />
-                    详情
-                  </Button>
-                  <Button size="sm" variant="outline">
-                    <Sparkles className="w-4 h-4" />
-                    使用
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={(e) => handleDeleteClick(character, e)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    删除
-                  </Button>
-                </div>
-              </div>
-
-              {/* Content */}
-              <div className="p-4">
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <h3 className="font-comic text-xl text-foreground">{character.name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {character.description || "暂无描述"}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Tags */}
-                <div className="flex flex-wrap gap-1 mb-3">
-                  {character.comic_style && (
-                    <span
-                      className={cn(
-                        "px-2 py-0.5 rounded-full text-xs font-semibold",
-                        character.comic_style.tag_color
-                      )}
-                    >
-                      {character.comic_style.name_zh}
-                    </span>
-                  )}
-                  {character.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="px-2 py-0.5 rounded-full text-xs bg-muted text-muted-foreground"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-
-                {/* Features indicator */}
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    📷 三视图 {character.views?.length || 0}/3
-                  </span>
-                  <span className="flex items-center gap-1">
-                    😊 表情 {character.expressions?.length || 0}/9
-                  </span>
-                  <span className="flex items-center gap-1">
-                    👕 服装 {character.outfits?.length || 0}
-                  </span>
-                </div>
-              </div>
+            <div className="flex gap-2 shrink-0">
+              <Button variant="outline" size="sm" onClick={handleOpenRelationshipChart} className="bg-zinc-900/50 border-zinc-800 text-zinc-400 hover:text-white">
+                <Eye className="w-4 h-4 mr-2" />
+                关系图谱
+              </Button>
+              <Button size="sm" onClick={() => setIsCreateDialogOpen(true)} className="bg-white text-black hover:bg-zinc-200">
+                <Plus className="w-4 h-4 mr-2" />
+                新建角色
+              </Button>
             </div>
-          ))}
+          </div>
+        </div>
 
-          {/* Add New Card */}
-          <button
+        {/* Character Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
+          {/* Create New Card */}
+          <GlassCard 
+            className="group relative flex flex-col items-center justify-center gap-4 min-h-[320px] cursor-pointer border-dashed border-2 border-zinc-800 hover:border-orange-500/50 bg-zinc-900/20 hover:bg-zinc-900/40 transition-all duration-300"
             onClick={() => setIsCreateDialogOpen(true)}
-            className="comic-card min-h-[300px] flex flex-col items-center justify-center gap-4 border-2 border-dashed border-border hover:border-primary transition-colors"
           >
-            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
-              <Plus className="w-8 h-8 text-muted-foreground" />
+            <div className="w-16 h-16 rounded-full bg-zinc-800/50 flex items-center justify-center group-hover:bg-orange-500/20 group-hover:text-orange-500 transition-colors">
+              <Plus className="w-8 h-8 text-zinc-500 group-hover:text-orange-500 transition-colors" />
             </div>
             <div className="text-center">
-              <p className="font-semibold text-foreground">创建新角色</p>
-              <p className="text-sm text-muted-foreground">上传图片训练 LoRA</p>
+              <p className="font-semibold text-zinc-300 group-hover:text-white transition-colors">新建角色</p>
+              <p className="text-xs text-zinc-500 mt-1">训练 LoRA 模型</p>
             </div>
-          </button>
+          </GlassCard>
+
+          {isLoading ? (
+            // Loading Skeletons
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="rounded-xl bg-zinc-900/50 border border-zinc-800 h-[320px] p-3 space-y-3">
+                <Skeleton className="w-full aspect-[3/4] rounded-lg bg-zinc-800" />
+                <Skeleton className="h-4 w-2/3 bg-zinc-800" />
+                <Skeleton className="h-3 w-1/2 bg-zinc-800" />
+              </div>
+            ))
+          ) : (
+            characters.map((character) => (
+              <GlassCard
+                key={character.id}
+                className="group relative p-0 overflow-hidden cursor-pointer hover:shadow-2xl hover:shadow-orange-500/10 transition-all duration-500"
+                onClick={() => handleViewCharacter(character)}
+              >
+                {/* Image Area */}
+                <div className="aspect-[3/4] relative overflow-hidden bg-zinc-900">
+                  {character.base_image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={character.base_image_url}
+                      alt={character.name}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-zinc-700 bg-zinc-900">
+                      <User className="w-16 h-16 opacity-20" />
+                    </div>
+                  )}
+                  
+                  {/* Gradient Overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-80 group-hover:opacity-100 transition-opacity" />
+
+                  {/* Top Badges */}
+                  <div className="absolute top-3 left-3 right-3 flex justify-between items-start z-10">
+                    {character.comic_style ? (
+                      <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-black/40 backdrop-blur-md text-zinc-300 border border-white/10">
+                        {character.comic_style.name_en}
+                      </span>
+                    ) : <span />}
+                    {getStatusBadge(character.training_status)}
+                  </div>
+
+                  {/* Quick Actions (Hover) */}
+                  <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0 z-20">
+                     <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="secondary" size="icon" className="h-8 w-8 rounded-full bg-black/60 hover:bg-black/80 text-white backdrop-blur-md border border-white/10" onClick={(e) => e.stopPropagation()}>
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-32 bg-zinc-900 border-zinc-800 text-zinc-300">
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleViewCharacter(character); }}>
+                          <Eye className="w-4 h-4 mr-2" /> 详情
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); /* handle use */ }}>
+                          <Sparkles className="w-4 h-4 mr-2" /> 使用
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          className="text-red-400 focus:text-red-400 focus:bg-red-500/10"
+                          onClick={(e) => handleDeleteClick(character, e)}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" /> 删除
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  {/* Content Info */}
+                  <div className="absolute bottom-0 left-0 right-0 p-4 transform transition-transform duration-300">
+                    <h3 className="text-lg font-bold text-white mb-1 line-clamp-1 group-hover:text-orange-400 transition-colors">
+                      {character.name}
+                    </h3>
+                    <p className="text-xs text-zinc-400 line-clamp-2 mb-3 h-[2.5em]">
+                      {character.description || "暂无描述..."}
+                    </p>
+                    
+                    {/* Stats Row */}
+                    <div className="flex items-center gap-3 text-[10px] text-zinc-500 font-medium border-t border-white/10 pt-3 mt-1">
+                      <span>{character.views?.length || 0} 视角</span>
+                      <span className="w-1 h-1 rounded-full bg-zinc-700" />
+                      <span>{character.expressions?.length || 0} 表情</span>
+                      <span className="w-1 h-1 rounded-full bg-zinc-700" />
+                      <span>{character.outfits?.length || 0} 服装</span>
+                    </div>
+                  </div>
+                </div>
+              </GlassCard>
+            ))
+          )}
         </div>
-      )}
       </div>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-zinc-900 border-zinc-800 text-zinc-200">
           <AlertDialogHeader>
-            <AlertDialogTitle>确认删除角色</AlertDialogTitle>
-            <AlertDialogDescription>
-              确定要删除角色 <span className="font-semibold text-foreground">"{characterToDelete?.name}"</span> 吗？
-              <br />
-              <br />
-              此操作将永久删除该角色的所有数据，包括：
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>基础形象和参考图</li>
-                <li>三视图 ({characterToDelete?.views?.length || 0})</li>
-                <li>表情矩阵 ({characterToDelete?.expressions?.length || 0})</li>
-                <li>服装数据 ({characterToDelete?.outfits?.length || 0})</li>
-                <li>LoRA 训练模型（如有）</li>
-              </ul>
-              <br />
-              <span className="text-destructive font-semibold">此操作无法撤销！</span>
+            <AlertDialogTitle className="text-white">确认删除角色?</AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              您确定要删除角色 <span className="text-white font-medium">"{characterToDelete?.name}"</span> 吗？
+              此操作将永久删除该角色的所有关联数据（三视图、表情、模型等），且无法恢复。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>取消</AlertDialogCancel>
+            <AlertDialogCancel className="bg-transparent border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">取消</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteConfirm}
-              disabled={isDeleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-red-600 hover:bg-red-700 text-white border-0"
             >
-              {isDeleting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  删除中...
-                </>
-              ) : (
-                <>
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  确认删除
-                </>
-              )}
+              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+              确认删除
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

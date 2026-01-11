@@ -2,10 +2,10 @@
  * story/page.tsx - 完全参考首页设计
  *
  * 设计元素与首页保持100%一致：
- * - 背景：bg-[#0f0f13]
- * - 容器卡片：bg-zinc-900/60 backdrop-blur-md border-zinc-700
+ * - 背景：bg-background (Deep Zinc #09090b)
+ * - 容器卡片：GlassCard 组件
  * - 强调色：orange-500
- * - 文字：white 标题 + zinc-300/zinc-400 描述
+ * - 文字：foreground / zinc-400
  */
 
 "use client";
@@ -19,6 +19,7 @@ import { StoryHistory } from "@/components/Story/StoryHistory";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { autoSaveStory, type StoryHistoryItem } from "@/lib/story-history";
+import { GlassCard } from "@/components/ui/glass-card";
 
 export default function StoryPage() {
     const { toast } = useToast();
@@ -295,7 +296,7 @@ export default function StoryPage() {
     };
 
     return (
-        <div className="min-h-screen" style={{ backgroundColor: '#1a1410' }}>
+        <div className="min-h-screen bg-background text-foreground">
             <Navbar />
 
             {/* History Sidebar */}
@@ -397,7 +398,7 @@ export default function StoryPage() {
 
                         {/* 风格选择区 */}
                         {comicStyles.length > 0 && (
-                            <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 backdrop-blur-md p-6 overflow-hidden shadow-lg">
+                            <GlassCard className="p-6 overflow-hidden">
                                 <div className="mb-4">
                                     <h3 className="text-lg font-semibold text-white mb-2">画面风格</h3>
                                     <p className="text-sm text-zinc-400">选择漫画风格，AI 将生成符合该风格特点的故事内容</p>
@@ -452,11 +453,11 @@ export default function StoryPage() {
                                         </p>
                                     </div>
                                 )}
-                            </div>
+                            </GlassCard>
                         )}
 
                         {/* StoryGenerator 容器 */}
-                        <div className="relative rounded-xl border border-zinc-700 bg-zinc-900/60 backdrop-blur-md p-8 overflow-hidden shadow-lg">
+                        <GlassCard className="relative p-8 overflow-hidden">
                             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
 
                             {/* AI Idea Generator Button */}
@@ -510,7 +511,7 @@ export default function StoryPage() {
                                 onDraftChange={handleDraftChange}
                                 selectedStyleKey={selectedStyleKey}
                             />
-                        </div>
+                        </GlassCard>
                     </div>
                 </div>
             </main>
