@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Loader2, CheckSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { PanelSelectorProps } from "./types";
+import type { PanelSelectorProps } from "../types";
 
 export function PanelSelector({
   panels,
@@ -98,7 +98,7 @@ export function PanelSelector({
           <p className="text-sm text-muted-foreground mt-2">
             点击分镜卡片进行选择，选中的分镜将按顺序排列在九宫格中
           </p>
-          
+
           {/* 验证提示 */}
           {!isValidSelection && (
             <p className="text-sm text-destructive mt-1">

@@ -197,6 +197,9 @@ export function useScriptPageHandlers({
           panelCount,
         });
 
+        // Refresh panels to show newly generated content
+        await refetchPanels();
+
         toast({
           title: "分镜生成完成",
           description:
