@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { Navbar } from "@/components/Landing";
 import { TabsContent } from "@/components/ui/tabs";
 import { AssetsHeader } from "@/components/assets/assets-header";
@@ -11,12 +12,34 @@ import SceneLibrary from "@/components/AssetLibrary/SceneLibrary";
 import PoseLabEditor from "@/components/PoseLab/PoseLabEditor";
 
 export default function AssetLibraryPage() {
-  const [activeTab, setActiveTab] = useState("characters");
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-black" />}>
+      <AssetLibraryContent />
+    </Suspense>
+  );
+}
+
+function AssetLibraryContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const activeTab = searchParams.get("tab") || "characters";
+
+  const setActiveTab = (value: string) => {
+    const params = new URLSearchParams(searchParams);
+    if (value === "characters") {
+      params.delete("tab");
+    } else {
+      params.set("tab", value);
+    }
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-black to-black">
       <Navbar />
-      
+
       {/* 装饰性背景 */}
       <div className="fixed top-0 left-0 w-full h-[500px] bg-orange-500/5 blur-[120px] pointer-events-none select-none" />
       <div className="fixed bottom-0 right-0 w-[500px] h-[500px] bg-purple-500/5 blur-[120px] pointer-events-none select-none" />

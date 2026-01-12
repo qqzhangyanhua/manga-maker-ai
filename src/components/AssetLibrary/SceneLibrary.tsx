@@ -222,18 +222,18 @@ const SceneLibrary = () => {
   const getSceneTypeLabel = (type: string) => {
     return sceneTypes.find((st) => st.value === type)?.label || type;
   };
-  
+
   const getSceneTypeIcon = (type: string) => {
     return sceneTypes.find((st) => st.value === type)?.icon || "📍";
   };
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      
+
       {/* Action Bar */}
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-2">
-           {/* Future Filters */}
+          {/* Future Filters */}
         </div>
         <Button size="sm" onClick={handleCreateNew} className="bg-white text-black hover:bg-zinc-200">
           <Plus className="w-4 h-4 mr-2" />
@@ -244,25 +244,37 @@ const SceneLibrary = () => {
       {/* Scene Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {/* Create Card */}
-        <GlassCard 
-          className="group relative flex flex-col items-center justify-center gap-4 min-h-[200px] aspect-video cursor-pointer border-dashed border-2 border-zinc-800 hover:border-orange-500/50 bg-zinc-900/20 hover:bg-zinc-900/40 transition-all duration-300"
+        <GlassCard
+          className="group relative flex flex-col items-center justify-center gap-4 min-h-[200px] aspect-video cursor-pointer border-dashed border-2 border-zinc-800/50 hover:border-orange-500/50 bg-zinc-900/10 hover:bg-zinc-900/40 transition-all duration-300"
           onClick={handleCreateNew}
         >
-          <div className="w-14 h-14 rounded-full bg-zinc-800/50 flex items-center justify-center group-hover:bg-orange-500/20 group-hover:text-orange-500 transition-colors">
-            <Plus className="w-7 h-7 text-zinc-500 group-hover:text-orange-500 transition-colors" />
+          <div className="w-14 h-14 rounded-full bg-zinc-800/30 flex items-center justify-center group-hover:bg-orange-500/20 group-hover:text-orange-500 transition-colors">
+            <Plus className="w-7 h-7 text-zinc-600 group-hover:text-orange-500 transition-colors" />
           </div>
           <div className="text-center">
-            <p className="font-semibold text-zinc-300 group-hover:text-white transition-colors">创建新场景</p>
-            <p className="text-xs text-zinc-500 mt-1">上传或 AI 生成背景</p>
+            <p className="font-semibold text-zinc-400 group-hover:text-white transition-colors">创建新场景</p>
+            <p className="text-xs text-zinc-600 mt-1 group-hover:text-zinc-500">上传或 AI 生成背景</p>
           </div>
         </GlassCard>
+
+        {!isLoading && (!scenes || scenes.length === 0) && (
+          <div className="col-span-full flex flex-col items-center justify-center py-12 text-center md:col-span-2 lg:col-span-3 xl:col-span-4">
+            <div className="w-20 h-20 bg-zinc-900/50 rounded-full flex items-center justify-center mb-4">
+              <MapPin className="w-8 h-8 text-zinc-700" />
+            </div>
+            <h3 className="text-lg font-medium text-zinc-400">暂无场景</h3>
+            <p className="text-zinc-500 text-sm mt-1">
+              点击上方卡片创建您的第一个场景
+            </p>
+          </div>
+        )}
 
         {isLoading ? (
           // Loading Skeletons
           Array.from({ length: 3 }).map((_, i) => (
-             <div key={i} className="rounded-xl bg-zinc-900/50 border border-zinc-800 aspect-video p-3 space-y-3">
-                <Skeleton className="w-full h-full rounded-lg bg-zinc-800" />
-              </div>
+            <div key={i} className="rounded-xl bg-zinc-900/50 border border-zinc-800 aspect-video p-3 space-y-3">
+              <Skeleton className="w-full h-full rounded-lg bg-zinc-800" />
+            </div>
           ))
         ) : (
           scenes?.map((scene) => (
@@ -288,7 +300,7 @@ const SceneLibrary = () => {
                     <ImageIcon className="w-12 h-12 opacity-20" />
                   </div>
                 )}
-                
+
                 {/* Overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-80 group-hover:opacity-100 transition-opacity" />
 
@@ -307,7 +319,7 @@ const SceneLibrary = () => {
 
                 {/* Quick Actions */}
                 <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0 z-20">
-                   <DropdownMenu>
+                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="secondary" size="icon" className="h-8 w-8 rounded-full bg-black/60 hover:bg-black/80 text-white backdrop-blur-md border border-white/10" onClick={(e) => e.stopPropagation()}>
                         <MoreHorizontal className="w-4 h-4" />
@@ -320,7 +332,7 @@ const SceneLibrary = () => {
                       <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEdit(scene); }}>
                         <Edit2 className="w-4 h-4 mr-2" /> 编辑
                       </DropdownMenuItem>
-                      <DropdownMenuItem 
+                      <DropdownMenuItem
                         className="text-red-400 focus:text-red-400 focus:bg-red-500/10"
                         onClick={(e) => { e.stopPropagation(); setDeletingScene(scene); }}
                       >
@@ -387,7 +399,7 @@ const SceneLibrary = () => {
                 </SelectContent>
               </Select>
             </div>
-             <div className="space-y-2">
+            <div className="space-y-2">
               <Label htmlFor="description" className="text-zinc-300">描述</Label>
               <Textarea
                 id="description"
@@ -418,15 +430,15 @@ const SceneLibrary = () => {
         </DialogContent>
       </Dialog>
 
-       {/* Edit Dialog - Similar styling */}
+      {/* Edit Dialog - Similar styling */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="max-w-md bg-zinc-900 border-zinc-800 text-zinc-100">
           <DialogHeader>
             <DialogTitle className="text-white">编辑场景</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmitEdit} className="space-y-4">
-             {/* Fields same as create but pre-filled */}
-             <div className="space-y-2">
+            {/* Fields same as create but pre-filled */}
+            <div className="space-y-2">
               <Label htmlFor="edit-name" className="text-zinc-300">场景名称 *</Label>
               <Input
                 id="edit-name"
@@ -494,7 +506,7 @@ const SceneLibrary = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="bg-transparent border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">取消</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { if(deletingScene) deleteMutation.mutate(deletingScene.id) }} className="bg-red-600 hover:bg-red-700 text-white border-0">
+            <AlertDialogAction onClick={() => { if (deletingScene) deleteMutation.mutate(deletingScene.id) }} className="bg-red-600 hover:bg-red-700 text-white border-0">
               {deleteMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
               删除
             </AlertDialogAction>

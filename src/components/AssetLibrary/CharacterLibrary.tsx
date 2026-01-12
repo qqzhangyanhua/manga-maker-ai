@@ -219,7 +219,7 @@ const CharacterLibrary = () => {
         onOpenChange={setIsCreateDialogOpen}
         onSubmit={handleCreateNew}
       />
-      
+
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         {/* Actions & Filters */}
         <div className="flex flex-col gap-6">
@@ -244,8 +244,8 @@ const CharacterLibrary = () => {
                   onClick={() => setSelectedStyleId(style.id)}
                   className={cn(
                     "rounded-full transition-all border-zinc-700/50 flex items-center gap-2",
-                    selectedStyleId === style.id 
-                      ? "bg-orange-500 hover:bg-orange-600 text-white border-transparent" 
+                    selectedStyleId === style.id
+                      ? "bg-orange-500 hover:bg-orange-600 text-white border-transparent"
                       : "text-zinc-400 hover:text-white hover:bg-zinc-800"
                   )}
                 >
@@ -274,18 +274,30 @@ const CharacterLibrary = () => {
         {/* Character Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
           {/* Create New Card */}
-          <GlassCard 
-            className="group relative flex flex-col items-center justify-center gap-4 min-h-[320px] cursor-pointer border-dashed border-2 border-zinc-800 hover:border-orange-500/50 bg-zinc-900/20 hover:bg-zinc-900/40 transition-all duration-300"
+          <GlassCard
+            className="group relative flex flex-col items-center justify-center gap-4 min-h-[320px] cursor-pointer border-dashed border-2 border-zinc-800/50 hover:border-orange-500/50 bg-zinc-900/10 hover:bg-zinc-900/40 transition-all duration-300"
             onClick={() => setIsCreateDialogOpen(true)}
           >
-            <div className="w-16 h-16 rounded-full bg-zinc-800/50 flex items-center justify-center group-hover:bg-orange-500/20 group-hover:text-orange-500 transition-colors">
-              <Plus className="w-8 h-8 text-zinc-500 group-hover:text-orange-500 transition-colors" />
+            <div className="w-16 h-16 rounded-full bg-zinc-800/30 flex items-center justify-center group-hover:bg-orange-500/20 group-hover:text-orange-500 transition-colors">
+              <Plus className="w-8 h-8 text-zinc-600 group-hover:text-orange-500 transition-colors" />
             </div>
             <div className="text-center">
-              <p className="font-semibold text-zinc-300 group-hover:text-white transition-colors">新建角色</p>
-              <p className="text-xs text-zinc-500 mt-1">训练 LoRA 模型</p>
+              <p className="font-semibold text-zinc-400 group-hover:text-white transition-colors">新建角色</p>
+              <p className="text-xs text-zinc-600 mt-1 group-hover:text-zinc-500">训练 LoRA 模型</p>
             </div>
           </GlassCard>
+
+          {!isLoading && characters.length === 0 && (
+            <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
+              <div className="w-24 h-24 bg-zinc-900/50 rounded-full flex items-center justify-center mb-4">
+                <Filter className="w-10 h-10 text-zinc-700" />
+              </div>
+              <h3 className="text-lg font-medium text-zinc-400">没有找到相关角色</h3>
+              <p className="text-zinc-500 text-sm mt-1 max-w-xs mx-auto">
+                尝试切换其他风格或创建一个新角色
+              </p>
+            </div>
+          )}
 
           {isLoading ? (
             // Loading Skeletons
@@ -317,7 +329,7 @@ const CharacterLibrary = () => {
                       <User className="w-16 h-16 opacity-20" />
                     </div>
                   )}
-                  
+
                   {/* Gradient Overlay */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-80 group-hover:opacity-100 transition-opacity" />
 
@@ -333,7 +345,7 @@ const CharacterLibrary = () => {
 
                   {/* Quick Actions (Hover) */}
                   <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0 z-20">
-                     <DropdownMenu>
+                    <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="secondary" size="icon" className="h-8 w-8 rounded-full bg-black/60 hover:bg-black/80 text-white backdrop-blur-md border border-white/10" onClick={(e) => e.stopPropagation()}>
                           <MoreHorizontal className="w-4 h-4" />
@@ -346,7 +358,7 @@ const CharacterLibrary = () => {
                         <DropdownMenuItem onClick={(e) => { e.stopPropagation(); /* handle use */ }}>
                           <Sparkles className="w-4 h-4 mr-2" /> 使用
                         </DropdownMenuItem>
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           className="text-red-400 focus:text-red-400 focus:bg-red-500/10"
                           onClick={(e) => handleDeleteClick(character, e)}
                         >
@@ -364,7 +376,7 @@ const CharacterLibrary = () => {
                     <p className="text-xs text-zinc-400 line-clamp-2 mb-3 h-[2.5em]">
                       {character.description || "暂无描述..."}
                     </p>
-                    
+
                     {/* Stats Row */}
                     <div className="flex items-center gap-3 text-[10px] text-zinc-500 font-medium border-t border-white/10 pt-3 mt-1">
                       <span>{character.views?.length || 0} 视角</span>
