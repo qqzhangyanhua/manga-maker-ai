@@ -8,7 +8,7 @@
 import { useState, lazy, Suspense } from "react";
 import { useParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, Settings, Globe, Users, FileText, TrendingUp } from "lucide-react";
+import { BookOpen, Settings, Globe, Users, FileText, TrendingUp, Network } from "lucide-react";
 import { toast } from "sonner";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,6 +40,11 @@ const CharacterManager = lazy(() =>
 const OutlineEditor = lazy(() =>
   import("./components/OutlineEditor").then(mod => ({
     default: mod.OutlineEditor
+  }))
+);
+const CharacterRelationshipGraph = lazy(() =>
+  import("./components/relationship-graph").then(mod => ({
+    default: mod.CharacterRelationshipGraph
   }))
 );
 
@@ -175,6 +180,10 @@ function NovelProjectPageContent() {
               <Users className="h-4 w-4 mr-2" />
               角色管理
             </TabsTrigger>
+            <TabsTrigger value="relationship" className="rounded-lg data-[state=active]:bg-orange-500 data-[state=active]:text-white transition-all py-2 px-4">
+              <Network className="h-4 w-4 mr-2" />
+              关系图谱
+            </TabsTrigger>
             <TabsTrigger value="world" className="rounded-lg data-[state=active]:bg-orange-500 data-[state=active]:text-white transition-all py-2 px-4">
               <Globe className="h-4 w-4 mr-2" />
               世界观
@@ -222,6 +231,18 @@ function NovelProjectPageContent() {
                   initialCharacters={characters}
                   outlines={outlines}
                   onSave={handleSaveCharacters}
+                />
+              </Suspense>
+            </GlassCard>
+          </TabsContent>
+
+          <TabsContent value="relationship" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <GlassCard className="p-6">
+              <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
+                <CharacterRelationshipGraph
+                  characters={characters}
+                  projectId={projectId}
+                  readonly={true}
                 />
               </Suspense>
             </GlassCard>
