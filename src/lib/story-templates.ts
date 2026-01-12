@@ -276,3 +276,230 @@ export function getTemplateByName(name: string): StoryTemplateData | undefined {
 export function getAllCategories(): string[] {
     return Array.from(new Set(PREDEFINED_TEMPLATES.map((t) => t.category)));
 }
+
+/**
+ * Chinese Novel Style Templates
+ * 针对中文网文创作的详细模板
+ */
+
+export interface ChineseStoryTemplate {
+    id: string;
+    name: string;
+    category: string; // 玄幻、都市、言情、悬疑、科幻、武侠
+    genre: string;
+    description: string;
+    structure: {
+        actCount: number;
+        acts: {
+            name: string;
+            chapterCount: number;
+            description: string;
+            keyPoints: string[];
+            suggestedLength: number; // 字数
+        }[];
+    };
+    characterArchetypes: string[];
+    commonTropes: string[];
+    writingTips: string[];
+    examples: string[];
+    tags: string[];
+    difficulty: "beginner" | "intermediate" | "advanced";
+}
+
+/**
+ * 玄幻修真 - 三幕式
+ */
+export const xuanhuanTemplate: ChineseStoryTemplate = {
+    id: "xuanhuan-3-act",
+    name: "玄幻修真 - 三幕式",
+    category: "玄幻",
+    genre: "xuanhuan",
+    description: "废柴逆袭、宗门大比、秘境探险的经典玄幻结构",
+    structure: {
+        actCount: 3,
+        acts: [
+            {
+                name: "第一幕：初入仙途",
+                chapterCount: 10,
+                description: "主角发现修炼天赋，拜入宗门，初露锋芒",
+                keyPoints: [
+                    "金手指觉醒（神秘戒指、老爷爷、系统）",
+                    "家族/宗门测试，显露天赋",
+                    "拜师学艺，获得功法",
+                    "初次历练，小试牛刀",
+                    "引起强者注意，埋下伏笔",
+                ],
+                suggestedLength: 30000,
+            },
+            {
+                name: "第二幕：历练成长",
+                chapterCount: 20,
+                description: "外出历练，遭遇挫折，突破瓶颈，建立势力",
+                keyPoints: [
+                    "秘境探险，获得宝物",
+                    "遭遇强敌，生死危机",
+                    "突破瓶颈，实力大增",
+                    "结识同伴，建立势力",
+                    "宗门大比，一鸣惊人",
+                ],
+                suggestedLength: 60000,
+            },
+            {
+                name: "第三幕：巅峰对决",
+                chapterCount: 10,
+                description: "面对最终敌人，揭示真相，飞升成仙",
+                keyPoints: [
+                    "最终决战开始",
+                    "真相揭露（身世、阴谋）",
+                    "突破极限，超越自我",
+                    "击败强敌，尘埃落定",
+                    "飞升/开启新征程",
+                ],
+                suggestedLength: 30000,
+            },
+        ],
+    },
+    characterArchetypes: [
+        "废柴逆袭型 - 从小被欺负，一朝觉醒天赋",
+        "天才高冷型 - 天赋异禀，性格孤傲",
+        "神秘转世型 - 拥有前世记忆或来历不明",
+        "忠诚伙伴型 - 主角好友，生死与共",
+        "红颜知己型 - 情感线索，后期助力",
+    ],
+    commonTropes: [
+        "退婚流 - 未婚妻退婚，主角立誓逆袭",
+        "宗门大比 - 展现实力，打脸反派",
+        "秘境探险 - 发现宝物，提升实力",
+        "拍卖会 - 遇见重要人物/宝物",
+        "越级挑战 - 实力不如但靠智慧取胜",
+    ],
+    writingTips: [
+        "前期节奏要快，快速吸引读者（金手指要尽早出现）",
+        "中期要有波折，避免平铺直叙（主角不能一直赢）",
+        "后期高潮迭起，情感升华（要有牺牲和成长）",
+        "修炼体系要完整，等级划分要清晰",
+        "世界观要宏大，但不要一次性抛出太多设定",
+    ],
+    examples: ["《斗破苍穹》", "《凡人修仙传》", "《完美世界》"],
+    tags: ["热血", "升级流", "废柴逆袭", "打脸"],
+    difficulty: "beginner",
+};
+
+/**
+ * 都市重生 - 时间循环
+ */
+export const urbanRebirthTemplate: ChineseStoryTemplate = {
+    id: "urban-rebirth-loop",
+    name: "都市重生 - 时间循环",
+    category: "都市",
+    genre: "urban",
+    description: "主角回到过去，改变命运，弥补遗憾",
+    structure: {
+        actCount: 4,
+        acts: [
+            {
+                name: "第一幕：重生之时",
+                chapterCount: 8,
+                description: "主角在人生低谷重生，回到学生时代",
+                keyPoints: [
+                    "前世遗憾（破产、亲人离世、恋人分离）",
+                    "意外重生，回到关键节点",
+                    "利用先知优势，抓住机遇",
+                    "改变第一个命运转折点",
+                ],
+                suggestedLength: 24000,
+            },
+            {
+                name: "第二幕：积累资本",
+                chapterCount: 12,
+                description: "利用前世记忆积累财富和人脉",
+                keyPoints: [
+                    "投资未来暴利行业",
+                    "结识前世贵人",
+                    "弥补家庭遗憾",
+                    "建立商业帝国雏形",
+                ],
+                suggestedLength: 36000,
+            },
+            {
+                name: "第三幕：对抗前世宿敌",
+                chapterCount: 10,
+                description: "与前世害自己的人展开斗争",
+                keyPoints: [
+                    "宿敌出现，但时间线改变",
+                    "商业竞争/智斗",
+                    "揭露前世真相",
+                    "战胜宿敌，改写命运",
+                ],
+                suggestedLength: 30000,
+            },
+            {
+                name: "第四幕：圆满人生",
+                chapterCount: 5,
+                description: "前世遗憾一一弥补，收获圆满",
+                keyPoints: [
+                    "拯救前世逝去的亲人",
+                    "与前世恋人重新开始",
+                    "事业巅峰",
+                    "展望未来",
+                ],
+                suggestedLength: 15000,
+            },
+        ],
+    },
+    characterArchetypes: [
+        "重生主角 - 拥有未来记忆",
+        "前世仇人 - 今生的主要对手",
+        "温柔女主 - 前世错过的爱人",
+        "商业伙伴 - 信任的盟友",
+    ],
+    commonTropes: [
+        "先知先觉 - 利用未来信息获利",
+        "弥补遗憾 - 拯救前世重要的人",
+        "打脸复仇 - 对前世害自己的人",
+        "商业帝国 - 从零开始建立商业版图",
+    ],
+    writingTips: [
+        "平衡主角的金手指，不要让他太无敌",
+        "感情线要自然，不要为了虐而虐",
+        "商业情节要有一定逻辑性",
+        "前世今生对比，突出改变带来的差异",
+    ],
+    examples: ["《重生之财源滚滚》", "《重生之都市修仙》"],
+    tags: ["重生", "都市", "商战", "爽文"],
+    difficulty: "beginner",
+};
+
+/**
+ * 所有中文网文模板
+ */
+export const CHINESE_STORY_TEMPLATES: ChineseStoryTemplate[] = [
+    xuanhuanTemplate,
+    urbanRebirthTemplate,
+];
+
+/**
+ * 根据 ID 获取中文网文模板
+ */
+export function getChineseTemplateById(id: string): ChineseStoryTemplate | undefined {
+    return CHINESE_STORY_TEMPLATES.find((t) => t.id === id);
+}
+
+/**
+ * 根据分类获取中文网文模板
+ */
+export function getChineseTemplatesByCategory(category: string): ChineseStoryTemplate[] {
+    return CHINESE_STORY_TEMPLATES.filter((t) => t.category === category);
+}
+
+/**
+ * 模板分类列表
+ */
+export const TEMPLATE_CATEGORIES = [
+    { value: "玄幻", label: "玄幻修真", icon: "zap" },
+    { value: "都市", label: "都市重生", icon: "building" },
+    { value: "言情", label: "都市言情", icon: "heart" },
+    { value: "悬疑", label: "悬疑推理", icon: "search" },
+    { value: "科幻", label: "科幻未来", icon: "rocket" },
+    { value: "武侠", label: "武侠江湖", icon: "sword" },
+] as const;

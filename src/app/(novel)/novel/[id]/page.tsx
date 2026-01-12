@@ -1,15 +1,17 @@
 /**
  * 小说项目详情页 - 章节管理和编辑
  * 重构版本：修复类型安全、数据同步、错误处理问题
+ * 性能优化：使用动态导入减少初始包大小
  */
 "use client";
 
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, Settings, Globe, Users, FileText } from "lucide-react";
+import { BookOpen, Settings, Globe, Users, FileText, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { GlassCard } from "@/components/ui/glass-card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import { ProjectHeader } from "./ProjectHeader";
 import { ChaptersTab } from "./ChaptersTab";
@@ -17,13 +19,29 @@ import { useNovelProject } from "./useNovelProject";
 import { denormalizeOutline } from "./types";
 import type { ChapterOutline } from "./types";
 
-// 组件导入
+// ✅ 性能优化：动态导入重型组件
+// 对话框组件保持同步导入（小而常用）
 import { ProjectSettings } from "./components/ProjectSettings";
-import { WorldSettingEditor } from "./components/WorldSettingEditor";
-import { CharacterManager } from "./components/CharacterManager";
-import { OutlineEditor } from "./components/OutlineEditor";
 import { GenerateOutlineDialog } from "./components/GenerateOutlineDialog";
 import { ContinueOutlineDialog } from "./components/ContinueOutlineDialog";
+import { ProgressDashboard } from "./components/ProgressDashboard";
+
+// 编辑器组件使用动态导入（较大且按需加载）
+const WorldSettingEditor = lazy(() =>
+  import("./components/WorldSettingEditor").then(mod => ({
+    default: mod.WorldSettingEditor
+  }))
+);
+const CharacterManager = lazy(() =>
+  import("./components/CharacterManager").then(mod => ({
+    default: mod.CharacterManager
+  }))
+);
+const OutlineEditor = lazy(() =>
+  import("./components/OutlineEditor").then(mod => ({
+    default: mod.OutlineEditor
+  }))
+);
 
 // ✅ 新增：错误边界和状态组件
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -161,6 +179,10 @@ function NovelProjectPageContent() {
               <Globe className="h-4 w-4 mr-2" />
               世界观
             </TabsTrigger>
+            <TabsTrigger value="progress" className="rounded-lg data-[state=active]:bg-orange-500 data-[state=active]:text-white transition-all py-2 px-4">
+              <TrendingUp className="h-4 w-4 mr-2" />
+              创作进度
+            </TabsTrigger>
             <TabsTrigger value="settings" className="rounded-lg data-[state=active]:bg-orange-500 data-[state=active]:text-white transition-all py-2 px-4">
               <Settings className="h-4 w-4 mr-2" />
               项目设置
@@ -181,35 +203,50 @@ function NovelProjectPageContent() {
 
           <TabsContent value="outline" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
             <GlassCard className="p-6">
-              <OutlineEditor
-                projectId={projectId}
-                initialOutlines={outlines}
-                onSave={handleSaveOutlines}
-                onGenerateOutline={handleGenerateOutline}
-              />
+              <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
+                <OutlineEditor
+                  projectId={projectId}
+                  initialOutlines={outlines}
+                  onSave={handleSaveOutlines}
+                  onGenerateOutline={handleGenerateOutline}
+                />
+              </Suspense>
             </GlassCard>
           </TabsContent>
 
           <TabsContent value="characters" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
             <GlassCard className="p-6">
-              {/* ✅ 使用类型安全的 characters */}
-              <CharacterManager
-                projectId={projectId}
-                initialCharacters={characters}
-                outlines={outlines}
-                onSave={handleSaveCharacters}
-              />
+              <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
+                <CharacterManager
+                  projectId={projectId}
+                  initialCharacters={characters}
+                  outlines={outlines}
+                  onSave={handleSaveCharacters}
+                />
+              </Suspense>
             </GlassCard>
           </TabsContent>
 
           <TabsContent value="world" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
             <GlassCard className="p-6">
-              {/* ✅ 使用类型安全的 worldSetting */}
-              <WorldSettingEditor
-                projectId={projectId}
-                initialData={worldSetting}
+              <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
+                <WorldSettingEditor
+                  projectId={projectId}
+                  initialData={worldSetting}
+                  outlines={outlines}
+                  onSave={handleSaveWorldSetting}
+                />
+              </Suspense>
+            </GlassCard>
+          </TabsContent>
+
+          <TabsContent value="progress" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <GlassCard className="p-6">
+              <ProgressDashboard
                 outlines={outlines}
-                onSave={handleSaveWorldSetting}
+                characters={characters}
+                worldSetting={worldSetting}
+                targetWords={project?.target_words}
               />
             </GlassCard>
           </TabsContent>
