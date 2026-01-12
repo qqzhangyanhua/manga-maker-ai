@@ -242,7 +242,8 @@ function NovelProjectPageContent() {
                 <CharacterRelationshipGraph
                   characters={characters}
                   projectId={projectId}
-                  readonly={true}
+                  readonly={false}
+                  onSaveRelationships={handleSaveCharacters}
                 />
               </Suspense>
             </GlassCard>

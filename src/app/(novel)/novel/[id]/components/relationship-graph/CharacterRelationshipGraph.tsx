@@ -1,5 +1,5 @@
 /**
- * 角色关系图谱主组件 - Phase 1 只读模式
+ * 角色关系图谱主组件 - Phase 2 完整编辑模式
  */
 "use client";
 
@@ -11,20 +11,32 @@ import ReactFlow, {
   Panel,
   useNodesState,
   useEdgesState,
-  Node,
+  addEdge,
+  Connection,
   Edge,
+  Node,
+  useReactFlow,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { Button } from '@/components/ui/button';
-import { LayoutGrid, Circle, Network, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
+import { Network, Info } from 'lucide-react';
+import { toast } from 'sonner';
 import { CharacterNode } from './CharacterNode';
 import { RelationshipEdge } from './RelationshipEdge';
+import { RelationshipEditDialog } from './RelationshipEditDialog';
+import { GraphToolbar } from './GraphToolbar';
 import type { Character } from '../../types';
-import type { CharacterNode as CharacterNodeType, RelationshipEdge as RelationshipEdgeType, LayoutType } from './types';
+import type {
+  CharacterNode as CharacterNodeType,
+  RelationshipEdge as RelationshipEdgeType,
+  LayoutType,
+  RelationshipEdgeData,
+} from './types';
 import {
   charactersToNodes,
   relationshipsToEdges,
   applyLayout,
+  generateEdgeId,
 } from './utils';
 
 /**
@@ -45,13 +57,23 @@ interface CharacterRelationshipGraphProps {
   characters: Character[];
   projectId?: string;
   readonly?: boolean;
+  onSaveRelationships?: (updatedCharacters: Character[]) => Promise<void>;
 }
 
 export function CharacterRelationshipGraph({
   characters,
-  readonly = true, // Phase 1 强制只读
+  projectId,
+  readonly = false, // Phase 2 默认可编辑
+  onSaveRelationships,
 }: CharacterRelationshipGraphProps) {
   const [layoutType, setLayoutType] = useState<LayoutType>('dagre');
+  const [isSaving, setIsSaving] = useState(false);
+
+  // 编辑对话框状态
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedEdge, setSelectedEdge] = useState<RelationshipEdgeType | null>(null);
+
+  const { getNodes, getEdges, fitView } = useReactFlow();
 
   // 转换角色数据为图谱节点和边
   const { initialNodes, initialEdges } = useMemo(() => {
@@ -71,10 +93,184 @@ export function CharacterRelationshipGraph({
   // 切换布局
   const handleLayoutChange = useCallback((newLayout: LayoutType) => {
     setLayoutType(newLayout);
-    const { nodes: layoutedNodes, edges: layoutedEdges } = applyLayout(nodes, edges, newLayout);
+    const { nodes: layoutedNodes, edges: layoutedEdges } = applyLayout(
+      getNodes(),
+      getEdges(),
+      newLayout
+    );
     setNodes(layoutedNodes);
     setEdges(layoutedEdges);
-  }, [nodes, edges, setNodes, setEdges]);
+
+    // 自动适应视图
+    setTimeout(() => fitView({ duration: 300 }), 0);
+  }, [getNodes, getEdges, setNodes, setEdges, fitView]);
+
+  // 处理连线创建 (拖拽节点创建关系)
+  const onConnect = useCallback(
+    (connection: Connection) => {
+      if (!connection.source || !connection.target) return;
+
+      // 检查是否已存在关系
+      const existingEdge = edges.find(
+        (edge) =>
+          (edge.source === connection.source && edge.target === connection.target) ||
+          (edge.source === connection.target && edge.target === connection.source)
+      );
+
+      if (existingEdge) {
+        toast.error('这两个角色之间已经存在关系了');
+        return;
+      }
+
+      // 创建新边
+      const newEdge: RelationshipEdgeType = {
+        id: generateEdgeId(connection.source, connection.target),
+        source: connection.source,
+        target: connection.target,
+        type: 'relationshipEdge',
+        data: {
+          id: generateEdgeId(connection.source, connection.target),
+          source: connection.source,
+          target: connection.target,
+          type: 'neutral', // 默认中立关系
+          isBidirectional: true,
+        },
+      };
+
+      setEdges((eds) => addEdge(newEdge as Edge, eds));
+      toast.success('已创建新关系,请双击编辑关系类型');
+    },
+    [edges, setEdges]
+  );
+
+  // 处理边点击 (打开编辑对话框)
+  const onEdgeClick = useCallback(
+    (_event: React.MouseEvent, edge: Edge) => {
+      setSelectedEdge(edge as RelationshipEdgeType);
+      setEditDialogOpen(true);
+    },
+    []
+  );
+
+  // 保存关系编辑
+  const handleSaveRelationship = useCallback(
+    (updatedData: Partial<RelationshipEdgeData>) => {
+      if (!selectedEdge) return;
+
+      setEdges((eds) =>
+        eds.map((edge) =>
+          edge.id === selectedEdge.id
+            ? {
+                ...edge,
+                data: {
+                  ...edge.data,
+                  ...updatedData,
+                },
+              }
+            : edge
+        )
+      );
+
+      toast.success('关系已更新');
+    },
+    [selectedEdge, setEdges]
+  );
+
+  // 删除关系
+  const handleDeleteRelationship = useCallback(() => {
+    if (!selectedEdge) return;
+
+    setEdges((eds) => eds.filter((edge) => edge.id !== selectedEdge.id));
+    toast.success('关系已删除');
+  }, [selectedEdge, setEdges]);
+
+  // 保存所有更改到数据库
+  const handleSave = useCallback(async () => {
+    if (!onSaveRelationships) {
+      toast.error('保存功能未配置');
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      // 构建更新后的角色数据
+      const currentEdges = getEdges();
+      const updatedCharacters = characters.map((char) => {
+        // 找到该角色相关的所有边
+        const relatedEdges = currentEdges.filter(
+          (edge) => edge.source === char.id || edge.target === char.id
+        );
+
+        // 构建关系数组
+        const relationships = relatedEdges.map((edge) => {
+          const edgeData = edge.data as RelationshipEdgeData;
+          const isSource = edge.source === char.id;
+          const otherCharId = isSource ? edge.target : edge.source;
+
+          return {
+            characterId: otherCharId,
+            relation: edgeData.type,
+            description: edgeData.description,
+          };
+        });
+
+        return {
+          ...char,
+          relationships,
+        };
+      });
+
+      await onSaveRelationships(updatedCharacters);
+      toast.success('关系图谱已保存');
+    } catch (error) {
+      console.error('保存失败:', error);
+      toast.error('保存失败,请重试');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [characters, getEdges, onSaveRelationships]);
+
+  // 重置布局
+  const handleReset = useCallback(() => {
+    const { nodes: layoutedNodes, edges: layoutedEdges } = applyLayout(
+      charactersToNodes(characters),
+      relationshipsToEdges(characters),
+      layoutType
+    );
+    setNodes(layoutedNodes);
+    setEdges(layoutedEdges);
+    setTimeout(() => fitView({ duration: 300 }), 0);
+    toast.success('布局已重置');
+  }, [characters, layoutType, setNodes, setEdges, fitView]);
+
+  // 导出图片
+  const handleExportImage = useCallback(() => {
+    const reactFlowElement = document.querySelector('.react-flow');
+    if (!reactFlowElement) {
+      toast.error('未找到图谱元素');
+      return;
+    }
+
+    // 使用 html2canvas 或 React Flow 的内置方法
+    import('html2canvas').then(({ default: html2canvas }) => {
+      html2canvas(reactFlowElement as HTMLElement, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+      }).then((canvas) => {
+        const link = document.createElement('a');
+        link.download = `character-relationship-graph-${Date.now()}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        toast.success('图片已导出');
+      }).catch((error) => {
+        console.error('导出失败:', error);
+        toast.error('导出失败,请重试');
+      });
+    }).catch(() => {
+      toast.error('导出功能需要先安装 html2canvas 库');
+    });
+  }, []);
 
   // 无角色时的空状态
   if (characters.length === 0) {
@@ -89,7 +285,10 @@ export function CharacterRelationshipGraph({
     );
   }
 
-  // 无关系时的提示
+  // 查找选中边的角色名称
+  const sourceCharacter = characters.find((c) => c.id === selectedEdge?.source);
+  const targetCharacter = characters.find((c) => c.id === selectedEdge?.target);
+
   const hasRelationships = edges.length > 0;
 
   return (
@@ -99,6 +298,8 @@ export function CharacterRelationshipGraph({
         edges={edges}
         onNodesChange={readonly ? undefined : onNodesChange}
         onEdgesChange={readonly ? undefined : onEdgesChange}
+        onConnect={readonly ? undefined : onConnect}
+        onEdgeClick={readonly ? undefined : onEdgeClick}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
@@ -109,6 +310,7 @@ export function CharacterRelationshipGraph({
           type: 'relationshipEdge',
           animated: false,
         }}
+        connectionLineStyle={{ stroke: '#888', strokeWidth: 2, strokeDasharray: '5 5' }}
       >
         {/* 背景网格 */}
         <Background color="#aaa" gap={16} />
@@ -129,34 +331,16 @@ export function CharacterRelationshipGraph({
         />
 
         {/* 顶部工具栏 */}
-        <Panel position="top-right" className="flex gap-2">
-          <div className="bg-background/95 backdrop-blur border rounded-lg shadow-lg p-2 flex gap-2">
-            {/* 布局切换按钮 */}
-            <Button
-              variant={layoutType === 'dagre' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleLayoutChange('dagre')}
-              title="层次布局"
-            >
-              <Network className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={layoutType === 'circle' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleLayoutChange('circle')}
-              title="圆形布局"
-            >
-              <Circle className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={layoutType === 'grid' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleLayoutChange('grid')}
-              title="网格布局"
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </Button>
-          </div>
+        <Panel position="top-right">
+          <GraphToolbar
+            layoutType={layoutType}
+            onLayoutChange={handleLayoutChange}
+            onSave={readonly ? undefined : handleSave}
+            onExportImage={handleExportImage}
+            onReset={readonly ? undefined : handleReset}
+            isSaving={isSaving}
+            readonly={readonly}
+          />
         </Panel>
 
         {/* 底部统计信息 */}
@@ -173,17 +357,29 @@ export function CharacterRelationshipGraph({
           </div>
         </Panel>
 
-        {/* 无关系提示 */}
-        {!hasRelationships && (
+        {/* 编辑提示 */}
+        {!readonly && !hasRelationships && (
           <Panel position="top-center">
-            <div className="bg-yellow-500/10 border border-yellow-500/50 rounded-lg px-4 py-2">
-              <p className="text-sm text-yellow-700 dark:text-yellow-400">
-                💡 提示: 在角色编辑对话框中添加角色关系，即可显示关系连线
-              </p>
+            <div className="bg-blue-500/10 border border-blue-500/50 rounded-lg px-4 py-2">
+              <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-400">
+                <Info className="w-4 h-4" />
+                <span>拖拽一个角色到另一个角色可创建关系,双击关系连线可编辑</span>
+              </div>
             </div>
           </Panel>
         )}
       </ReactFlow>
+
+      {/* 关系编辑对话框 */}
+      <RelationshipEditDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        relationshipData={selectedEdge?.data || null}
+        sourceCharacterName={sourceCharacter?.name}
+        targetCharacterName={targetCharacter?.name}
+        onSave={handleSaveRelationship}
+        onDelete={handleDeleteRelationship}
+      />
     </div>
   );
 }

@@ -4,5 +4,7 @@
 export { CharacterRelationshipGraph } from './CharacterRelationshipGraph';
 export { CharacterNode } from './CharacterNode';
 export { RelationshipEdge } from './RelationshipEdge';
+export { RelationshipEditDialog } from './RelationshipEditDialog';
+export { GraphToolbar } from './GraphToolbar';
 export * from './types';
 export * from './utils';

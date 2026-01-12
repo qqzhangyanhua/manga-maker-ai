@@ -248,7 +248,7 @@ export function PanelConfigSidebar({ className, storyId, projectId }: PanelConfi
             id: `extracted-${character.id}`,
             url: referenceUrl,
             label: `提取的角色: ${character.name}`,
-            type: "character",
+            source: "character",
           });
           console.log(`✓ 自动添加角色参考图: ${character.name} → ${referenceUrl}`);
         }
@@ -304,7 +304,7 @@ export function PanelConfigSidebar({ className, storyId, projectId }: PanelConfi
             id: `character-${characterId}`,
             url: referenceUrl,
             label: `角色: ${character.name}`,
-            type: "character",
+            source: "character",
           });
           console.log(`✓ 添加角色参考图: ${character.name} → ${referenceUrl}`);
         }
