@@ -1,11 +1,12 @@
 /**
  * 灵感模式 - 欢迎界面
+ * 优化版本：动态问题数展示
  */
 "use client";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Sparkles, Loader2, Lightbulb } from "lucide-react";
+import { Sparkles, Loader2, Lightbulb, MessageSquare, Wand2, FolderPlus } from "lucide-react";
 
 interface WelcomeViewProps {
   onStart: () => void;
@@ -34,11 +35,34 @@ export function WelcomeView({ onStart, isLoading }: WelcomeViewProps) {
             如何使用
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm text-muted-foreground">
-          <p>1. 回答 6 个简单问题（类型、主题、主角等）</p>
-          <p>2. AI 根据你的回答生成完整的故事框架</p>
-          <p>3. 选择喜欢的标题，一键创建项目</p>
-          <p>4. 开始你的创作之旅</p>
+        <CardContent className="space-y-3">
+          <div className="flex items-start gap-3 text-sm">
+            <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0">
+              <MessageSquare className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+            </div>
+            <div>
+              <p className="font-medium">回答引导问题</p>
+              <p className="text-muted-foreground">关于故事类型、主题、角色等</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3 text-sm">
+            <div className="w-6 h-6 rounded-full bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center flex-shrink-0">
+              <Wand2 className="h-3.5 w-3.5 text-pink-600 dark:text-pink-400" />
+            </div>
+            <div>
+              <p className="font-medium">AI 生成故事框架</p>
+              <p className="text-muted-foreground">包含大纲、角色、世界观</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3 text-sm">
+            <div className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0">
+              <FolderPlus className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
+            </div>
+            <div>
+              <p className="font-medium">一键创建项目</p>
+              <p className="text-muted-foreground">开始你的创作之旅</p>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

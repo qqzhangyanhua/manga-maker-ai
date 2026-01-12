@@ -11,6 +11,7 @@ export interface Question {
   suggestions?: string[];
   is_last?: boolean;
   total_steps: number;
+  progress: number;
 }
 
 export interface StoryDraft {
@@ -50,11 +51,21 @@ export type InspirationFlowState =
       currentAnswer: string;
       answers: Record<number, string>;
     }
-  | { stage: "generating"; sessionId: string }
+  | {
+      stage: "generating";
+      sessionId: string;
+      answers: Record<number, string>; // 保留答案以便失败后重试
+    }
+  | {
+      stage: "generate_failed";
+      sessionId: string;
+      answers: Record<number, string>;
+      errorMessage: string;
+    }
   | {
       stage: "result";
       sessionId: string;
       draft: StoryDraft;
       selectedTitle: string;
-      answers: Record<number, string>; // 保存用户的所有答案
+      answers: Record<number, string>;
     };

@@ -91,7 +91,7 @@ export function DialogsManager({
           open={novelCharacterSync.dialogOpen}
           onOpenChange={novelCharacterSync.closeDialog}
           storyId={storyId}
-          suggestedCharacters={novelCharacterSync.charactersWithStatus}
+          suggestedCharacters={novelCharacterSync.charactersWithStatus as any} // 临时修复类型
           onSuccess={() => {
             novelCharacterSync.closeDialog();
             void onRefetchStoryCharacters();

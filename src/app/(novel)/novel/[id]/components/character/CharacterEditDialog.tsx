@@ -65,13 +65,13 @@ export function CharacterEditDialog({
     };
     setEditingCharacter({
       ...editingCharacter,
-      relationships: [...editingCharacter.relationships, newRelationship],
+      relationships: [...(editingCharacter.relationships || []), newRelationship],
     });
   };
 
   const updateRelationship = (index: number, field: keyof CharacterRelationship, value: string) => {
     if (!editingCharacter) return;
-    const newRelationships = [...editingCharacter.relationships];
+    const newRelationships = [...(editingCharacter.relationships || [])];
     newRelationships[index] = { ...newRelationships[index], [field]: value };
     setEditingCharacter({
       ...editingCharacter,
@@ -83,7 +83,7 @@ export function CharacterEditDialog({
     if (!editingCharacter) return;
     setEditingCharacter({
       ...editingCharacter,
-      relationships: editingCharacter.relationships.filter((_, i) => i !== index),
+      relationships: (editingCharacter.relationships || []).filter((_, i) => i !== index),
     });
     setDeleteRelationshipIndex(null);
   };
@@ -172,7 +172,7 @@ export function CharacterEditDialog({
                 性格特征（用逗号分隔）
               </label>
               <Input
-                value={editingCharacter.traits.join(", ")}
+                value={(editingCharacter.traits || []).join(", ")}
                 onChange={(e) =>
                   updateField(
                     "traits",
@@ -203,7 +203,7 @@ export function CharacterEditDialog({
                   添加关系
                 </Button>
               </div>
-              {editingCharacter.relationships.map((rel, index) => (
+              {(editingCharacter.relationships || []).map((rel, index) => (
                 <Card key={`relationship-${rel.characterId}-${index}`} className="p-3">
                   <div className="grid grid-cols-3 gap-2">
                     <Input

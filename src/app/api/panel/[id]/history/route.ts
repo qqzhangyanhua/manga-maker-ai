@@ -32,7 +32,9 @@ export async function GET(
     // 获取历史记录（从 generated_images 表）
     const images = await prisma.generatedImage.findMany({
       where: {
-        panel_id: panelId,
+        panel_ids: {
+          has: panelId, // 使用 has 操作符检查数组中是否包含 panelId
+        },
       },
       orderBy: {
         created_at: "desc",
@@ -40,7 +42,6 @@ export async function GET(
       select: {
         id: true,
         image_url: true,
-        prompt_used: true,
         created_at: true,
       },
     });

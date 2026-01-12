@@ -48,12 +48,12 @@ async function getAuthToken(req: NextRequest): Promise<string | null> {
  */
 async function handleRequest(
   req: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ): Promise<Response> {
   try {
     // 获取认证 token
     const token = await getAuthToken(req);
-    
+
     if (!token) {
       return NextResponse.json(
         { error: "Unauthorized", message: "请先登录" },
@@ -61,8 +61,9 @@ async function handleRequest(
       );
     }
 
-    // 构建目标 URL
-    const path = params.path.join("/");
+    // 构建目标 URL（Next.js 15 中 params 是 Promise）
+    const { path: pathSegments } = await params;
+    const path = pathSegments.join("/");
     const url = new URL(req.url);
     const targetUrl = `${NOVEL_SERVICE_URL}/api/novel/${path}${url.search}`;
 
@@ -119,7 +120,7 @@ async function handleRequest(
     }
 
     // 处理普通 JSON 响应
-    let data;
+    let data: unknown;
     try {
       data = await response.json();
     } catch (jsonError) {

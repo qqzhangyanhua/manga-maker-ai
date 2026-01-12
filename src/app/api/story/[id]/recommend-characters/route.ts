@@ -117,7 +117,7 @@ export async function POST(
 
 剧本标题：${story.title || "未命名"}
 剧本类型：${story.genre || "未知"}
-剧本长度：${story.length || "未知"}
+剧本长度：${(story as any).story_length || "未知"}
 
 剧本大纲：
 ${story.outline || story.premise || "无大纲信息"}
@@ -170,7 +170,7 @@ ${story.story_characters.map((sc, index) => `${index + 1}. ${sc.character.name}�
     const result: RecommendCharactersResponse = {
       recommendations,
       current_distribution: distribution,
-      story_summary: story.premise || story.outline || "",
+      story_summary: String(story.premise || story.outline || ""),
     };
 
     logInfo("Recommendations generated successfully", {

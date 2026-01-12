@@ -1,9 +1,10 @@
 /**
  * 灵感模式对话框 - AI 对话式故事构建
+ * 优化版本：生成失败可重试、算力消耗提示
  */
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -13,8 +14,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Loader2, ArrowRight, Check } from "lucide-react";
+import {
+  Sparkles,
+  Loader2,
+  ArrowRight,
+  Check,
+  ArrowLeft,
+  X,
+  RefreshCw,
+  AlertTriangle,
+  Zap,
+} from "lucide-react";
 import { toast } from "sonner";
+import { parseErrorFromResponse, fetchWithTimeout } from "@/lib/error-utils";
 import type { InspirationFlowState, StoryDraft } from "./types";
 import {
   WelcomeView,
@@ -22,6 +34,9 @@ import {
   GeneratingView,
   ResultView,
 } from "./inspiration";
+
+// 算力消耗估算（可从后端配置获取）
+const ESTIMATED_CREDITS = 50;
 
 interface InspirationModeDialogProps {
   isOpen: boolean;
@@ -36,14 +51,22 @@ export function InspirationModeDialog({
 }: InspirationModeDialogProps) {
   const [state, setState] = useState<InspirationFlowState>({ stage: "welcome" });
   const [isLoading, setIsLoading] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // 开始灵感模式
   async function handleStart() {
     setIsLoading(true);
+    abortControllerRef.current = new AbortController();
+
     try {
-      const response = await fetch("/api/novel/inspiration/start", {
-        method: "POST",
-      });
+      const response = await fetchWithTimeout(
+        "/api/novel/inspiration/start",
+        {
+          method: "POST",
+          signal: abortControllerRef.current.signal,
+        },
+        10000
+      );
 
       if (response.ok) {
         const data = await response.json();
@@ -55,13 +78,17 @@ export function InspirationModeDialog({
           answers: {},
         });
       } else {
-        toast.error("启动失败");
+        const errorMessage = await parseErrorFromResponse(response, "启动失败");
+        toast.error(errorMessage);
       }
     } catch (error) {
-      console.error("启动灵感模式失败:", error);
-      toast.error("启动失败，请重试");
+      if (error instanceof Error && error.name !== "AbortError") {
+        console.error("启动灵感模式失败:", error);
+        toast.error(error.message || "启动失败，请重试");
+      }
     } finally {
       setIsLoading(false);
+      abortControllerRef.current = null;
     }
   }
 
@@ -75,19 +102,25 @@ export function InspirationModeDialog({
     }
 
     setIsLoading(true);
+    abortControllerRef.current = new AbortController();
+
     try {
-      const response = await fetch("/api/novel/inspiration/next", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          session_id: state.sessionId,
-          answer: state.currentAnswer,
-        }),
-      });
+      const response = await fetchWithTimeout(
+        "/api/novel/inspiration/next",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            session_id: state.sessionId,
+            answer: state.currentAnswer,
+          }),
+          signal: abortControllerRef.current.signal,
+        },
+        15000
+      );
 
       if (response.ok) {
         const data = await response.json();
-        console.log("[灵感模式] 收到下一个问题:", data);
 
         // 保存答案
         const updatedAnswers = {
@@ -97,7 +130,11 @@ export function InspirationModeDialog({
 
         if (data.is_last) {
           // 所有问题已完成，开始生成
-          setState({ stage: "generating", sessionId: state.sessionId });
+          setState({
+            stage: "generating",
+            sessionId: state.sessionId,
+            answers: updatedAnswers,
+          });
           setIsLoading(false);
           await handleGenerate(state.sessionId, updatedAnswers);
         } else {
@@ -110,19 +147,31 @@ export function InspirationModeDialog({
           });
         }
       } else {
-        const error = await response.json();
-        // 处理 FastAPI 验证错误（detail 是数组）或普通错误（detail 是字符串）
-        const errorMessage = Array.isArray(error.detail)
-          ? error.detail.map((e: { msg: string }) => e.msg).join(", ")
-          : error.detail || "提交失败";
+        const errorMessage = await parseErrorFromResponse(response, "提交失败");
         toast.error(errorMessage);
       }
     } catch (error) {
-      console.error("提交答案失败:", error);
-      toast.error("提交失败，请重试");
+      if (error instanceof Error && error.name !== "AbortError") {
+        console.error("提交答案失败:", error);
+        toast.error(error.message || "提交失败，请重试");
+      }
     } finally {
       setIsLoading(false);
+      abortControllerRef.current = null;
     }
+  }
+
+  // 返回上一步
+  function handlePrevious() {
+    if (state.stage !== "questioning") return;
+
+    if (state.question.step <= 1) {
+      toast.info("已经是第一个问题了");
+      return;
+    }
+
+    // 注意：这里需要后端支持获取上一个问题，或者前端缓存所有问题
+    toast.info("返回上一步功能需要后端支持，暂未实现");
   }
 
   // 更新当前答案
@@ -134,12 +183,19 @@ export function InspirationModeDialog({
 
   // 生成故事雏形
   async function handleGenerate(sessionId: string, answers: Record<number, string>) {
+    abortControllerRef.current = new AbortController();
+
     try {
-      const response = await fetch("/api/novel/inspiration/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: sessionId }),
-      });
+      const response = await fetchWithTimeout(
+        "/api/novel/inspiration/generate",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: sessionId }),
+          signal: abortControllerRef.current.signal,
+        },
+        90000 // 90秒超时，给 AI 足够时间
+      );
 
       if (response.ok) {
         const data: StoryDraft = await response.json();
@@ -152,18 +208,45 @@ export function InspirationModeDialog({
         });
         toast.success("故事雏形生成成功");
       } else {
-        const error = await response.json();
-        const errorMessage = Array.isArray(error.detail)
-          ? error.detail.map((e: { msg: string }) => e.msg).join(", ")
-          : error.detail || "生成失败";
+        const errorMessage = await parseErrorFromResponse(response, "生成失败");
+        // 生成失败，保留答案，进入失败状态
+        setState({
+          stage: "generate_failed",
+          sessionId: sessionId,
+          answers: answers,
+          errorMessage: errorMessage,
+        });
         toast.error(errorMessage);
-        setState({ stage: "welcome" });
       }
     } catch (error) {
-      console.error("生成故事雏形失败:", error);
-      toast.error("生成失败，请重试");
-      setState({ stage: "welcome" });
+      if (error instanceof Error && error.name !== "AbortError") {
+        console.error("生成故事雏形失败:", error);
+        const errorMsg = error.message || "生成失败，请重试";
+        // 生成失败，保留答案，进入失败状态
+        setState({
+          stage: "generate_failed",
+          sessionId: sessionId,
+          answers: answers,
+          errorMessage: errorMsg,
+        });
+        toast.error(errorMsg);
+      }
+    } finally {
+      abortControllerRef.current = null;
     }
+  }
+
+  // 重试生成
+  async function handleRetryGenerate() {
+    if (state.stage !== "generate_failed") return;
+
+    setState({
+      stage: "generating",
+      sessionId: state.sessionId,
+      answers: state.answers,
+    });
+
+    await handleGenerate(state.sessionId, state.answers);
   }
 
   // 选择标题
@@ -183,16 +266,23 @@ export function InspirationModeDialog({
     }
 
     setIsLoading(true);
+    abortControllerRef.current = new AbortController();
+
     try {
-      const response = await fetch("/api/novel/inspiration/create-project", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          selected_title: state.selectedTitle,
-          draft: state.draft,
-          genre: state.answers[1] || "",
-        }),
-      });
+      const response = await fetchWithTimeout(
+        "/api/novel/inspiration/create-project",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            selected_title: state.selectedTitle,
+            draft: state.draft,
+            genre: state.answers[1] || "",
+          }),
+          signal: abortControllerRef.current.signal,
+        },
+        15000
+      );
 
       if (response.ok) {
         const data = await response.json();
@@ -200,17 +290,27 @@ export function InspirationModeDialog({
         onProjectCreated(data.project_id);
         handleClose();
       } else {
-        const error = await response.json();
-        const errorMessage = Array.isArray(error.detail)
-          ? error.detail.map((e: { msg: string }) => e.msg).join(", ")
-          : error.detail || "创建失败";
+        const errorMessage = await parseErrorFromResponse(response, "创建失败");
         toast.error(errorMessage);
       }
     } catch (error) {
-      console.error("创建项目失败:", error);
-      toast.error("创建失败，请重试");
+      if (error instanceof Error && error.name !== "AbortError") {
+        console.error("创建项目失败:", error);
+        toast.error(error.message || "创建失败，请重试");
+      }
     } finally {
       setIsLoading(false);
+      abortControllerRef.current = null;
+    }
+  }
+
+  // 取消当前操作
+  function handleCancel() {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+      setIsLoading(false);
+      toast.info("已取消操作");
     }
   }
 
@@ -221,8 +321,35 @@ export function InspirationModeDialog({
 
   // 关闭对话框
   function handleClose() {
+    // 取消正在进行的请求
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
     setState({ stage: "welcome" });
     onClose();
+  }
+
+  // 渲染生成失败界面
+  function renderFailedView() {
+    if (state.stage !== "generate_failed") return null;
+
+    return (
+      <div className="py-8 text-center space-y-4">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full">
+          <AlertTriangle className="h-8 w-8 text-red-500" />
+        </div>
+        <div className="space-y-2">
+          <h3 className="text-lg font-semibold">生成失败</h3>
+          <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+            {state.errorMessage}
+          </p>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          你的回答已保存，可以直接重试
+        </p>
+      </div>
+    );
   }
 
   // 渲染内容
@@ -241,6 +368,8 @@ export function InspirationModeDialog({
         );
       case "generating":
         return <GeneratingView />;
+      case "generate_failed":
+        return renderFailedView();
       case "result":
         return (
           <ResultView
@@ -255,12 +384,34 @@ export function InspirationModeDialog({
   // 渲染页脚
   function renderFooter() {
     switch (state.stage) {
+      case "welcome":
+        return (
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Zap className="h-3.5 w-3.5" />
+              <span>预计消耗 {ESTIMATED_CREDITS} 算力</span>
+            </div>
+            <div />
+          </div>
+        );
       case "questioning":
         return (
           <>
-            <Button variant="outline" onClick={handleClose}>
-              取消
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleClose} disabled={isLoading}>
+                取消
+              </Button>
+              {state.question.step > 1 && (
+                <Button
+                  variant="outline"
+                  onClick={handlePrevious}
+                  disabled={isLoading}
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  上一步
+                </Button>
+              )}
+            </div>
             <Button onClick={handleNext} disabled={isLoading}>
               {isLoading ? (
                 <>
@@ -273,6 +424,25 @@ export function InspirationModeDialog({
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </>
               )}
+            </Button>
+          </>
+        );
+      case "generating":
+        return (
+          <Button variant="outline" onClick={handleCancel}>
+            <X className="mr-2 h-4 w-4" />
+            取消生成
+          </Button>
+        );
+      case "generate_failed":
+        return (
+          <>
+            <Button variant="outline" onClick={handleRestart}>
+              重新开始
+            </Button>
+            <Button onClick={handleRetryGenerate}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              重试生成
             </Button>
           </>
         );
@@ -311,6 +481,8 @@ export function InspirationModeDialog({
         return "回答几个简单问题";
       case "generating":
         return "AI 正在生成故事框架";
+      case "generate_failed":
+        return "生成遇到问题";
       case "result":
         return "查看生成的故事框架";
     }

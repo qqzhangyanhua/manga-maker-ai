@@ -3,8 +3,8 @@
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel, ConfigDict
-from typing import Optional
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Optional, List, Literal, Union, Annotated
 from uuid import UUID
 
 from ..database import get_db
@@ -20,16 +20,20 @@ router = APIRouter(prefix="/inspiration", tags=["inspiration"])
 
 # ============ Pydantic Models ============
 
+QuestionType = Literal["choice", "text"]
+
+
 class StartSessionResponse(BaseModel):
     """开始会话响应"""
     session_id: str
     step: int
     question: str
-    type: str
-    options: Optional[list] = None
+    type: QuestionType
+    options: Optional[List[str]] = None
     hint: str
-    suggestions: Optional[list] = None
+    suggestions: Optional[List[str]] = None
     total_steps: int
+    progress: float = Field(description="进度百分比 0-1")
 
 
 class SubmitAnswerRequest(BaseModel):
@@ -38,19 +42,37 @@ class SubmitAnswerRequest(BaseModel):
     answer: str
 
 
-class NextQuestionResponse(BaseModel):
-    """下一个问题响应"""
+class NextQuestionData(BaseModel):
+    """下一个问题的数据（is_last=False 时返回）"""
     model_config = ConfigDict(exclude_none=True)
 
     step: int
-    question: Optional[str] = None
-    type: Optional[str] = None
-    options: Optional[list] = None
-    hint: Optional[str] = None
-    suggestions: Optional[list] = None
-    is_last: bool
-    message: Optional[str] = None
-    total_steps: Optional[int] = None
+    question: str
+    type: QuestionType
+    options: Optional[List[str]] = None
+    hint: str
+    suggestions: Optional[List[str]] = None
+    is_last: Literal[False] = False
+    total_steps: int
+    progress: float = Field(description="进度百分比 0-1")
+
+
+class CompletedData(BaseModel):
+    """问答完成的数据（is_last=True 时返回）"""
+    step: int
+    is_last: Literal[True] = True
+    total_steps: int
+    progress: Literal[1.0] = 1.0
+    completed_message: str = Field(
+        default="所有问题已完成，可以生成故事雏形了",
+        description="完成提示消息"
+    )
+
+
+NextQuestionResponse = Annotated[
+    Union[NextQuestionData, CompletedData],
+    Field(discriminator="is_last")
+]
 
 
 class GenerateRequest(BaseModel):
@@ -61,7 +83,7 @@ class GenerateRequest(BaseModel):
 class CreateProjectRequest(BaseModel):
     """创建项目请求"""
     selected_title: str
-    draft: dict  # 故事雏形数据
+    draft: dict
     genre: str
 
 
@@ -106,8 +128,8 @@ async def submit_answer_and_next(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="无权访问此会话"
             )
-        
-        result = service.submit_answer_and_next(request.session_id, request.answer)
+
+        result = await service.submit_answer_and_next(request.session_id, request.answer)
         return result
         
     except HTTPException:

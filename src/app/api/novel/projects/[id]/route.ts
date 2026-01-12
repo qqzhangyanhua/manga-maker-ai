@@ -142,7 +142,7 @@ export async function PATCH(
 
     // 解析请求体
     const body = await req.json();
-    const { title, description, genre, status, target_words, characters, world_setting } = body;
+    const { title, description, genre, status, target_words, characters, world_setting, outlines } = body;
 
     logInfo("Updating project", {
       endpoint: "/api/novel/projects/[id]",
@@ -150,6 +150,27 @@ export async function PATCH(
       projectId,
       updates: Object.keys(body),
     });
+
+    // 计算统计数据（如果更新了 outlines）
+    let chapter_count = undefined;
+    let total_words = undefined;
+
+    if (outlines !== undefined && Array.isArray(outlines)) {
+      chapter_count = outlines.length;
+      // 计算总字数（累加所有章节的 word_count）
+      total_words = outlines.reduce((sum: number, chapter: any) => {
+        const wordCount = chapter.word_count || chapter.wordCount || 0;
+        return sum + (typeof wordCount === "number" ? wordCount : 0);
+      }, 0);
+
+      logInfo("Calculated statistics", {
+        endpoint: "/api/novel/projects/[id]",
+        userId,
+        projectId,
+        chapter_count,
+        total_words,
+      });
+    }
 
     // 更新项目
     const updatedProject = await prisma.novelProject.update({
@@ -162,6 +183,9 @@ export async function PATCH(
         ...(target_words !== undefined && { target_words }),
         ...(characters !== undefined && { characters }),
         ...(world_setting !== undefined && { world_setting }),
+        ...(outlines !== undefined && { outlines }),
+        ...(chapter_count !== undefined && { chapter_count }),
+        ...(total_words !== undefined && { total_words }),
         updated_at: new Date(),
       },
     });

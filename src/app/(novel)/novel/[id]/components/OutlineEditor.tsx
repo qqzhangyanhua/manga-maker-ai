@@ -37,6 +37,7 @@ import {
 import { toast } from "sonner";
 
 interface ChapterOutline {
+  _tempId?: string; // 临时 ID，用于前端列表渲染
   chapterNumber: number;
   title: string;
   outline: string;

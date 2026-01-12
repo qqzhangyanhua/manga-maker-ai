@@ -1,15 +1,22 @@
 /**
  * 灵感模式 - 问答界面
+ * 重构版本：添加输入验证和字数统计
  */
 "use client";
 
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Bot, Lightbulb, Check } from "lucide-react";
+import { Bot, Lightbulb, Check, AlertCircle } from "lucide-react";
+import { validateStringLength } from "@/lib/error-utils";
 import type { Question } from "../types";
+
+// 答案长度限制
+const MIN_ANSWER_LENGTH = 2;
+const MAX_ANSWER_LENGTH = 500;
 
 interface QuestionViewProps {
   question: Question;
@@ -30,21 +37,40 @@ export function QuestionView({
   const suggestions = question.suggestions || [];
   const showSuggestions = question.type === "text" && suggestions.length > 0;
 
+  // 验证当前答案
+  const validationError = useMemo(() => {
+    if (question.type === "text" && currentAnswer.trim().length > 0) {
+      return validateStringLength(currentAnswer, MIN_ANSWER_LENGTH, MAX_ANSWER_LENGTH);
+    }
+    return null;
+  }, [currentAnswer, question.type]);
+
+  // 字数统计
+  const charCount = currentAnswer.length;
+  const isOverLimit = charCount > MAX_ANSWER_LENGTH;
+  const isNearLimit = charCount > MAX_ANSWER_LENGTH * 0.8;
+
   return (
     <div className="space-y-6 py-4">
       {/* 进度指示 */}
-      <div className="flex items-center justify-center gap-2">
-        {Array.from({ length: totalSteps }, (_, i) => i + 1).map((step) => {
-          const isActive = step <= question.step;
-          return (
-            <div
-              key={step}
-              className={`h-2 w-12 rounded-full ${
-                isActive ? "bg-purple-500" : "bg-muted"
-              }`}
-            />
-          );
-        })}
+      <div className="space-y-2">
+        <div className="flex items-center justify-center gap-2">
+          {Array.from({ length: totalSteps }, (_, i) => i + 1).map((step) => {
+            const isActive = step <= question.step;
+            return (
+              <div
+                key={step}
+                className={`h-2 w-12 rounded-full transition-colors duration-300 ${
+                  isActive ? "bg-purple-500" : "bg-muted"
+                }`}
+              />
+            );
+          })}
+        </div>
+        {/* 进度百分比 */}
+        <div className="text-center text-xs text-muted-foreground">
+          进度 {Math.round((question.progress ?? (question.step - 1) / totalSteps) * 100)}%
+        </div>
       </div>
 
       <div className="text-center">
@@ -120,7 +146,30 @@ export function QuestionView({
               onChange={(e) => onAnswerChange(e.target.value)}
               placeholder="输入你的想法..."
               rows={4}
+              className={validationError ? "border-red-500" : ""}
             />
+            {/* 字数统计和验证提示 */}
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                {validationError && (
+                  <span className="text-red-500 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {validationError}
+                  </span>
+                )}
+              </div>
+              <span
+                className={
+                  isOverLimit
+                    ? "text-red-500 font-medium"
+                    : isNearLimit
+                    ? "text-yellow-500"
+                    : "text-muted-foreground"
+                }
+              >
+                {charCount} / {MAX_ANSWER_LENGTH}
+              </span>
+            </div>
           </>
         )}
       </div>

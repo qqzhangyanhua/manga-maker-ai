@@ -87,7 +87,7 @@ const AdminHomePage = () => {
             系统配置 System
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+            <div className="p-5 comic-card border-2 border-zinc-900 dark:border-zinc-600 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl group hover:scale-[1.02] transition-all duration-300 bg-white dark:bg-zinc-800 hover:border-blue-500 hover:shadow-[4px_4px_0px_0px_#3b82f6]">
               <div className="flex justify-between items-start">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-lg font-bold group-hover:text-blue-500 transition-colors">
@@ -106,7 +106,7 @@ const AdminHomePage = () => {
               </div>
             </div>
 
-            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+            <div className="p-5 comic-card border-2 border-zinc-900 dark:border-zinc-600 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl group hover:scale-[1.02] transition-all duration-300 bg-white dark:bg-zinc-800 hover:border-blue-500 hover:shadow-[4px_4px_0px_0px_#3b82f6]">
               <div className="flex justify-between items-start">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-lg font-bold group-hover:text-blue-500 transition-colors">
@@ -125,7 +125,7 @@ const AdminHomePage = () => {
               </div>
             </div>
 
-            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+            <div className="p-5 comic-card border-2 border-zinc-900 dark:border-zinc-600 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl group hover:scale-[1.02] transition-all duration-300 bg-white dark:bg-zinc-800 hover:border-blue-500 hover:shadow-[4px_4px_0px_0px_#3b82f6]">
               <div className="flex justify-between items-start">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-lg font-bold group-hover:text-blue-500 transition-colors">
@@ -144,7 +144,7 @@ const AdminHomePage = () => {
               </div>
             </div>
 
-            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+            <div className="p-5 comic-card border-2 border-zinc-900 dark:border-zinc-600 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl group hover:scale-[1.02] transition-all duration-300 bg-white dark:bg-zinc-800 hover:border-blue-500 hover:shadow-[4px_4px_0px_0px_#3b82f6]">
               <div className="flex justify-between items-start">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-lg font-bold group-hover:text-blue-500 transition-colors">
@@ -163,7 +163,7 @@ const AdminHomePage = () => {
               </div>
             </div>
 
-            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+            <div className="p-5 comic-card border-2 border-zinc-900 dark:border-zinc-600 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl group hover:scale-[1.02] transition-all duration-300 bg-white dark:bg-zinc-800 hover:border-blue-500 hover:shadow-[4px_4px_0px_0px_#3b82f6]">
               <div className="flex justify-between items-start">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-lg font-bold group-hover:text-blue-500 transition-colors">
@@ -182,7 +182,7 @@ const AdminHomePage = () => {
               </div>
             </div>
 
-            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+            <div className="p-5 comic-card border-2 border-zinc-900 dark:border-zinc-600 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl group hover:scale-[1.02] transition-all duration-300 bg-white dark:bg-zinc-800 hover:border-blue-500 hover:shadow-[4px_4px_0px_0px_#3b82f6]">
               <div className="flex justify-between items-start">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-lg font-bold group-hover:text-blue-500 transition-colors">
@@ -201,7 +201,7 @@ const AdminHomePage = () => {
               </div>
             </div>
 
-            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+            <div className="p-5 comic-card border-2 border-zinc-900 dark:border-zinc-600 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl group hover:scale-[1.02] transition-all duration-300 bg-white dark:bg-zinc-800 hover:border-blue-500 hover:shadow-[4px_4px_0px_0px_#3b82f6]">
               <div className="flex justify-between items-start">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-lg font-bold group-hover:text-blue-500 transition-colors">
@@ -220,7 +220,7 @@ const AdminHomePage = () => {
               </div>
             </div>
 
-            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+            <div className="p-5 comic-card border-2 border-zinc-900 dark:border-zinc-600 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl group hover:scale-[1.02] transition-all duration-300 bg-white dark:bg-zinc-800 hover:border-blue-500 hover:shadow-[4px_4px_0px_0px_#3b82f6]">
               <div className="flex justify-between items-start">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-lg font-bold group-hover:text-blue-500 transition-colors">
@@ -248,7 +248,7 @@ const AdminHomePage = () => {
             运营监控 Operations
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+            <div className="p-5 comic-card border-2 border-zinc-900 dark:border-zinc-600 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl group hover:scale-[1.02] transition-all duration-300 bg-white dark:bg-zinc-800 hover:border-purple-500 hover:shadow-[4px_4px_0px_0px_#a855f7]">
               <div className="flex justify-between items-start">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-lg font-bold group-hover:text-purple-500 transition-colors">
@@ -267,7 +267,7 @@ const AdminHomePage = () => {
               </div>
             </div>
 
-            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+            <div className="p-5 comic-card border-2 border-zinc-900 dark:border-zinc-600 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl group hover:scale-[1.02] transition-all duration-300 bg-white dark:bg-zinc-800 hover:border-purple-500 hover:shadow-[4px_4px_0px_0px_#a855f7]">
               <div className="flex justify-between items-start">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-lg font-bold group-hover:text-purple-500 transition-colors">
@@ -286,7 +286,7 @@ const AdminHomePage = () => {
               </div>
             </div>
 
-            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+            <div className="p-5 comic-card border-2 border-zinc-900 dark:border-zinc-600 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl group hover:scale-[1.02] transition-all duration-300 bg-white dark:bg-zinc-800 hover:border-purple-500 hover:shadow-[4px_4px_0px_0px_#a855f7]">
               <div className="flex justify-between items-start">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-lg font-bold group-hover:text-purple-500 transition-colors">
@@ -305,7 +305,7 @@ const AdminHomePage = () => {
               </div>
             </div>
 
-            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+            <div className="p-5 comic-card border-2 border-zinc-900 dark:border-zinc-600 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl group hover:scale-[1.02] transition-all duration-300 bg-white dark:bg-zinc-800 hover:border-purple-500 hover:shadow-[4px_4px_0px_0px_#a855f7]">
               <div className="flex justify-between items-start">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-lg font-bold group-hover:text-purple-500 transition-colors">
@@ -333,7 +333,7 @@ const AdminHomePage = () => {
             业务数据 Business
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+            <div className="p-5 comic-card border-2 border-zinc-900 dark:border-zinc-600 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl group hover:scale-[1.02] transition-all duration-300 bg-white dark:bg-zinc-800 hover:border-orange-500 hover:shadow-[4px_4px_0px_0px_#f97316]">
               <div className="flex justify-between items-start">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-lg font-bold group-hover:text-orange-500 transition-colors">
@@ -352,7 +352,7 @@ const AdminHomePage = () => {
               </div>
             </div>
 
-            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+            <div className="p-5 comic-card border-2 border-zinc-900 dark:border-zinc-600 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl group hover:scale-[1.02] transition-all duration-300 bg-white dark:bg-zinc-800 hover:border-orange-500 hover:shadow-[4px_4px_0px_0px_#f97316]">
               <div className="flex justify-between items-start">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-lg font-bold group-hover:text-orange-500 transition-colors">
@@ -371,7 +371,7 @@ const AdminHomePage = () => {
               </div>
             </div>
 
-            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+            <div className="p-5 comic-card border-2 border-zinc-900 dark:border-zinc-600 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl group hover:scale-[1.02] transition-all duration-300 bg-white dark:bg-zinc-800 hover:border-orange-500 hover:shadow-[4px_4px_0px_0px_#f97316]">
               <div className="flex justify-between items-start">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-lg font-bold group-hover:text-orange-500 transition-colors">
@@ -390,7 +390,7 @@ const AdminHomePage = () => {
               </div>
             </div>
 
-            <div className="p-5 comic-card group hover:scale-[1.02] transition-transform duration-300 bg-card">
+            <div className="p-5 comic-card border-2 border-zinc-900 dark:border-zinc-600 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl group hover:scale-[1.02] transition-all duration-300 bg-white dark:bg-zinc-800 hover:border-orange-500 hover:shadow-[4px_4px_0px_0px_#f97316]">
               <div className="flex justify-between items-start">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-lg font-bold group-hover:text-orange-500 transition-colors">

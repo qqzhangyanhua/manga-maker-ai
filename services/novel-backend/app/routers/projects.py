@@ -831,3 +831,80 @@ async def optimize_description(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"处理失败: {str(e)}"
         )
+
+
+# ============ 生成章节大纲路由 ============
+
+class GenerateOutlineRequest(BaseModel):
+    """生成大纲请求"""
+    chapter_count: int = Field(..., ge=1, le=100, description="章节数量")
+    style: Optional[str] = Field(None, description="风格偏好")
+    mode: str = Field("full", description="生成模式: full(完整生成) 或 continue(续写)")
+    existing_outlines: Optional[list] = Field(None, description="现有章节大纲（续写模式）")
+    start_chapter: int = Field(1, ge=1, description="起始章节号")
+
+
+@router.post("/{project_id}/generate-outline")
+async def generate_outline(
+    project_id: str,
+    request_body: GenerateOutlineRequest,
+    db: AsyncSession = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id)
+):
+    """
+    生成章节大纲
+
+    支持两种模式：
+    - full: 完整生成（基于项目描述、角色、世界观）
+    - continue: 续写模式（基于现有章节续写后续章节）
+    """
+    try:
+        # 验证项目归属并获取项目信息
+        result = await db.execute(
+            select(NovelProject).where(
+                NovelProject.id == UUID(project_id),
+                NovelProject.user_id == user_id
+            )
+        )
+        project = result.scalar_one_or_none()
+
+        if not project:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="项目不存在"
+            )
+
+        # 获取生成服务实例
+        generation_service = NovelGenerationService()
+
+        # 构建故事前提
+        premise = project.description or project.title or "未命名故事"
+
+        # 调用生成服务
+        result_data = await generation_service.generate_outline(
+            premise=premise,
+            characters=project.characters,
+            world_setting=project.world_setting,
+            chapter_count=request_body.chapter_count,
+            style=request_body.style,
+            mode=request_body.mode,
+            existing_outlines=request_body.existing_outlines,
+            start_chapter=request_body.start_chapter
+        )
+
+        logger.info(
+            f"大纲生成成功，项目ID: {project_id}，"
+            f"模式: {request_body.mode}，"
+            f"章节数: {len(result_data.get('chapters', []))}"
+        )
+
+        return result_data
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"大纲生成失败: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"生成失败: {str(e)}"
+        )

@@ -136,7 +136,7 @@ export async function POST(
     try {
       await assertAndIncrementUsage({
         userId,
-        action: "text_generation",
+        action: "llm_chat", // 修复：使用正确的 UsageAction 类型
         providerType: "script_analyzer",
       });
 

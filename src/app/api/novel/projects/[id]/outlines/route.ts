@@ -158,18 +158,26 @@ export async function PUT(
       outlinesCount: outlines.length,
     });
 
+    // 计算总字数
+    const total_words = outlines.reduce((sum: number, chapter: any) => {
+      const wordCount = chapter.word_count || chapter.wordCount || 0;
+      return sum + (typeof wordCount === "number" ? wordCount : 0);
+    }, 0);
+
     // 更新大纲和章节计数
     const updatedProject = await prisma.novelProject.update({
       where: { id: projectId },
       data: {
         outlines,
         chapter_count: outlines.length,
+        total_words,
         updated_at: new Date(),
       },
       select: {
         id: true,
         outlines: true,
         chapter_count: true,
+        total_words: true,
         updated_at: true,
       },
     });

@@ -124,10 +124,14 @@ export async function POST(
       );
     }
 
-    // 按照 panel_ids 的顺序重新排列分镜
-    const orderedPanels = panel_ids.map((id) => 
+    // 按照 panel_ids 的顺序重新排列分镜，并确保 visual_prompt 不为 null
+    const orderedPanels = panel_ids.map((id) =>
       panels.find((p) => p.id === id)
-    ).filter((p): p is NonNullable<typeof p> => p !== undefined);
+    ).filter((p): p is NonNullable<typeof p> => p !== undefined)
+     .map(p => ({
+       ...p,
+       visual_prompt: p.visual_prompt || p.description, // 如果 visual_prompt 为 null，使用 description
+     }));
 
     // 检查配额
     try {

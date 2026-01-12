@@ -103,7 +103,8 @@
       "Bash(.scriptsregenerate-prisma.bat)",
       "Bash(cmd:*)",
       "Skill(collaborating-with-codex)",
-      "Skill(collaborating-with-gemini)"
+      "Skill(collaborating-with-gemini)",
+      "Bash(./scripts/test-inspiration-api.sh:*)"
     ],
     "deny": [],
     "ask": []

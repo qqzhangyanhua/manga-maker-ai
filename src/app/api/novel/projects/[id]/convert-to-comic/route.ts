@@ -107,8 +107,8 @@ export async function POST(
       return NextResponse.json({ error: "无权访问此项目" }, { status: 403 });
     }
 
-    const novelCharacters = (novelProject.characters as NovelCharacter[] | null) || [];
-    const novelOutlines = (novelProject.outlines as ChapterOutline[] | null) || [];
+    const novelCharacters = (novelProject.characters as unknown as NovelCharacter[] | null) || [];
+    const novelOutlines = (novelProject.outlines as unknown as ChapterOutline[] | null) || [];
 
     // ✅ 检测是否已经转换过（查找关联到此小说的 Story）
     let story = await prisma.story.findFirst({
