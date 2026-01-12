@@ -208,4 +208,136 @@ export const officialTemplatePresets: TemplatePreset[] = [
       ]),
     },
   },
+  // --- New Seed Data ---
+  {
+    name: "空白起手 (4格)",
+    description: "完全空白的4格画布，适合自由发挥。",
+    panel_count: 4,
+    tags: ["空白", "基础", "自由"],
+    template_data: {
+      meta: makeMeta("blank", {
+        recommendedPanelCount: 4,
+        styleHint: "无预设风格",
+        complexityLevel: "newbie",
+        recommendedCharacters: { min: 1, max: 2 },
+      }),
+      panels: makePanels([
+        { panel_type: null, shot_size: null },
+        { panel_type: null, shot_size: null },
+        { panel_type: null, shot_size: null },
+        { panel_type: null, shot_size: null },
+      ]),
+    },
+  },
+  {
+    name: "空白起手 (6格)",
+    description: "标准6格分页，适合进阶创作。",
+    panel_count: 6,
+    tags: ["空白", "进阶", "标准"],
+    template_data: {
+      meta: makeMeta("blank", {
+        recommendedPanelCount: 6,
+        styleHint: "无预设风格",
+        complexityLevel: "pro",
+        recommendedCharacters: { min: 1, max: 4 },
+      }),
+      panels: makePanels([
+        { panel_type: null, shot_size: null },
+        { panel_type: null, shot_size: null },
+        { panel_type: null, shot_size: null },
+        { panel_type: null, shot_size: null },
+        { panel_type: null, shot_size: null },
+        { panel_type: null, shot_size: null },
+      ]),
+    },
+  },
+  {
+    name: "双人对决 (动作)",
+    description: "高强度的双人近身格斗分镜，强调打击感。",
+    panel_count: 6,
+    tags: ["动作", "战斗", "格斗"],
+    template_data: {
+      meta: makeMeta("short", {
+        recommendedPanelCount: 6,
+        styleHint: "高对比度，速度线，冲击力",
+        complexityLevel: "pro",
+        recommendedGenres: ["action", "martial-arts"],
+        recommendedCharacters: { min: 2, max: 2, relationshipTips: "宿敌/对手" },
+        cameraPlan: { wide: 1, medium: 2, closeup: 3, special: ["动态模糊", "特写冲击"] },
+      }),
+      panels: makePanels([
+        { panel_type: "establishing", shot_size: "wide", importance: "medium" },
+        { panel_type: "action", shot_size: "medium", importance: "high" },
+        { panel_type: "reaction", shot_size: "closeup", importance: "low" },
+        { panel_type: "action", shot_size: "closeup", importance: "high" },
+        { panel_type: "impact", shot_size: "medium", importance: "high" },
+        { panel_type: "aftermath", shot_size: "wide", importance: "medium" },
+      ]),
+    },
+  },
+  {
+    name: "校园告白",
+    description: "经典的校园天台或放学后的告白场景。",
+    panel_count: 5,
+    tags: ["恋爱", "校园", "情感"],
+    template_data: {
+      meta: makeMeta("short", {
+        recommendedPanelCount: 5,
+        styleHint: "暖色调，夕阳，逆光",
+        complexityLevel: "newbie",
+        recommendedGenres: ["romance", "school"],
+        recommendedCharacters: { min: 2, max: 2, relationshipTips: "暗恋对象" },
+      }),
+      panels: makePanels([
+        { panel_type: "establishing", shot_size: "wide" },
+        { panel_type: "dialogue", shot_size: "medium" },
+        { panel_type: "dialogue", shot_size: "closeup" },
+        { panel_type: "confession", shot_size: "closeup" },
+        { panel_type: "reaction", shot_size: "medium" },
+      ]),
+    },
+  },
+  {
+    name: "恐怖惊悚 (短篇)",
+    description: "利用阴影和特写的短篇恐怖叙事。",
+    panel_count: 4,
+    tags: ["恐怖", "悬疑", "惊悚"],
+    template_data: {
+      meta: makeMeta("four", {
+        recommendedPanelCount: 4,
+        styleHint: "暗调，阴影，压抑",
+        complexityLevel: "pro",
+        recommendedGenres: ["horror", "thriller"],
+        recommendedCharacters: { min: 1, max: 1 },
+      }),
+      panels: makePanels([
+        { panel_type: "establishing", shot_size: "wide" },
+        { panel_type: "discovery", shot_size: "medium" },
+        { panel_type: "tension", shot_size: "closeup" },
+        { panel_type: "scare", shot_size: "closeup" },
+      ]),
+    },
+  },
+  {
+    name: "家庭聚餐",
+    description: "多角色的家庭聚餐场景，适合群像剧。",
+    panel_count: 5,
+    tags: ["日常", "家庭", "群像"],
+    template_data: {
+      meta: makeMeta("strip", {
+        recommendedPanelCount: 5,
+        styleHint: "温馨，拥挤，热闹",
+        complexityLevel: "newbie",
+        recommendedGenres: ["slice-of-life", "family"],
+        recommendedCharacters: { min: 3, max: 6, relationshipTips: "家庭成员" },
+      }),
+      panels: makePanels([
+        { panel_type: "establishing", shot_size: "wide" },
+        { panel_type: "interaction", shot_size: "medium" },
+        { panel_type: "dialogue", shot_size: "medium" },
+        { panel_type: "reaction", shot_size: "medium" },
+        { panel_type: "group", shot_size: "wide" },
+      ]),
+    },
+  },
 ];

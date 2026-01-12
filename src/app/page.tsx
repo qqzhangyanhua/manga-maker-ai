@@ -1,9 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { Play, Sparkles, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { TrialDialog } from "@/components/TrialDialog";
 import { HeroSection, ShowcaseSection, Navbar, NovelSection, QuickAccessSection, TrialSection, Footer } from "@/components/Landing";
 

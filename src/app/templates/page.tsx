@@ -77,6 +77,21 @@ export default function TemplatesPage() {
     setMousePosition(null);
   }, []);
 
+  // UI State
+  const [isAlertVisible, setIsAlertVisible] = useState(true);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
+  // Load alert state
+  useEffect(() => {
+    const hidden = localStorage.getItem("hide-template-alert");
+    if (hidden) setIsAlertVisible(false);
+  }, []);
+
+  const handleDismissAlert = () => {
+    setIsAlertVisible(false);
+    localStorage.setItem("hide-template-alert", "true");
+  };
+
   // Build query params
   const buildQueryParams = () => {
     const params = new URLSearchParams();
@@ -84,22 +99,21 @@ export default function TemplatesPage() {
     params.set("limit", "20");
     params.set("type", activeTab);
 
-    if (searchQuery) {
-      params.set("search", searchQuery);
-    }
-    if (selectedTags.length > 0) {
-      params.set("tags", selectedTags.join(","));
-    }
-    if (panelCountRange && panelCountRange !== "all") {
-      params.set("panelCount", panelCountRange);
-    }
+    if (searchQuery) params.set("search", searchQuery);
+    if (selectedTags.length > 0) params.set("tags", selectedTags.join(","));
+    if (panelCountRange && panelCountRange !== "all") params.set("panelCount", panelCountRange);
+    if (category !== "all") params.set("category", category);
+    if (difficulty !== "all") params.set("difficulty", difficulty);
+    // Passing targetCharacters to API for future support, 
+    // even if currently handled on client or partially server side
+    if (targetCharacters) params.set("targetCharacters", targetCharacters.toString());
 
     return params.toString();
   };
 
   // Fetch templates
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ["templates", activeTab, page, searchQuery, selectedTags, panelCountRange],
+    queryKey: ["templates", activeTab, page, searchQuery, selectedTags, panelCountRange, category, difficulty, targetCharacters],
     queryFn: async () => {
       const response = await fetch(`/api/templates?${buildQueryParams()}`);
       if (!response.ok) {
@@ -117,15 +131,17 @@ export default function TemplatesPage() {
   // Get liked template IDs from API response
   const likedTemplateIds = data?.likedTemplateIds ? new Set(data.likedTemplateIds) : new Set<string>();
 
-  // Client-side meta过滤
+  // Client-side filtering for targetCharacters (since backend JSON range filter is complex/pending)
+  // Logic: Only filter if data is loaded. Use server results directly for other filters.
   const filteredTemplates = (data?.templates || []).filter((t) => {
-    const meta = t.template_data?.meta;
-    if (category !== "all" && meta?.category !== category) return false;
-    if (difficulty !== "all" && meta?.complexityLevel !== difficulty) return false;
-    if (targetCharacters && meta?.recommendedCharacters) {
-      const { min, max } = meta.recommendedCharacters;
-      if (min && targetCharacters < min) return false;
-      if (max && targetCharacters > max) return false;
+    // Only filter by characters on client for now as fallback
+    if (targetCharacters && t.template_data?.meta?.recommendedCharacters) {
+      const { min, max } = t.template_data.meta.recommendedCharacters;
+      // Loose matching: if target is within [min, max]
+      // Most templates might just have 'min' or 'max' or both.
+      const minVal = min ?? 1;
+      const maxVal = max ?? 100;
+      if (targetCharacters < minVal || targetCharacters > maxVal) return false;
     }
     return true;
   });
@@ -279,12 +295,20 @@ export default function TemplatesPage() {
             </div>
 
             {/* Info alert for creating templates */}
-            <Alert className="border-zinc-700 bg-zinc-900/60 backdrop-blur-md">
-              <Info className="h-4 w-4 text-orange-500" />
-              <AlertDescription className="text-zinc-300">
-                想创建自己的模板？在故事板编辑器中选择分镜，点击"另存为模板"即可将您的创作保存为可复用的模板。
-              </AlertDescription>
-            </Alert>
+            {isAlertVisible && (
+              <Alert className="border-zinc-700 bg-zinc-900/60 backdrop-blur-md relative pr-10">
+                <Info className="h-4 w-4 text-orange-500" />
+                <AlertDescription className="text-zinc-300">
+                  想创建自己的模板？在故事板编辑器中选择分镜，点击"另存为模板"即可将您的创作保存为可复用的模板。
+                </AlertDescription>
+                <button
+                  onClick={handleDismissAlert}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </Alert>
+            )}
 
             {/* Tabs */}
             <Tabs value={activeTab} onValueChange={(value) => {
@@ -299,8 +323,8 @@ export default function TemplatesPage() {
 
               {/* Filters */}
               <div className="mt-6 space-y-4">
-                {/* Search bar */}
-                <div className="flex gap-2">
+                {/* Search bar & Primary Filters */}
+                <div className="flex flex-col md:flex-row gap-4">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-400" />
                     <Input
@@ -310,14 +334,16 @@ export default function TemplatesPage() {
                         setSearchQuery(e.target.value);
                         setPage(1);
                       }}
-                      className="pl-10 bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-500"
+                      className="pl-10 bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-500 h-10"
                     />
                   </div>
+
+                  {/* Common Filters visible on mobile/desktop */}
                   <Select value={panelCountRange} onValueChange={(value) => {
                     setPanelCountRange(value);
                     setPage(1);
                   }}>
-                    <SelectTrigger className="w-[180px] bg-zinc-900 border-zinc-700 text-white">
+                    <SelectTrigger className="w-full md:w-[150px] bg-zinc-900 border-zinc-700 text-white h-10">
                       <SelectValue placeholder="分镜数量" />
                     </SelectTrigger>
                     <SelectContent className="bg-zinc-900 border-zinc-700">
@@ -328,96 +354,128 @@ export default function TemplatesPage() {
                       ))}
                     </SelectContent>
                   </Select>
+
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                    className={cn(
+                      "border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white w-full md:w-auto h-10",
+                      showAdvancedFilters && "bg-zinc-800 text-white border-orange-500/50"
+                    )}
+                  >
+                    <SlidersHorizontal className="h-4 w-4 mr-2" />
+                    {showAdvancedFilters ? "收起筛选" : "高级筛选"}
+                  </Button>
+
                   {hasFilters && (
-                    <Button variant="outline" onClick={handleClearFilters} className="border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-orange-500/50">
+                    <Button variant="ghost" onClick={handleClearFilters} className="text-zinc-400 hover:text-white hover:bg-zinc-800 h-10 px-3">
                       <X className="h-4 w-4 mr-1" />
-                      清除筛选
+                      清除
                     </Button>
                   )}
                 </div>
 
-                {/* Tag filters */}
-                <div className="flex flex-wrap gap-2">
-                  <span className="text-sm text-zinc-400 flex items-center">
-                    <Filter className="h-4 w-4 mr-1" />
-                    标签筛选:
-                  </span>
-                  {COMMON_TAGS.map(tag => (
-                    <Badge
-                      key={tag}
-                      variant={selectedTags.includes(tag) ? "default" : "outline"}
-                      className={selectedTags.includes(tag) ? "cursor-pointer bg-orange-500 text-white hover:bg-orange-600" : "cursor-pointer border-zinc-700 text-zinc-300 hover:bg-zinc-800"}
-                      onClick={() => handleToggleTag(tag)}
-                    >
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
+                {/* Advanced Filters (Collapsible) */}
+                {showAdvancedFilters && (
+                  <div className="p-4 rounded-lg bg-zinc-900/40 border border-zinc-800/60 space-y-4 animate-in fade-in slide-in-from-top-1">
+                    <div className="flex flex-wrap gap-4 items-center">
+                      {/* Classification */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-zinc-500 font-medium">类型</label>
+                        <Select
+                          value={category}
+                          onValueChange={(value) => {
+                            setCategory(value as TemplateCategory | "all");
+                            setPage(1);
+                          }}
+                        >
+                          <SelectTrigger className="w-[140px] bg-zinc-900 border-zinc-700 text-white h-9">
+                            <SelectValue placeholder="全部类型" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-zinc-900 border-zinc-700">
+                            <SelectItem value="all" className="text-white focus:bg-zinc-800 focus:text-white">全部类型</SelectItem>
+                            <SelectItem value="short" className="text-white focus:bg-zinc-800 focus:text-white">短篇</SelectItem>
+                            <SelectItem value="strip" className="text-white focus:bg-zinc-800 focus:text-white">条漫</SelectItem>
+                            <SelectItem value="four" className="text-white focus:bg-zinc-800 focus:text-white">四格</SelectItem>
+                            <SelectItem value="comic" className="text-white focus:bg-zinc-800 focus:text-white">分幕</SelectItem>
+                            <SelectItem value="blank" className="text-white focus:bg-zinc-800 focus:text-white">空白</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                {/* 模板元信息筛选 */}
-                <div className="flex flex-wrap gap-3 items-center">
-                  <div className="flex items-center gap-2">
-                    <SlidersHorizontal className="h-4 w-4 text-zinc-400" />
-                    <Select
-                      value={category}
-                      onValueChange={(value) => {
-                        setCategory(value as TemplateCategory | "all");
-                        setPage(1);
-                      }}
-                    >
-                      <SelectTrigger className="w-[150px] bg-zinc-900 border-zinc-700 text-white">
-                        <SelectValue placeholder="类型" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-zinc-900 border-zinc-700">
-                        <SelectItem value="all" className="text-white focus:bg-zinc-800 focus:text-white">全部类型</SelectItem>
-                        <SelectItem value="short" className="text-white focus:bg-zinc-800 focus:text-white">短篇</SelectItem>
-                        <SelectItem value="strip" className="text-white focus:bg-zinc-800 focus:text-white">条漫</SelectItem>
-                        <SelectItem value="four" className="text-white focus:bg-zinc-800 focus:text-white">四格</SelectItem>
-                        <SelectItem value="comic" className="text-white focus:bg-zinc-800 focus:text-white">分幕</SelectItem>
-                        <SelectItem value="blank" className="text-white focus:bg-zinc-800 focus:text-white">空白</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                      {/* Difficulty */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-zinc-500 font-medium">难度</label>
+                        <Select
+                          value={difficulty}
+                          onValueChange={(value) => {
+                            setDifficulty(value as "all" | "newbie" | "pro");
+                            setPage(1);
+                          }}
+                        >
+                          <SelectTrigger className="w-[140px] bg-zinc-900 border-zinc-700 text-white h-9">
+                            <SelectValue placeholder="全部难度" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-zinc-900 border-zinc-700">
+                            <SelectItem value="all" className="text-white focus:bg-zinc-800 focus:text-white">全部难度</SelectItem>
+                            <SelectItem value="newbie" className="text-white focus:bg-zinc-800 focus:text-white">新手友好</SelectItem>
+                            <SelectItem value="pro" className="text-white focus:bg-zinc-800 focus:text-white">进阶</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                  <div className="flex items-center gap-2">
-                    <Select
-                      value={difficulty}
-                      onValueChange={(value) => {
-                        setDifficulty(value as "all" | "newbie" | "pro");
-                        setPage(1);
-                      }}
-                    >
-                      <SelectTrigger className="w-[150px] bg-zinc-900 border-zinc-700 text-white">
-                        <SelectValue placeholder="难度" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-zinc-900 border-zinc-700">
-                        <SelectItem value="all" className="text-white focus:bg-zinc-800 focus:text-white">全部难度</SelectItem>
-                        <SelectItem value="newbie" className="text-white focus:bg-zinc-800 focus:text-white">新手友好</SelectItem>
-                        <SelectItem value="pro" className="text-white focus:bg-zinc-800 focus:text-white">进阶</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-zinc-400" />
-                    <span className="text-sm text-zinc-400">角色数</span>
-                    <div className="w-40">
-                      <Slider
-                        min={1}
-                        max={6}
-                        step={1}
-                        value={[targetCharacters ?? 3]}
-                        onValueChange={([value]) => setTargetCharacters(value)}
-                      />
+                      {/* Character Count */}
+                      <div className="space-y-1.5 min-w-[200px]">
+                        <div className="flex justify-between">
+                          <label className="text-xs text-zinc-500 font-medium">角色数量</label>
+                          <span className="text-xs text-orange-400 font-mono">
+                            {targetCharacters ? `~${targetCharacters} 人` : "任意"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 pt-1">
+                          <Slider
+                            min={1}
+                            max={6}
+                            step={1}
+                            value={[targetCharacters ?? 0]}
+                            onValueChange={([value]) => setTargetCharacters(value === 0 ? null : value)}
+                            className="flex-1"
+                          />
+                          {targetCharacters !== null && (
+                            <Button variant="ghost" size="icon" className="h-5 w-5 text-zinc-500 hover:text-white" onClick={() => setTargetCharacters(null)}>
+                              <X className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <span className="text-sm text-zinc-400 w-6 text-center">
-                      {targetCharacters ?? "—"}
-                    </span>
-                    <Button variant="ghost" size="sm" onClick={() => setTargetCharacters(null)} className="text-zinc-400 hover:text-white hover:bg-zinc-800">
-                      重置
-                    </Button>
+
+                    {/* Tags */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs text-zinc-500 font-medium flex items-center gap-1">
+                        <Filter className="h-3 w-3" />
+                        标签
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {COMMON_TAGS.map(tag => (
+                          <Badge
+                            key={tag}
+                            variant={selectedTags.includes(tag) ? "default" : "outline"}
+                            className={cn(
+                              "cursor-pointer transition-all",
+                              selectedTags.includes(tag)
+                                ? "bg-orange-500 text-white hover:bg-orange-600 border-orange-500"
+                                : "border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                            )}
+                            onClick={() => handleToggleTag(tag)}
+                          >
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Template grid */}
@@ -430,6 +488,7 @@ export default function TemplatesPage() {
                   onApply={handleApplyClick}
                   emptyMessage="暂无官方模板"
                   targetCharacters={targetCharacters}
+                  onClearFilters={handleClearFilters}
                 />
               </TabsContent>
 
@@ -442,6 +501,7 @@ export default function TemplatesPage() {
                   onApply={handleApplyClick}
                   emptyMessage="暂无社区模板"
                   targetCharacters={targetCharacters}
+                  onClearFilters={handleClearFilters}
                 />
               </TabsContent>
 
@@ -454,9 +514,11 @@ export default function TemplatesPage() {
                   onApply={handleApplyClick}
                   emptyMessage="您还没有创建任何模板"
                   targetCharacters={targetCharacters}
+                  onClearFilters={handleClearFilters}
                 />
               </TabsContent>
             </Tabs>
+
 
             {/* Pagination */}
             {data && data.pagination.totalPages > 1 && (

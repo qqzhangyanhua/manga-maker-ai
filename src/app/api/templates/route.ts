@@ -49,7 +49,11 @@ export async function GET(req: NextRequest) {
     const panelCountRange = searchParams.get("panelCount");
     const search = searchParams.get("search")?.trim();
 
-    // Build where clause
+    const category = searchParams.get("category");
+    const difficulty = searchParams.get("difficulty");
+    const targetCharacters = searchParams.get("targetCharacters") ? parseInt(searchParams.get("targetCharacters")!, 10) : null;
+
+    // Build where clause for DB-level filtering (Type, Tags, Search)
     const where: any = {};
 
     // Filter by type
@@ -100,11 +104,14 @@ export async function GET(req: NextRequest) {
       ];
     }
 
-    // Count total results
-    const total = await prisma.panelTemplate.count({ where });
+    // Determine query limit strategy
+    // Since we need to filter by JSON fields that might be inconsistent (String vs Object)
+    // and support complex range queries for characters, we fetch all candidates matching DB filters first,
+    // then filter in memory, then paginate. This is efficient for < 1000 templates.
+    const MAX_FETCH_LIMIT = 500;
 
-    // Query templates with pagination
-    const templates = await prisma.panelTemplate.findMany({
+    // Query templates (fetch all candidates)
+    const allCandidates = await prisma.panelTemplate.findMany({
       where,
       select: {
         id: true,
@@ -130,9 +137,49 @@ export async function GET(req: NextRequest) {
         }
       },
       orderBy: { created_at: "desc" },
-      skip: (page - 1) * limit,
-      take: limit
+      take: MAX_FETCH_LIMIT
     });
+
+    // Perform In-Memory Filtering for JSON fields
+    let filteredTemplates = allCandidates.filter(t => {
+      // Parse template_data if needed
+      let meta: any = null;
+      if (t.template_data) {
+        if (typeof t.template_data === 'string') {
+          try {
+            meta = JSON.parse(t.template_data).meta;
+          } catch (e) { /* ignore parse error */ }
+        } else {
+          meta = (t.template_data as any).meta;
+        }
+      }
+
+      // Filter: Category
+      if (category && category !== "all") {
+        if (meta?.category !== category) return false;
+      }
+
+      // Filter: Difficulty
+      if (difficulty && difficulty !== "all") {
+        if (meta?.complexityLevel !== difficulty) return false;
+      }
+
+      // Filter: Target Characters (Range)
+      if (targetCharacters) {
+        if (!meta?.recommendedCharacters) return false;
+        const { min, max } = meta.recommendedCharacters;
+        const minVal = min ?? 1;
+        const maxVal = max ?? 100;
+        if (targetCharacters < minVal || targetCharacters > maxVal) return false;
+      }
+
+      return true;
+    });
+
+    // Paginate manually
+    const total = filteredTemplates.length;
+    const startIndex = (page - 1) * limit;
+    const paginatedTemplates = filteredTemplates.slice(startIndex, startIndex + limit);
 
     // Get user's liked template IDs (if logged in)
     let likedTemplateIds: string[] = [];
@@ -145,7 +192,7 @@ export async function GET(req: NextRequest) {
     }
 
     const response: SuccessResponse<{
-      templates: typeof templates;
+      templates: typeof paginatedTemplates;
       likedTemplateIds: string[];
       pagination: {
         total: number;
@@ -156,7 +203,7 @@ export async function GET(req: NextRequest) {
     }> = {
       success: true,
       data: {
-        templates,
+        templates: paginatedTemplates,
         likedTemplateIds,
         pagination: {
           total,

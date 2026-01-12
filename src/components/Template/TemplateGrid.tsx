@@ -4,6 +4,8 @@ import { TemplateCard } from "./TemplateCard";
 import { TemplateWithMeta } from "@/types/template";
 import { Loader2 } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+
 interface TemplateGridProps {
   templates: Array<TemplateWithMeta & {
     user?: {
@@ -18,6 +20,7 @@ interface TemplateGridProps {
   onApply?: (templateId: string) => void;
   emptyMessage?: string;
   targetCharacters?: number | null;
+  onClearFilters?: () => void;
 }
 
 export function TemplateGrid({
@@ -27,7 +30,8 @@ export function TemplateGrid({
   onLike,
   onApply,
   emptyMessage = "暂无模板",
-  targetCharacters = null
+  targetCharacters = null,
+  onClearFilters
 }: TemplateGridProps) {
   if (isLoading) {
     return (
@@ -39,8 +43,17 @@ export function TemplateGrid({
 
   if (templates.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <p className="text-muted-foreground">{emptyMessage}</p>
+      <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
+        <p className="text-zinc-400">{emptyMessage}</p>
+        {onClearFilters && (
+          <Button
+            variant="outline"
+            onClick={onClearFilters}
+            className="border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+          >
+            清除筛选 (Clear Filters)
+          </Button>
+        )}
       </div>
     );
   }
