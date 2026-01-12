@@ -99,11 +99,15 @@ export function withErrorBoundary<P extends object>(
 ) {
   const displayName = componentName || WrappedComponent.displayName || WrappedComponent.name || 'Component';
 
-  return (props: P) => (
+  const WrappedWithErrorBoundary = (props: P) => (
     <ComponentErrorBoundary componentName={displayName}>
       <WrappedComponent {...props} />
     </ComponentErrorBoundary>
   );
+
+  WrappedWithErrorBoundary.displayName = `withErrorBoundary(${displayName})`;
+
+  return WrappedWithErrorBoundary;
 }
 
 /**

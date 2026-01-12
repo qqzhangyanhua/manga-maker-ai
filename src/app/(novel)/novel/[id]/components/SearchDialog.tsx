@@ -8,12 +8,14 @@ import { Search, FileText, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
 interface SearchResult {
-  chapter_id: string
-  chapter_number: number
+  chapterId: string
+  chapterNumber: number
   title: string
-  snippet: string
-  relevance: number
-  match_type: "title" | "content"
+  matchedText: string
+  matchType: "title" | "outline" | "content"
+  highlights: string[]
+  status: "draft" | "completed"
+  wordCount: number
 }
 
 interface SearchDialogProps {
@@ -30,30 +32,29 @@ export function SearchDialog({
   onSelectChapter,
 }: SearchDialogProps) {
   const [query, setQuery] = useState("")
-  const [searchType, setSearchType] = useState<"all" | "title" | "content">("all")
+  const [searchScope, setSearchScope] = useState<"all" | "title" | "outline" | "content">("all")
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
 
-  // 防抖搜索
-  useEffect(() => {
+  const handleSearch = async () => {
     if (!query.trim()) {
       setResults([])
       return
     }
 
-    const timer = setTimeout(() => {
-      handleSearch()
-    }, 300)
-
-    return () => clearTimeout(timer)
-  }, [query, searchType])
-
-  const handleSearch = async () => {
     setLoading(true)
 
     try {
       const response = await fetch(
-        `/api/novel/search/projects/${projectId}?q=${encodeURIComponent(query)}&type=${searchType}`
+        `/api/novel/projects/${projectId}/search`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: query.trim(),
+            scope: searchScope,
+          }),
+        }
       )
 
       if (!response.ok) {
@@ -70,6 +71,21 @@ export function SearchDialog({
       setLoading(false)
     }
   }
+
+  // 防抖搜索
+  useEffect(() => {
+    if (!query.trim()) {
+      setResults([])
+      return
+    }
+
+    const timer = setTimeout(() => {
+      handleSearch()
+    }, 300)
+
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, searchScope])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -92,10 +108,11 @@ export function SearchDialog({
           </div>
 
           {/* 搜索类型 */}
-          <Tabs value={searchType} onValueChange={(v) => setSearchType(v as any)}>
-            <TabsList className="grid w-full grid-cols-3">
+          <Tabs value={searchScope} onValueChange={(v) => setSearchScope(v as any)}>
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="all">全部</TabsTrigger>
               <TabsTrigger value="title">标题</TabsTrigger>
+              <TabsTrigger value="outline">大纲</TabsTrigger>
               <TabsTrigger value="content">内容</TabsTrigger>
             </TabsList>
           </Tabs>
@@ -114,10 +131,10 @@ export function SearchDialog({
             ) : (
               results.map((result) => (
                 <div
-                  key={result.chapter_id}
+                  key={result.chapterId}
                   className="p-3 rounded-lg border hover:bg-accent cursor-pointer transition-colors"
                   onClick={() => {
-                    onSelectChapter(result.chapter_id)
+                    onSelectChapter(result.chapterId)
                     onOpenChange(false)
                   }}
                 >
@@ -126,16 +143,28 @@ export function SearchDialog({
                       <div className="flex items-center space-x-2">
                         <FileText className="w-4 h-4 text-muted-foreground" />
                         <span className="font-medium">
-                          第{result.chapter_number}章 {result.title}
+                          第{result.chapterNumber}章 {result.title}
                         </span>
+                        {result.status === "completed" && (
+                          <span className="text-xs bg-green-500/10 text-green-500 px-2 py-0.5 rounded">
+                            已完成
+                          </span>
+                        )}
                       </div>
                       <div
                         className="mt-1 text-sm text-muted-foreground line-clamp-2"
-                        dangerouslySetInnerHTML={{ __html: result.snippet }}
+                        dangerouslySetInnerHTML={{
+                          __html: result.highlights[0] || result.matchedText
+                        }}
                       />
+                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>{result.wordCount} 字</span>
+                      </div>
                     </div>
                     <span className="text-xs text-muted-foreground ml-2 whitespace-nowrap">
-                      {result.match_type === "title" ? "标题匹配" : "内容匹配"}
+                      {result.matchType === "title" && "标题匹配"}
+                      {result.matchType === "outline" && "大纲匹配"}
+                      {result.matchType === "content" && "内容匹配"}
                     </span>
                   </div>
                 </div>
