@@ -18,13 +18,24 @@ import { ChaptersTab } from "./ChaptersTab";
 import { useNovelProject } from "./useNovelProject";
 import { denormalizeOutline } from "./types";
 import type { ChapterOutline } from "./types";
+import { ProjectDetailSkeleton } from "./components/ProjectDetailSkeleton";
 
 // ✅ 性能优化：动态导入重型组件
-// 对话框组件保持同步导入（小而常用）
+// Sprint 2 Task 2.3: 对话框组件也改为动态导入（非首屏必需）
 import { ProjectSettings } from "./components/ProjectSettings";
-import { GenerateOutlineDialog } from "./components/GenerateOutlineDialog";
-import { ContinueOutlineDialog } from "./components/ContinueOutlineDialog";
 import { ProgressDashboard } from "./components/ProgressDashboard";
+
+// 对话框组件动态导入（仅在打开时加载）
+const GenerateOutlineDialog = lazy(() =>
+  import("./components/GenerateOutlineDialog").then(mod => ({
+    default: mod.GenerateOutlineDialog
+  }))
+);
+const ContinueOutlineDialog = lazy(() =>
+  import("./components/ContinueOutlineDialog").then(mod => ({
+    default: mod.ContinueOutlineDialog
+  }))
+);
 
 // 编辑器组件使用动态导入（较大且按需加载）
 const WorldSettingEditor = lazy(() =>
@@ -52,6 +63,9 @@ const CharacterRelationshipGraph = lazy(() =>
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ErrorState } from "@/components/ErrorState";
 import { SaveIndicator } from "@/components/SaveIndicator";
+
+// ✅ Sprint 1 Task 1.1：数据丢失保护
+import { useUnsavedChangesWarning } from "@/hooks/useUnsavedChangesWarning";
 
 function NovelProjectPageContent() {
   const params = useParams();
@@ -81,6 +95,10 @@ function NovelProjectPageContent() {
   const [isGenerateOutlineDialogOpen, setIsGenerateOutlineDialogOpen] = useState(false);
   const [isContinueOutlineDialogOpen, setIsContinueOutlineDialogOpen] = useState(false);
 
+  // ✅ Sprint 1 Task 1.1：监听未保存的更改，防止数据丢失
+  const hasUnsavedChanges = saveStatus === 'saving';
+  useUnsavedChangesWarning(hasUnsavedChanges);
+
   // ✅ 错误状态处理
   if (error) {
     return (
@@ -95,28 +113,9 @@ function NovelProjectPageContent() {
     );
   }
 
-  // 加载骨架屏
+  // ✅ Sprint 2 Task 2.4: 使用提取的骨架屏组件
   if (loading || !project) {
-    return (
-      <div className="min-h-screen bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-black to-black">
-        <div className="container mx-auto py-12 px-4 max-w-7xl">
-          <div className="animate-pulse space-y-8">
-            <div className="flex justify-between items-center">
-               <div className="space-y-3 w-1/3">
-                 <div className="h-10 bg-zinc-800 rounded-lg w-full"></div>
-                 <div className="h-4 bg-zinc-800 rounded w-2/3"></div>
-               </div>
-               <div className="h-10 w-32 bg-zinc-800 rounded"></div>
-            </div>
-            <div className="h-12 bg-zinc-800 rounded-lg w-full"></div>
-            <div className="grid grid-cols-12 gap-6 mt-8">
-              <div className="col-span-3 h-[600px] bg-zinc-800/50 rounded-xl border border-zinc-800"></div>
-              <div className="col-span-9 h-[600px] bg-zinc-800/50 rounded-xl border border-zinc-800"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <ProjectDetailSkeleton />;
   }
 
   // 处理大纲生成模式
@@ -128,17 +127,20 @@ function NovelProjectPageContent() {
     }
   };
 
-  // 处理续写大纲完成
+  // ✅ Sprint 1 Task 1.2：修复数据同步问题 - 使用统一保存方法
   const handleContinueOutlineGenerated = async (newChapters: ChapterOutline[]) => {
     const updatedOutlines = [...outlines, ...newChapters];
 
-    // ✅ 使用统一的保存方法
     try {
-      const backendOutlines = updatedOutlines.map(denormalizeOutline);
-      await handleUpdateProject({ outlines: backendOutlines as never[] });
+      // ✅ 使用 handleSaveOutlines 而非直接调用 handleUpdateProject
+      // 这样保证保存状态指示器能正确更新，数据流保持一致
+      await handleSaveOutlines(updatedOutlines);
       toast.success("大纲续写成功");
     } catch (err) {
-      console.error("续写大纲保存失败:", err);
+      const errorMsg = err instanceof Error ? err.message : "保存失败";
+      toast.error(`大纲续写保存失败：${errorMsg}`);
+      // ✅ 向上抛出异常，让调用方知道保存失败
+      throw err;
     }
   };
 
@@ -275,36 +277,52 @@ function NovelProjectPageContent() {
 
           <TabsContent value="settings" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
             <GlassCard className="p-6">
-              <ProjectSettings 
-                project={project} 
-                onUpdate={(updates) => {
-                  handleUpdateProject(updates);
-                }} 
+              <ProjectSettings
+                project={project}
+                onUpdate={(updatedProject) => {
+                  // ✅ Sprint 1 Task 1.3：适配类型，ProjectSettings 返回完整对象，我们只需部分字段
+                  handleUpdateProject({
+                    title: updatedProject.title,
+                    description: updatedProject.description,
+                    genre: updatedProject.genre,
+                    target_words: updatedProject.target_words,
+                    status: updatedProject.status,
+                  });
+                }}
               />
             </GlassCard>
           </TabsContent>
         </Tabs>
 
+        {/* ✅ Sprint 2 Task 2.3: 对话框懒加载 - 仅在打开时加载组件 */}
         {/* AI 生成大纲对话框 */}
-        <GenerateOutlineDialog
-          isOpen={isGenerateOutlineDialogOpen}
-          onClose={() => setIsGenerateOutlineDialogOpen(false)}
-          projectId={projectId}
-          onGenerated={(generatedOutlines) => {
-            handleSaveOutlines(generatedOutlines);
-            toast.success("大纲已生成并保存");
-          }}
-        />
+        {isGenerateOutlineDialogOpen && (
+          <Suspense fallback={null}>
+            <GenerateOutlineDialog
+              isOpen={isGenerateOutlineDialogOpen}
+              onClose={() => setIsGenerateOutlineDialogOpen(false)}
+              projectId={projectId}
+              onGenerated={(generatedOutlines) => {
+                handleSaveOutlines(generatedOutlines);
+                toast.success("大纲已生成并保存");
+              }}
+            />
+          </Suspense>
+        )}
 
         {/* 续写大纲对话框 */}
-        <ContinueOutlineDialog
-          isOpen={isContinueOutlineDialogOpen}
-          onClose={() => setIsContinueOutlineDialogOpen(false)}
-          projectId={projectId}
-          existingOutlines={outlines}
-          projectGenre={project?.genre}
-          onGenerated={handleContinueOutlineGenerated}
-        />
+        {isContinueOutlineDialogOpen && (
+          <Suspense fallback={null}>
+            <ContinueOutlineDialog
+              isOpen={isContinueOutlineDialogOpen}
+              onClose={() => setIsContinueOutlineDialogOpen(false)}
+              projectId={projectId}
+              existingOutlines={outlines}
+              projectGenre={project?.genre}
+              onGenerated={handleContinueOutlineGenerated}
+            />
+          </Suspense>
+        )}
       </div>
     </div>
   );

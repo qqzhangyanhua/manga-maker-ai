@@ -104,7 +104,8 @@
       "Bash(cmd:*)",
       "Skill(collaborating-with-codex)",
       "Skill(collaborating-with-gemini)",
-      "Bash(./scripts/test-inspiration-api.sh:*)"
+      "Bash(./scripts/test-inspiration-api.sh:*)",
+      "Bash(npm test:*)"
     ],
     "deny": [],
     "ask": []

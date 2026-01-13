@@ -16,6 +16,7 @@ import ReactFlow, {
   Edge,
   Node,
   useReactFlow,
+  ReactFlowProvider,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { Button } from '@/components/ui/button';
@@ -60,7 +61,10 @@ interface CharacterRelationshipGraphProps {
   onSaveRelationships?: (updatedCharacters: Character[]) => Promise<void>;
 }
 
-export function CharacterRelationshipGraph({
+/**
+ * 内部组件 - 必须在 ReactFlowProvider 内使用
+ */
+function CharacterRelationshipGraphInner({
   characters,
   projectId,
   readonly = false, // Phase 2 默认可编辑
@@ -381,5 +385,16 @@ export function CharacterRelationshipGraph({
         onDelete={handleDeleteRelationship}
       />
     </div>
+  );
+}
+
+/**
+ * 导出组件 - 包裹 ReactFlowProvider
+ */
+export function CharacterRelationshipGraph(props: CharacterRelationshipGraphProps) {
+  return (
+    <ReactFlowProvider>
+      <CharacterRelationshipGraphInner {...props} />
+    </ReactFlowProvider>
   );
 }

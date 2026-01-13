@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { toast } from "sonner";
-import type { NovelProject, ChapterOutline, Character, WorldSetting } from "./types";
+import type { NovelProject, ChapterOutline, Character, WorldSetting, ProjectUpdatePayload } from "./types";
 import { normalizeOutline, denormalizeOutline, createNewChapter, normalizeCharacters, normalizeWorldSetting } from "./types";
 import type { SaveStatus } from "@/components/SaveIndicator";
 
@@ -31,7 +31,7 @@ interface UseNovelProjectResult {
   handleSaveOutlines: (newOutlines: ChapterOutline[]) => Promise<void>;
   handleSaveCharacters: (newCharacters: Character[]) => Promise<void>;
   handleSaveWorldSetting: (newWorldSetting: WorldSetting) => Promise<void>;
-  handleUpdateProject: (updates: Partial<NovelProject>) => Promise<void>;
+  handleUpdateProject: (updates: ProjectUpdatePayload) => Promise<void>;
   refetch: () => Promise<void>;
 }
 
@@ -54,12 +54,16 @@ export function useNovelProject(projectId: string): UseNovelProjectResult {
 
   const characters = useMemo(() => {
     const normalized = normalizeCharacters(project?.characters);
-    // 调试日志
-    console.log("[useNovelProject] Characters data:", {
-      raw: project?.characters,
-      normalized,
-      count: normalized.length
-    });
+
+    // ✅ Sprint 1 Task 1.4：仅在开发环境输出调试日志
+    if (process.env.NODE_ENV === 'development') {
+      console.log("[useNovelProject] Characters data:", {
+        raw: project?.characters,
+        normalized,
+        count: normalized.length
+      });
+    }
+
     return normalized;
   }, [project?.characters]);
 
@@ -90,23 +94,38 @@ export function useNovelProject(projectId: string): UseNovelProjectResult {
     }
   }, [projectId]);
 
-  // 初始化加载
+  // ✅ Sprint 2 Task 2.2: 修复 useEffect 依赖循环
+  // 移除 fetchProject 依赖，仅在 projectId 变化时重新加载
   useEffect(() => {
+    if (!projectId) return;
+
     async function loadData() {
       try {
         setLoading(true);
-        await fetchProject();
+        setError(null);
+
+        const response = await fetch(`/api/novel/projects/${projectId}`);
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: "获取项目失败" }));
+          throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        setProject(data);
       } catch (err) {
-        console.error("[loadData] 加载数据失败:", err);
+        const errorObj = err instanceof Error ? err : new Error("获取项目失败");
+        console.error("[loadData] 异常:", errorObj);
+        setError(errorObj);
+        toast.error(errorObj.message);
       } finally {
         setLoading(false);
       }
     }
 
-    if (projectId) {
-      loadData();
-    }
-  }, [projectId, fetchProject]);
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]); // ✅ 仅依赖 projectId，避免依赖循环
 
   // ✅ 通用保存方法：更新 project 状态保持一致性
   const updateProjectData = useCallback(async (
@@ -235,8 +254,8 @@ export function useNovelProject(projectId: string): UseNovelProjectResult {
     }
   }, [projectId, updateProjectData]);
 
-  // 更新项目基础信息
-  const handleUpdateProject = useCallback(async (updates: Partial<NovelProject>) => {
+  // ✅ Sprint 1 Task 1.3：使用明确的类型定义，避免强制转换
+  const handleUpdateProject = useCallback(async (updates: ProjectUpdatePayload) => {
     try {
       await updateProjectData(
         `/api/novel/projects/${projectId}`,

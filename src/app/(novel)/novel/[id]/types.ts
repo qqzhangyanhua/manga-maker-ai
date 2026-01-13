@@ -130,6 +130,22 @@ export interface NovelProject {
 }
 
 /**
+ * 项目更新载荷（用于 PATCH 请求）
+ * Sprint 1 Task 1.3：定义明确的类型，避免 `as never[]` 强制转换
+ */
+export interface ProjectUpdatePayload {
+  outlines?: ChapterOutlineBackend[];
+  characters?: Character[];
+  world_setting?: WorldSetting | null;
+  title?: string;
+  description?: string | null;
+  genre?: string | null;
+  target_words?: number | null;
+  status?: string;
+  cover_image?: string | null;
+}
+
+/**
  * 生成临时唯一ID（用于React key）
  */
 function generateTempId(): string {

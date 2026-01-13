@@ -1,5 +1,7 @@
 /**
- * 章节编辑器组件（简化版）
+ * 章节编辑器组件（增强版）
+ * 
+ * 集成富文本编辑器 (Tiptap)
  */
 "use client";
 
@@ -11,6 +13,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Sparkles, Save, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { RevisionDialog } from "./RevisionDialog";
+import { RichTextEditor } from "@/components/novel/RichTextEditor";
+import { WordCountDisplay } from "@/components/novel/WordCountDisplay";
+import { useEditor } from "@tiptap/react";
+import { getEditorExtensions, defaultEditorOptions } from "@/lib/novel/tiptap-config";
+import { serializeContent, deserializeContent, textToTiptapJSON, tiptapJSONToText } from "@/lib/novel/content-serializer";
 
 interface ChapterOutline {
   chapterNumber: number;
@@ -39,15 +46,37 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
   const [saving, setSaving] = useState(false);
   const [isRevisionDialogOpen, setIsRevisionDialogOpen] = useState(false);
   const [selectedText, setSelectedText] = useState("");
-  const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // 初始化富文本编辑器
+  const editor = useEditor({
+    extensions: getEditorExtensions("开始写作章节内容..."),
+    content: content ? deserializeContent(content) : '',
+    ...defaultEditorOptions,
+    onUpdate: ({ editor }) => {
+      const json = serializeContent(editor.getJSON());
+      setContent(json);
+    },
+  });
 
   // 🔧 新增：监听 chapter prop 变化，联动更新表单内容
   useEffect(() => {
     console.log(`[ChapterEditor] 切换到章节 ${chapter.chapterNumber}: ${chapter.title}`);
     setTitle(chapter.title);
     setOutline(chapter.outline || "");
-    setContent(chapter.content || "");
-  }, [chapter.chapterNumber, chapter.title, chapter.outline, chapter.content]);
+    
+    const newContent = chapter.content || "";
+    setContent(newContent);
+    
+    // 更新编辑器内容
+    if (editor && newContent) {
+      try {
+        const parsedContent = deserializeContent(newContent);
+        editor.commands.setContent(parsedContent, { emitUpdate: false });
+      } catch (error) {
+        console.error('Failed to update editor content:', error);
+      }
+    }
+  }, [chapter.chapterNumber, chapter.title, chapter.outline, chapter.content, editor]);
 
   async function handleGenerate() {
     if (!outline.trim()) {
@@ -58,6 +87,9 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
     try {
       setGenerating(true);
       setContent(""); // 清空现有内容
+      if (editor) {
+        editor.commands.setContent('');
+      }
 
       // 步骤1：创建或查找对应的 chapter 记录（后端需要 chapter_id）
       let chapterId: string | null = null;
@@ -148,16 +180,28 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
             }
             accumulatedContent += data;
             setContent(accumulatedContent);
+            
+            // 实时更新编辑器
+            if (editor) {
+              const tiptapContent = textToTiptapJSON(accumulatedContent);
+              // ✅ 修复：Tiptap v2 使用选项对象代替布尔值
+              // emitUpdate: false 避免在流式更新时触发多余事件
+              editor.commands.setContent(tiptapContent, { emitUpdate: false });
+            }
           }
         }
       }
 
       // 🔧 修复：生成完成后自动保存到 outlines
+      // 将生成的纯文本转换为 Tiptap JSON 格式
+      const tiptapContent = textToTiptapJSON(accumulatedContent);
+      const serializedContent = serializeContent(tiptapContent);
+      
       const updatedChapter: ChapterOutline = {
         ...chapter,
         title,
         outline,
-        content: accumulatedContent,
+        content: serializedContent,
         wordCount: accumulatedContent.length,
         status: "completed",
       };
@@ -173,12 +217,10 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
   }
 
   function handleReviseSelection() {
-    const textarea = contentTextareaRef.current;
-    if (!textarea) return;
+    if (!editor) return;
 
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const text = content.substring(start, end);
+    const { from, to } = editor.state.selection;
+    const text = editor.state.doc.textBetween(from, to, ' ');
 
     if (!text || text.trim().length === 0) {
       toast.error("请先选中要修订的文本");
@@ -190,21 +232,19 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
   }
 
   function handleReplaceText(newText: string) {
-    const textarea = contentTextareaRef.current;
-    if (!textarea) return;
+    if (!editor) return;
 
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const before = content.substring(0, start);
-    const after = content.substring(end);
-    const updatedContent = before + newText + after;
-
-    setContent(updatedContent);
+    const { from, to } = editor.state.selection;
+    editor.chain().focus().deleteRange({ from, to }).insertContent(newText).run();
   }
 
   async function handleSave() {
     try {
       setSaving(true);
+
+      // 计算字数（从编辑器获取纯文本）
+      const plainText = editor ? tiptapJSONToText(editor.getJSON()) : '';
+      const wordCount = plainText.length;
 
       // 更新当前章节的数据
       const updatedChapter: ChapterOutline = {
@@ -212,7 +252,7 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
         title,
         outline,
         content,
-        wordCount: content.length,
+        wordCount,
         status: content.trim() ? "completed" : "draft",
       };
 
@@ -289,20 +329,18 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
 
         {/* 内容 */}
         <div>
-          <label className="text-sm font-medium mb-2 block">
-            章节内容
-            <span className="text-muted-foreground ml-2">
-              ({content.length} 字)
-            </span>
-          </label>
-          <Textarea
-            ref={contentTextareaRef}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="章节正文内容..."
-            rows={20}
-            className="font-mono text-sm"
-          />
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-medium">章节内容</label>
+            {editor && <WordCountDisplay editor={editor} />}
+          </div>
+          <div className="border rounded-md p-4 min-h-[400px]">
+            <RichTextEditor
+              content={content}
+              onChange={setContent}
+              placeholder="开始写作章节内容..."
+              editable={!generating}
+            />
+          </div>
           <p className="text-xs text-muted-foreground mt-2">
             💡 提示：选中需要修改的文本，然后点击"修订选中"按钮，AI 会根据您的指令改写选中的内容
           </p>
