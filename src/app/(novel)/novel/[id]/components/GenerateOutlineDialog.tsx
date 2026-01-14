@@ -145,10 +145,10 @@ export function GenerateOutlineDialog({
           <div className="space-y-2">
             <Label htmlFor="style">风格偏好（可选）</Label>
             <Select value={style || "none"} onValueChange={(value) => setStyle(value === "none" ? "" : value)}>
-              <SelectTrigger id="style">
+              <SelectTrigger id="style" className="bg-zinc-900/40 border-purple-500/10 focus:ring-purple-500/50">
                 <SelectValue placeholder="选择风格（可选）" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl">
                 <SelectItem value="none">不指定</SelectItem>
                 <SelectItem value="玄幻">玄幻</SelectItem>
                 <SelectItem value="科幻">科幻</SelectItem>

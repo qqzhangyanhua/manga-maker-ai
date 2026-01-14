@@ -219,10 +219,10 @@ export function ProjectSettings<T extends NovelProjectBase>({ project, onUpdate 
             <div className="space-y-2">
               <Label htmlFor="genre">类型</Label>
               <Select value={genre || "none"} onValueChange={(value) => setGenre(value === "none" ? "" : value)}>
-                <SelectTrigger id="genre">
+                <SelectTrigger id="genre" className="bg-zinc-900/40 border-purple-500/10 focus:ring-purple-500/50">
                   <SelectValue placeholder="选择类型" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl">
                   <SelectItem value="none">不指定</SelectItem>
                   <SelectItem value="玄幻">玄幻</SelectItem>
                   <SelectItem value="科幻">科幻</SelectItem>
@@ -259,10 +259,10 @@ export function ProjectSettings<T extends NovelProjectBase>({ project, onUpdate 
           <div className="space-y-2">
             <Label htmlFor="status">项目状态</Label>
             <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger id="status">
+              <SelectTrigger id="status" className="bg-zinc-900/40 border-purple-500/10 focus:ring-purple-500/50">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl">
                 <SelectItem value="draft">草稿</SelectItem>
                 <SelectItem value="in_progress">进行中</SelectItem>
                 <SelectItem value="completed">已完成</SelectItem>
