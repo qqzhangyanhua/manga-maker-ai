@@ -1068,11 +1068,47 @@ model NovelChapterVersion {
   created_at DateTime @default(now()) @db.Timestamptz(6)
 
   // Relations
-  chapter NovelChapter @relation(fields: [chapter_id], references: [id], onDelete: Cascade)
+  chapter       NovelChapter  @relation(fields: [chapter_id], references: [id], onDelete: Cascade)
+  quality_score QualityScore?
 
   @@unique([chapter_id, version_number], map: "unique_chapter_version")
   @@index([chapter_id, is_selected], map: "idx_chapter_versions_selected")
   @@map("novel_chapter_versions")
+}
+
+// 章节质量评分（AI 评估）
+model QualityScore {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  version_id String @unique @db.Uuid
+
+  // 总体评分（1-100）
+  overall_score Int @db.SmallInt
+
+  // 多维度评分（JSON 存储）
+  // {
+  //   readability: { score: 85, details: "流畅度高，语句通顺" },
+  //   emotional_depth: { score: 75, details: "情感描写丰富" },
+  //   pacing: { score: 80, details: "节奏把控得当" },
+  //   originality: { score: 70, details: "有一定创新性" },
+  //   coherence: { score: 90, details: "逻辑连贯性强" }
+  // }
+  dimensions Json
+
+  // AI 改进建议（JSON 数组）
+  // [
+  //   { dimension: "emotional_depth", suggestion: "可以增加人物内心独白", priority: "high" },
+  //   { dimension: "pacing", suggestion: "前半部分可以加快节奏", priority: "medium" }
+  // ]
+  suggestions Json?
+
+  // 元数据
+  analyzed_at      DateTime @default(now()) @db.Timestamptz(6)
+  analyzer_version String   @default("1.0") // 评分算法版本（用于追踪模型变化）
+
+  // Relations
+  version NovelChapterVersion @relation(fields: [version_id], references: [id], onDelete: Cascade)
+
+  @@map("quality_scores")
 }
 
 // Prompt 模板库

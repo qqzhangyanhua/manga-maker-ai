@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 import logging
 
 from .config import settings
-from .routers import projects, chapters, inspiration, search, export, batch
+from .routers import projects, chapters, inspiration, search, export, batch, versions
 
 # 配置日志
 logging.basicConfig(
@@ -53,6 +53,7 @@ app.include_router(inspiration.router)
 app.include_router(search.router)
 app.include_router(export.router)
 app.include_router(batch.router)
+app.include_router(versions.router)  # 版本管理路由
 
 
 @app.get("/health")

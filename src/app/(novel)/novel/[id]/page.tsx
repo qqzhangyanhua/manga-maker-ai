@@ -8,7 +8,7 @@
 import { useState, lazy, Suspense } from "react";
 import { useParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, Settings, Globe, Users, FileText, TrendingUp, Network } from "lucide-react";
+import { BookOpen, Settings, Globe, Users, FileText, TrendingUp, Network, GitBranch } from "lucide-react";
 import { toast } from "sonner";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -56,6 +56,11 @@ const OutlineEditor = lazy(() =>
 const CharacterRelationshipGraph = lazy(() =>
   import("./components/relationship-graph").then(mod => ({
     default: mod.CharacterRelationshipGraph
+  }))
+);
+const ChapterVersionManager = lazy(() =>
+  import("./components/ChapterVersionManager").then(mod => ({
+    default: mod.ChapterVersionManager
   }))
 );
 
@@ -194,6 +199,10 @@ function NovelProjectPageContent() {
               <TrendingUp className="h-4 w-4 mr-2" />
               创作进度
             </TabsTrigger>
+            <TabsTrigger value="versions" className="rounded-lg data-[state=active]:bg-orange-500 data-[state=active]:text-white transition-all py-2 px-4">
+              <GitBranch className="h-4 w-4 mr-2" />
+              版本管理
+            </TabsTrigger>
             <TabsTrigger value="settings" className="rounded-lg data-[state=active]:bg-orange-500 data-[state=active]:text-white transition-all py-2 px-4">
               <Settings className="h-4 w-4 mr-2" />
               项目设置
@@ -272,6 +281,17 @@ function NovelProjectPageContent() {
                 worldSetting={worldSetting}
                 targetWords={project?.target_words}
               />
+            </GlassCard>
+          </TabsContent>
+
+          <TabsContent value="versions" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <GlassCard className="p-6">
+              <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
+                <ChapterVersionManager
+                  projectId={projectId}
+                  selectedChapter={selectedChapter}
+                />
+              </Suspense>
             </GlassCard>
           </TabsContent>
 

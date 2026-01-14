@@ -105,10 +105,31 @@ class NovelChapterVersion(Base):
     
     # 关系
     chapter = relationship("NovelChapter", back_populates="versions")
-    
+    quality_score = relationship("QualityScore", back_populates="version", uselist=False, cascade="all, delete-orphan")
+
     __table_args__ = (
         Index("idx_chapter_versions_selected", "chapter_id", "is_selected"),
     )
+
+
+class QualityScore(Base):
+    """章节质量评分"""
+    __tablename__ = "quality_scores"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    version_id = Column(UUID(as_uuid=True), ForeignKey("novel_chapter_versions.id", ondelete="CASCADE"), nullable=False, unique=True)
+
+    # 评分
+    overall_score = Column(Integer, nullable=False)  # 1-100
+    dimensions = Column(JSON, nullable=False)  # 多维度评分详情
+    suggestions = Column(JSON)  # AI 改进建议
+
+    # 元数据
+    analyzed_at = Column(DateTime(timezone=True), server_default=func.now())
+    analyzer_version = Column(String(50), default="1.0")
+
+    # 关系
+    version = relationship("NovelChapterVersion", back_populates="quality_score")
 
 
 class NovelPromptTemplate(Base):
