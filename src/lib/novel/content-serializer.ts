@@ -74,7 +74,7 @@ export function deserializeContent(json: string): JSONContent {
 /**
  * 将纯文本转换为 Tiptap JSON 格式
  * 用于迁移旧的纯文本内容
- * 
+ *
  * @param text - 纯文本内容
  * @returns Tiptap JSON 内容
  */
@@ -86,12 +86,38 @@ export function textToTiptapJSON(text: string): JSONContent {
     };
   }
 
-  // 按段落分割文本
-  const paragraphs = text.split(/\n\n+/);
-  
+  // 🔧 修复：支持多种段落分隔方式
+  // 1. 优先按双换行分割（标准段落）
+  // 2. 如果没有双换行，按单换行分割（兼容AI生成的文本）
+  let paragraphs: string[];
+
+  if (text.includes('\n\n')) {
+    // 有双换行，使用标准分割
+    paragraphs = text.split(/\n\n+/);
+  } else {
+    // 没有双换行，按单换行分割
+    paragraphs = text.split(/\n+/);
+  }
+
   const content = paragraphs.map((paragraph) => {
     const trimmed = paragraph.trim();
     if (!trimmed) return null;
+
+    // 检查是否是标题（以 # 开头）
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      return {
+        type: 'heading',
+        attrs: { level: Math.min(level, 6) },
+        content: [
+          {
+            type: 'text',
+            text: headingMatch[2],
+          },
+        ],
+      };
+    }
 
     return {
       type: 'paragraph',

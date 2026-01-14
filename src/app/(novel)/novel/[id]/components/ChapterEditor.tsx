@@ -142,6 +142,8 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let accumulatedContent = "";
+      let lastUpdateTime = 0;
+      const UPDATE_INTERVAL = 100; // 每100ms最多更新一次，减少渲染压力
 
       while (reader) {
         const { done, value } = await reader.read();
@@ -161,17 +163,22 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
             }
             accumulatedContent += data;
 
-            // 实时更新为 Tiptap JSON 格式
-            const tiptapContent = textToTiptapJSON(accumulatedContent);
-            const serialized = JSON.stringify(tiptapContent);
-            setContent(serialized);
+            // 🔧 性能优化：节流更新，避免过于频繁的转换和渲染
+            const now = Date.now();
+            if (now - lastUpdateTime > UPDATE_INTERVAL) {
+              const tiptapContent = textToTiptapJSON(accumulatedContent);
+              const serialized = JSON.stringify(tiptapContent);
+              setContent(serialized);
+              lastUpdateTime = now;
+            }
           }
         }
       }
 
-      // 🔧 修复：生成完成后自动保存到 outlines
+      // 🔧 修复：生成完成后确保最终内容被更新和保存
       const tiptapContent = textToTiptapJSON(accumulatedContent);
       const serializedContent = JSON.stringify(tiptapContent);
+      setContent(serializedContent); // 确保最后的内容也被更新到编辑器
 
       const updatedChapter: ChapterOutline = {
         ...chapter,
