@@ -144,15 +144,19 @@ export function FocusModeProvider({
         chapter_id: currentPanel.chapter_id || "",
         panel_order: currentPanel.panel_order,
         description: currentPanel.description || "",
-        prompt_used: currentPanel.prompt_used,
-        generated_image: currentPanel.generated_image,
-        image_generation_status: currentPanel.image_generation_status,
-        created_at: currentPanel.created_at instanceof Date
-          ? currentPanel.created_at.toISOString()
-          : currentPanel.created_at,
-        updated_at: currentPanel.updated_at instanceof Date
-          ? currentPanel.updated_at.toISOString()
-          : currentPanel.updated_at,
+        prompt_used: currentPanel.prompt_used || null,
+        generated_image: currentPanel.generated_image || null,
+        image_generation_status: null,
+        created_at: typeof currentPanel.created_at === 'string'
+          ? currentPanel.created_at
+          : (currentPanel.created_at instanceof Date
+            ? currentPanel.created_at.toISOString()
+            : new Date().toISOString()),
+        updated_at: typeof currentPanel.created_at === 'string'
+          ? currentPanel.created_at
+          : (currentPanel.created_at instanceof Date
+            ? currentPanel.created_at.toISOString()
+            : new Date().toISOString()),
       } : null,
       config,
       isGenerating,

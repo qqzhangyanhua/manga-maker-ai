@@ -5,7 +5,6 @@ import { useStoryDataOptimized } from "../hooks/useStoryDataOptimized";
 import { useCharacterAssets } from "../hooks/useCharacterAssets";
 import { useStoryCharacters } from "../hooks/useStoryCharacters";
 import { ScriptDataContextValue } from "../types/providers.types";
-import type { Story, Chapter, Panel, Character, StoryCharacter } from "@prisma/client";
 
 const ScriptDataContext = createContext<ScriptDataContextValue | null>(null);
 
@@ -54,7 +53,7 @@ export function ScriptDataProvider({ storyId, children }: ScriptDataProviderProp
   } = useStoryCharacters(storyId, { enabled });
 
   // 统一刷新方法
-  const refetchAll = useCallback(async () => {
+  const refetchAll = useCallback(async (): Promise<void> => {
     const results = await Promise.allSettled([
       refetchStory(),
       refetchPanels(),
@@ -68,9 +67,6 @@ export function ScriptDataProvider({ storyId, children }: ScriptDataProviderProp
       console.error("部分数据刷新失败:", failed);
       // 不抛出错误，允许部分成功
     }
-
-    // 返回成功的数量
-    return results.filter((r) => r.status === "fulfilled").length;
   }, [refetchStory, refetchPanels, refetchCharacters, refetchStoryCharacters]);
 
   // Context 值
@@ -78,12 +74,12 @@ export function ScriptDataProvider({ storyId, children }: ScriptDataProviderProp
     // 核心数据
     storyId,
     projectId: data?.projectId || null,
-    story: data?.story || null,
-    chapters: data?.chapters || [],
-    panels: data?.panels || [],
+    story: data?.story as any || null,
+    chapters: data?.chapters as any || [],
+    panels: data?.panels as any || [],
 
     // 角色数据
-    characterAssets: characterAssets || [],
+    characterAssets: characterAssets as any || [],
     storyCharacters: storyCharacters || [],
 
     // 加载状态

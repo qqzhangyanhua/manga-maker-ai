@@ -3,6 +3,21 @@
  */
 
 /**
+ * 角色资产引用接口（用于章节生成）
+ */
+export interface CharacterReference {
+  id: string;
+  name: string;
+  tags?: string[];
+  description?: string;
+  comic_style_id?: string;
+  training_status?: string;
+  base_image_url?: string;
+  reference_image?: string;
+  style_prompt?: string;
+}
+
+/**
  * 故事角色接口
  */
 export interface StoryCharacter {
@@ -47,12 +62,14 @@ export interface SuggestedCharacter {
  */
 export interface Story {
   id: string;
+  user_id: string;
   title: string;
   genre: string;
   premise: string;
   status: string;
   outline: Record<string, unknown>;
   characters: StoryCharacter[];
+  template_id?: string | null;
   comic_style_id?: string | null; // 选择的漫画风格ID
   style?: string | null; // 风格提示词（从 comic_style.prompt_prefix 或自定义）
   style_reference_image?: string | null; // 参考图URL（优先级最高）
@@ -64,6 +81,8 @@ export interface Story {
   // 连载模式支持
   is_serialized?: boolean; // 是否为连载作品
   serial_status?: string | null; // ongoing/completed/hiatus - 连载状态
+  is_sample?: boolean;
+  sample_category?: string | null;
   created_at: string;
   updated_at: string;
   _syncing?: boolean; // 乐观更新同步标记
@@ -86,6 +105,12 @@ export interface Chapter {
   // 连载模式支持
   publish_status?: string; // draft/published/archived - 章节发布状态
   published_at?: string | null; // 发布时间
+  // Chapter background
+  scene_id?: string | null;
+  background_image_url?: string | null;
+  background_prompt?: string | null;
+  source_novel_chapter_id?: string | null;
+  source_scene_markers?: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
   _syncing?: boolean; // 乐观更新同步标记
@@ -149,6 +174,11 @@ export interface Panel {
   script_segment_id?: string;
   script_start?: number;
   script_end?: number;
+  // Camera movement parameters
+  camera_movement?: string | null;
+  movement_speed?: string | null;
+  movement_direction?: string | null;
+  sketch_image_url?: string | null;
   // Phase 2: Asset binding fields
   character_id?: string; // FK to Character
   expression_type?: string; // Expression type (neutral, happy, sad, etc.)

@@ -90,7 +90,7 @@ export interface ScriptPageTabsProps {
     params: BackgroundGenerationParams
   ) => Promise<void>;
   onDeletePanel: (panelId: string) => Promise<void>;
-  onImageGenerated: (panelId: string, imageUrl: string) => void;
+  onImageGenerated: (panelId: string, imageUrl: string) => Promise<void>;
   onCharactersRefresh: () => void;
   onStoryCharactersRefresh: () => void;
   onRefreshStoryData: () => Promise<void>;

@@ -216,7 +216,7 @@ function checkAssetLinks(
     suggestions.push("关联场景资产以使用场景参考图");
   } else if (scene) {
     // 检查场景是否有参考图
-    if (!scene.reference_image) {
+    if (!scene.image_url) {
       issues.push({
         type: "info",
         category: "reference",

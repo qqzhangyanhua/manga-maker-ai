@@ -89,12 +89,12 @@ export function ScriptPageTabs({
 
       {/* 章节创作视图 */}
       <TabsContent value={TAB_VALUES.SERIAL} className="mt-0">
-        <BatchOperationsManager panels={panels} onRefresh={onRefetchPanels} />
+        <BatchOperationsManager panels={panels as any} onRefresh={onRefetchPanels} />
         <SerialChapterList
           storyId={storyId}
           projectId={projectId}
           chapters={chapters}
-          panels={panels}
+          panels={panels as any}
           characters={characterAssets}
           charactersLoading={isCharactersLoading}
           isGeneratingPanels={isGenerating}
