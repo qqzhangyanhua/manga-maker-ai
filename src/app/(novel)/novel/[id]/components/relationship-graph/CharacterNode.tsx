@@ -32,16 +32,69 @@ export const CharacterNode = memo(({ data, selected }: NodeProps<CharacterNodeDa
         {getRoleLabel(data.role)}
       </div>
 
-      {/* 连接点 */}
+      {/* 连接点 - 支持四个方向，每个既可作为起点也可作为终点 */}
       <Handle
         type="target"
         position={Position.Top}
-        className="w-3 h-3 !bg-primary"
+        id="target-top"
+        className="w-3 h-3 !bg-primary border-2 border-purple-500"
+        isConnectable={true}
+      />
+      <Handle
+        type="source"
+        position={Position.Top}
+        id="source-top"
+        className="w-3 h-3 !bg-primary border-2 border-purple-500"
+        isConnectable={true}
+        style={{ top: 0 }}
+      />
+
+      <Handle
+        type="target"
+        position={Position.Bottom}
+        id="target-bottom"
+        className="w-3 h-3 !bg-primary border-2 border-purple-500"
+        isConnectable={true}
       />
       <Handle
         type="source"
         position={Position.Bottom}
-        className="w-3 h-3 !bg-primary"
+        id="source-bottom"
+        className="w-3 h-3 !bg-primary border-2 border-purple-500"
+        isConnectable={true}
+        style={{ bottom: 0 }}
+      />
+
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="target-left"
+        className="w-3 h-3 !bg-primary border-2 border-purple-500"
+        isConnectable={true}
+      />
+      <Handle
+        type="source"
+        position={Position.Left}
+        id="source-left"
+        className="w-3 h-3 !bg-primary border-2 border-purple-500"
+        isConnectable={true}
+        style={{ left: 0 }}
+      />
+
+      <Handle
+        type="target"
+        position={Position.Right}
+        id="target-right"
+        className="w-3 h-3 !bg-primary border-2 border-purple-500"
+        isConnectable={true}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="source-right"
+        className="w-3 h-3 !bg-primary border-2 border-purple-500"
+        isConnectable={true}
+        style={{ right: 0 }}
       />
 
       {/* 节点内容 */}

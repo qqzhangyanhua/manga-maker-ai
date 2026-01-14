@@ -315,6 +315,9 @@ function CharacterRelationshipGraphInner({
           animated: false,
         }}
         connectionLineStyle={{ stroke: '#888', strokeWidth: 2, strokeDasharray: '5 5' }}
+        nodesDraggable={!readonly}
+        nodesConnectable={!readonly}
+        elementsSelectable={true}
       >
         {/* 背景网格 */}
         <Background color="#aaa" gap={16} />

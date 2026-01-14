@@ -10,6 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Trash2 } from "lucide-react";
 import type { Location } from "./types";
 import { createNewLocation } from "./types";
+import { novelTheme } from "../../../theme";
+import { cn } from "@/lib/utils";
 
 interface LocationEditorProps {
   locations: Location[];
@@ -33,12 +35,12 @@ export function LocationEditor({ locations, onChange }: LocationEditorProps) {
 
   return (
     <div className="space-y-4">
-      <Button onClick={addLocation} variant="outline">
+      <Button onClick={addLocation} variant="outline" className={novelTheme.button.outline}>
         <Plus className="mr-2 h-4 w-4" />
         添加地点
       </Button>
       {locations.map((location, index) => (
-        <Card key={location.id || `location-${index}`} className="bg-zinc-900/40 border-purple-500/10">
+        <Card key={location.id || `location-${index}`} className={novelTheme.card.base}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               地点 {index + 1}
@@ -47,6 +49,7 @@ export function LocationEditor({ locations, onChange }: LocationEditorProps) {
               variant="ghost"
               size="sm"
               onClick={() => removeLocation(index)}
+              className="text-muted-foreground hover:text-red-400 hover:bg-red-500/10"
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -59,7 +62,7 @@ export function LocationEditor({ locations, onChange }: LocationEditorProps) {
                   value={location.name}
                   onChange={(e) => updateLocation(index, "name", e.target.value)}
                   placeholder="例如：龙渊城"
-                  className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
+                  className={novelTheme.input.base}
                 />
               </div>
               <div>
@@ -68,6 +71,7 @@ export function LocationEditor({ locations, onChange }: LocationEditorProps) {
                   value={location.type}
                   onChange={(e) => updateLocation(index, "type", e.target.value)}
                   placeholder="例如：城市、森林、山脉"
+                  className={novelTheme.input.base}
                 />
               </div>
             </div>
@@ -78,7 +82,7 @@ export function LocationEditor({ locations, onChange }: LocationEditorProps) {
                 onChange={(e) => updateLocation(index, "description", e.target.value)}
                 placeholder="详细描述这个地点的特征、历史、重要性..."
                 rows={3}
-                className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
+                className={novelTheme.input.textarea}
               />
             </div>
           </CardContent>

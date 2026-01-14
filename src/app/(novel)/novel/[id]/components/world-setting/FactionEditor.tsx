@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Trash2 } from "lucide-react";
 import type { Faction } from "./types";
 import { createNewFaction } from "./types";
+import { novelTheme } from "../../../theme";
 
 interface FactionEditorProps {
   factions: Faction[];
@@ -33,12 +34,12 @@ export function FactionEditor({ factions, onChange }: FactionEditorProps) {
 
   return (
     <div className="space-y-4">
-      <Button onClick={addFaction} variant="outline">
+      <Button onClick={addFaction} variant="outline" className={novelTheme.button.outline}>
         <Plus className="mr-2 h-4 w-4" />
         添加派系
       </Button>
       {factions.map((faction, index) => (
-        <Card key={faction.id || `faction-${index}`} className="bg-zinc-900/40 border-purple-500/10">
+        <Card key={faction.id || `faction-${index}`} className={novelTheme.card.base}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               派系 {index + 1}
@@ -47,6 +48,7 @@ export function FactionEditor({ factions, onChange }: FactionEditorProps) {
               variant="ghost"
               size="sm"
               onClick={() => removeFaction(index)}
+              className="text-muted-foreground hover:text-red-400 hover:bg-red-500/10"
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -59,7 +61,7 @@ export function FactionEditor({ factions, onChange }: FactionEditorProps) {
                   value={faction.name}
                   onChange={(e) => updateFaction(index, "name", e.target.value)}
                   placeholder="例如：天剑宗"
-                  className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
+                  className={novelTheme.input.base}
                 />
               </div>
               <div>
@@ -68,6 +70,7 @@ export function FactionEditor({ factions, onChange }: FactionEditorProps) {
                   value={faction.leader}
                   onChange={(e) => updateFaction(index, "leader", e.target.value)}
                   placeholder="例如：剑圣李寻欢"
+                  className={novelTheme.input.base}
                 />
               </div>
             </div>
@@ -78,7 +81,7 @@ export function FactionEditor({ factions, onChange }: FactionEditorProps) {
                 onChange={(e) => updateFaction(index, "description", e.target.value)}
                 placeholder="描述派系的理念、势力范围、历史..."
                 rows={3}
-                className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
+                className={novelTheme.input.textarea}
               />
             </div>
             <div>
@@ -93,6 +96,7 @@ export function FactionEditor({ factions, onChange }: FactionEditorProps) {
                   )
                 }
                 placeholder="例如：张三, 李四, 王五"
+                className={novelTheme.input.base}
               />
             </div>
           </CardContent>

@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Trash2 } from "lucide-react";
 import type { Rule } from "./types";
 import { createNewRule } from "./types";
+import { novelTheme } from "../../../theme";
 
 interface RuleEditorProps {
   rules: Rule[];
@@ -33,12 +34,12 @@ export function RuleEditor({ rules, onChange }: RuleEditorProps) {
 
   return (
     <div className="space-y-4">
-      <Button onClick={addRule} variant="outline">
+      <Button onClick={addRule} variant="outline" className={novelTheme.button.outline}>
         <Plus className="mr-2 h-4 w-4" />
         添加规则
       </Button>
       {rules.map((rule, index) => (
-        <Card key={rule.id || `rule-${index}`} className="bg-zinc-900/40 border-purple-500/10">
+        <Card key={rule.id || `rule-${index}`} className={novelTheme.card.base}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               规则 {index + 1}
@@ -47,6 +48,7 @@ export function RuleEditor({ rules, onChange }: RuleEditorProps) {
               variant="ghost"
               size="sm"
               onClick={() => removeRule(index)}
+              className="text-muted-foreground hover:text-red-400 hover:bg-red-500/10"
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -59,7 +61,7 @@ export function RuleEditor({ rules, onChange }: RuleEditorProps) {
                   value={rule.title}
                   onChange={(e) => updateRule(index, "title", e.target.value)}
                   placeholder="例如：魔法等级体系"
-                  className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
+                  className={novelTheme.input.base}
                 />
               </div>
               <div>
@@ -68,6 +70,7 @@ export function RuleEditor({ rules, onChange }: RuleEditorProps) {
                   value={rule.category}
                   onChange={(e) => updateRule(index, "category", e.target.value)}
                   placeholder="例如：魔法、科技、社会"
+                  className={novelTheme.input.base}
                 />
               </div>
             </div>
@@ -78,7 +81,7 @@ export function RuleEditor({ rules, onChange }: RuleEditorProps) {
                 onChange={(e) => updateRule(index, "content", e.target.value)}
                 placeholder="详细描述这个规则的运作方式、限制、特例..."
                 rows={4}
-                className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
+                className={novelTheme.input.textarea}
               />
             </div>
           </CardContent>
