@@ -5,7 +5,7 @@
  */
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,9 +15,8 @@ import { toast } from "sonner";
 import { RevisionDialog } from "./RevisionDialog";
 import { RichTextEditor } from "@/components/novel/RichTextEditor";
 import { WordCountDisplay } from "@/components/novel/WordCountDisplay";
-import { useEditor } from "@tiptap/react";
-import { getEditorExtensions, defaultEditorOptions } from "@/lib/novel/tiptap-config";
-import { serializeContent, deserializeContent, textToTiptapJSON, tiptapJSONToText } from "@/lib/novel/content-serializer";
+import { textToTiptapJSON, tiptapJSONToText } from "@/lib/novel/content-serializer";
+import type { Editor } from "@tiptap/react";
 
 interface ChapterOutline {
   chapterNumber: number;
@@ -47,36 +46,21 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
   const [isRevisionDialogOpen, setIsRevisionDialogOpen] = useState(false);
   const [selectedText, setSelectedText] = useState("");
 
-  // 初始化富文本编辑器
-  const editor = useEditor({
-    extensions: getEditorExtensions("开始写作章节内容..."),
-    content: content ? deserializeContent(content) : '',
-    ...defaultEditorOptions,
-    onUpdate: ({ editor }) => {
-      const json = serializeContent(editor.getJSON());
-      setContent(json);
-    },
-  });
+  // 存储编辑器实例的引用（由 RichTextEditor 提供）
+  const editorRef = useRef<Editor | null>(null);
 
-  // 🔧 新增：监听 chapter prop 变化，联动更新表单内容
+  // 🔧 监听 chapter prop 变化，联动更新表单内容
   useEffect(() => {
     console.log(`[ChapterEditor] 切换到章节 ${chapter.chapterNumber}: ${chapter.title}`);
     setTitle(chapter.title);
     setOutline(chapter.outline || "");
-    
-    const newContent = chapter.content || "";
-    setContent(newContent);
-    
-    // 更新编辑器内容
-    if (editor && newContent) {
-      try {
-        const parsedContent = deserializeContent(newContent);
-        editor.commands.setContent(parsedContent, { emitUpdate: false });
-      } catch (error) {
-        console.error('Failed to update editor content:', error);
-      }
-    }
-  }, [chapter.chapterNumber, chapter.title, chapter.outline, chapter.content, editor]);
+    setContent(chapter.content || "");
+  }, [chapter.chapterNumber, chapter.title, chapter.outline, chapter.content]);
+
+  // 获取编辑器实例的回调
+  const handleEditorReady = useCallback((editor: Editor) => {
+    editorRef.current = editor;
+  }, []);
 
   async function handleGenerate() {
     if (!outline.trim()) {
@@ -87,9 +71,6 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
     try {
       setGenerating(true);
       setContent(""); // 清空现有内容
-      if (editor) {
-        editor.commands.setContent('');
-      }
 
       // 步骤1：创建或查找对应的 chapter 记录（后端需要 chapter_id）
       let chapterId: string | null = null;
@@ -179,24 +160,19 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
               throw new Error(data);
             }
             accumulatedContent += data;
-            setContent(accumulatedContent);
-            
-            // 实时更新编辑器
-            if (editor) {
-              const tiptapContent = textToTiptapJSON(accumulatedContent);
-              // ✅ 修复：Tiptap v2 使用选项对象代替布尔值
-              // emitUpdate: false 避免在流式更新时触发多余事件
-              editor.commands.setContent(tiptapContent, { emitUpdate: false });
-            }
+
+            // 实时更新为 Tiptap JSON 格式
+            const tiptapContent = textToTiptapJSON(accumulatedContent);
+            const serialized = JSON.stringify(tiptapContent);
+            setContent(serialized);
           }
         }
       }
 
       // 🔧 修复：生成完成后自动保存到 outlines
-      // 将生成的纯文本转换为 Tiptap JSON 格式
       const tiptapContent = textToTiptapJSON(accumulatedContent);
-      const serializedContent = serializeContent(tiptapContent);
-      
+      const serializedContent = JSON.stringify(tiptapContent);
+
       const updatedChapter: ChapterOutline = {
         ...chapter,
         title,
@@ -217,6 +193,7 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
   }
 
   function handleReviseSelection() {
+    const editor = editorRef.current;
     if (!editor) return;
 
     const { from, to } = editor.state.selection;
@@ -232,6 +209,7 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
   }
 
   function handleReplaceText(newText: string) {
+    const editor = editorRef.current;
     if (!editor) return;
 
     const { from, to } = editor.state.selection;
@@ -243,6 +221,7 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
       setSaving(true);
 
       // 计算字数（从编辑器获取纯文本）
+      const editor = editorRef.current;
       const plainText = editor ? tiptapJSONToText(editor.getJSON()) : '';
       const wordCount = plainText.length;
 
@@ -331,7 +310,7 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="text-sm font-medium">章节内容</label>
-            {editor && <WordCountDisplay editor={editor} />}
+            {editorRef.current && <WordCountDisplay editor={editorRef.current} />}
           </div>
           <div className="border rounded-md p-4 min-h-[400px]">
             <RichTextEditor
@@ -339,6 +318,7 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
               onChange={setContent}
               placeholder="开始写作章节内容..."
               editable={!generating}
+              onEditorReady={handleEditorReady}
             />
           </div>
           <p className="text-xs text-muted-foreground mt-2">
