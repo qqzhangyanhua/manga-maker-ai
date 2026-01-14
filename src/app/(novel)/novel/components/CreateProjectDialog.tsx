@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { novelTheme } from "../theme";
 
 const formSchema = z.object({
   title: z.string().min(1, "请输入项目标题").max(200, "标题不能超过200字"),
@@ -202,7 +203,7 @@ export function CreateProjectDialog({
               >
                 取消
               </Button>
-              <Button type="submit" disabled={loading} className="bg-purple-600 hover:bg-purple-700 text-white">
+              <Button type="submit" disabled={loading} className={novelTheme.button.primary}>
                 {loading ? "创建中..." : "创建项目"}
               </Button>
             </DialogFooter>

@@ -11,6 +11,8 @@ import { ChapterList } from "./components/ChapterList";
 import { ChapterEditor } from "./components/ChapterEditor";
 import { BatchImportDialog } from "./components/BatchImportDialog";
 import type { NovelProject, ChapterOutline } from "./types";
+import { novelTheme } from "../theme";
+import { cn } from "@/lib/utils";
 
 interface ChaptersTabProps {
   project: NovelProject;
@@ -40,7 +42,7 @@ export function ChaptersTab({
       <div className="grid grid-cols-12 gap-6">
         {/* 左侧：章节列表 */}
         <div className="col-span-3">
-          <Card className="bg-zinc-900/40 backdrop-blur-sm border-purple-500/10">
+          <Card className={novelTheme.card.base}>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">章节列表</CardTitle>
@@ -50,11 +52,11 @@ export function ChaptersTab({
                     variant="outline"
                     onClick={() => setBatchImportOpen(true)}
                     title="批量导入章节"
-                    className="border-purple-500/30 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 hover:border-purple-500/50"
+                    className={novelTheme.button.outline}
                   >
                     <Upload className="h-4 w-4" />
                   </Button>
-                  <Button size="sm" onClick={onCreateChapter} className="bg-purple-600 hover:bg-purple-700 text-white">
+                  <Button size="sm" onClick={onCreateChapter} className={novelTheme.button.primary}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
@@ -81,7 +83,7 @@ export function ChaptersTab({
               onUpdate={onUpdateChapter}
             />
           ) : (
-            <Card className="h-full flex items-center justify-center bg-zinc-900/40 backdrop-blur-sm border-purple-500/10">
+            <Card className={cn("h-full flex items-center justify-center", novelTheme.card.base)}>
               <CardContent className="text-center py-12">
                 <BookOpen className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                 <p className="text-muted-foreground">

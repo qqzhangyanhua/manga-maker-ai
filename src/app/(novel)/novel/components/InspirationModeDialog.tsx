@@ -34,6 +34,7 @@ import {
   GeneratingView,
   ResultView,
 } from "./inspiration";
+import { novelTheme } from "../theme";
 
 // 算力消耗估算（可从后端配置获取）
 const ESTIMATED_CREDITS = 50;
@@ -412,7 +413,7 @@ export function InspirationModeDialog({
                 </Button>
               )}
             </div>
-            <Button onClick={handleNext} disabled={isLoading} className="bg-purple-600 hover:bg-purple-700 text-white">
+            <Button onClick={handleNext} disabled={isLoading} className={novelTheme.button.primary}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -440,7 +441,7 @@ export function InspirationModeDialog({
             <Button variant="outline" onClick={handleRestart}>
               重新开始
             </Button>
-            <Button onClick={handleRetryGenerate} className="bg-purple-600 hover:bg-purple-700 text-white">
+            <Button onClick={handleRetryGenerate} className={novelTheme.button.primary}>
               <RefreshCw className="mr-2 h-4 w-4" />
               重试生成
             </Button>
@@ -452,7 +453,7 @@ export function InspirationModeDialog({
             <Button variant="outline" onClick={handleRestart}>
               重新开始
             </Button>
-            <Button onClick={handleCreateProject} disabled={isLoading} className="bg-purple-600 hover:bg-purple-700 text-white">
+            <Button onClick={handleCreateProject} disabled={isLoading} className={novelTheme.button.primary}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

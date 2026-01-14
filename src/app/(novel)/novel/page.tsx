@@ -21,6 +21,7 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 import { CreateProjectDialog } from "./components/CreateProjectDialog";
 import { InspirationModeDialog } from "./components/InspirationModeDialog";
 import { cn } from "@/lib/utils";
+import { novelTheme } from "./theme";
 
 interface NovelProject {
   id: string;
@@ -179,7 +180,7 @@ export default function NovelDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-900/40 via-zinc-900 to-black">
+    <div className={novelTheme.layout.background}>
       {/* 用户登录状态检查 */}
       {userLoading && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
@@ -197,8 +198,8 @@ export default function NovelDashboard() {
       {user && (
         <>
           {/* 装饰性光晕 */}
-          <div className="fixed top-20 left-1/4 w-96 h-96 bg-purple-500/30 blur-[100px] rounded-full pointer-events-none mix-blend-screen" />
-          <div className="fixed bottom-20 right-1/4 w-96 h-96 bg-fuchsia-500/20 blur-[100px] rounded-full pointer-events-none mix-blend-screen" />
+          <div className={novelTheme.layout.glowPrimary} />
+          <div className={novelTheme.layout.glowSecondary} />
 
           <div
             ref={containerRef}
@@ -233,7 +234,7 @@ export default function NovelDashboard() {
                   onClick={() => setInspirationDialogOpen(true)}
                   size="lg"
                   variant="outline"
-                  className="border-purple-500/30 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 hover:border-purple-500/50"
+                  className={novelTheme.button.outline}
                 >
                   <Sparkles className="mr-2 h-4 w-4" />
                   灵感模式
@@ -241,7 +242,7 @@ export default function NovelDashboard() {
                 <Button
                   onClick={() => setCreateDialogOpen(true)}
                   size="lg"
-                  className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20"
+                  className={novelTheme.button.primary}
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   新建项目
@@ -253,7 +254,7 @@ export default function NovelDashboard() {
             {loading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10">
                 {[1, 2, 3].map((i) => (
-                  <GlassCard key={i} className="h-[320px] animate-pulse bg-zinc-900/50 border-zinc-800">
+                  <GlassCard key={i} className={cn(novelTheme.card.skeleton, "h-[320px]")}>
                     <div className="h-48 bg-zinc-800/50 w-full mb-4" />
                     <div className="p-4 space-y-3">
                       <div className="h-6 bg-zinc-800 rounded w-3/4" />
@@ -263,17 +264,17 @@ export default function NovelDashboard() {
                 ))}
               </div>
             ) : projects.length === 0 ? (
-              <GlassCard className="text-center py-20 relative z-10 flex flex-col items-center">
-                <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center mb-6 ring-1 ring-white/10 shadow-xl">
-                  <BookOpen className="h-10 w-10 text-zinc-600" />
+              <GlassCard className={novelTheme.empty.container}>
+                <div className={novelTheme.empty.iconWrapper}>
+                  <BookOpen className={novelTheme.empty.icon} />
                 </div>
-                <h3 className="text-xl font-semibold text-white mb-2">还没有项目</h3>
-                <p className="text-zinc-300 mb-8 max-w-sm">
+                <h3 className={novelTheme.empty.title}>还没有项目</h3>
+                <p className={novelTheme.empty.description}>
                   创建你的第一个小说项目，开始创作之旅
                 </p>
                 <Button
                   onClick={() => setCreateDialogOpen(true)}
-                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                  className={novelTheme.button.primary}
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   新建项目
@@ -284,7 +285,11 @@ export default function NovelDashboard() {
                 {projects.map((project) => (
                   <GlassCard
                     key={project.id}
-                    className="group p-0 overflow-hidden cursor-pointer hover:shadow-2xl hover:shadow-purple-500/20 transition-all duration-500 border-purple-500/10 bg-zinc-900/60 backdrop-blur-xl"
+                    className={cn(
+                      "group p-0 overflow-hidden",
+                      novelTheme.card.highlight,
+                      novelTheme.interaction.cardHover
+                    )}
                     onClick={() => handleProjectClick(project.id)}
                   >
                     {/* Cover Area */}
@@ -294,7 +299,7 @@ export default function NovelDashboard() {
                         <img
                           src={project.cover_image}
                           alt={project.title}
-                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                          className={cn("w-full h-full object-cover", novelTheme.interaction.imageScale)}
                         />
                       ) : (
                         <div className="flex flex-col items-center justify-center h-full text-zinc-700 bg-zinc-900/50">
@@ -340,7 +345,7 @@ export default function NovelDashboard() {
                     {/* Content */}
                     <div className="p-5">
                       <div className="flex items-start justify-between mb-3">
-                        <h3 className="text-lg font-bold text-white line-clamp-1 group-hover:text-purple-400 transition-colors">
+                        <h3 className={novelTheme.text.cardTitle}>
                           {project.title}
                         </h3>
                         {getStatusBadge(project.status)}

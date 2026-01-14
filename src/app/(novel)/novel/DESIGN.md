@@ -6,23 +6,36 @@
 - **Soft UI Evolution**: 现代企业应用风格，改进的对比度，微妙的深度感
 - **Swiss Modernism 2.0**: 网格系统，数学化间距，清晰的视觉层次
 
-### 配色方案 (SaaS Trust Blue)
+### 配色方案 (Purple Elegance)
 
 ```css
-/* 主色调 */
-Primary: #2563EB (蓝色 - 信任感、专业)
-Secondary: #3B82F6 (浅蓝)
-CTA: #F97316 (橙色 - 行动号召)
+/* 主色调 - 紫色系 */
+Primary: #9333EA (purple-600 - 优雅、创意)
+Secondary: #A855F7 (purple-500 - 亮紫)
+Accent: #C084FC (purple-400 - 行动号召)
 
 /* 背景与文本 */
-Background: #F8FAFC (浅灰蓝)
-Text: #1E293B (深灰)
-Border: #E2E8F0 (浅灰边框)
+Background: radial-gradient from-purple-900/40 via-zinc-900 to-black (深色渐变)
+Card: #18181B/40 (zinc-900/40 - 半透明卡片)
+Border: #9333EA/10 (purple-500/10 - 紫色边框)
+Text Primary: #C4B5FD (purple-300 - 主要文本)
+Text Secondary: #D8B4FE (purple-200 - 次要文本)
+Text Muted: #A1A1AA (zinc-400 - 弱化文本)
 
 /* 状态配色 */
-Draft: Slate-600 (灰色 - 草稿)
-Writing: Blue-700 (蓝色 - 创作中)
-Completed: Emerald-700 (绿色 - 已完成)
+Draft: Zinc-800 (灰色 - 草稿)
+Writing: Purple-600 (紫色 - 创作中)
+Completed: Green-600 (绿色 - 已完成)
+Key Chapter: Yellow-500/50 (黄色 - 关键章节标识)
+
+/* 交互状态 */
+Hover Border: #9333EA/30 (purple-500/30)
+Focus Ring: #9333EA/50 (purple-500/50)
+Shadow: #9333EA/20 (purple-500/20 - 阴影效果)
+
+/* 装饰性光晕 */
+Glow Primary: #A855F7/30 (purple-500/30)
+Glow Secondary: #D946EF/20 (fuchsia-500/20)
 ```
 
 ### 字体系统
@@ -40,8 +53,8 @@ className="font-body"     /* 正文 */
 ## 视觉层次
 
 ### 1. 页头区域 (Sticky Header)
-- **背景**: 白色半透明 + 毛玻璃效果 (`bg-white/80 backdrop-blur-sm`)
-- **装饰**: 左侧蓝色渐变竖条 (`h-10 w-1 bg-gradient-to-b`)
+- **背景**: 深色半透明 + 毛玻璃效果 (`bg-zinc-900/80 backdrop-blur-sm`)
+- **装饰**: 左侧紫色渐变竖条 (`h-10 w-1 bg-gradient-to-b from-purple-600 to-purple-400`)
 - **统计信息**: 实时显示项目/章节/字数统计
 
 ### 2. 操作按钮
@@ -50,10 +63,9 @@ className="font-body"     /* 正文 */
   - Hover: `hover:border-purple-400 hover:bg-purple-50`
   - Icon: Sparkles with scale animation
 
-- **新建项目**: 橙色渐变按钮 (CTA)
-  - Background: `bg-gradient-to-r from-orange-500 to-orange-600`
-  - Hover: `hover:from-orange-600 hover:to-orange-700`
-  - Shadow: `shadow-md hover:shadow-lg`
+- **新建项目**: 紫色渐变按钮 (CTA)
+  - Background: `bg-purple-600 hover:bg-purple-700`
+  - Shadow: `shadow-lg shadow-purple-500/20`
 
 ### 3. 项目卡片
 
@@ -72,12 +84,12 @@ className="font-body"     /* 正文 */
 ```
 
 #### 交互状态
-- **Default**: 白色背景，灰色边框
+- **Default**: 深色背景，紫色半透明边框 (`bg-zinc-900/60 border-purple-500/10`)
 - **Hover**:
-  - 边框变蓝色 (`hover:border-blue-300`)
-  - 阴影增强 (`hover:shadow-xl`)
-  - 顶部蓝色渐变条显示
-  - 标题变蓝色
+  - 边框增强 (`hover:border-purple-500/30`)
+  - 阴影增强 (`hover:shadow-2xl hover:shadow-purple-500/20`)
+  - 顶部紫色渐变条显示
+  - 标题变紫色
   - 统计图标背景加深
 
 #### 微动效
@@ -87,13 +99,13 @@ className="font-body"     /* 正文 */
 
 ### 4. 空状态设计
 - **布局**: 居中垂直布局
-- **图标**: 渐变圆形背景 + BookOpen 图标
+- **图标**: 紫色圆形背景 + BookOpen 图标 (`bg-zinc-900 ring-1 ring-white/10 text-purple-600/50`)
 - **行动引导**: 双按钮（灵感模式 + 新建项目）
-- **边框**: 虚线边框 (`border-2 border-dashed border-slate-300`)
+- **边框**: 深色边框 (`border border-purple-500/10`)
 
 ### 5. 加载骨架屏
-- **风格**: Soft UI 渐变动画
-- **效果**: `bg-gradient-to-r from-slate-200 to-slate-100 animate-pulse`
+- **风格**: 深色主题脉动动画
+- **效果**: `bg-zinc-900/50 border-zinc-800 animate-pulse`
 
 ## 响应式设计
 
@@ -150,8 +162,8 @@ lg:flex-row           /* 大屏: 水平 */
 - [x] 无 emoji 图标，全部使用 Lucide SVG
 - [x] 所有可点击元素添加 `cursor-pointer`
 - [x] Hover 状态不引起布局偏移
-- [x] 光模式文本对比度充足 (slate-900, slate-600)
-- [x] 边框在光模式下可见 (border-slate-200)
+- ✅ 光模式文本对比度充足 (zinc-100, zinc-300 on dark background)
+- ✅ 边框在暗模式下可见 (border-purple-500/10)
 - [x] 平滑过渡 (150-300ms)
 - [x] 一致的 max-width 容器 (max-w-7xl)
 - [x] 语义化 HTML (Card, Header, Content, Footer)
@@ -160,9 +172,10 @@ lg:flex-row           /* 大屏: 水平 */
 ### 设计亮点
 1. **视觉层次清晰**: 通过颜色、大小、间距建立信息层级
 2. **交互反馈丰富**: Hover、Focus、Active 状态完整
-3. **品牌一致性**: 蓝色主色调贯穿全局
+3. **品牌一致性**: 紫色主色调贯穿全局，营造优雅创意氛围
 4. **信息密度合理**: 统计信息直观展示，避免信息过载
 5. **愉悦的微动效**: 图标缩放、阴影变化、颜色过渡
+6. **玻璃态设计**: backdrop-blur 效果营造层次感和现代感
 
 ## 技术栈
 
