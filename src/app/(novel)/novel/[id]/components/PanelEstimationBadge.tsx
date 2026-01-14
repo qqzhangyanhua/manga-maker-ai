@@ -89,18 +89,18 @@ function CompactMode({ estimation }: { estimation: PanelEstimation }) {
  */
 function DetailedMode({ estimation }: { estimation: PanelEstimation }) {
   return (
-    <div className="space-y-3 p-4 border rounded-lg bg-gray-50/50">
+    <div className="space-y-3 p-4 border rounded-lg bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
       {/* 标题 */}
       <div className="flex items-center gap-2 font-medium">
-        <Film className="h-5 w-5 text-blue-600" />
+        <Film className="h-5 w-5 text-purple-500" />
         <span>镜头数量预估</span>
       </div>
 
       {/* 核心数据 */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1">
-          <div className="text-sm text-gray-600">预估镜头数</div>
-          <div className="text-2xl font-bold text-blue-600">
+          <div className="text-sm text-muted-foreground">预估镜头数</div>
+          <div className="text-2xl font-bold text-purple-500">
             {estimation.estimatedCount}
           </div>
           <div className="text-xs text-gray-500">

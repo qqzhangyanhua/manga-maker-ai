@@ -165,12 +165,12 @@ function CharacterRelationshipGraphInner({
         eds.map((edge) =>
           edge.id === selectedEdge.id
             ? {
-                ...edge,
-                data: {
-                  ...edge.data,
-                  ...updatedData,
-                },
-              }
+              ...edge,
+              data: {
+                ...edge.data,
+                ...updatedData,
+              },
+            }
             : edge
         )
       );
@@ -279,9 +279,9 @@ function CharacterRelationshipGraphInner({
   // 无角色时的空状态
   if (characters.length === 0) {
     return (
-      <div className="h-[600px] flex items-center justify-center border rounded-lg bg-muted/20">
-        <div className="text-center text-muted-foreground">
-          <Network className="w-16 h-16 mx-auto mb-4 opacity-50" />
+      <div className="h-[600px] flex items-center justify-center border border-purple-500/10 rounded-lg bg-zinc-900/40 backdrop-blur-sm">
+        <div className="text-center text-zinc-400">
+          <Network className="w-16 h-16 mx-auto mb-4 opacity-50 text-purple-500" />
           <p className="text-lg font-semibold mb-2">暂无角色</p>
           <p className="text-sm">请先在"角色"标签页添加角色</p>
         </div>
@@ -296,7 +296,7 @@ function CharacterRelationshipGraphInner({
   const hasRelationships = edges.length > 0;
 
   return (
-    <div className="h-[600px] border rounded-lg bg-background relative">
+    <div className="h-[600px] border border-purple-500/10 rounded-lg bg-zinc-900/40 backdrop-blur-sm relative">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -348,7 +348,7 @@ function CharacterRelationshipGraphInner({
         </Panel>
 
         {/* 底部统计信息 */}
-        <Panel position="bottom-right" className="bg-background/95 backdrop-blur border rounded-lg shadow-lg p-3">
+        <Panel position="bottom-right" className="bg-zinc-900/80 backdrop-blur-md border border-purple-500/20 rounded-lg shadow-lg shadow-purple-500/10 p-3">
           <div className="flex gap-4 text-xs text-muted-foreground">
             <div className="flex items-center gap-1">
               <div className="w-2 h-2 rounded-full bg-primary" />
@@ -364,8 +364,8 @@ function CharacterRelationshipGraphInner({
         {/* 编辑提示 */}
         {!readonly && !hasRelationships && (
           <Panel position="top-center">
-            <div className="bg-blue-500/10 border border-blue-500/50 rounded-lg px-4 py-2">
-              <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-400">
+            <div className="bg-purple-500/10 border border-purple-500/50 rounded-lg px-4 py-2">
+              <div className="flex items-center gap-2 text-sm text-purple-700 dark:text-purple-300">
                 <Info className="w-4 h-4" />
                 <span>拖拽一个角色到另一个角色可创建关系,双击关系连线可编辑</span>
               </div>

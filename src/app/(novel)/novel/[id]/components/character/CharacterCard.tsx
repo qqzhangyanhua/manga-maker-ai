@@ -19,7 +19,7 @@ interface CharacterCardProps {
 
 export function CharacterCard({ character, onEdit, onDelete }: CharacterCardProps) {
   return (
-    <Card className="hover:shadow-lg transition-shadow">
+    <Card className="hover:shadow-lg transition-shadow bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex items-center gap-3">
           <Avatar>

@@ -121,15 +121,15 @@ export function BatchImportDialog({
 
       const data = await response.json()
       toast.success(`成功导入 ${data.chapters_created} 个章节！`)
-      
+
       // 重置状态
       setText("")
       setPreviewChapters([])
       setShowPreview(false)
-      
+
       // 关闭对话框
       onOpenChange(false)
-      
+
       // 触发成功回调
       onSuccess?.()
     } catch (error) {
@@ -150,7 +150,7 @@ export function BatchImportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
+      <DialogContent className="sm:max-w-[700px] max-h-[80vh] bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Upload className="w-5 h-5" />
@@ -190,7 +190,7 @@ export function BatchImportDialog({
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   placeholder="粘贴文本内容，支持以下格式：&#10;&#10;第一章 标题&#10;内容...&#10;&#10;第二章 标题&#10;内容..."
-                  className="min-h-[200px] font-mono text-sm"
+                  className="min-h-[200px] font-mono text-sm bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
                   disabled={importing || previewing}
                 />
                 <p className="text-xs text-muted-foreground">
@@ -227,7 +227,7 @@ export function BatchImportDialog({
                     value={startNumber}
                     onChange={(e) => setStartNumber(parseInt(e.target.value) || 1)}
                     disabled={importing || previewing}
-                    className="w-32"
+                    className="w-32 bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
                   />
                 </div>
               </div>
@@ -252,7 +252,7 @@ export function BatchImportDialog({
                   {previewChapters.map((chapter, index) => (
                     <div
                       key={`preview-chapter-${index}`}
-                      className="rounded-lg border p-3 space-y-2"
+                      className="rounded-lg border border-purple-500/10 bg-zinc-900/40 p-3 space-y-2"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -278,7 +278,7 @@ export function BatchImportDialog({
 
           {/* 提示信息 */}
           {showPreview && previewChapters.length === 0 && (
-            <div className="flex items-center gap-2 p-4 rounded-lg bg-yellow-50 text-yellow-800">
+            <div className="flex items-center gap-2 p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-500">
               <AlertCircle className="w-5 h-5" />
               <p className="text-sm">
                 未能识别到章节，请检查文本格式或关闭"自动识别章节"选项

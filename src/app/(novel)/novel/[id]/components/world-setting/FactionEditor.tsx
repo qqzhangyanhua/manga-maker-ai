@@ -38,7 +38,7 @@ export function FactionEditor({ factions, onChange }: FactionEditorProps) {
         添加派系
       </Button>
       {factions.map((faction, index) => (
-        <Card key={faction.id || `faction-${index}`}>
+        <Card key={faction.id || `faction-${index}`} className="bg-zinc-900/40 border-purple-500/10">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               派系 {index + 1}
@@ -59,6 +59,7 @@ export function FactionEditor({ factions, onChange }: FactionEditorProps) {
                   value={faction.name}
                   onChange={(e) => updateFaction(index, "name", e.target.value)}
                   placeholder="例如：天剑宗"
+                  className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
                 />
               </div>
               <div>
@@ -77,6 +78,7 @@ export function FactionEditor({ factions, onChange }: FactionEditorProps) {
                 onChange={(e) => updateFaction(index, "description", e.target.value)}
                 placeholder="描述派系的理念、势力范围、历史..."
                 rows={3}
+                className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
               />
             </div>
             <div>

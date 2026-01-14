@@ -29,7 +29,7 @@ export function ChapterList({
     return (
       <div className="p-4 space-y-2">
         {[1, 2, 3].map((i) => (
-          <div key={`skeleton-${i}`} className="h-16 bg-gray-100 rounded animate-pulse" />
+          <div key={`skeleton-${i}`} className="h-16 bg-zinc-800/50 rounded animate-pulse" />
         ))}
       </div>
     );
@@ -58,8 +58,8 @@ export function ChapterList({
                 "w-full text-left p-3 rounded-lg transition-all",
                 "border-2",
                 selectedChapter?.chapterNumber === chapter.chapterNumber
-                  ? "bg-primary/10 border-primary shadow-sm"
-                  : "bg-background border-transparent hover:border-muted-foreground/20 hover:bg-accent/50"
+                  ? "bg-purple-500/20 border-purple-500 shadow-sm shadow-purple-500/10"
+                  : "bg-zinc-900/40 border-purple-500/10 hover:border-purple-500/30 hover:bg-purple-500/5"
               )}
             >
               <div className="flex items-start justify-between mb-1">
@@ -68,7 +68,7 @@ export function ChapterList({
                 </span>
                 <Badge
                   variant={selectedChapter?.chapterNumber === chapter.chapterNumber ? "default" : "outline"}
-                  className="text-xs ml-2"
+                  className={cn("text-xs ml-2", selectedChapter?.chapterNumber === chapter.chapterNumber ? "bg-purple-600 hover:bg-purple-700" : "text-muted-foreground")}
                 >
                   {chapter.chapterNumber}
                 </Badge>

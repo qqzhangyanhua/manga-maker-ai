@@ -64,10 +64,10 @@ function ensureOutlineFields(outline: ChapterOutline): ChapterOutline {
     title: outline.title ?? "",
     outline: outline.outline ?? "",
     keyEvents: Array.isArray(outline.keyEvents) ? outline.keyEvents :
-               Array.isArray((outline as unknown as { key_events?: string[] }).key_events) ? (outline as unknown as { key_events: string[] }).key_events : [],
+      Array.isArray((outline as unknown as { key_events?: string[] }).key_events) ? (outline as unknown as { key_events: string[] }).key_events : [],
     characters: Array.isArray(outline.characters) ? outline.characters : [],
     plotLines: Array.isArray(outline.plotLines) ? outline.plotLines :
-               Array.isArray((outline as unknown as { plot_lines?: string[] }).plot_lines) ? (outline as unknown as { plot_lines: string[] }).plot_lines : [],
+      Array.isArray((outline as unknown as { plot_lines?: string[] }).plot_lines) ? (outline as unknown as { plot_lines: string[] }).plot_lines : [],
     isKeyChapter: outline.isKeyChapter ?? (outline as unknown as { is_key_chapter?: boolean }).is_key_chapter ?? false,
   };
 }
@@ -210,6 +210,7 @@ export function OutlineEditor({
                 <Button
                   disabled={isGenerating}
                   variant="outline"
+                  className="border-purple-500/30 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 hover:border-purple-500/50"
                 >
                   <Sparkles className="mr-2 h-4 w-4" />
                   {isGenerating ? "AI 生成中..." : "AI 生成大纲"}
@@ -241,11 +242,11 @@ export function OutlineEditor({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          <Button onClick={addChapter} variant="outline">
+          <Button onClick={addChapter} variant="outline" className="border-purple-500/30 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 hover:border-purple-500/50">
             <Plus className="mr-2 h-4 w-4" />
             添加章节
           </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
+          <Button onClick={handleSave} disabled={isSaving} className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20">
             <Save className="mr-2 h-4 w-4" />
             {isSaving ? "保存中..." : "保存"}
           </Button>
@@ -257,7 +258,7 @@ export function OutlineEditor({
         {outlines.map((outline, index) => (
           <Card
             key={outline._tempId || `outline-${outline.chapterNumber}-${index}`}
-            className={outline.isKeyChapter ? "border-yellow-500 border-2" : ""}
+            className={`${outline.isKeyChapter ? "border-yellow-500/50 bg-yellow-900/10" : "border-purple-500/10 bg-zinc-900/40"} backdrop-blur-sm`}
           >
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -283,13 +284,13 @@ export function OutlineEditor({
                     </Button>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge>{outline.chapterNumber}</Badge>
+                    <Badge variant="outline" className="bg-purple-500/10 text-purple-300 border-purple-500/20">{outline.chapterNumber}</Badge>
                     <Input
                       value={outline.title}
                       onChange={(e) =>
                         updateChapter(index, "title", e.target.value)
                       }
-                      className="font-semibold"
+                      className="font-semibold bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
                       placeholder="章节标题"
                     />
                   </div>
@@ -329,7 +330,7 @@ export function OutlineEditor({
                   }
                   placeholder="描述本章的主要内容、情节发展..."
                   rows={3}
-                  className="mt-1"
+                  className="mt-1 bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
                 />
               </div>
 
@@ -348,7 +349,8 @@ export function OutlineEditor({
                     )
                   }
                   placeholder="例如：主角觉醒, 反派登场, 重要对话"
-                  className="mt-1"
+
+                  className="mt-1 bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
                 />
               </div>
 
@@ -367,7 +369,7 @@ export function OutlineEditor({
                     )
                   }
                   placeholder="例如：李寻欢, 林诗音, 龙啸云"
-                  className="mt-1"
+                  className="mt-1 bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
                 />
               </div>
 
@@ -386,7 +388,7 @@ export function OutlineEditor({
                     )
                   }
                   placeholder="例如：寻找真相, 复仇计划, 感情纠葛"
-                  className="mt-1"
+                  className="mt-1 bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
                 />
               </div>
 
@@ -426,7 +428,7 @@ export function OutlineEditor({
       </div>
 
       {outlines.length === 0 && (
-        <Card className="p-12 text-center">
+        <Card className="p-12 text-center bg-zinc-900/40 backdrop-blur-sm border-purple-500/10">
           <div className="flex flex-col items-center gap-4">
             <BookOpen className="h-12 w-12 text-muted-foreground" />
             <div>

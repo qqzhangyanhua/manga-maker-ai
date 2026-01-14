@@ -38,7 +38,7 @@ export function RuleEditor({ rules, onChange }: RuleEditorProps) {
         添加规则
       </Button>
       {rules.map((rule, index) => (
-        <Card key={rule.id || `rule-${index}`}>
+        <Card key={rule.id || `rule-${index}`} className="bg-zinc-900/40 border-purple-500/10">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               规则 {index + 1}
@@ -59,6 +59,7 @@ export function RuleEditor({ rules, onChange }: RuleEditorProps) {
                   value={rule.title}
                   onChange={(e) => updateRule(index, "title", e.target.value)}
                   placeholder="例如：魔法等级体系"
+                  className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
                 />
               </div>
               <div>
@@ -77,6 +78,7 @@ export function RuleEditor({ rules, onChange }: RuleEditorProps) {
                 onChange={(e) => updateRule(index, "content", e.target.value)}
                 placeholder="详细描述这个规则的运作方式、限制、特例..."
                 rows={4}
+                className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
               />
             </div>
           </CardContent>

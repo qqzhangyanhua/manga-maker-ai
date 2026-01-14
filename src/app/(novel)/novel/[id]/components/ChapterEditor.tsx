@@ -253,7 +253,7 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
   }
 
   return (
-    <Card>
+    <Card className="bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>第 {chapter.chapterNumber} 章</CardTitle>
@@ -263,6 +263,7 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
               size="sm"
               onClick={handleGenerate}
               disabled={generating || !outline.trim()}
+              className="border-purple-500/30 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 hover:border-purple-500/50"
             >
               <Sparkles className="h-4 w-4 mr-2" />
               {generating ? "生成中..." : "AI 生成"}
@@ -272,6 +273,7 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
               size="sm"
               onClick={handleReviseSelection}
               disabled={generating || saving}
+              className="border-purple-500/30 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 hover:border-purple-500/50"
             >
               <Wand2 className="h-4 w-4 mr-2" />
               修订选中
@@ -280,6 +282,7 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
               size="sm"
               onClick={handleSave}
               disabled={saving}
+              className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20"
             >
               <Save className="h-4 w-4 mr-2" />
               保存
@@ -319,7 +322,7 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
             <label className="text-sm font-medium">章节内容</label>
             {editorRef.current && <WordCountDisplay editor={editorRef.current} />}
           </div>
-          <div className="border rounded-md p-4 min-h-[400px]">
+          <div className="border border-purple-500/10 rounded-md p-4 min-h-[400px] bg-zinc-900/40">
             <RichTextEditor
               content={content}
               onChange={setContent}

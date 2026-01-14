@@ -89,7 +89,7 @@ export function SearchDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
+      <DialogContent className="sm:max-w-[700px] max-h-[80vh] bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl">
         <DialogHeader>
           <DialogTitle>搜索章节</DialogTitle>
         </DialogHeader>
@@ -132,7 +132,7 @@ export function SearchDialog({
               results.map((result) => (
                 <div
                   key={result.chapterId}
-                  className="p-3 rounded-lg border hover:bg-accent cursor-pointer transition-colors"
+                  className="p-3 rounded-lg border border-purple-500/10 bg-zinc-900/40 hover:bg-purple-500/10 cursor-pointer transition-colors"
                   onClick={() => {
                     onSelectChapter(result.chapterId)
                     onOpenChange(false)

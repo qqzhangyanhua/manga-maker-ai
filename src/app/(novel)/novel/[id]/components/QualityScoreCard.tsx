@@ -70,9 +70,8 @@ export function QualityScoreCard({ qualityScore, compact = false }: QualityScore
         <CollapsibleTrigger className="flex items-center justify-between w-full text-sm text-zinc-400 hover:text-white transition-colors">
           <span>查看详细评分</span>
           <ChevronDown
-            className={`h-4 w-4 transition-transform ${
-              isExpanded ? "transform rotate-180" : ""
-            }`}
+            className={`h-4 w-4 transition-transform ${isExpanded ? "transform rotate-180" : ""
+              }`}
           />
         </CollapsibleTrigger>
 
@@ -85,7 +84,7 @@ export function QualityScoreCard({ qualityScore, compact = false }: QualityScore
               </div>
               <Progress
                 value={dimension.score}
-                className={`h-2 bg-zinc-800 [&>div]:${getDimensionColor(dimension.score)}`}
+                className={`h-2 bg-zinc-900/50 [&>div]:${getDimensionColor(dimension.score)}`}
               />
               <p className="text-xs text-zinc-500">{dimension.details}</p>
             </div>
@@ -101,7 +100,7 @@ export function QualityScoreCard({ qualityScore, compact = false }: QualityScore
             {qualityScore.suggestions.map((suggestion, index) => (
               <div
                 key={index}
-                className="flex items-start gap-3 p-3 rounded-lg bg-zinc-900/50 border border-zinc-800"
+                className="flex items-start gap-3 p-3 rounded-lg bg-zinc-900/40 border border-purple-500/10 backdrop-blur-sm"
               >
                 <div className="mt-0.5">{getPriorityIcon(suggestion.priority)}</div>
                 <div className="flex-1 space-y-1">

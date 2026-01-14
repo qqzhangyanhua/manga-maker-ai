@@ -78,11 +78,11 @@ export function ProjectHeader({
             variant="outline"
             size="sm"
             onClick={() => setSearchOpen(true)}
-            className="gap-2"
+            className="gap-2 border-purple-500/30 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 hover:border-purple-500/50"
           >
             <Search className="w-4 h-4" />
             搜索
-            <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+            <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-purple-500/30 bg-purple-500/5 px-1.5 font-mono text-[10px] font-medium text-purple-400">
               <span className="text-xs">⌘</span>K
             </kbd>
           </Button>
@@ -92,11 +92,11 @@ export function ProjectHeader({
             variant="outline"
             size="sm"
             onClick={() => setExportOpen(true)}
-            className="gap-2"
+            className="gap-2 border-purple-500/30 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 hover:border-purple-500/50"
           >
             <Download className="w-4 h-4" />
             导出
-            <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+            <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-purple-500/30 bg-purple-500/5 px-1.5 font-mono text-[10px] font-medium text-purple-400">
               <span className="text-xs">⌘</span>E
             </kbd>
           </Button>
@@ -105,7 +105,7 @@ export function ProjectHeader({
           <Button
             size="sm"
             onClick={() => setConvertOpen(true)}
-            className="gap-2"
+            className="gap-2 bg-purple-600 hover:bg-purple-700 text-white"
           >
             <Film className="w-4 h-4" />
             转换为漫画
@@ -136,7 +136,7 @@ export function ProjectHeader({
         projectId={projectId}
         projectTitle={project.title}
         outlines={outlines}
-        characters={Array.isArray(project.characters) ? project.characters as Array<{name: string; role?: string; description?: string}> : []}
+        characters={Array.isArray(project.characters) ? project.characters as Array<{ name: string; role?: string; description?: string }> : []}
       />
     </div>
   );

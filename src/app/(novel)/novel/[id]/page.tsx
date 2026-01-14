@@ -107,7 +107,7 @@ function NovelProjectPageContent() {
   // ✅ 错误状态处理
   if (error) {
     return (
-      <div className="min-h-screen bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-black to-black flex items-center justify-center">
+      <div className="min-h-screen bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-900/40 via-zinc-900 to-black flex items-center justify-center">
         <ErrorState
           error={error}
           title="加载项目失败"
@@ -150,10 +150,10 @@ function NovelProjectPageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-black to-black">
+    <div className="min-h-screen bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-900/40 via-zinc-900 to-black">
       {/* 装饰性光晕 */}
-      <div className="fixed top-20 left-1/4 w-96 h-96 bg-orange-500/5 blur-[120px] rounded-full pointer-events-none" />
-      <div className="fixed bottom-20 right-1/4 w-96 h-96 bg-purple-500/5 blur-[120px] rounded-full pointer-events-none" />
+      <div className="fixed top-20 left-1/4 w-96 h-96 bg-purple-500/30 blur-[100px] rounded-full pointer-events-none mix-blend-screen" />
+      <div className="fixed bottom-20 right-1/4 w-96 h-96 bg-fuchsia-500/20 blur-[100px] rounded-full pointer-events-none mix-blend-screen" />
 
       <div className="container mx-auto py-8 px-4 max-w-7xl space-y-8 relative z-10">
         {/* 项目头部 + 保存指示器 */}
@@ -174,36 +174,36 @@ function NovelProjectPageContent() {
 
         {/* 主内容区 */}
         <Tabs defaultValue="chapters" className="space-y-6">
-          <TabsList className="bg-zinc-900/60 backdrop-blur-md border border-zinc-800 p-1 h-auto rounded-xl">
-            <TabsTrigger value="chapters" className="rounded-lg data-[state=active]:bg-orange-500 data-[state=active]:text-white transition-all py-2 px-4">
+          <TabsList className="bg-zinc-900/40 backdrop-blur-md border border-purple-500/10 p-1 h-auto rounded-xl">
+            <TabsTrigger value="chapters" className="rounded-lg data-[state=active]:bg-purple-600 data-[state=active]:text-white transition-all py-2 px-4">
               <BookOpen className="h-4 w-4 mr-2" />
               章节管理
             </TabsTrigger>
-            <TabsTrigger value="outline" className="rounded-lg data-[state=active]:bg-orange-500 data-[state=active]:text-white transition-all py-2 px-4">
+            <TabsTrigger value="outline" className="rounded-lg data-[state=active]:bg-purple-600 data-[state=active]:text-white transition-all py-2 px-4">
               <FileText className="h-4 w-4 mr-2" />
               故事大纲
             </TabsTrigger>
-            <TabsTrigger value="characters" className="rounded-lg data-[state=active]:bg-orange-500 data-[state=active]:text-white transition-all py-2 px-4">
+            <TabsTrigger value="characters" className="rounded-lg data-[state=active]:bg-purple-600 data-[state=active]:text-white transition-all py-2 px-4">
               <Users className="h-4 w-4 mr-2" />
               角色管理
             </TabsTrigger>
-            <TabsTrigger value="relationship" className="rounded-lg data-[state=active]:bg-orange-500 data-[state=active]:text-white transition-all py-2 px-4">
+            <TabsTrigger value="relationship" className="rounded-lg data-[state=active]:bg-purple-600 data-[state=active]:text-white transition-all py-2 px-4">
               <Network className="h-4 w-4 mr-2" />
               关系图谱
             </TabsTrigger>
-            <TabsTrigger value="world" className="rounded-lg data-[state=active]:bg-orange-500 data-[state=active]:text-white transition-all py-2 px-4">
+            <TabsTrigger value="world" className="rounded-lg data-[state=active]:bg-purple-600 data-[state=active]:text-white transition-all py-2 px-4">
               <Globe className="h-4 w-4 mr-2" />
               世界观
             </TabsTrigger>
-            <TabsTrigger value="progress" className="rounded-lg data-[state=active]:bg-orange-500 data-[state=active]:text-white transition-all py-2 px-4">
+            <TabsTrigger value="progress" className="rounded-lg data-[state=active]:bg-purple-600 data-[state=active]:text-white transition-all py-2 px-4">
               <TrendingUp className="h-4 w-4 mr-2" />
               创作进度
             </TabsTrigger>
-            <TabsTrigger value="versions" className="rounded-lg data-[state=active]:bg-orange-500 data-[state=active]:text-white transition-all py-2 px-4">
+            <TabsTrigger value="versions" className="rounded-lg data-[state=active]:bg-purple-600 data-[state=active]:text-white transition-all py-2 px-4">
               <GitBranch className="h-4 w-4 mr-2" />
               版本管理
             </TabsTrigger>
-            <TabsTrigger value="settings" className="rounded-lg data-[state=active]:bg-orange-500 data-[state=active]:text-white transition-all py-2 px-4">
+            <TabsTrigger value="settings" className="rounded-lg data-[state=active]:bg-purple-600 data-[state=active]:text-white transition-all py-2 px-4">
               <Settings className="h-4 w-4 mr-2" />
               项目设置
             </TabsTrigger>
@@ -222,7 +222,7 @@ function NovelProjectPageContent() {
           </TabsContent>
 
           <TabsContent value="outline" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <GlassCard className="p-6">
+            <GlassCard className="p-6 bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
               <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
                 <OutlineEditor
                   projectId={projectId}
@@ -235,7 +235,7 @@ function NovelProjectPageContent() {
           </TabsContent>
 
           <TabsContent value="characters" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <GlassCard className="p-6">
+            <GlassCard className="p-6 bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
               <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
                 <CharacterManager
                   projectId={projectId}
@@ -248,7 +248,7 @@ function NovelProjectPageContent() {
           </TabsContent>
 
           <TabsContent value="relationship" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <GlassCard className="p-6">
+            <GlassCard className="p-6 bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
               <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
                 <CharacterRelationshipGraph
                   characters={characters}
@@ -261,7 +261,7 @@ function NovelProjectPageContent() {
           </TabsContent>
 
           <TabsContent value="world" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <GlassCard className="p-6">
+            <GlassCard className="p-6 bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
               <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
                 <WorldSettingEditor
                   projectId={projectId}
@@ -274,7 +274,7 @@ function NovelProjectPageContent() {
           </TabsContent>
 
           <TabsContent value="progress" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <GlassCard className="p-6">
+            <GlassCard className="p-6 bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
               <ProgressDashboard
                 outlines={outlines}
                 characters={characters}
@@ -285,7 +285,7 @@ function NovelProjectPageContent() {
           </TabsContent>
 
           <TabsContent value="versions" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <GlassCard className="p-6">
+            <GlassCard className="p-6 bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
               <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
                 <ChapterVersionManager
                   projectId={projectId}
@@ -296,7 +296,7 @@ function NovelProjectPageContent() {
           </TabsContent>
 
           <TabsContent value="settings" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <GlassCard className="p-6">
+            <GlassCard className="p-6 bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
               <ProjectSettings
                 project={project}
                 onUpdate={(updatedProject) => {

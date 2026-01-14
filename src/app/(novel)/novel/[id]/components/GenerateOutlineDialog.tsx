@@ -76,7 +76,7 @@ export function GenerateOutlineDialog({
 
       if (response.ok) {
         const data = await response.json();
-        
+
         // 转换字段名（从 snake_case 到 camelCase）
         const normalizedChapters = data.chapters.map((chapter: {
           chapter_number: number;
@@ -95,7 +95,7 @@ export function GenerateOutlineDialog({
           plotLines: chapter.plot_lines,
           isKeyChapter: chapter.is_key_chapter,
         }));
-        
+
         onGenerated(normalizedChapters);
         toast.success(`成功生成 ${normalizedChapters.length} 章大纲`);
         onClose();
@@ -113,7 +113,7 @@ export function GenerateOutlineDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-purple-500" />
@@ -135,6 +135,7 @@ export function GenerateOutlineDialog({
               value={chapterCount}
               onChange={(e) => setChapterCount(Number(e.target.value))}
               placeholder="期望生成的章节数"
+              className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
             />
             <p className="text-xs text-muted-foreground">
               建议 10-30 章，最多 100 章
@@ -161,7 +162,7 @@ export function GenerateOutlineDialog({
             </Select>
           </div>
 
-          <div className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
+          <div className="rounded-lg bg-purple-900/20 border border-purple-500/10 p-3 text-sm text-purple-200">
             <p className="font-medium mb-1">💡 提示</p>
             <ul className="space-y-1 text-xs">
               <li>• AI 会参考项目描述、世界观和角色设定</li>

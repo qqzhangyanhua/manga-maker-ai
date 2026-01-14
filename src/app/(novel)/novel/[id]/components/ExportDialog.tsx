@@ -142,7 +142,7 @@ export function ExportDialog({
       window.URL.revokeObjectURL(url)
 
       toast.success(`导出成功！文件已下载：${projectTitle}.${format}`)
-      
+
       // 延迟关闭对话框
       setTimeout(() => {
         onOpenChange(false)
@@ -167,7 +167,7 @@ export function ExportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Download className="w-5 h-5" />
@@ -219,7 +219,7 @@ export function ExportDialog({
           {/* 配置选项 */}
           <div className="space-y-4">
             <Label>导出选项</Label>
-            
+
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="metadata"

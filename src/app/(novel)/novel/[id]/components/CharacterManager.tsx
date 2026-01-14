@@ -121,15 +121,16 @@ export function CharacterManager({
             variant="outline"
             disabled={outlines.length === 0}
             title={outlines.length === 0 ? "请先创建章节大纲" : ""}
+            className="border-purple-500/30 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 hover:border-purple-500/50"
           >
             <Sparkles className="mr-2 h-4 w-4" />
             AI 生成角色
           </Button>
-          <Button onClick={() => openEditDialog(null)} variant="outline">
+          <Button onClick={() => openEditDialog(null)} variant="outline" className="border-purple-500/30 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 hover:border-purple-500/50">
             <Plus className="mr-2 h-4 w-4" />
             添加角色
           </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
+          <Button onClick={handleSave} disabled={isSaving} className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20">
             <Save className="mr-2 h-4 w-4" />
             {isSaving ? "保存中..." : "保存"}
           </Button>
@@ -138,14 +139,14 @@ export function CharacterManager({
 
       {/* 角色卡片网格或空状态 */}
       {characters.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed border-gray-300 rounded-lg">
+        <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed border-zinc-800 rounded-lg bg-zinc-900/20">
           <div className="text-center space-y-4">
-            <div className="text-gray-400 text-6xl">👥</div>
+            <div className="text-zinc-600 text-6xl">👥</div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-700 mb-2">
+              <h3 className="text-lg font-semibold text-zinc-300 mb-2">
                 暂无角色
               </h3>
-              <p className="text-sm text-gray-500 mb-4">
+              <p className="text-sm text-zinc-500 mb-4">
                 {outlines.length === 0
                   ? "请先创建章节大纲，然后使用 AI 生成角色"
                   : "点击上方按钮添加角色或使用 AI 生成角色"}
@@ -155,13 +156,13 @@ export function CharacterManager({
               {outlines.length > 0 && (
                 <Button
                   onClick={() => setIsGenerateDialogOpen(true)}
-                  variant="default"
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
                 >
                   <Sparkles className="mr-2 h-4 w-4" />
                   AI 生成角色
                 </Button>
               )}
-              <Button onClick={() => openEditDialog(null)} variant="outline">
+              <Button onClick={() => openEditDialog(null)} variant="outline" className="border-purple-500/30 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 hover:border-purple-500/50">
                 <Plus className="mr-2 h-4 w-4" />
                 手动添加
               </Button>

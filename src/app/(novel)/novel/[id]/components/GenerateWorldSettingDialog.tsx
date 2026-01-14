@@ -172,14 +172,14 @@ export function GenerateWorldSettingDialog({
 
   const selectedCount = suggestedWorldSetting
     ? suggestedWorldSetting.locations.filter((loc) => loc.selected).length +
-      suggestedWorldSetting.factions.filter((faction) => faction.selected).length +
-      suggestedWorldSetting.rules.filter((rule) => rule.selected).length +
-      suggestedWorldSetting.timeline.filter((event) => event.selected).length
+    suggestedWorldSetting.factions.filter((faction) => faction.selected).length +
+    suggestedWorldSetting.rules.filter((rule) => rule.selected).length +
+    suggestedWorldSetting.timeline.filter((event) => event.selected).length
     : 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-3xl max-h-[80vh]">
+      <DialogContent className="max-w-3xl max-h-[80vh] bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl">
         <DialogHeader>
           <DialogTitle>AI 智能生成世界观设定</DialogTitle>
           <DialogDescription>
@@ -220,7 +220,7 @@ export function GenerateWorldSettingDialog({
                     </div>
                     <div className="space-y-2">
                       {suggestedWorldSetting.locations.map((location, index) => (
-                        <Card key={`location-${location.name}-${index}`}>
+                        <Card key={`location-${location.name}-${index}`} className="bg-zinc-900/40 border-purple-500/10">
                           <CardContent className="pt-4">
                             <div className="flex items-start gap-3">
                               <Checkbox
@@ -253,7 +253,7 @@ export function GenerateWorldSettingDialog({
                     </div>
                     <div className="space-y-2">
                       {suggestedWorldSetting.factions.map((faction, index) => (
-                        <Card key={`faction-${faction.name}-${index}`}>
+                        <Card key={`faction-${faction.name}-${index}`} className="bg-zinc-900/40 border-purple-500/10">
                           <CardContent className="pt-4">
                             <div className="flex items-start gap-3">
                               <Checkbox
@@ -298,7 +298,7 @@ export function GenerateWorldSettingDialog({
                     </div>
                     <div className="space-y-2">
                       {suggestedWorldSetting.rules.map((rule, index) => (
-                        <Card key={`rule-${rule.title}-${index}`}>
+                        <Card key={`rule-${rule.title}-${index}`} className="bg-zinc-900/40 border-purple-500/10">
                           <CardContent className="pt-4">
                             <div className="flex items-start gap-3">
                               <Checkbox
@@ -331,7 +331,7 @@ export function GenerateWorldSettingDialog({
                     </div>
                     <div className="space-y-2">
                       {suggestedWorldSetting.timeline.map((event, index) => (
-                        <Card key={`timeline-${event.date}-${index}`}>
+                        <Card key={`timeline-${event.date}-${index}`} className="bg-zinc-900/40 border-purple-500/10">
                           <CardContent className="pt-4">
                             <div className="flex items-start gap-3">
                               <Checkbox
@@ -346,15 +346,15 @@ export function GenerateWorldSettingDialog({
                                       event.importance === "high"
                                         ? "default"
                                         : event.importance === "medium"
-                                        ? "secondary"
-                                        : "outline"
+                                          ? "secondary"
+                                          : "outline"
                                     }
                                   >
                                     {event.importance === "high"
                                       ? "重要"
                                       : event.importance === "medium"
-                                      ? "一般"
-                                      : "次要"}
+                                        ? "一般"
+                                        : "次要"}
                                   </Badge>
                                 </div>
                                 <p className="text-sm text-muted-foreground mt-1">

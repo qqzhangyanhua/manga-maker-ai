@@ -50,7 +50,7 @@ export function TimelineEditor({ timeline, onChange }: TimelineEditorProps) {
             (e) => e.date === event.date && e.event === event.event
           );
           return (
-            <Card key={event.id || `timeline-${event.date}-${sortedIndex}`}>
+            <Card key={event.id || `timeline-${event.date}-${sortedIndex}`} className="bg-zinc-900/40 border-purple-500/10">
               <CardContent className="flex items-center gap-4 p-4">
                 <div className="flex-1 grid grid-cols-3 gap-4">
                   <Input
@@ -59,6 +59,7 @@ export function TimelineEditor({ timeline, onChange }: TimelineEditorProps) {
                       updateTimelineEvent(originalIndex, "date", e.target.value)
                     }
                     placeholder="年份/时期"
+                    className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
                   />
                   <Input
                     value={event.event}
@@ -66,7 +67,7 @@ export function TimelineEditor({ timeline, onChange }: TimelineEditorProps) {
                       updateTimelineEvent(originalIndex, "event", e.target.value)
                     }
                     placeholder="事件描述"
-                    className="col-span-2"
+                    className="col-span-2 bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
                   />
                 </div>
                 <select

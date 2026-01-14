@@ -94,7 +94,7 @@ export function VersionDiff({ version1, version2 }: VersionDiffProps) {
 
   if (!diffResult) {
     return (
-      <GlassCard className="p-6">
+      <GlassCard className="p-6 bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
         <div className="text-center text-zinc-400">
           <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
           <p>无法计算版本差异</p>
@@ -144,7 +144,7 @@ export function VersionDiff({ version1, version2 }: VersionDiffProps) {
               onClick={() => setDiffViewType("unified")}
               className={
                 diffViewType === "unified"
-                  ? "h-8 px-3 bg-blue-600 hover:bg-blue-700"
+                  ? "h-8 px-3 bg-purple-600 hover:bg-purple-700"
                   : "h-8 px-3 border-zinc-800 hover:bg-zinc-800/50"
               }
             >
@@ -157,7 +157,7 @@ export function VersionDiff({ version1, version2 }: VersionDiffProps) {
               onClick={() => setDiffViewType("split")}
               className={
                 diffViewType === "split"
-                  ? "h-8 px-3 bg-blue-600 hover:bg-blue-700"
+                  ? "h-8 px-3 bg-purple-600 hover:bg-purple-700"
                   : "h-8 px-3 border-zinc-800 hover:bg-zinc-800/50"
               }
             >
@@ -169,8 +169,8 @@ export function VersionDiff({ version1, version2 }: VersionDiffProps) {
       </div>
 
       {/* Diff 视图 */}
-      <GlassCard className="p-0 overflow-hidden">
-        <div className="diff-container bg-zinc-950/50">
+      <GlassCard className="p-0 overflow-hidden bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
+        <div className="diff-container bg-black/20">
           <Diff
             viewType={diffViewType}
             diffType={diffResult.type}

@@ -225,7 +225,7 @@ export function ConvertToComicDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Film className="h-5 w-5" />
@@ -279,7 +279,7 @@ export function ConvertToComicDialog({
                               第{chapter.chapterNumber}章：{chapter.title}
                             </span>
                             {chapterSelected.size > 0 && (
-                              <Badge variant="secondary" className="ml-2">
+                              <Badge variant="outline" className="ml-2 bg-purple-500/10 text-purple-300 border-purple-500/20">
                                 {chapterSelected.size} 个场景
                               </Badge>
                             )}
@@ -308,7 +308,7 @@ export function ConvertToComicDialog({
                                 {chapter.keyEvents.map((event, idx) => (
                                   <label
                                     key={`event-${chapter.chapterNumber}-${idx}`}
-                                    className="flex items-start gap-3 p-2 rounded-md hover:bg-muted cursor-pointer"
+                                    className="flex items-start gap-3 p-2 rounded-md hover:bg-purple-500/10 cursor-pointer transition-colors"
                                   >
                                     <Checkbox
                                       checked={chapterSelected.has(idx)}
@@ -364,7 +364,7 @@ export function ConvertToComicDialog({
                   {characters.map((char) => (
                     <label
                       key={`char-${char.name}`}
-                      className="flex items-start gap-3 p-3 rounded-md hover:bg-muted cursor-pointer border"
+                      className="flex items-start gap-3 p-3 rounded-md hover:bg-purple-500/10 cursor-pointer border border-purple-500/10 bg-zinc-900/40 transition-colors"
                     >
                       <Checkbox
                         checked={selectedCharacters.has(char.name)}

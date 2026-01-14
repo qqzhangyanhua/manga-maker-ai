@@ -84,7 +84,7 @@ export function VersionFilter({
             placeholder="搜索版本号或备注..."
             value={filters.searchQuery}
             onChange={(e) => updateFilter({ searchQuery: e.target.value })}
-            className="pl-10 bg-zinc-900/50 border-zinc-800"
+            className="pl-10 bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
           />
         </div>
 
@@ -95,7 +95,7 @@ export function VersionFilter({
             updateFilter({ sortBy: value as VersionFilterOptions["sortBy"] })
           }
         >
-          <SelectTrigger className="w-[180px] bg-zinc-900/50 border-zinc-800">
+          <SelectTrigger className="w-[180px] bg-zinc-900/40 border-purple-500/10">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -115,16 +115,16 @@ export function VersionFilter({
           onClick={() => setIsExpanded(!isExpanded)}
           className={
             isExpanded
-              ? "bg-blue-600 hover:bg-blue-700"
+              ? "bg-purple-600 hover:bg-purple-700"
               : hasActiveFilters
-              ? "border-blue-600 text-blue-400 hover:bg-blue-900/20"
-              : "border-zinc-800 hover:bg-zinc-800/50"
+                ? "border-purple-600 text-purple-400 hover:bg-purple-900/20"
+                : "border-purple-500/20 text-zinc-400 hover:bg-purple-500/10 hover:text-purple-300"
           }
         >
           <Filter className="h-4 w-4 mr-2" />
           高级筛选
           {hasActiveFilters && (
-            <span className="ml-2 px-1.5 py-0.5 text-xs bg-blue-500 rounded-full">
+            <span className="ml-2 px-1.5 py-0.5 text-xs bg-purple-500 rounded-full">
               !
             </span>
           )}
@@ -163,7 +163,7 @@ export function VersionFilter({
                     minScore: e.target.value ? Number(e.target.value) : null,
                   })
                 }
-                className="bg-zinc-900/50 border-zinc-800"
+                className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
               />
               <span className="text-zinc-500">~</span>
               <Input
@@ -177,7 +177,7 @@ export function VersionFilter({
                     maxScore: e.target.value ? Number(e.target.value) : null,
                   })
                 }
-                className="bg-zinc-900/50 border-zinc-800"
+                className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
               />
             </div>
           </div>
@@ -192,7 +192,7 @@ export function VersionFilter({
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
-                    className="flex-1 justify-start text-left font-normal bg-zinc-900/50 border-zinc-800 hover:bg-zinc-800/50"
+                    className="flex-1 justify-start text-left font-normal bg-zinc-900/40 border-purple-500/10 hover:bg-purple-500/10"
                   >
                     <CalendarIcon className="mr-2 h-4 w-4 text-zinc-500" />
                     {filters.startDate ? (
@@ -218,7 +218,7 @@ export function VersionFilter({
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
-                    className="flex-1 justify-start text-left font-normal bg-zinc-900/50 border-zinc-800 hover:bg-zinc-800/50"
+                    className="flex-1 justify-start text-left font-normal bg-zinc-900/40 border-purple-500/10 hover:bg-purple-500/10"
                   >
                     <CalendarIcon className="mr-2 h-4 w-4 text-zinc-500" />
                     {filters.endDate ? (

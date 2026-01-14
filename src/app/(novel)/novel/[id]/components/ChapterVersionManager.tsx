@@ -208,10 +208,10 @@ export function ChapterVersionManager({
           </div>
         </div>
 
-        <GlassCard className="p-12 text-center">
+        <GlassCard className="p-12 text-center bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-zinc-900 flex items-center justify-center">
-              <AlertCircle className="h-8 w-8 text-zinc-600" />
+            <div className="w-16 h-16 rounded-full bg-purple-900/20 flex items-center justify-center">
+              <AlertCircle className="h-8 w-8 text-purple-600" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-white mb-2">
@@ -235,7 +235,7 @@ export function ChapterVersionManager({
   // 错误状态
   if (error) {
     return (
-      <GlassCard className="p-12 text-center">
+      <GlassCard className="p-12 text-center bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
         <div className="flex flex-col items-center gap-4">
           <div className="w-16 h-16 rounded-full bg-red-900/20 flex items-center justify-center">
             <AlertCircle className="h-8 w-8 text-red-500" />
@@ -290,7 +290,7 @@ export function ChapterVersionManager({
             className={
               isEditMode
                 ? "bg-green-600 hover:bg-green-700"
-                : "border-zinc-800 hover:bg-zinc-800/50"
+                : "border-purple-500/20 text-zinc-400 hover:bg-purple-500/10 hover:text-purple-300"
             }
           >
             {isEditMode ? (
@@ -315,7 +315,7 @@ export function ChapterVersionManager({
             className={
               isComparisonMode
                 ? "bg-blue-600 hover:bg-blue-700"
-                : "border-zinc-800 hover:bg-zinc-800/50"
+                : "border-purple-500/20 text-zinc-400 hover:bg-purple-500/10 hover:text-purple-300"
             }
           >
             {isComparisonMode ? (
@@ -372,7 +372,7 @@ export function ChapterVersionManager({
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="h-48 bg-zinc-900/50 rounded-lg animate-pulse border border-zinc-800"
+              className="h-48 bg-zinc-900/40 rounded-lg animate-pulse border border-purple-500/10"
             />
           ))}
         </div>

@@ -130,10 +130,10 @@ export function ContinueOutlineDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <PenLine className="h-5 w-5 text-blue-500" />
+            <PenLine className="h-5 w-5 text-purple-500" />
             续写章节大纲
           </DialogTitle>
           <DialogDescription>
@@ -145,7 +145,7 @@ export function ContinueOutlineDialog({
           {/* 上下文摘要 */}
           <div className="space-y-2">
             <Label>参考上下文（最后 3 章）</Label>
-            <ScrollArea className="h-32 rounded-md border p-3 bg-muted/50">
+            <ScrollArea className="h-32 rounded-md border border-purple-500/10 p-3 bg-zinc-900/40">
               <div className="space-y-2 text-sm">
                 {lastChapters.length === 0 ? (
                   <p className="text-muted-foreground">暂无现有章节</p>
@@ -179,6 +179,7 @@ export function ContinueOutlineDialog({
               value={chapterCount}
               onChange={(e) => setChapterCount(Number(e.target.value))}
               placeholder="期望续写的章节数"
+              className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
             />
             <p className="text-xs text-muted-foreground">
               将从第 {nextChapterNumber} 章开始生成，建议 3-10 章，最多 20 章
@@ -186,7 +187,7 @@ export function ContinueOutlineDialog({
           </div>
 
           {/* 提示信息 */}
-          <div className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
+          <div className="rounded-lg bg-purple-900/20 border border-purple-500/10 p-3 text-sm text-purple-200">
             <p className="font-medium mb-1">💡 续写说明</p>
             <ul className="space-y-1 text-xs">
               <li>• AI 会分析前面章节的情节、人物和线索</li>

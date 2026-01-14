@@ -96,10 +96,10 @@ export function RevisionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-orange-500" />
+            <Sparkles className="w-5 h-5 text-purple-500" />
             AI 修订
           </DialogTitle>
         </DialogHeader>
@@ -108,7 +108,7 @@ export function RevisionDialog({
           {/* 原文 */}
           <div>
             <label className="text-sm font-medium">原文</label>
-            <div className="mt-1 p-3 rounded-lg bg-muted text-sm max-h-[150px] overflow-y-auto">
+            <div className="mt-1 p-3 rounded-lg bg-zinc-900/40 border border-purple-500/10 text-sm max-h-[150px] overflow-y-auto">
               {selectedText}
             </div>
           </div>
@@ -149,7 +149,7 @@ export function RevisionDialog({
           {revisedText && (
             <div>
               <label className="text-sm font-medium">修订后</label>
-              <div className="mt-1 p-3 rounded-lg border text-sm bg-background max-h-[200px] overflow-y-auto">
+              <div className="mt-1 p-3 rounded-lg border text-sm bg-zinc-900/40 border-purple-500/10 max-h-[200px] overflow-y-auto">
                 {revisedText}
               </div>
             </div>

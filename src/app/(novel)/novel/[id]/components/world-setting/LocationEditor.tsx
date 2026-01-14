@@ -38,7 +38,7 @@ export function LocationEditor({ locations, onChange }: LocationEditorProps) {
         添加地点
       </Button>
       {locations.map((location, index) => (
-        <Card key={location.id || `location-${index}`}>
+        <Card key={location.id || `location-${index}`} className="bg-zinc-900/40 border-purple-500/10">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               地点 {index + 1}
@@ -59,6 +59,7 @@ export function LocationEditor({ locations, onChange }: LocationEditorProps) {
                   value={location.name}
                   onChange={(e) => updateLocation(index, "name", e.target.value)}
                   placeholder="例如：龙渊城"
+                  className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
                 />
               </div>
               <div>
@@ -77,6 +78,7 @@ export function LocationEditor({ locations, onChange }: LocationEditorProps) {
                 onChange={(e) => updateLocation(index, "description", e.target.value)}
                 placeholder="详细描述这个地点的特征、历史、重要性..."
                 rows={3}
+                className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
               />
             </div>
           </CardContent>

@@ -202,7 +202,7 @@ export function CreateProjectDialog({
               >
                 取消
               </Button>
-              <Button type="submit" disabled={loading}>
+              <Button type="submit" disabled={loading} className="bg-purple-600 hover:bg-purple-700 text-white">
                 {loading ? "创建中..." : "创建项目"}
               </Button>
             </DialogFooter>

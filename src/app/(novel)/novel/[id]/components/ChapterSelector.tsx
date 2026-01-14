@@ -71,7 +71,7 @@ export function ChapterSelector({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[300px] justify-between bg-zinc-900/50 border-zinc-800 hover:bg-zinc-800/50"
+          className="w-[300px] justify-between bg-zinc-900/40 border-purple-500/10 hover:bg-purple-500/10 focus:ring-purple-500/50"
         >
           {selectedChapter ? (
             <span className="flex items-center gap-2">
@@ -86,8 +86,8 @@ export function ChapterSelector({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0 bg-zinc-900 border-zinc-800">
-        <Command className="bg-zinc-900">
+      <PopoverContent className="w-[300px] p-0 bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl">
+        <Command className="bg-transparent">
           <CommandInput
             placeholder="搜索章节..."
             className="h-9 text-white placeholder:text-zinc-500"
@@ -105,7 +105,7 @@ export function ChapterSelector({
                     onChange(currentValue === value ? null : currentValue);
                     setOpen(false);
                   }}
-                  className="text-white hover:bg-zinc-800 cursor-pointer"
+                  className="text-white hover:bg-purple-500/20 cursor-pointer aria-selected:bg-purple-500/20"
                 >
                   <Check
                     className={cn(

@@ -14,7 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Save, GitBranch, Loader2, AlertCircle, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {  createChapterVersion, analyzeVersionQuality } from "../services/versionService";
+import { createChapterVersion, analyzeVersionQuality } from "../services/versionService";
 import { versionQueryKeys } from "../hooks/useChapterVersions";
 import type { ChapterVersion } from "../types/version";
 
@@ -135,7 +135,7 @@ export function QuickChapterEditor({
           <Button
             onClick={handleSaveAsVersion}
             disabled={!isDirty || createVersionMutation.isPending}
-            className="bg-blue-600 hover:bg-blue-700"
+            className="bg-purple-600 hover:bg-purple-700"
           >
             {createVersionMutation.isPending ? (
               <>
@@ -159,8 +159,8 @@ export function QuickChapterEditor({
             analysisStatus === "analyzing"
               ? "bg-blue-900/20 border-blue-800/30"
               : analysisStatus === "completed"
-              ? "bg-green-900/20 border-green-800/30"
-              : "bg-red-900/20 border-red-800/30"
+                ? "bg-green-900/20 border-green-800/30"
+                : "bg-red-900/20 border-red-800/30"
           }
         >
           <div className="flex items-center gap-2">
@@ -199,7 +199,7 @@ export function QuickChapterEditor({
           value={content}
           onChange={(e) => handleContentChange(e.target.value)}
           placeholder="开始写作章节内容..."
-          className="min-h-[400px] bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 resize-none font-mono"
+          className="min-h-[400px] bg-zinc-900/40 border-purple-500/10 text-white placeholder:text-zinc-500 resize-none font-mono focus-visible:ring-purple-500/50"
           disabled={createVersionMutation.isPending}
         />
       </div>

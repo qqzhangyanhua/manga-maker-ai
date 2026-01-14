@@ -88,7 +88,7 @@ export function OptimizeDescriptionDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl">
         <DialogHeader>
           <DialogTitle>
             {mode === "optimize" ? "AI 优化描述" : "AI 生成描述"}
@@ -130,7 +130,7 @@ export function OptimizeDescriptionDialog({
                 value={optimizedDescription}
                 onChange={(e) => setOptimizedDescription(e.target.value)}
                 rows={8}
-                className="resize-none"
+                className="resize-none bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
               />
               <p className="text-xs text-muted-foreground">
                 您可以对生成的内容进行编辑

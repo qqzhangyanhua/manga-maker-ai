@@ -151,7 +151,7 @@ export function GenerateCharactersDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
+      <DialogContent className="sm:max-w-[700px] max-h-[80vh] bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-purple-500" />
@@ -166,7 +166,7 @@ export function GenerateCharactersDialog({
           {!hasAnalyzed ? (
             // 分析前的状态
             <div className="space-y-4">
-              <div className="rounded-lg bg-muted p-4 text-sm">
+              <div className="rounded-lg bg-purple-900/20 border border-purple-500/10 p-4 text-sm">
                 <p className="font-medium mb-2">📖 分析范围</p>
                 <ul className="space-y-1 text-muted-foreground">
                   <li>• 已生成章节数：{outlines.length} 章</li>
@@ -223,11 +223,10 @@ export function GenerateCharactersDialog({
                   {suggestedCharacters.map((character, index) => (
                     <Card
                       key={`character-${character.name}-${index}`}
-                      className={`cursor-pointer transition-all ${
-                        character.selected
-                          ? "border-primary shadow-sm"
-                          : "border-transparent opacity-60"
-                      }`}
+                      className={`cursor-pointer transition-all ${character.selected
+                          ? "border-purple-500 bg-purple-500/10 shadow-sm"
+                          : "border-purple-500/10 bg-zinc-900/40 opacity-60"
+                        }`}
                       onClick={() => toggleCharacterSelection(index)}
                     >
                       <CardContent className="p-4">

@@ -110,7 +110,7 @@ export function CharacterEditDialog({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={handleClose}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl">
           <DialogHeader>
             <DialogTitle>
               {editingCharacter.name ? "编辑角色" : "新建角色"}
@@ -126,6 +126,7 @@ export function CharacterEditDialog({
                   value={editingCharacter.name}
                   onChange={(e) => updateField("name", e.target.value)}
                   placeholder="例如：李寻欢"
+                  className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
                 />
               </div>
               <div>
@@ -152,6 +153,7 @@ export function CharacterEditDialog({
                 onChange={(e) => updateField("description", e.target.value)}
                 placeholder="用一两句话概括这个角色..."
                 rows={2}
+                className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
               />
             </div>
 
@@ -204,7 +206,7 @@ export function CharacterEditDialog({
                 </Button>
               </div>
               {(editingCharacter.relationships || []).map((rel, index) => (
-                <Card key={`relationship-${rel.characterId}-${index}`} className="p-3">
+                <Card key={`relationship-${rel.characterId}-${index}`} className="p-3 bg-zinc-900/40 border-purple-500/10">
                   <div className="grid grid-cols-3 gap-2">
                     <Input
                       value={rel.characterName}

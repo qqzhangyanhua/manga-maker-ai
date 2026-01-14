@@ -37,8 +37,8 @@ export function WelcomeView({ onStart, isLoading }: WelcomeViewProps) {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex items-start gap-3 text-sm">
-            <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0">
-              <MessageSquare className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+            <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+              <MessageSquare className="h-3.5 w-3.5 text-purple-600 dark:text-purple-300" />
             </div>
             <div>
               <p className="font-medium">回答引导问题</p>
@@ -46,8 +46,8 @@ export function WelcomeView({ onStart, isLoading }: WelcomeViewProps) {
             </div>
           </div>
           <div className="flex items-start gap-3 text-sm">
-            <div className="w-6 h-6 rounded-full bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center flex-shrink-0">
-              <Wand2 className="h-3.5 w-3.5 text-pink-600 dark:text-pink-400" />
+            <div className="w-6 h-6 rounded-full bg-pink-100 dark:bg-pink-500/20 flex items-center justify-center flex-shrink-0">
+              <Wand2 className="h-3.5 w-3.5 text-pink-600 dark:text-pink-300" />
             </div>
             <div>
               <p className="font-medium">AI 生成故事框架</p>
@@ -55,8 +55,8 @@ export function WelcomeView({ onStart, isLoading }: WelcomeViewProps) {
             </div>
           </div>
           <div className="flex items-start gap-3 text-sm">
-            <div className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0">
-              <FolderPlus className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
+            <div className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+              <FolderPlus className="h-3.5 w-3.5 text-orange-600 dark:text-orange-300" />
             </div>
             <div>
               <p className="font-medium">一键创建项目</p>
@@ -67,7 +67,7 @@ export function WelcomeView({ onStart, isLoading }: WelcomeViewProps) {
       </Card>
 
       <div className="flex justify-center">
-        <Button onClick={onStart} disabled={isLoading} size="lg">
+        <Button onClick={onStart} disabled={isLoading} size="lg" className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20">
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

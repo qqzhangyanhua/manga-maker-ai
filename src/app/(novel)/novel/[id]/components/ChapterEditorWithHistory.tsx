@@ -505,7 +505,7 @@ export function ChapterEditorWithHistory({
       </div>
 
       {/* 编辑器卡片 */}
-      <Card>
+      <Card className="bg-zinc-900/40 backdrop-blur-sm border-purple-500/10">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>第 {chapter.chapterNumber} 章</CardTitle>
@@ -513,8 +513,7 @@ export function ChapterEditorWithHistory({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleGenerate}
-                disabled={generating || !outline.trim()}
+                className="border-purple-500/20 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 hover:border-purple-500/50"
                 title="使用 AI 生成章节内容"
               >
                 <Sparkles className="h-4 w-4 mr-2" />
@@ -523,8 +522,7 @@ export function ChapterEditorWithHistory({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleReviseSelection}
-                disabled={generating || saving}
+                className="border-purple-500/20 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 hover:border-purple-500/50"
                 title="修订选中的文本 (Ctrl+Shift+R)"
               >
                 <Wand2 className="h-4 w-4 mr-2" />
@@ -532,8 +530,7 @@ export function ChapterEditorWithHistory({
               </Button>
               <Button
                 size="sm"
-                onClick={handleSave}
-                disabled={saving}
+                className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20"
                 title="保存 (Ctrl+S)"
               >
                 <Save className="h-4 w-4 mr-2" />
@@ -553,6 +550,7 @@ export function ChapterEditorWithHistory({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="输入章节标题..."
+              className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
             />
           </div>
 
@@ -566,6 +564,7 @@ export function ChapterEditorWithHistory({
               onChange={(e) => setOutline(e.target.value)}
               placeholder="描述本章节的主要情节、人物和场景..."
               rows={4}
+              className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
             />
             <p className="text-xs text-muted-foreground mt-1">
               大纲用于 AI 生成内容，描述越详细，生成效果越好
@@ -586,7 +585,7 @@ export function ChapterEditorWithHistory({
               onChange={(e) => setContent(e.target.value)}
               placeholder="章节正文内容..."
               rows={20}
-              className="font-mono text-sm"
+              className="font-mono text-sm bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
             />
             <p className="text-xs text-muted-foreground mt-2">
               💡 提示：选中需要修改的文本，然后点击"修订选中"按钮，AI 会根据您的指令改写选中的内容
@@ -597,7 +596,7 @@ export function ChapterEditorWithHistory({
 
       {/* 版本历史对话框 */}
       <Dialog open={versionHistoryOpen} onOpenChange={setVersionHistoryOpen}>
-        <DialogContent className="sm:max-w-[700px]">
+        <DialogContent className="sm:max-w-[700px] bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <History className="h-5 w-5" />
@@ -611,7 +610,7 @@ export function ChapterEditorWithHistory({
           <div className="space-y-4">
             {/* 对比模式 */}
             {compareMode && versionDiff && (
-              <div className="bg-muted p-4 rounded-lg space-y-3">
+              <div className="bg-purple-900/20 border border-purple-500/20 p-4 rounded-lg space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="font-medium">版本对比</h4>
                   <Button
@@ -666,7 +665,7 @@ export function ChapterEditorWithHistory({
                 {getVersions().map((version, index) => (
                   <div
                     key={version.id}
-                    className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted transition-colors"
+                    className="flex items-center justify-between p-3 rounded-lg border border-purple-500/10 bg-zinc-900/40 hover:bg-purple-500/10 transition-colors"
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">

@@ -52,10 +52,10 @@ export function ProgressDashboard({
   return (
     <div className="space-y-6">
       {/* 整体进度 */}
-      <Card>
+      <Card className="bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-orange-500" />
+            <TrendingUp className="h-5 w-5 text-purple-500" />
             整体进度
           </CardTitle>
         </CardHeader>
@@ -66,7 +66,7 @@ export function ProgressDashboard({
               <span>完成度</span>
               <span className="font-medium">{analysis.overall.percentage}%</span>
             </div>
-            <Progress value={analysis.overall.percentage} className="h-2" />
+            <Progress value={analysis.overall.percentage} className="h-2 bg-zinc-800 [&>div]:bg-purple-500" />
           </div>
 
           {/* 预计剩余时间 */}
@@ -82,7 +82,7 @@ export function ProgressDashboard({
           {/* 章节统计 */}
           <div className="grid grid-cols-4 gap-4 pt-4 border-t">
             <div className="text-center">
-              <div className="text-2xl font-bold text-orange-500">
+              <div className="text-2xl font-bold text-purple-500">
                 {analysis.overall.chapters.total}
               </div>
               <div className="text-xs text-muted-foreground">总章节</div>
@@ -120,7 +120,7 @@ export function ProgressDashboard({
                   {analysis.overall.wordCount.target?.toLocaleString()}
                 </span>
               </div>
-              <Progress value={analysis.overall.wordCount.percentage} className="h-2" />
+              <Progress value={analysis.overall.wordCount.percentage} className="h-2 bg-zinc-800 [&>div]:bg-purple-500" />
             </div>
           )}
         </CardContent>
@@ -129,7 +129,7 @@ export function ProgressDashboard({
       {/* 详细分析 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* 剧情结构 */}
-        <Card>
+        <Card className="bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <BookOpen className="h-4 w-4 text-blue-500" />
@@ -193,7 +193,7 @@ export function ProgressDashboard({
         </Card>
 
         {/* 角色发展 */}
-        <Card>
+        <Card className="bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Users className="h-4 w-4 text-purple-500" />
@@ -237,7 +237,7 @@ export function ProgressDashboard({
         </Card>
 
         {/* 世界观构建 */}
-        <Card>
+        <Card className="bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Globe className="h-4 w-4 text-green-500" />
@@ -282,7 +282,7 @@ export function ProgressDashboard({
 
       {/* 改进建议 */}
       {analysis.recommendations.length > 0 && (
-        <Card>
+        <Card className="bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Lightbulb className="h-4 w-4 text-yellow-500" />
@@ -293,7 +293,7 @@ export function ProgressDashboard({
             <ul className="space-y-2">
               {analysis.recommendations.map((rec, index) => (
                 <li key={index} className="flex items-start gap-2 text-sm">
-                  <span className="text-orange-500 mt-0.5">•</span>
+                  <span className="text-purple-500 mt-0.5">•</span>
                   <span className="text-muted-foreground">{rec}</span>
                 </li>
               ))}

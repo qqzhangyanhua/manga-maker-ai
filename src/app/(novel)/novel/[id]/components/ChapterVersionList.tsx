@@ -110,7 +110,7 @@ export function ChapterVersionList({
 
   const getScoreColor = (score: number): string => {
     if (score >= 85) return "text-green-400";
-    if (score >= 70) return "text-orange-400";
+    if (score >= 70) return "text-purple-400";
     return "text-red-400";
   };
 
@@ -145,11 +145,10 @@ export function ChapterVersionList({
           {versions.map((version) => (
             <GlassCard
               key={version.id}
-              className={`p-5 transition-all duration-300 ${
-                version.is_selected
-                  ? "border-orange-500 bg-orange-500/5"
-                  : "border-zinc-800 hover:border-zinc-700"
-              }`}
+              className={`p-5 transition-all duration-300 ${version.is_selected
+                ? "border-purple-500 bg-purple-500/10 shadow-lg shadow-purple-500/10 backdrop-blur-sm"
+                : "border-purple-500/10 hover:border-purple-500/30 hover:bg-zinc-900/60 bg-zinc-900/40 backdrop-blur-sm"
+                }`}
             >
               {/* 版本头部 */}
               <div className="flex items-start justify-between mb-4">
@@ -173,7 +172,7 @@ export function ChapterVersionList({
                         v{version.version_number}
                       </span>
                       {version.is_selected && (
-                        <Badge className="bg-orange-500 text-white">
+                        <Badge className="bg-purple-500 hover:bg-purple-600 text-white shadow-purple-500/20 shadow-sm">
                           <Check className="h-3 w-3 mr-1" />
                           当前版本
                         </Badge>
@@ -195,7 +194,7 @@ export function ChapterVersionList({
                         disabled={actionLoading === version.id}
                         size="sm"
                         variant="outline"
-                        className="border-orange-500/30 text-orange-400 hover:bg-orange-500/10"
+                        className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10 hover:text-purple-300 hover:border-purple-500/50"
                       >
                         {actionLoading === version.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -228,7 +227,7 @@ export function ChapterVersionList({
               {version.quality_score && (
                 <div className="mb-4">
                   <div className="flex items-center gap-3 mb-3">
-                    <TrendingUp className="h-4 w-4 text-orange-400" />
+                    <TrendingUp className="h-4 w-4 text-purple-400" />
                     <span className="text-sm font-medium text-white">质量评分</span>
                     <Badge
                       className={`${getScoreColor(
@@ -252,11 +251,10 @@ export function ChapterVersionList({
                       key={rating}
                       onClick={() => handleRate(version, rating)}
                       disabled={actionLoading === version.id}
-                      className={`transition-colors ${
-                        version.user_rating && rating <= version.user_rating
-                          ? "text-orange-400"
-                          : "text-zinc-600 hover:text-orange-400"
-                      }`}
+                      className={`transition-colors ${version.user_rating && rating <= version.user_rating
+                        ? "text-purple-400"
+                        : "text-zinc-600 hover:text-purple-400"
+                        }`}
                     >
                       <Star className="h-4 w-4 fill-current" />
                     </button>
@@ -266,7 +264,7 @@ export function ChapterVersionList({
 
               {/* 备注 */}
               {version.notes && (
-                <div className="text-sm text-zinc-500 bg-zinc-900/50 rounded-lg p-3 border border-zinc-800">
+                <div className="text-sm text-zinc-500 bg-zinc-900/40 rounded-lg p-3 border border-purple-500/10">
                   {version.notes}
                 </div>
               )}

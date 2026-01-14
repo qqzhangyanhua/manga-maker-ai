@@ -15,9 +15,9 @@ export const CharacterNode = memo(({ data, selected }: NodeProps<CharacterNodeDa
   return (
     <div
       className={`
-        relative bg-card border-2 rounded-lg shadow-lg
+        relative bg-zinc-900/90 border-2 rounded-lg shadow-lg
         transition-all duration-200
-        ${selected ? 'border-primary shadow-xl scale-105' : 'border-border hover:border-primary/50'}
+        ${selected ? 'border-primary shadow-xl shadow-primary/20 scale-105' : 'border-purple-500/20 hover:border-primary/50'}
       `}
       style={{
         width: 180,

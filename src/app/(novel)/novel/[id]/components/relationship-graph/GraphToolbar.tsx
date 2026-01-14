@@ -38,7 +38,7 @@ export function GraphToolbar({
   readonly = false,
 }: GraphToolbarProps) {
   return (
-    <div className="bg-background/95 backdrop-blur border rounded-lg shadow-lg p-2 flex gap-2 items-center">
+    <div className="bg-zinc-900/80 backdrop-blur-md border border-purple-500/20 rounded-lg shadow-lg shadow-purple-500/10 p-2 flex gap-2 items-center">
       {/* 布局控制 */}
       <div className="flex gap-1">
         <Button

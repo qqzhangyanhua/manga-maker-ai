@@ -136,7 +136,7 @@ export function BatchAnalyzeDialog({
           variant="outline"
           size="default"
           disabled={unanalyzedVersions.length === 0}
-          className="border-zinc-800 hover:bg-zinc-800/50"
+          className="border-purple-500/20 text-zinc-400 hover:bg-purple-500/10 hover:text-purple-300"
         >
           <Sparkles className="h-4 w-4 mr-2" />
           批量分析
@@ -147,7 +147,7 @@ export function BatchAnalyzeDialog({
           )}
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl">
         <DialogHeader>
           <DialogTitle>批量质量分析</DialogTitle>
           <DialogDescription>
@@ -158,9 +158,9 @@ export function BatchAnalyzeDialog({
         {results.length === 0 ? (
           // 初始状态
           <div className="space-y-4 py-4">
-            <Alert className="bg-blue-900/20 border-blue-800/30">
-              <AlertCircle className="h-4 w-4 text-blue-400" />
-              <AlertDescription className="text-blue-300">
+            <Alert className="bg-purple-900/20 border-purple-800/30">
+              <AlertCircle className="h-4 w-4 text-purple-400" />
+              <AlertDescription className="text-purple-300">
                 将分析 {unanalyzedVersions.length} 个未评分的版本
                 <br />
                 预计耗时约 {Math.ceil(unanalyzedVersions.length * 4)} 秒
@@ -191,12 +191,12 @@ export function BatchAnalyzeDialog({
                   {successCount + failedCount} / {results.length}
                 </span>
               </div>
-              <Progress value={progress} className="h-2" />
+              <Progress value={progress} className="h-2 bg-zinc-800 [&>div]:bg-purple-500" />
             </div>
 
             {/* 统计信息 */}
             <div className="grid grid-cols-3 gap-3">
-              <div className="text-center p-3 rounded-lg bg-zinc-900/50 border border-zinc-800">
+              <div className="text-center p-3 rounded-lg bg-zinc-900/40 border border-purple-500/20">
                 <div className="text-2xl font-bold text-zinc-300">
                   {results.length}
                 </div>
@@ -221,7 +221,7 @@ export function BatchAnalyzeDialog({
               {results.map((result) => (
                 <div
                   key={result.versionId}
-                  className="flex items-center justify-between p-3 rounded-lg bg-zinc-900/50 border border-zinc-800"
+                  className="flex items-center justify-between p-3 rounded-lg bg-zinc-900/40 border border-purple-500/10"
                 >
                   <span className="text-sm text-zinc-300">
                     版本 {result.versionNumber}
@@ -233,8 +233,8 @@ export function BatchAnalyzeDialog({
                     )}
                     {result.status === "analyzing" && (
                       <>
-                        <Loader2 className="h-4 w-4 text-blue-400 animate-spin" />
-                        <span className="text-xs text-blue-400">分析中</span>
+                        <Loader2 className="h-4 w-4 text-purple-400 animate-spin" />
+                        <span className="text-xs text-purple-400">分析中</span>
                       </>
                     )}
                     {result.status === "success" && (

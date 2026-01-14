@@ -171,7 +171,7 @@ export default function NovelDashboard() {
   function getStatusBadge(status: string) {
     const statusMap: Record<string, { label: string; className: string }> = {
       draft: { label: "草稿", className: "bg-zinc-800 text-zinc-400 border-zinc-700" },
-      writing: { label: "创作中", className: "bg-orange-500/10 text-orange-400 border-orange-500/20" },
+      writing: { label: "创作中", className: "bg-purple-500/10 text-purple-400 border-purple-500/20" },
       completed: { label: "已完成", className: "bg-green-500/10 text-green-400 border-green-500/20" },
     };
     const config = statusMap[status] || statusMap.draft;
@@ -179,12 +179,12 @@ export default function NovelDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-black to-black">
+    <div className="min-h-screen bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-900/40 via-zinc-900 to-black">
       {/* 用户登录状态检查 */}
       {userLoading && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
-            <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+            <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
             <p className="text-zinc-400">正在验证登录状态...</p>
           </div>
         </div>
@@ -197,8 +197,8 @@ export default function NovelDashboard() {
       {user && (
         <>
           {/* 装饰性光晕 */}
-          <div className="fixed top-20 left-1/4 w-96 h-96 bg-orange-500/5 blur-[120px] rounded-full pointer-events-none" />
-          <div className="fixed bottom-20 right-1/4 w-96 h-96 bg-purple-500/5 blur-[120px] rounded-full pointer-events-none" />
+          <div className="fixed top-20 left-1/4 w-96 h-96 bg-purple-500/30 blur-[100px] rounded-full pointer-events-none mix-blend-screen" />
+          <div className="fixed bottom-20 right-1/4 w-96 h-96 bg-fuchsia-500/20 blur-[100px] rounded-full pointer-events-none mix-blend-screen" />
 
           <div
             ref={containerRef}
@@ -215,7 +215,7 @@ export default function NovelDashboard() {
               )}
               style={{
                 background: mousePosition
-                  ? `radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(249, 115, 22, 0.08), transparent 40%)`
+                  ? `radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(192, 132, 252, 0.2), transparent 40%)`
                   : "none",
               }}
             />
@@ -223,8 +223,8 @@ export default function NovelDashboard() {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12 relative z-10">
               <div>
-                <h1 className="text-4xl font-bold tracking-tight text-white mb-2">我的小说 <span className="text-orange-500">.</span></h1>
-                <p className="text-zinc-400 text-lg">
+                <h1 className="text-4xl font-bold tracking-tight text-white mb-2">我的小说 <span className="text-purple-400">.</span></h1>
+                <p className="text-zinc-300 text-lg">
                   使用 AI 辅助创作，让灵感变成精彩故事
                 </p>
               </div>
@@ -241,7 +241,7 @@ export default function NovelDashboard() {
                 <Button
                   onClick={() => setCreateDialogOpen(true)}
                   size="lg"
-                  className="bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20"
+                  className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20"
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   新建项目
@@ -268,12 +268,12 @@ export default function NovelDashboard() {
                   <BookOpen className="h-10 w-10 text-zinc-600" />
                 </div>
                 <h3 className="text-xl font-semibold text-white mb-2">还没有项目</h3>
-                <p className="text-zinc-400 mb-8 max-w-sm">
+                <p className="text-zinc-300 mb-8 max-w-sm">
                   创建你的第一个小说项目，开始创作之旅
                 </p>
                 <Button
                   onClick={() => setCreateDialogOpen(true)}
-                  className="bg-orange-500 hover:bg-orange-600 text-white"
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   新建项目
@@ -284,7 +284,7 @@ export default function NovelDashboard() {
                 {projects.map((project) => (
                   <GlassCard
                     key={project.id}
-                    className="group p-0 overflow-hidden cursor-pointer hover:shadow-2xl hover:shadow-orange-500/10 transition-all duration-500 border-zinc-800 bg-zinc-900/40"
+                    className="group p-0 overflow-hidden cursor-pointer hover:shadow-2xl hover:shadow-purple-500/20 transition-all duration-500 border-purple-500/10 bg-zinc-900/60 backdrop-blur-xl"
                     onClick={() => handleProjectClick(project.id)}
                   >
                     {/* Cover Area */}
@@ -340,7 +340,7 @@ export default function NovelDashboard() {
                     {/* Content */}
                     <div className="p-5">
                       <div className="flex items-start justify-between mb-3">
-                        <h3 className="text-lg font-bold text-white line-clamp-1 group-hover:text-orange-400 transition-colors">
+                        <h3 className="text-lg font-bold text-white line-clamp-1 group-hover:text-purple-400 transition-colors">
                           {project.title}
                         </h3>
                         {getStatusBadge(project.status)}
@@ -352,7 +352,7 @@ export default function NovelDashboard() {
                         </Badge>
                       )}
 
-                      <p className="text-sm text-zinc-400 line-clamp-2 mb-4 min-h-[2.5em]">
+                      <p className="text-sm text-zinc-300 line-clamp-2 mb-4 min-h-[2.5em]">
                         {project.description || "暂无描述..."}
                       </p>
 
