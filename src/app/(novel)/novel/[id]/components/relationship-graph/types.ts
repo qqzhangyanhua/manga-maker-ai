@@ -58,7 +58,7 @@ export const RELATION_TYPE_CONFIGS: Record<RelationType, RelationTypeConfig> = {
   family: {
     type: "family",
     label: "亲人",
-    color: "#f59e0b", // amber-500
+    color: "#a855f7", // purple-500
     strokeWidth: 2,
   },
   mentor: {

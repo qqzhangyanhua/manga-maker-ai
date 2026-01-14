@@ -310,7 +310,7 @@ export function OutlineEditor({
                       }
                       className="rounded"
                     />
-                    <span className="text-yellow-600">关键章节</span>
+                    <span className="text-purple-400">关键章节</span>
                   </label>
                   <Button
                     variant="ghost"

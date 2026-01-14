@@ -292,7 +292,7 @@ export function ResultView({
                       {chapter.title}
                     </span>
                     {chapter.is_key_chapter && (
-                      <Star className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />
+                      <Star className="h-3.5 w-3.5 text-purple-500 flex-shrink-0" />
                     )}
                   </div>
                 </Button>

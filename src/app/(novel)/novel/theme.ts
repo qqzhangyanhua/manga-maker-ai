@@ -33,8 +33,8 @@ export const novelTheme = {
     /** 高亮卡片 - 更明显的背景 */
     highlight: "bg-zinc-900/60 backdrop-blur-xl border-purple-500/10",
 
-    /** 关键章节卡片 - 黄色标识 */
-    keyChapter: "border-yellow-500/50 bg-yellow-900/10 backdrop-blur-sm",
+    /** 关键章节卡片 - 紫色高亮标识 */
+    keyChapter: "border-purple-500/50 bg-purple-900/10 backdrop-blur-sm",
 
     /** 骨架屏 */
     skeleton: "bg-zinc-900/50 border-zinc-800 animate-pulse",

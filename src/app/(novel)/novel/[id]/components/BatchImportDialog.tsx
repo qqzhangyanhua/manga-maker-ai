@@ -278,7 +278,7 @@ export function BatchImportDialog({
 
           {/* 提示信息 */}
           {showPreview && previewChapters.length === 0 && (
-            <div className="flex items-center gap-2 p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-500">
+            <div className="flex items-center gap-2 p-4 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400">
               <AlertCircle className="w-5 h-5" />
               <p className="text-sm">
                 未能识别到章节，请检查文本格式或关闭"自动识别章节"选项

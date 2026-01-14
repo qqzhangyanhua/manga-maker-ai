@@ -55,7 +55,7 @@ function CompactMode({ estimation }: { estimation: PanelEstimation }) {
         <Tooltip>
           <TooltipTrigger asChild>
             <Badge variant="outline" className="flex items-center gap-1">
-              <Coins className="h-3 w-3 text-yellow-600" />
+              <Coins className="h-3 w-3 text-purple-500" />
               <span>{estimation.estimatedCredits} Credits</span>
             </Badge>
           </TooltipTrigger>
@@ -68,7 +68,7 @@ function CompactMode({ estimation }: { estimation: PanelEstimation }) {
         {estimation.warnings.length > 0 && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <AlertCircle className="h-4 w-4 text-yellow-600" />
+              <AlertCircle className="h-4 w-4 text-purple-500" />
             </TooltipTrigger>
             <TooltipContent>
               <div className="text-xs space-y-1">
@@ -113,7 +113,7 @@ function DetailedMode({ estimation }: { estimation: PanelEstimation }) {
             <Coins className="h-3 w-3" />
             预估消耗
           </div>
-          <div className="text-2xl font-bold text-yellow-600">
+          <div className="text-2xl font-bold text-purple-500">
             {estimation.estimatedCredits}
           </div>
           <div className="text-xs text-gray-500">Credits</div>
@@ -143,8 +143,8 @@ function DetailedMode({ estimation }: { estimation: PanelEstimation }) {
 
       {/* 警告信息 */}
       {estimation.warnings.length > 0 && (
-        <Alert variant="default" className="bg-yellow-50 border-yellow-200">
-          <AlertCircle className="h-4 w-4 text-yellow-600" />
+        <Alert variant="default" className="bg-purple-900/20 border-purple-500/30">
+          <AlertCircle className="h-4 w-4 text-purple-400" />
           <AlertDescription>
             <ul className="text-xs space-y-1 mt-1">
               {estimation.warnings.map((warning, idx) => (

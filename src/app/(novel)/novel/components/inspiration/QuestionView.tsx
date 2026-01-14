@@ -163,7 +163,7 @@ export function QuestionView({
                   isOverLimit
                     ? "text-red-500 font-medium"
                     : isNearLimit
-                    ? "text-yellow-500"
+                    ? "text-purple-400"
                     : "text-muted-foreground"
                 }
               >

@@ -285,7 +285,7 @@ export function ProgressDashboard({
         <Card className="bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Lightbulb className="h-4 w-4 text-yellow-500" />
+              <Lightbulb className="h-4 w-4 text-purple-500" />
               改进建议
             </CardTitle>
           </CardHeader>
