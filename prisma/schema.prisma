@@ -1022,6 +1022,10 @@ model NovelChapter {
   // 章节大纲
   outline String? @db.Text // 章节大纲摘要（用于 RAG 检索）
 
+  // 剧情连贯性字段（Solution 2 & 3）
+  summary_preview String? @db.Text // 详细剧情预演（200-300字，用于上下文构建）
+  ending_state    Json?   @db.JsonB // 章节结束状态 {location, protagonist_status, plot_progress}
+
   // 章节内容
   content    String? @db.Text // 完整章节内容（2000-5000字）
   word_count Int     @default(0)

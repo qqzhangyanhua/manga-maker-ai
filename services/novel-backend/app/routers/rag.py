@@ -217,13 +217,15 @@ async def delete_chapter_index(
 
 
 @router.get("/stats", response_model=RAGStatsResponse)
-async def get_rag_stats(user_id: str = Depends(get_current_user_id)):
+async def get_rag_stats():
     """
-    获取 RAG 系统统计信息
+    获取 RAG 系统统计信息（公开接口）
 
     - 向量数据库是否启用
     - 索引文档总数
     - Embedding 模型
+
+    注意：此接口不需要认证，仅返回系统级统计信息
     """
     try:
         vector_service = get_vector_service()

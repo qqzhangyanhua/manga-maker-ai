@@ -12,7 +12,8 @@
 - ✅ 智能分析（爽点密度、节奏、开篇吸引力）
 
 ---
-
+- source .venv/bin/activate
+- uvicorn app.main:app --reload --port 8000
 ## 🎯 Phase 1: 基础优化（已完成）
 
 ### 1.1 提示词模板管理系统

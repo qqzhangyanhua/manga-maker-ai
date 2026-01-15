@@ -4,6 +4,7 @@ AI 文本生成服务
 from openai import AsyncOpenAI
 from typing import AsyncGenerator, Optional
 from ..config import settings
+from .prompt_templates import NovelPromptTemplates
 import logging
 
 logger = logging.getLogger(__name__)
@@ -23,54 +24,71 @@ class NovelGenerationService:
         self,
         context: str,
         chapter_outline: str,
+        chapter_number: int = 1,
         style_prompt: Optional[str] = None,
         temperature: float = 0.7,
-        max_tokens: int = 4000,
+        max_tokens: int = 12000,  # ✨ 提升到12000以确保6000字中文的输出空间
     ) -> AsyncGenerator[str, None]:
         """
         流式生成章节内容
-        
+
         Args:
             context: 上下文（世界观、角色、前序章节等）
             chapter_outline: 当前章节大纲
+            chapter_number: 章节号（用于判断是否前三章）
             style_prompt: 风格提示（可选）
             temperature: 温度参数
-            max_tokens: 最大 token 数
-        
+            max_tokens: 最大 token 数（12000 tokens ≈ 6000-9000 中文字）
+
         Yields:
             生成的文本片段
         """
         try:
-            # 构建系统提示词
-            system_prompt = """你是一位专业的小说作家，擅长创作引人入胜的故事内容。
+            # 使用新的提示词模板
+            system_prompt = NovelPromptTemplates.get_chapter_generation_prompt(
+                chapter_number=chapter_number,
+                style_prompt=style_prompt
+            )
 
-任务：根据提供的上下文和章节大纲，生成详细的章节内容。
-
-要求：
-1. 内容要生动具体，包含场景描写、人物对话、心理活动
-2. 保持与前文的连贯性和一致性
-3. 充分利用世界观和角色设定
-4. 情节推进自然，节奏把控得当
-5. 语言流畅优美，富有感染力
-6. 章节长度控制在 2000-4000 字
-
-**重要 - 段落格式要求**：
-- 每个自然段之间必须使用**单个换行符 \n** 分隔
-- 对话和场景描写要分段，让内容更易阅读
-- 不要输出一整段连续的文字
-- 合理控制段落长度，一般每段 100-300 字为宜
-
-输出格式：
-直接输出章节正文内容，段落之间用单个换行符（\n）分隔，不需要标题和其他格式。"""
-            
-            if style_prompt:
-                system_prompt += f"\n\n风格要求：{style_prompt}"
-            
             # 构建用户提示词
             user_prompt = f"""{context}
 
-请根据以上信息，生成本章节的详细内容。"""
-            
+【当前章节大纲】
+{chapter_outline}
+
+【写作约束】
+1. 严格按大纲顺序完成关键事件，不新增主线或关键反转
+2. 必须承接上下文设定，人物动机与因果链一致
+3. 节奏紧凑，避免空转、重复回忆或纯描写拖字数
+4. 本章正文不少于 6000 字（不含符号）
+
+现在开始输出本章节正文：
+"""
+
+            # ✨ 添加调试日志：记录 prompt 详情
+            logger.info(
+                f"🤖 准备调用 LLM 生成章节 - "
+                f"章节号: {chapter_number}, "
+                f"system_prompt 长度: {len(system_prompt)} 字符, "
+                f"user_prompt 长度: {len(user_prompt)} 字符, "
+                f"context 长度: {len(context)} 字符, "
+                f"max_tokens: {max_tokens}, "
+                f"temperature: {temperature}"
+            )
+
+            # 📝 完整提示词日志（便于调试和审查）
+            logger.info("=" * 80)
+            logger.info("📋 System Prompt:")
+            logger.info("-" * 80)
+            logger.info(system_prompt)
+            logger.info("=" * 80)
+            logger.info("📋 User Prompt:")
+            logger.info("-" * 80)
+            logger.info(user_prompt)
+            logger.info("=" * 80)
+            logger.info(f"⚙️  API 参数: model={self.model}, temperature={temperature}, max_tokens={max_tokens}")
+            logger.info("=" * 80)
+
             # 调用 OpenAI API（流式）
             stream = await self.client.chat.completions.create(
                 model=self.model,
@@ -82,7 +100,7 @@ class NovelGenerationService:
                 max_tokens=max_tokens,
                 stream=True,
             )
-            
+
             # 逐块返回
             async for chunk in stream:
                 # 安全检查：确保 choices 列表不为空
@@ -90,7 +108,7 @@ class NovelGenerationService:
                     delta = chunk.choices[0].delta
                     if delta and delta.content:
                         yield delta.content
-                    
+
         except Exception as e:
             logger.error(f"章节生成失败: {str(e)}", exc_info=True)
             yield f"[生成失败: {str(e)}]"
@@ -144,7 +162,18 @@ class NovelGenerationService:
             context_parts.append(f"\n目标章节数：{chapter_count}")
             
             user_prompt = "\n".join(context_parts)
-            
+
+            # 📝 记录大纲生成的完整提示词
+            logger.info("=" * 80)
+            logger.info(f"📋 生成大纲 - 章节数: {chapter_count}")
+            logger.info("-" * 80)
+            logger.info("System Prompt:")
+            logger.info(system_prompt)
+            logger.info("-" * 80)
+            logger.info("User Prompt:")
+            logger.info(user_prompt)
+            logger.info("=" * 80)
+
             # 调用 API
             response = await self.client.chat.completions.create(
                 model=self.model,
@@ -196,7 +225,18 @@ class NovelGenerationService:
 {revision_instruction}
 
 请输出修改后的完整内容。"""
-            
+
+            # 📝 记录内容修订的完整提示词
+            logger.info("=" * 80)
+            logger.info("📋 修订章节内容")
+            logger.info("-" * 80)
+            logger.info("System Prompt:")
+            logger.info(system_prompt)
+            logger.info("-" * 80)
+            logger.info(f"User Prompt (原文长度: {len(original_content)} 字符):")
+            logger.info(user_prompt[:500] + "..." if len(user_prompt) > 500 else user_prompt)
+            logger.info("=" * 80)
+
             stream = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -259,66 +299,14 @@ class NovelGenerationService:
             }
         """
         try:
-            # 根据模式构建不同的系统提示词
-            if mode == "continue" and existing_outlines:
-                system_prompt = """你是一位专业的小说策划师，擅长续写和扩展故事大纲。
-
-任务：基于现有章节的剧情发展，生成后续章节的大纲，确保剧情连贯、逻辑合理。
-
-要求：
-1. 仔细分析现有章节的情节走向、角色发展和线索铺垫
-2. 后续章节要自然承接现有内容，保持剧情连贯性
-3. 延续已有的情节线索，推进故事发展
-4. 保持角色性格和行为的一致性
-5. 每章大纲要包含：章节标题、大纲摘要（100-200字）、关键事件、出场角色、涉及的情节线索
-6. 标注关键章节（如转折点、高潮、结局）
-
-输出格式：
-返回 JSON 格式的章节大纲列表，严格按照以下格式：
-{
-  "chapters": [
-    {
-      "chapter_number": 起始章节号,
-      "title": "第N章：标题",
-      "outline": "章节大纲描述...",
-      "key_events": ["事件1", "事件2"],
-      "characters": ["角色A", "角色B"],
-      "plot_lines": ["主线", "支线"],
-      "is_key_chapter": true
-    }
-  ]
-}"""
-            else:
-                system_prompt = """你是一位专业的小说策划师，擅长构建完整的故事大纲。
-
-任务：根据提供的故事前提、角色和世界观，生成详细的章节大纲。
-
-要求：
-1. 每章大纲要包含：章节标题、大纲摘要（100-200字）、关键事件、出场角色、涉及的情节线索
-2. 整体结构要完整：起承转合，高潮迭起
-3. 情节要有逻辑性和连贯性
-4. 充分利用角色和世界观设定
-5. 标注关键章节（如开篇、高潮、结局）
-6. 每章大纲要具体明确，便于后续创作
-
-输出格式：
-返回 JSON 格式的章节大纲列表，严格按照以下格式：
-{
-  "chapters": [
-    {
-      "chapter_number": 1,
-      "title": "第一章：标题",
-      "outline": "章节大纲描述...",
-      "key_events": ["事件1", "事件2"],
-      "characters": ["角色A", "角色B"],
-      "plot_lines": ["主线", "支线"],
-      "is_key_chapter": true
-    }
-  ]
-}"""
-
-            if style:
-                system_prompt += f"\n\n风格要求：{style}"
+            # 使用新的提示词模板
+            chapter_range = (start_chapter, start_chapter + chapter_count - 1)
+            system_prompt = NovelPromptTemplates.get_outline_system_prompt(
+                mode=mode,
+                chapter_range=chapter_range,
+                style=style,
+                include_golden_rules=True
+            )
 
             # 构建用户提示词
             if mode == "continue" and existing_outlines:
@@ -372,6 +360,19 @@ class NovelGenerationService:
 
             user_prompt += "\n\n请生成详细的章节大纲。"
 
+            # 📝 记录大纲生成的完整提示词
+            logger.info("=" * 80)
+            logger.info(f"📋 生成章节大纲 - 模式: {mode}, 章节数: {chapter_count}, 起始章节: {start_chapter}")
+            logger.info("-" * 80)
+            logger.info("System Prompt:")
+            logger.info(system_prompt)
+            logger.info("-" * 80)
+            logger.info("User Prompt:")
+            logger.info(user_prompt)
+            logger.info("=" * 80)
+            logger.info(f"⚙️  API 参数: model={self.model}, temperature=0.8, max_tokens=4000, response_format=json_object")
+            logger.info("=" * 80)
+
             # 调用 OpenAI API
             response = await self.client.chat.completions.create(
                 model=self.model,
@@ -402,6 +403,20 @@ class NovelGenerationService:
                 chapter.setdefault("characters", [])
                 chapter.setdefault("plot_lines", [])
                 chapter.setdefault("is_key_chapter", False)
+
+                # 新增网文字段
+                chapter.setdefault("word_count_target", 6000)
+                chapter.setdefault("cool_points", [])
+                chapter.setdefault("pacing", "适中")
+                chapter.setdefault("scene_allocation", "")
+
+                # 剧情连贯性字段（Solution 2）
+                chapter.setdefault("summary_preview", "")
+                chapter.setdefault("ending_state", {
+                    "location": "",
+                    "protagonist_status": "",
+                    "plot_progress": ""
+                })
 
             logger.info(f"成功生成 {len(result['chapters'])} 章大纲（模式: {mode}, 起始章节: {start_chapter}）")
             return result
