@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 import logging
 
 from .config import settings
-from .routers import projects, chapters, inspiration, search, export, batch, versions
+from .routers import projects, chapters, inspiration, search, export, batch, versions, progressive, rag
 
 # 配置日志
 logging.basicConfig(
@@ -24,6 +24,21 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 Novel Backend Service 启动")
     logger.info(f"📊 数据库: {settings.DATABASE_URL.split('@')[-1]}")
     logger.info(f"🤖 AI 模型: {settings.OPENAI_MODEL}")
+
+    # 初始化向量服务
+    from .services.vector_service import get_vector_service
+    vector_service = get_vector_service()
+    if vector_service.enabled:
+        stats = vector_service.get_stats()
+        logger.info(
+            f"🔍 RAG 向量服务已启用 - "
+            f"Collection: {stats.get('collection_name')}, "
+            f"文档数: {stats.get('total_documents')}, "
+            f"Embedding: {stats.get('embedding_model')}"
+        )
+    else:
+        logger.warning("⚠️ RAG 向量服务未启用，将使用关键词匹配降级模式")
+
     yield
     logger.info("👋 Novel Backend Service 关闭")
 
@@ -54,6 +69,8 @@ app.include_router(search.router)
 app.include_router(export.router)
 app.include_router(batch.router)
 app.include_router(versions.router)  # 版本管理路由
+app.include_router(progressive.router)  # 渐进式大纲生成与智能分析
+app.include_router(rag.router)  # RAG 索引管理路由
 
 
 @app.get("/health")

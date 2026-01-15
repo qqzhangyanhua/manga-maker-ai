@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str
     OPENAI_API_BASE: str = "https://api.openai.com/v1"
     OPENAI_MODEL: str = "gpt-4-turbo-preview"
+
+    # Embedding 模型配置
+    # 可选: text-embedding-3-small (推荐, 更便宜), text-embedding-ada-002 (旧版), text-embedding-3-large (最强)
+    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
+    # Embedding API Base URL (可选，不设置则使用 OPENAI_API_BASE)
+    OPENAI_EMBEDDING_API_BASE: str = ""
     
     # MinIO 配置
     MINIO_ENDPOINT: str
@@ -32,6 +38,12 @@ class Settings(BaseSettings):
     
     # 日志配置
     LOG_LEVEL: str = "INFO"
+
+    # 向量数据库配置
+    CHROMA_PERSIST_DIR: str = "./chroma_db"
+    CHROMA_COLLECTION_NAME: str = "novel_chapters"
+    RAG_TOP_K: int = 3
+    RAG_ENABLE_VECTOR_SEARCH: bool = True
     
     @property
     def cors_origins_list(self) -> List[str]:

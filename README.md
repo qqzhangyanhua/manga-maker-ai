@@ -24,6 +24,368 @@ uvicorn app.main:app --reload --port 8000
 - 认证与通信：JWT/bcrypt，Nodemailer SMTP 邮件
 - 测试与质量：ESLint、Vitest（`scripts/run-vitest.mjs`）
 
+## Novel Backend 服务（Python FastAPI）
+
+项目包含独立的 Python 后端服务，提供小说生成和 RAG（检索增强生成）功能。
+
+### 目录结构
+
+```
+services/novel-backend/
+├── app/
+│   ├── main.py              # FastAPI 应用入口
+│   ├── config.py            # 配置管理
+│   ├── models.py            # 数据模型
+│   ├── routers/             # API 路由
+│   │   ├── chapters.py      # 章节管理
+│   │   ├── progressive.py   # 渐进式大纲生成
+│   │   ├── versions.py      # 版本管理
+│   │   └── rag.py           # RAG 索引管理
+│   └── services/
+│       ├── generation_service.py        # 文本生成服务
+│       ├── rag_service.py              # RAG 检索服务
+│       ├── vector_service.py           # 向量化服务
+│       ├── progressive_outline_service.py  # 渐进式大纲
+│       └── quality_service.py          # 质量评估
+├── requirements.txt         # Python 依赖
+└── .env                    # 环境变量配置
+```
+
+### 快速启动清单 ⚡
+
+对于首次使用 Novel Backend 服务的用户，按照以下步骤操作：
+
+```bash
+# 1. 进入后端目录
+cd services/novel-backend
+
+# 2. 创建虚拟环境（首次运行）
+python -m venv .venv
+
+# 3. 激活虚拟环境
+source .venv/bin/activate  # macOS/Linux
+# .venv\Scripts\activate  # Windows
+
+# 4. 安装依赖
+pip install -r requirements.txt
+
+# 5. 配置环境变量
+cp .env.example .env
+# 编辑 .env，填写 DATABASE_URL, OPENAI_API_KEY, JWT_SECRET
+
+# 6. 启动服务
+uvicorn app.main:app --reload --port 8000
+
+# 7. 验证 RAG 服务（新开终端）
+curl http://localhost:8000/api/novel/rag/stats
+
+# 8. (可选) 运行测试
+python test_rag.py
+```
+
+**环境再次启动**（虚拟环境已创建后）：
+
+```bash
+cd services/novel-backend
+source .venv/bin/activate  # 激活环境
+uvicorn app.main:app --reload --port 8000  # 启动服务
+```
+
+### RAG 向量检索系统
+
+系统支持基于语义的向量检索，使用 **ChromaDB + OpenAI Embeddings** 实现真正的 RAG 功能。
+
+#### 核心特性
+
+- ✅ **语义检索**：基于向量相似度的智能检索，理解查询意图
+- ✅ **自动降级**：向量服务失败时自动回退到关键词匹配
+- ✅ **成本优化**：使用 `text-embedding-3-small` 模型（比 ada-002 便宜 80%）
+- ✅ **灵活配置**：支持独立的 Embedding API endpoint 配置
+
+#### 快速配置
+
+在 `services/novel-backend/.env` 中添加以下配置：
+
+```bash
+# 数据库配置（与 Next.js 共享）
+DATABASE_URL=postgresql://user:password@postgres:5432/manga
+
+# JWT 配置（与 Next.js 共享）
+JWT_SECRET=your-jwt-secret-here
+JWT_ALGORITHM=HS256
+
+# OpenAI API 配置
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_API_BASE=https://api.openai.com/v1
+OPENAI_MODEL=gpt-4-turbo-preview
+
+# Embedding 模型配置（用于 RAG 向量检索）
+# 推荐: text-embedding-3-small (性价比最高, 80% 更便宜)
+# 备选: text-embedding-ada-002 (旧版), text-embedding-3-large (最强)
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+
+# Embedding API Base URL（可选）
+# 如果不设置，则使用 OPENAI_API_BASE
+# 适用场景：Chat 和 Embedding 使用不同的 API endpoint
+# OPENAI_EMBEDDING_API_BASE=https://api.openai.com/v1
+
+# 向量数据库配置（RAG）
+CHROMA_PERSIST_DIR=./chroma_db
+CHROMA_COLLECTION_NAME=novel_chapters
+RAG_TOP_K=3
+RAG_ENABLE_VECTOR_SEARCH=true
+```
+
+#### 启动服务
+
+**步骤 1：创建并激活虚拟环境**
+
+```bash
+cd services/novel-backend
+
+# 创建虚拟环境（首次运行）
+python -m venv .venv
+
+# 激活虚拟环境
+# macOS/Linux:
+source .venv/bin/activate
+
+# Windows PowerShell:
+# .venv\Scripts\Activate.ps1
+
+# Windows CMD:
+# .venv\Scripts\activate.bat
+```
+
+激活成功后，终端提示符会显示 `(.venv)`。
+
+**步骤 2：安装依赖**
+
+```bash
+# 确保虚拟环境已激活
+pip install -r requirements.txt
+```
+
+依赖包括：
+- `fastapi` - Web 框架
+- `uvicorn` - ASGI 服务器
+- `chromadb` - 向量数据库
+- `openai` - OpenAI API 客户端
+- `tiktoken` - Token 计数工具
+- `asyncpg` - PostgreSQL 异步驱动
+
+**步骤 3：配置环境变量**
+
+```bash
+# 复制示例配置文件
+cp .env.example .env
+
+# 编辑 .env 文件，填写必要配置
+nano .env  # 或使用其他编辑器
+```
+
+必填配置项：
+- `DATABASE_URL` - PostgreSQL 数据库连接
+- `OPENAI_API_KEY` - OpenAI API 密钥
+- `JWT_SECRET` - JWT 签名密钥
+
+**步骤 4：启动服务**
+
+```bash
+# 确保虚拟环境已激活，当前目录为 services/novel-backend
+uvicorn app.main:app --reload --port 8000
+```
+
+启动成功后，你会看到类似的日志：
+
+```
+INFO:     Uvicorn running on http://127.0.0.1:8000
+INFO:     🚀 Novel Backend Service 启动
+INFO:     ✅ 向量服务初始化成功 - Collection: novel_chapters, 文档数: 0, API Base: https://api.openai.com/v1
+INFO:     🔍 RAG 向量服务已启用 - Collection: novel_chapters
+```
+
+服务启动后访问：
+- **API 文档**：http://localhost:8000/docs （Swagger UI）
+- **健康检查**：http://localhost:8000/health
+- **RAG 统计**：http://localhost:8000/api/novel/rag/stats
+
+#### RAG 向量库初始化与验证
+
+**验证 RAG 服务状态**
+
+```bash
+# 方法 1：查看启动日志
+# 确保看到 "✅ 向量服务初始化成功" 和 "🔍 RAG 向量服务已启用"
+
+# 方法 2：调用统计接口
+curl http://localhost:8000/api/novel/rag/stats
+```
+
+预期响应：
+```json
+{
+  "enabled": true,
+  "collection_name": "novel_chapters",
+  "total_documents": 0,
+  "embedding_model": "text-embedding-3-small"
+}
+```
+
+**运行测试脚本（可选）**
+
+```bash
+# 确保虚拟环境已激活
+cd services/novel-backend
+python test_rag.py
+```
+
+测试脚本会：
+1. ✅ 测试向量服务初始化
+2. ✅ 测试 Embedding 生成
+3. ✅ 测试章节索引
+4. ✅ 测试向量检索
+5. ✅ 测试索引清理
+
+预期输出：
+```
+========================================
+🧪 RAG 向量服务测试
+========================================
+
+[1/5] 测试向量服务初始化...
+✅ 向量服务初始化成功
+   - 状态: 已启用
+   - Collection: novel_chapters
+   - 文档数: 0
+   - Embedding 模型: text-embedding-3-small
+
+[2/5] 测试 Embedding 生成...
+✅ Embedding 生成成功
+   - 文本长度: 27
+   - 向量维度: 1536
+   - 向量范数: 1.0
+
+... (更多测试输出)
+
+========================================
+📊 测试总结
+========================================
+总测试数: 5
+通过: 4 ✅
+失败: 1 ❌
+通过率: 80.0%
+```
+
+**常见问题排查**
+
+1. **错误：`ModuleNotFoundError: No module named 'chromadb'`**
+   ```bash
+   # 确保虚拟环境已激活
+   source .venv/bin/activate
+   pip install -r requirements.txt
+   ```
+
+2. **错误：`Connection refused` 或 `401 Unauthorized`**
+   - 检查 `.env` 文件中的 `OPENAI_API_KEY` 是否正确
+   - 检查 `OPENAI_API_BASE` 或 `OPENAI_EMBEDDING_API_BASE` 是否可访问
+
+3. **RAG 服务未启用**
+   - 检查 `.env` 中的 `RAG_ENABLE_VECTOR_SEARCH=true`
+   - 查看启动日志是否有错误信息
+
+4. **向量数据持久化位置**
+   - 默认存储在 `services/novel-backend/chroma_db/` 目录
+   - 可通过 `CHROMA_PERSIST_DIR` 配置更改
+
+#### RAG 配置场景
+
+**场景 1：默认配置（推荐）**
+```bash
+# 只设置 API Key，其他使用默认值
+OPENAI_API_KEY=your-key
+# 系统自动使用 text-embedding-3-small 模型
+```
+
+**场景 2：自定义 Embedding 模型**
+```bash
+OPENAI_API_KEY=your-key
+OPENAI_API_BASE=https://api.openai.com/v1
+
+# 使用更强的模型（追求极致准确度）
+OPENAI_EMBEDDING_MODEL=text-embedding-3-large
+```
+
+**场景 3：独立的 Embedding API**
+```bash
+# Chat 使用官方 API
+OPENAI_API_BASE=https://api.openai.com/v1
+OPENAI_MODEL=gpt-4-turbo-preview
+
+# Embedding 使用代理（更便宜）
+OPENAI_EMBEDDING_API_BASE=https://proxy.example.com/v1
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+```
+
+**场景 4：混合云部署**
+```bash
+# Chat 使用公有云
+OPENAI_API_BASE=https://api.openai.com/v1
+
+# Embedding 使用私有云（数据安全）
+OPENAI_EMBEDDING_API_BASE=https://internal-embedding.company.com/v1
+```
+
+#### Embedding 模型对比
+
+| 模型 | 维度 | 价格（美元/1M tokens） | 性价比 | 推荐场景 |
+|------|------|----------------------|--------|----------|
+| `text-embedding-3-small` ⭐ | 1536 | $0.02 | 最高 | 生产推荐，性价比最优 |
+| `text-embedding-ada-002` | 1536 | $0.10 | 低 | 旧版，兼容性 |
+| `text-embedding-3-large` | 3072 | $0.13 | 中 | 准确度要求极高的场景 |
+
+**成本对比示例**：
+- 1000 个章节（每章 500 字）= 约 50 万 tokens
+- 使用 `text-embedding-3-small`：**$0.01**
+- 使用 `text-embedding-ada-002`：**$0.05**
+- **节省 80% 成本** 💰
+
+#### API 端点
+
+```bash
+# 索引单个章节
+POST /api/novel/rag/index-chapter
+{
+  "chapter_id": "uuid",
+  "project_id": "uuid",
+  "chapter_number": 1,
+  "title": "第一章",
+  "outline": "章节大纲...",
+  "content": "章节内容..."
+}
+
+# 批量索引项目所有章节
+POST /api/novel/rag/batch-index
+{
+  "project_id": "uuid"
+}
+
+# 删除章节索引
+DELETE /api/novel/rag/chapter/{chapter_id}
+
+# 获取 RAG 统计信息
+GET /api/novel/rag/stats
+```
+
+#### 详细文档
+
+更多配置和使用细节，请查看：
+- `services/novel-backend/RAG_GUIDE.md` - RAG 完整使用指南
+- `services/novel-backend/EMBEDDING_CONFIG_SUMMARY.md` - Embedding 配置总结
+- `services/novel-backend/EMBEDDING_API_CONFIG.md` - API Base URL 配置指南
+- `services/novel-backend/EMBEDDING_MODELS.md` - 模型详细对比
+- `services/novel-backend/API_DOCUMENTATION.md` - API 接口文档
+
 ## 目录速览
 
 - `src/app`：路由与页面。`api/*` 为后端接口；`storyboard` 分镜工作区；`editor` 画面精炼；`story`/`scripts` 剧本；`workflow` 工作流；`admin` 后台；`auth` 登录注册；`assets` 资产库。
@@ -31,6 +393,7 @@ uvicorn app.main:app --reload --port 8000
 - `src/lib`：服务层与工具。数据库/认证、LLM 选择器、故事与提示构建、统一图片生成队列、MinIO 封装、邮件、用量配额、工作流引擎。
 - `prisma`：`schema.prisma` 数据模型，`seed.ts` 种子脚本。
 - `public/assets`：示例角色/风格图片，供展示与占位。
+- `services/novel-backend`：Python FastAPI 后端服务，提供小说生成和 RAG 向量检索功能。
 
 ## 快速开始
 
