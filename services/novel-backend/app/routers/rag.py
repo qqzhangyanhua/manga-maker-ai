@@ -3,10 +3,11 @@ RAG 索引管理路由
 """
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from pydantic import BaseModel
 from typing import List, Optional
 from uuid import UUID
+from datetime import datetime, timezone
 import logging
 
 from ..database import get_db
@@ -214,6 +215,123 @@ async def delete_chapter_index(
     except Exception as e:
         logger.error(f"删除章节索引失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"删除失败: {str(e)}")
+
+
+@router.get("/chapters")
+async def get_chapters_list(
+    page: int = 1,
+    limit: int = 20,
+    project_id: Optional[str] = None,
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    获取章节索引列表(分页)
+
+    - 支持按项目、状态、标题搜索过滤
+    - 返回章节的索引状态
+    - status 过滤: indexed（已索引）, need_rebuild（需重建）, not_indexed（未索引）
+    """
+    try:
+        # 构建查询条件
+        conditions = []
+
+        if project_id:
+            conditions.append(NovelChapter.project_id == project_id)
+
+        if search:
+            conditions.append(NovelChapter.title.ilike(f"%{search}%"))
+
+        # 获取总数
+        count_stmt = select(func.count(NovelChapter.id)).where(*conditions)
+        total_result = await db.execute(count_stmt)
+        total = total_result.scalar()
+
+        # 分页查询
+        offset = (page - 1) * limit
+        chapters_stmt = (
+            select(NovelChapter, NovelProject.title.label("project_name"))
+            .join(NovelProject, NovelChapter.project_id == NovelProject.id)
+            .where(*conditions)
+            .order_by(NovelChapter.updated_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+
+        result = await db.execute(chapters_stmt)
+        chapters = result.all()
+
+        # 获取 ChromaDB 索引状态
+        vector_service = get_vector_service()
+        items = []
+
+        for chapter, project_name in chapters:
+            # 检查 ChromaDB 中是否存在
+            indexed_at_value = None
+            status_value = "not_indexed"
+
+            try:
+                if vector_service.enabled and vector_service.collection:
+                    chroma_result = vector_service.collection.get(
+                        ids=[str(chapter.id)],
+                        include=["metadatas"]
+                    )
+
+                    if chroma_result["ids"]:
+                        metadata = chroma_result["metadatas"][0]
+                        indexed_at_value = metadata.get("indexed_at")
+
+                        # 判断是否需要重建
+                        if indexed_at_value and chapter.updated_at:
+                            indexed_time = datetime.fromisoformat(indexed_at_value.replace("Z", "+00:00"))
+                            # 确保 chapter.updated_at 有 timezone 信息
+                            chapter_updated = chapter.updated_at
+                            if chapter_updated.tzinfo is None:
+                                chapter_updated = chapter_updated.replace(tzinfo=timezone.utc)
+
+                            if chapter_updated > indexed_time:
+                                status_value = "need_rebuild"
+                            else:
+                                status_value = "indexed"
+                        else:
+                            status_value = "indexed"
+                    else:
+                        status_value = "not_indexed"
+                        indexed_at_value = None
+            except Exception as e:
+                logger.error(f"检查章节索引状态失败 - ID: {chapter.id}, 错误: {str(e)}")
+                status_value = "not_indexed"
+                indexed_at_value = None
+
+            # 状态过滤
+            if status and status_value != status:
+                total -= 1
+                continue
+
+            items.append({
+                "chapter_id": str(chapter.id),
+                "project_id": str(chapter.project_id),
+                "project_name": project_name,
+                "chapter_number": chapter.chapter_number,
+                "title": chapter.title,
+                "word_count": chapter.word_count or 0,
+                "indexed_at": indexed_at_value,
+                "updated_at": chapter.updated_at.isoformat() if chapter.updated_at else None,
+                "status": status_value
+            })
+
+        return {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "items": items
+        }
+
+    except Exception as e:
+        logger.error(f"获取章节列表失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取章节列表失败: {str(e)}")
 
 
 @router.get("/stats", response_model=RAGStatsResponse)

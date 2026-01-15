@@ -3,6 +3,7 @@
 """
 import logging
 from typing import List, Dict, Optional
+from datetime import datetime
 import chromadb
 from chromadb.config import Settings as ChromaSettings
 from openai import AsyncOpenAI
@@ -127,6 +128,7 @@ class VectorService:
                         "title": title,
                         "outline": outline[:500],  # 限制元数据大小
                         "content_preview": (content or "")[:200],
+                        "indexed_at": datetime.utcnow().isoformat() + "Z",
                     }
                 ],
                 documents=[index_text],

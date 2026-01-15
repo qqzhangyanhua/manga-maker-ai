@@ -300,6 +300,24 @@ async def main():
         return 1
 
 
+def test_get_chapters_list():
+    """测试获取章节索引列表"""
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    client = TestClient(app)
+
+    response = client.get(
+        "/api/novel/rag/chapters?page=1&limit=20",
+        headers={"Authorization": "Bearer admin_token"}
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "total" in data
+    assert "items" in data
+    assert isinstance(data["items"], list)
+
+
 if __name__ == "__main__":
     # 设置环境变量（如果没有 .env 文件）
     if not os.path.exists(".env"):
