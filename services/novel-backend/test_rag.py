@@ -300,6 +300,41 @@ async def main():
         return 1
 
 
+def test_get_chapters_list():
+    """测试获取章节索引列表"""
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from jose import jwt
+    from datetime import datetime, timedelta, timezone
+    import os
+
+    client = TestClient(app)
+
+    # 生成有效的 JWT token（使用实际的 JWT_SECRET）
+    jwt_secret = os.getenv("JWT_SECRET", "zhangyanhua12345")
+    payload = {
+        "userId": "test-user-id-123",
+        "email": "test@example.com",
+        "exp": datetime.now(timezone.utc) + timedelta(hours=1)
+    }
+    token = jwt.encode(payload, jwt_secret, algorithm="HS256")
+
+    response = client.get(
+        "/api/novel/rag/chapters?page=1&limit=20",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+    data = response.json()
+    assert "total" in data
+    assert "items" in data
+    assert isinstance(data["items"], list)
+    assert "page" in data
+    assert "limit" in data
+    print(f"✅ Test passed! Total chapters: {data['total']}, Items: {len(data['items'])}")
+
+
+
 if __name__ == "__main__":
     # 设置环境变量（如果没有 .env 文件）
     if not os.path.exists(".env"):

@@ -3,11 +3,12 @@ RAG 索引管理路由
 """
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from pydantic import BaseModel
 from typing import List, Optional
 from uuid import UUID
 import logging
+from datetime import datetime
 
 from ..database import get_db
 from ..models import NovelProject, NovelChapter
@@ -236,3 +237,138 @@ async def get_rag_stats():
     except Exception as e:
         logger.error(f"获取 RAG 统计信息失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"获取统计信息失败: {str(e)}")
+
+
+@router.get("/chapters")
+async def get_chapters_list(
+    page: int = 1,
+    limit: int = 20,
+    project_id: Optional[str] = None,
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    获取章节索引列表（分页）
+
+    - 支持按项目、状态、标题搜索过滤
+    - 返回章节的索引状态
+    """
+    try:
+        logger.info(f"📋 获取章节索引列表 - 用户: {user_id}, 页码: {page}, 每页: {limit}")
+
+        # 构建基础查询条件
+        conditions = []
+
+        if project_id:
+            conditions.append(NovelChapter.project_id == project_id)
+            logger.info(f"   过滤项目ID: {project_id}")
+
+        if search:
+            conditions.append(NovelChapter.title.ilike(f"%{search}%"))
+            logger.info(f"   搜索关键词: {search}")
+
+        # 获取总数（不包含状态过滤）
+        count_stmt = select(func.count(NovelChapter.id)).where(*conditions)
+        total_result = await db.execute(count_stmt)
+        total = total_result.scalar() or 0
+
+        # 分页查询
+        offset = (page - 1) * limit
+        chapters_stmt = (
+            select(NovelChapter, NovelProject.title.label("project_name"))
+            .join(NovelProject, NovelChapter.project_id == NovelProject.id)
+            .where(*conditions)
+            .order_by(NovelChapter.updated_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+
+        result = await db.execute(chapters_stmt)
+        chapters = result.all()
+
+        # 获取 ChromaDB 索引状态
+        vector_service = get_vector_service()
+        items = []
+        filtered_count = 0
+
+        for chapter, project_name in chapters:
+            # 检查 ChromaDB 中是否存在
+            indexed_at = None
+            status_value = "not_indexed"
+
+            try:
+                if vector_service.enabled and vector_service.collection:
+                    chroma_result = vector_service.collection.get(
+                        ids=[str(chapter.id)],
+                        include=["metadatas"]
+                    )
+
+                    if chroma_result["ids"]:
+                        metadata = chroma_result["metadatas"][0] if chroma_result["metadatas"] else {}
+                        indexed_at = metadata.get("indexed_at")
+
+                        # 判断是否需要重建
+                        if indexed_at and chapter.updated_at:
+                            indexed_time = datetime.fromisoformat(indexed_at.replace("Z", "+00:00"))
+                            # Make chapter.updated_at timezone-aware if it isn't
+                            chapter_updated = chapter.updated_at
+                            if chapter_updated.tzinfo is None:
+                                from datetime import timezone
+                                chapter_updated = chapter_updated.replace(tzinfo=timezone.utc)
+
+                            if chapter_updated > indexed_time:
+                                status_value = "need_rebuild"
+                            else:
+                                status_value = "indexed"
+                        else:
+                            status_value = "indexed"
+                    else:
+                        status_value = "not_indexed"
+                        indexed_at = None
+            except Exception as e:
+                logger.warning(f"检查章节索引状态失败 - 章节ID: {chapter.id}, 错误: {str(e)}")
+                status_value = "not_indexed"
+                indexed_at = None
+
+            # 状态过滤
+            if status and status_value != status:
+                filtered_count += 1
+                continue
+
+            items.append({
+                "chapter_id": str(chapter.id),
+                "project_id": str(chapter.project_id),
+                "project_name": project_name,
+                "chapter_number": chapter.chapter_number,
+                "title": chapter.title,
+                "word_count": chapter.word_count or 0,
+                "indexed_at": indexed_at,
+                "updated_at": chapter.updated_at.isoformat() if chapter.updated_at else None,
+                "status": status_value
+            })
+
+        # 调整总数（如果有状态过滤）
+        if status:
+            total = len(items)
+
+        logger.info(
+            f"✅ 章节索引列表获取成功 - "
+            f"总数: {total}, "
+            f"返回: {len(items)}, "
+            f"状态过滤: {status or '无'}"
+        )
+
+        return {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "items": items
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 获取章节列表失败: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"获取章节列表失败: {str(e)}")

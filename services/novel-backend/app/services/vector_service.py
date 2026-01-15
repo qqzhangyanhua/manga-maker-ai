@@ -117,6 +117,7 @@ class VectorService:
             embedding = await self.get_embedding(index_text)
 
             # 存储到 Chroma
+            from datetime import datetime, timezone
             self.collection.upsert(
                 ids=[chapter_id],
                 embeddings=[embedding],
@@ -127,6 +128,7 @@ class VectorService:
                         "title": title,
                         "outline": outline[:500],  # 限制元数据大小
                         "content_preview": (content or "")[:200],
+                        "indexed_at": datetime.now(timezone.utc).isoformat(),
                     }
                 ],
                 documents=[index_text],
