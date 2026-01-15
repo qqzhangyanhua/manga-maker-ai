@@ -9,6 +9,7 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 from uuid import UUID
 from datetime import datetime
+import logging
 
 from ..database import get_db
 from ..models import NovelProject, NovelChapter, NovelChapterVersion
@@ -18,6 +19,7 @@ from ..services.rag_service import NovelRAGService
 from ..services.generation_service import NovelGenerationService
 
 router = APIRouter(prefix="/chapters", tags=["chapters"])
+logger = logging.getLogger(__name__)  # ✨ 添加日志记录器
 
 
 # ============ Pydantic Models ============
@@ -336,17 +338,38 @@ async def generate_chapter_stream(
             async for chunk in generation_service.generate_chapter_stream(
                 context=context,
                 chapter_outline=chapter.outline or "",
+                chapter_number=chapter.chapter_number,  # 新增参数
                 style_prompt=request.style_prompt,
                 temperature=request.temperature,
             ):
                 accumulated_content += chunk
                 # 发送 SSE 事件
                 yield f"data: {chunk}\n\n"
-            
+
             # 生成完成后保存到数据库
             chapter.content = accumulated_content
             chapter.word_count = len(accumulated_content)
             chapter.model_used = generation_service.model
+
+            # ✨ 字数监控：记录实际生成字数并在不足时发出警告
+            actual_word_count = len(accumulated_content)
+            if actual_word_count < 5500:
+                logger.warning(
+                    f"⚠️ 章节字数不足警告 - "
+                    f"章节ID: {chapter.id}, "
+                    f"章节号: {chapter.chapter_number}, "
+                    f"实际字数: {actual_word_count}, "
+                    f"目标字数: 6000+, "
+                    f"差距: {6000 - actual_word_count} 字"
+                )
+            else:
+                logger.info(
+                    f"✅ 章节生成成功 - "
+                    f"章节ID: {chapter.id}, "
+                    f"章节号: {chapter.chapter_number}, "
+                    f"字数: {actual_word_count}"
+                )
+
             await db.commit()
             
             # 发送完成信号
@@ -586,6 +609,7 @@ async def generate_multiple_versions(
         async for chunk in generation_service.generate_chapter_stream(
             context=context,
             chapter_outline=chapter.outline or "",
+            chapter_number=chapter.chapter_number,  # 新增参数
             temperature=0.7 + (i * 0.1),  # 不同温度产生不同版本
         ):
             content += chunk
