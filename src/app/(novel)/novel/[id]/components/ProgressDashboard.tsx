@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { analyzeProjectProgress } from "@/lib/progress-analyzer";
+import { novelTheme } from "../../theme";
 import type {
   ChapterOutline,
   Character,
@@ -52,7 +53,7 @@ export function ProgressDashboard({
   return (
     <div className="space-y-6">
       {/* 整体进度 */}
-      <Card className="bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
+      <Card className={novelTheme.card.base}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-purple-500" />
@@ -129,7 +130,7 @@ export function ProgressDashboard({
       {/* 详细分析 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* 剧情结构 */}
-        <Card className="bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
+        <Card className={novelTheme.card.base}>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <BookOpen className="h-4 w-4 text-blue-500" />
@@ -193,7 +194,7 @@ export function ProgressDashboard({
         </Card>
 
         {/* 角色发展 */}
-        <Card className="bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
+        <Card className={novelTheme.card.base}>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Users className="h-4 w-4 text-purple-500" />
@@ -237,7 +238,7 @@ export function ProgressDashboard({
         </Card>
 
         {/* 世界观构建 */}
-        <Card className="bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
+        <Card className={novelTheme.card.base}>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Globe className="h-4 w-4 text-green-500" />
@@ -282,7 +283,7 @@ export function ProgressDashboard({
 
       {/* 改进建议 */}
       {analysis.recommendations.length > 0 && (
-        <Card className="bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
+        <Card className={novelTheme.card.base}>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Lightbulb className="h-4 w-4 text-purple-500" />

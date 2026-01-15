@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Check, ChevronsUpDown, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { novelTheme } from "../../theme";
 
 interface NovelChapter {
   id: string;
@@ -71,7 +72,7 @@ export function ChapterSelector({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[300px] justify-between bg-zinc-900/40 border-purple-500/10 hover:bg-purple-500/10 focus:ring-purple-500/50"
+          className={cn("w-[300px] justify-between hover:bg-purple-500/10 focus:ring-purple-500/50", novelTheme.input.base)}
         >
           {selectedChapter ? (
             <span className="flex items-center gap-2">

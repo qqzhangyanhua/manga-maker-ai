@@ -106,7 +106,14 @@
       "Skill(collaborating-with-gemini)",
       "Bash(./scripts/test-inspiration-api.sh:*)",
       "Bash(npm test:*)",
-      "Bash(PGPASSWORD='cartoon2024' psql:*)"
+      "Bash(PGPASSWORD='cartoon2024' psql:*)",
+      "Skill(code)",
+      "Skill(ask)",
+      "Bash(tail:*)",
+      "Bash(git diff:*)",
+      "Bash(pip install:*)",
+      "Bash(.venv/bin/pip install:*)",
+      "Bash(.venv/bin/python:*)"
     ],
     "deny": [],
     "ask": []

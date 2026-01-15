@@ -25,6 +25,8 @@ import {
 import { Trash2, Save } from 'lucide-react';
 import type { RelationshipEdgeData, RelationType } from './types';
 import { RELATION_TYPE_CONFIGS } from './types';
+import { novelTheme } from "../../../theme";
+import { cn } from "@/lib/utils";
 
 interface RelationshipEditDialogProps {
   open: boolean;
@@ -103,7 +105,7 @@ export function RelationshipEditDialog({
               value={relationType}
               onValueChange={(value) => setRelationType(value as RelationType)}
             >
-              <SelectTrigger id="relation-type" className="bg-zinc-900/40 border-purple-500/10">
+              <SelectTrigger id="relation-type" className={novelTheme.input.base}>
                 <SelectValue>
                   <div className="flex items-center gap-2">
                     <div
@@ -146,7 +148,7 @@ export function RelationshipEditDialog({
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
               maxLength={200}
-              className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
+              className={novelTheme.input.base}
             />
             <p className="text-xs text-muted-foreground">
               {description.length}/200
@@ -168,7 +170,7 @@ export function RelationshipEditDialog({
           </div>
 
           {/* 预览 */}
-          <div className="mt-4 p-3 rounded-lg border bg-zinc-900/40 border-purple-500/10">
+          <div className={cn("mt-4 p-3 rounded-lg border", novelTheme.card.base)}>
             <p className="text-xs text-muted-foreground mb-2">预览:</p>
             <div className="flex items-center gap-2">
               <span className="font-semibold">{sourceCharacterName || '角色A'}</span>

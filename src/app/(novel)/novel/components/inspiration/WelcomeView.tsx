@@ -7,6 +7,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sparkles, Loader2, Lightbulb, MessageSquare, Wand2, FolderPlus } from "lucide-react";
+import { novelTheme } from "../../theme";
 
 interface WelcomeViewProps {
   onStart: () => void;
@@ -67,7 +68,7 @@ export function WelcomeView({ onStart, isLoading }: WelcomeViewProps) {
       </Card>
 
       <div className="flex justify-center">
-        <Button onClick={onStart} disabled={isLoading} size="lg" className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20">
+        <Button onClick={onStart} disabled={isLoading} size="lg" className={novelTheme.button.primary}>
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

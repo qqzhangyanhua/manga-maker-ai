@@ -28,6 +28,8 @@ import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Character, CharacterRelationship } from "./types";
 import { CHARACTER_ROLES, RELATIONSHIP_TYPES } from "./types";
+import { novelTheme } from "../../../theme";
+import { cn } from "@/lib/utils";
 
 interface CharacterEditDialogProps {
   isOpen: boolean;
@@ -126,7 +128,7 @@ export function CharacterEditDialog({
                   value={editingCharacter.name}
                   onChange={(e) => updateField("name", e.target.value)}
                   placeholder="例如：李寻欢"
-                  className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
+                  className={novelTheme.input.base}
                 />
               </div>
               <div>
@@ -148,14 +150,13 @@ export function CharacterEditDialog({
             {/* 简介 */}
             <div>
               <label className="text-sm font-medium">角色简介</label>
-              <Textarea
-                value={editingCharacter.description}
-                onChange={(e) => updateField("description", e.target.value)}
-                placeholder="用一两句话概括这个角色..."
-                rows={2}
-                className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
-              />
-            </div>
+                              <Textarea
+                                value={editingCharacter.description}
+                                onChange={(e) => updateField("description", e.target.value)}
+                                placeholder="用一两句话概括这个角色..."
+                                rows={2}
+                                className={novelTheme.input.base}
+                              />            </div>
 
             {/* 外貌 */}
             <div>
@@ -206,7 +207,7 @@ export function CharacterEditDialog({
                 </Button>
               </div>
               {(editingCharacter.relationships || []).map((rel, index) => (
-                <Card key={`relationship-${rel.characterId}-${index}`} className="p-3 bg-zinc-900/40 border-purple-500/10">
+                <Card key={`relationship-${rel.characterId}-${index}`} className={cn("p-3", novelTheme.card.base)}>
                   <div className="grid grid-cols-3 gap-2">
                     <Input
                       value={rel.characterName}

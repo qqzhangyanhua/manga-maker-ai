@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/tooltip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { PanelEstimation } from "../types";
+import { novelTheme } from "../../theme";
+import { cn } from "@/lib/utils";
 
 interface PanelEstimationBadgeProps {
   estimation: PanelEstimation | null;
@@ -89,7 +91,7 @@ function CompactMode({ estimation }: { estimation: PanelEstimation }) {
  */
 function DetailedMode({ estimation }: { estimation: PanelEstimation }) {
   return (
-    <div className="space-y-3 p-4 border rounded-lg bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
+    <div className={cn("space-y-3 p-4 border rounded-lg", novelTheme.card.base)}>
       {/* 标题 */}
       <div className="flex items-center gap-2 font-medium">
         <Film className="h-5 w-5 text-purple-500" />

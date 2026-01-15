@@ -27,6 +27,7 @@ import {
 } from "./character";
 // ✅ 使用主类型文件中的类型
 import type { Character, ChapterOutline } from "../types";
+import { novelTheme } from "../../theme";
 
 interface CharacterManagerProps {
   projectId: string;
@@ -121,16 +122,16 @@ export function CharacterManager({
             variant="outline"
             disabled={outlines.length === 0}
             title={outlines.length === 0 ? "请先创建章节大纲" : ""}
-            className="border-purple-500/30 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 hover:border-purple-500/50"
+            className={novelTheme.button.outline}
           >
             <Sparkles className="mr-2 h-4 w-4" />
             AI 生成角色
           </Button>
-          <Button onClick={() => openEditDialog(null)} variant="outline" className="border-purple-500/30 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 hover:border-purple-500/50">
+          <Button onClick={() => openEditDialog(null)} variant="outline" className={novelTheme.button.outline}>
             <Plus className="mr-2 h-4 w-4" />
             添加角色
           </Button>
-          <Button onClick={handleSave} disabled={isSaving} className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20">
+          <Button onClick={handleSave} disabled={isSaving} className={novelTheme.button.primary}>
             <Save className="mr-2 h-4 w-4" />
             {isSaving ? "保存中..." : "保存"}
           </Button>
@@ -156,13 +157,13 @@ export function CharacterManager({
               {outlines.length > 0 && (
                 <Button
                   onClick={() => setIsGenerateDialogOpen(true)}
-                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                  className={novelTheme.button.primary}
                 >
                   <Sparkles className="mr-2 h-4 w-4" />
                   AI 生成角色
                 </Button>
               )}
-              <Button onClick={() => openEditDialog(null)} variant="outline" className="border-purple-500/30 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 hover:border-purple-500/50">
+              <Button onClick={() => openEditDialog(null)} variant="outline" className={novelTheme.button.outline}>
                 <Plus className="mr-2 h-4 w-4" />
                 手动添加
               </Button>

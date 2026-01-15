@@ -13,6 +13,8 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { useVersionComparisonStore } from "../stores/versionComparisonStore";
 import "react-diff-view/style/index.css";
+import { novelTheme } from "../../theme";
+import { cn } from "@/lib/utils";
 
 interface VersionDiffProps {
   version1: ChapterVersion;
@@ -94,7 +96,7 @@ export function VersionDiff({ version1, version2 }: VersionDiffProps) {
 
   if (!diffResult) {
     return (
-      <GlassCard className="p-6 bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
+      <GlassCard className={cn("p-6", novelTheme.card.base)}>
         <div className="text-center text-zinc-400">
           <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
           <p>无法计算版本差异</p>
@@ -169,7 +171,7 @@ export function VersionDiff({ version1, version2 }: VersionDiffProps) {
       </div>
 
       {/* Diff 视图 */}
-      <GlassCard className="p-0 overflow-hidden bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
+      <GlassCard className={cn("p-0 overflow-hidden", novelTheme.card.base)}>
         <div className="diff-container bg-black/20">
           <Diff
             viewType={diffViewType}

@@ -39,6 +39,8 @@ import {
   applyLayout,
   generateEdgeId,
 } from './utils';
+import { novelTheme } from "../../../theme";
+import { cn } from "@/lib/utils";
 
 /**
  * 节点类型映射
@@ -279,7 +281,7 @@ function CharacterRelationshipGraphInner({
   // 无角色时的空状态
   if (characters.length === 0) {
     return (
-      <div className="h-[600px] flex items-center justify-center border border-purple-500/10 rounded-lg bg-zinc-900/40 backdrop-blur-sm">
+      <div className={cn("h-[600px] flex items-center justify-center rounded-lg", novelTheme.card.base)}>
         <div className="text-center text-zinc-400">
           <Network className="w-16 h-16 mx-auto mb-4 opacity-50 text-purple-500" />
           <p className="text-lg font-semibold mb-2">暂无角色</p>
@@ -296,7 +298,7 @@ function CharacterRelationshipGraphInner({
   const hasRelationships = edges.length > 0;
 
   return (
-    <div className="h-[600px] border border-purple-500/10 rounded-lg bg-zinc-900/40 backdrop-blur-sm relative">
+    <div className={cn("h-[600px] rounded-lg relative", novelTheme.card.base)}>
       <ReactFlow
         nodes={nodes}
         edges={edges}

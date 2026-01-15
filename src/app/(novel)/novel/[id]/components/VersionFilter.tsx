@@ -24,6 +24,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Search, Filter, X, Calendar as CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
+import { novelTheme } from "../../theme";
+import { cn } from "@/lib/utils";
 
 export interface VersionFilterOptions {
   searchQuery: string;
@@ -84,7 +86,7 @@ export function VersionFilter({
             placeholder="搜索版本号或备注..."
             value={filters.searchQuery}
             onChange={(e) => updateFilter({ searchQuery: e.target.value })}
-            className="pl-10 bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
+            className={cn("pl-10", novelTheme.input.base)}
           />
         </div>
 
@@ -95,7 +97,7 @@ export function VersionFilter({
             updateFilter({ sortBy: value as VersionFilterOptions["sortBy"] })
           }
         >
-          <SelectTrigger className="w-[180px] bg-zinc-900/40 border-purple-500/10">
+          <SelectTrigger className={cn("w-[180px]", novelTheme.input.base)}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -163,7 +165,7 @@ export function VersionFilter({
                     minScore: e.target.value ? Number(e.target.value) : null,
                   })
                 }
-                className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
+                className={novelTheme.input.base}
               />
               <span className="text-zinc-500">~</span>
               <Input
@@ -177,7 +179,7 @@ export function VersionFilter({
                     maxScore: e.target.value ? Number(e.target.value) : null,
                   })
                 }
-                className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
+                className={novelTheme.input.base}
               />
             </div>
           </div>
@@ -192,7 +194,7 @@ export function VersionFilter({
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
-                    className="flex-1 justify-start text-left font-normal bg-zinc-900/40 border-purple-500/10 hover:bg-purple-500/10"
+                    className={cn("flex-1 justify-start text-left font-normal hover:bg-purple-500/10", novelTheme.input.base)}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4 text-zinc-500" />
                     {filters.startDate ? (
@@ -218,7 +220,7 @@ export function VersionFilter({
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
-                    className="flex-1 justify-start text-left font-normal bg-zinc-900/40 border-purple-500/10 hover:bg-purple-500/10"
+                    className={cn("flex-1 justify-start text-left font-normal hover:bg-purple-500/10", novelTheme.input.base)}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4 text-zinc-500" />
                     {filters.endDate ? (

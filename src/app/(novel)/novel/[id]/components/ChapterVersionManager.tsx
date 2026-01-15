@@ -22,6 +22,7 @@ import {
 } from "../hooks/useChapterVersions";
 import { useVersionComparisonStore } from "../stores/versionComparisonStore";
 import type { ChapterVersion } from "../types/version";
+import { novelTheme } from "../../theme";
 
 interface ChapterVersionManagerProps {
   projectId: string;
@@ -235,7 +236,7 @@ export function ChapterVersionManager({
   // 错误状态
   if (error) {
     return (
-      <GlassCard className="p-12 text-center bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
+      <GlassCard className={cn("p-12 text-center", novelTheme.card.base)}>
         <div className="flex flex-col items-center gap-4">
           <div className="w-16 h-16 rounded-full bg-red-900/20 flex items-center justify-center">
             <AlertCircle className="h-8 w-8 text-red-500" />
@@ -372,7 +373,7 @@ export function ChapterVersionManager({
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="h-48 bg-zinc-900/40 rounded-lg animate-pulse border border-purple-500/10"
+              className={cn("h-48 rounded-lg", novelTheme.card.skeleton)}
             />
           ))}
         </div>

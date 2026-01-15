@@ -25,6 +25,8 @@ import { toast } from "sonner";
 import type { ChapterVersion } from "../types/version";
 import { QualityScoreCard } from "./QualityScoreCard";
 import { useVersionComparisonStore } from "../stores/versionComparisonStore";
+import { novelTheme } from "../../theme";
+import { cn } from "@/lib/utils";
 
 interface ChapterVersionListProps {
   chapterId: string;
@@ -145,10 +147,10 @@ export function ChapterVersionList({
           {versions.map((version) => (
             <GlassCard
               key={version.id}
-              className={`p-5 transition-all duration-300 ${version.is_selected
+              className={cn("p-5 transition-all duration-300", version.is_selected
                 ? "border-purple-500 bg-purple-500/10 shadow-lg shadow-purple-500/10 backdrop-blur-sm"
-                : "border-purple-500/10 hover:border-purple-500/30 hover:bg-zinc-900/60 bg-zinc-900/40 backdrop-blur-sm"
-                }`}
+                : cn(novelTheme.card.base, "hover:border-purple-500/30 hover:bg-zinc-900/60")
+              )}
             >
               {/* 版本头部 */}
               <div className="flex items-start justify-between mb-4">
@@ -194,7 +196,7 @@ export function ChapterVersionList({
                         disabled={actionLoading === version.id}
                         size="sm"
                         variant="outline"
-                        className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10 hover:text-purple-300 hover:border-purple-500/50"
+                        className={novelTheme.button.outline}
                       >
                         {actionLoading === version.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -264,7 +266,7 @@ export function ChapterVersionList({
 
               {/* 备注 */}
               {version.notes && (
-                <div className="text-sm text-zinc-500 bg-zinc-900/40 rounded-lg p-3 border border-purple-500/10">
+                <div className={cn("text-sm text-zinc-500 rounded-lg p-3", novelTheme.card.base)}>
                   {version.notes}
                 </div>
               )}

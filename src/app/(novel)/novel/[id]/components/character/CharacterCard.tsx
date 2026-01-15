@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Edit, Trash2, User } from "lucide-react";
 import type { Character } from "./types";
 import { getRoleColor } from "./types";
+import { novelTheme } from "../../../theme";
 
 interface CharacterCardProps {
   character: Character;
@@ -19,7 +20,7 @@ interface CharacterCardProps {
 
 export function CharacterCard({ character, onEdit, onDelete }: CharacterCardProps) {
   return (
-    <Card className="hover:shadow-lg transition-shadow bg-zinc-900/40 border-purple-500/10 backdrop-blur-sm">
+    <Card className={`hover:shadow-lg transition-shadow ${novelTheme.card.base}`}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex items-center gap-3">
           <Avatar>

@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Save, MapPin, Users, BookOpen, Clock, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { novelTheme } from "../../theme";
+import { cn } from "@/lib/utils";
 import {
   LocationEditor,
   FactionEditor,
@@ -86,12 +88,12 @@ export function WorldSettingEditor({
             variant="outline"
             onClick={() => setIsGenerateDialogOpen(true)}
             disabled={outlines.length === 0}
-            className="border-purple-500/30 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 hover:border-purple-500/50"
+            className={novelTheme.button.outline}
           >
             <Sparkles className="mr-2 h-4 w-4" />
             AI 智能生成
           </Button>
-          <Button onClick={handleSave} disabled={isSaving} className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20">
+          <Button onClick={handleSave} disabled={isSaving} className={novelTheme.button.primary}>
             <Save className="mr-2 h-4 w-4" />
             {isSaving ? "保存中..." : "保存"}
           </Button>
@@ -99,20 +101,20 @@ export function WorldSettingEditor({
       </div>
 
       <Tabs defaultValue="locations" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 bg-zinc-900/40 backdrop-blur-md border border-purple-500/10">
-          <TabsTrigger value="locations" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white transition-all">
+        <TabsList className={cn("grid w-full grid-cols-4", novelTheme.tabs.list)}>
+          <TabsTrigger value="locations" className={cn(novelTheme.tabs.trigger, "transition-all")}>
             <MapPin className="mr-2 h-4 w-4" />
             地点
           </TabsTrigger>
-          <TabsTrigger value="factions" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white transition-all">
+          <TabsTrigger value="factions" className={cn(novelTheme.tabs.trigger, "transition-all")}>
             <Users className="mr-2 h-4 w-4" />
             派系
           </TabsTrigger>
-          <TabsTrigger value="rules" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white transition-all">
+          <TabsTrigger value="rules" className={cn(novelTheme.tabs.trigger, "transition-all")}>
             <BookOpen className="mr-2 h-4 w-4" />
             规则
           </TabsTrigger>
-          <TabsTrigger value="timeline" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white transition-all">
+          <TabsTrigger value="timeline" className={cn(novelTheme.tabs.trigger, "transition-all")}>
             <Clock className="mr-2 h-4 w-4" />
             时间线
           </TabsTrigger>

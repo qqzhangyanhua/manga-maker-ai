@@ -17,6 +17,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createChapterVersion, analyzeVersionQuality } from "../services/versionService";
 import { versionQueryKeys } from "../hooks/useChapterVersions";
 import type { ChapterVersion } from "../types/version";
+import { novelTheme } from "../../theme";
+import { cn } from "@/lib/utils";
 
 interface NovelChapter {
   id: string;
@@ -135,7 +137,7 @@ export function QuickChapterEditor({
           <Button
             onClick={handleSaveAsVersion}
             disabled={!isDirty || createVersionMutation.isPending}
-            className="bg-purple-600 hover:bg-purple-700"
+            className={novelTheme.button.primary}
           >
             {createVersionMutation.isPending ? (
               <>
@@ -199,7 +201,7 @@ export function QuickChapterEditor({
           value={content}
           onChange={(e) => handleContentChange(e.target.value)}
           placeholder="开始写作章节内容..."
-          className="min-h-[400px] bg-zinc-900/40 border-purple-500/10 text-white placeholder:text-zinc-500 resize-none font-mono focus-visible:ring-purple-500/50"
+          className={cn(novelTheme.input.textarea, "min-h-[400px] text-white placeholder:text-zinc-500 resize-none font-mono")}
           disabled={createVersionMutation.isPending}
         />
       </div>

@@ -11,6 +11,8 @@ import { ExportDialog } from "./components/ExportDialog";
 import { ConvertToComicDialog } from "./components/ConvertToComicDialog";
 import type { NovelProject, ChapterOutline } from "./types";
 import { toast } from "sonner";
+import { novelTheme } from "../theme";
+import { cn } from "@/lib/utils";
 
 interface ProjectHeaderProps {
   project: NovelProject;
@@ -78,7 +80,7 @@ export function ProjectHeader({
             variant="outline"
             size="sm"
             onClick={() => setSearchOpen(true)}
-            className="gap-2 border-purple-500/30 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 hover:border-purple-500/50"
+            className={cn("gap-2", novelTheme.button.outline)}
           >
             <Search className="w-4 h-4" />
             搜索
@@ -92,7 +94,7 @@ export function ProjectHeader({
             variant="outline"
             size="sm"
             onClick={() => setExportOpen(true)}
-            className="gap-2 border-purple-500/30 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 hover:border-purple-500/50"
+            className={cn("gap-2", novelTheme.button.outline)}
           >
             <Download className="w-4 h-4" />
             导出
@@ -105,7 +107,7 @@ export function ProjectHeader({
           <Button
             size="sm"
             onClick={() => setConvertOpen(true)}
-            className="gap-2 bg-purple-600 hover:bg-purple-700 text-white"
+            className={cn("gap-2", novelTheme.button.primary)}
           >
             <Film className="w-4 h-4" />
             转换为漫画

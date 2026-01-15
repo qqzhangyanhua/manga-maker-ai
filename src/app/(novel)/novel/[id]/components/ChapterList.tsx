@@ -4,6 +4,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { novelTheme } from "../../theme";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Film } from "lucide-react";
@@ -59,7 +60,7 @@ export function ChapterList({
                 "border-2",
                 selectedChapter?.chapterNumber === chapter.chapterNumber
                   ? "bg-purple-500/20 border-purple-500 shadow-sm shadow-purple-500/10"
-                  : "bg-zinc-900/40 border-purple-500/10 hover:border-purple-500/30 hover:bg-purple-500/5"
+                  : cn(novelTheme.card.base, "hover:border-purple-500/30 hover:bg-purple-500/5")
               )}
             >
               <div className="flex items-start justify-between mb-1">
@@ -68,7 +69,7 @@ export function ChapterList({
                 </span>
                 <Badge
                   variant={selectedChapter?.chapterNumber === chapter.chapterNumber ? "default" : "outline"}
-                  className={cn("text-xs ml-2", selectedChapter?.chapterNumber === chapter.chapterNumber ? "bg-purple-600 hover:bg-purple-700" : "text-muted-foreground")}
+                  className={cn("text-xs ml-2", selectedChapter?.chapterNumber === chapter.chapterNumber ? novelTheme.button.primary : "text-muted-foreground")}
                 >
                   {chapter.chapterNumber}
                 </Badge>

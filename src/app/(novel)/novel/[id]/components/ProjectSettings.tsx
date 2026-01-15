@@ -32,6 +32,8 @@ import {
 import { Save, Trash2, AlertTriangle, Sparkles, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { OptimizeDescriptionDialog } from "./OptimizeDescriptionDialog";
+import { novelTheme } from "../../theme";
+import { cn } from "@/lib/utils";
 
 interface NovelProjectBase {
   id: string;
@@ -157,7 +159,7 @@ export function ProjectSettings<T extends NovelProjectBase>({ project, onUpdate 
 
   return (
     <div className="space-y-6">
-      <Card className="bg-zinc-900/40 backdrop-blur-sm border-purple-500/10">
+      <Card className={novelTheme.card.base}>
         <CardHeader>
           <CardTitle>基本信息</CardTitle>
         </CardHeader>
@@ -170,7 +172,7 @@ export function ProjectSettings<T extends NovelProjectBase>({ project, onUpdate 
               onChange={(e) => setTitle(e.target.value)}
               placeholder="输入项目标题"
               maxLength={200}
-              className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
+              className={novelTheme.input.base}
             />
             <p className="text-xs text-muted-foreground">
               {title.length}/200 字符
@@ -185,7 +187,7 @@ export function ProjectSettings<T extends NovelProjectBase>({ project, onUpdate 
               onChange={(e) => setDescription(e.target.value)}
               placeholder="简要描述你的小说内容、主题或创作意图"
               rows={4}
-              className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
+              className={novelTheme.input.base}
             />
             <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">
@@ -219,7 +221,7 @@ export function ProjectSettings<T extends NovelProjectBase>({ project, onUpdate 
             <div className="space-y-2">
               <Label htmlFor="genre">类型</Label>
               <Select value={genre || "none"} onValueChange={(value) => setGenre(value === "none" ? "" : value)}>
-                <SelectTrigger id="genre" className="bg-zinc-900/40 border-purple-500/10 focus:ring-purple-500/50">
+                <SelectTrigger id="genre" className={novelTheme.input.base}>
                   <SelectValue placeholder="选择类型" />
                 </SelectTrigger>
                 <SelectContent className="bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl">
@@ -248,7 +250,7 @@ export function ProjectSettings<T extends NovelProjectBase>({ project, onUpdate 
                 step={1000}
                 value={targetWords}
                 onChange={(e) => setTargetWords(Number(e.target.value))}
-                className="bg-zinc-900/40 border-purple-500/10 focus-visible:ring-purple-500/50"
+                className={novelTheme.input.base}
               />
               <p className="text-xs text-muted-foreground">
                 当前已写 {project.total_words.toLocaleString()} 字
@@ -256,13 +258,12 @@ export function ProjectSettings<T extends NovelProjectBase>({ project, onUpdate 
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="status">项目状态</Label>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger id="status" className="bg-zinc-900/40 border-purple-500/10 focus:ring-purple-500/50">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl">
+                      <div className="space-y-2">
+                        <Label htmlFor="status">项目状态</Label>
+                        <Select value={status} onValueChange={setStatus}>
+                          <SelectTrigger id="status" className={novelTheme.input.base}>
+                            <SelectValue />
+                          </SelectTrigger>              <SelectContent className="bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl">
                 <SelectItem value="draft">草稿</SelectItem>
                 <SelectItem value="in_progress">进行中</SelectItem>
                 <SelectItem value="completed">已完成</SelectItem>
@@ -273,7 +274,7 @@ export function ProjectSettings<T extends NovelProjectBase>({ project, onUpdate 
         </CardContent>
       </Card>
 
-      <Card className="bg-zinc-900/40 backdrop-blur-sm border-purple-500/10">
+      <Card className={novelTheme.card.base}>
         <CardHeader>
           <CardTitle>项目统计</CardTitle>
         </CardHeader>
