@@ -124,7 +124,8 @@
       "Bash(pytest:*)",
       "Skill(subagent-driven-development)",
       "Bash(source:*)",
-      "Skill(superpowers:requesting-code-review)"
+      "Skill(superpowers:requesting-code-review)",
+      "Bash(git rm:*)"
     ],
     "deny": [],
     "ask": []
