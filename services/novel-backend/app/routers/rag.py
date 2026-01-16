@@ -291,7 +291,6 @@ async def get_chapters_list(
         # 获取 ChromaDB 索引状态
         vector_service = get_vector_service()
         items = []
-        filtered_count = 0
 
         for chapter, project_name in chapters:
             # 检查 ChromaDB 中是否存在
@@ -299,42 +298,40 @@ async def get_chapters_list(
             status_value = "not_indexed"
 
             try:
-                if vector_service.enabled and vector_service.collection:
-                    chroma_result = vector_service.collection.get(
-                        ids=[str(chapter.id)],
-                        include=["metadatas"]
-                    )
+                chroma_result = vector_service.collection.get(
+                    ids=[str(chapter.id)],
+                    include=["metadatas"]
+                )
 
-                    if chroma_result["ids"]:
-                        metadata = chroma_result["metadatas"][0] if chroma_result["metadatas"] else {}
-                        indexed_at = metadata.get("indexed_at")
+                if chroma_result["ids"]:
+                    metadata = chroma_result["metadatas"][0] if chroma_result["metadatas"] else {}
+                    indexed_at = metadata.get("indexed_at")
 
-                        # 判断是否需要重建
-                        if indexed_at and chapter.updated_at:
-                            indexed_time = datetime.fromisoformat(indexed_at.replace("Z", "+00:00"))
-                            # Make chapter.updated_at timezone-aware if it isn't
-                            chapter_updated = chapter.updated_at
-                            if chapter_updated.tzinfo is None:
-                                from datetime import timezone
-                                chapter_updated = chapter_updated.replace(tzinfo=timezone.utc)
+                    # 判断是否需要重建
+                    if indexed_at and chapter.updated_at:
+                        indexed_time = datetime.fromisoformat(indexed_at.replace("Z", "+00:00"))
+                        # Make chapter.updated_at timezone-aware if it isn't
+                        chapter_updated = chapter.updated_at
+                        if chapter_updated.tzinfo is None:
+                            from datetime import timezone
+                            chapter_updated = chapter_updated.replace(tzinfo=timezone.utc)
 
-                            if chapter_updated > indexed_time:
-                                status_value = "need_rebuild"
-                            else:
-                                status_value = "indexed"
+                        if chapter_updated > indexed_time:
+                            status_value = "need_rebuild"
                         else:
                             status_value = "indexed"
                     else:
-                        status_value = "not_indexed"
-                        indexed_at = None
-            except Exception as e:
-                logger.warning(f"检查章节索引状态失败 - 章节ID: {chapter.id}, 错误: {str(e)}")
+                        status_value = "indexed"
+                else:
+                    status_value = "not_indexed"
+                    indexed_at = None
+            except Exception:
                 status_value = "not_indexed"
                 indexed_at = None
 
             # 状态过滤
             if status and status_value != status:
-                filtered_count += 1
+                total -= 1
                 continue
 
             items.append({
@@ -348,10 +345,6 @@ async def get_chapters_list(
                 "updated_at": chapter.updated_at.isoformat() if chapter.updated_at else None,
                 "status": status_value
             })
-
-        # 调整总数（如果有状态过滤）
-        if status:
-            total = len(items)
 
         logger.info(
             f"✅ 章节索引列表获取成功 - "
