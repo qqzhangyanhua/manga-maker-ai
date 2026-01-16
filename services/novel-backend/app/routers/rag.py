@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 from uuid import UUID
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..database import get_db
 from ..models import NovelProject, NovelChapter
@@ -288,50 +288,55 @@ async def get_chapters_list(
         result = await db.execute(chapters_stmt)
         chapters = result.all()
 
-        # 获取 ChromaDB 索引状态
+        # 获取 ChromaDB 索引状态（批量查询优化）
         vector_service = get_vector_service()
+
+        # Batch query: Get all chapter IDs at once
+        chapter_ids = [str(ch.id) for ch, _ in chapters]
+        chroma_data = {}
+
+        try:
+            chroma_result = vector_service.collection.get(
+                ids=chapter_ids,
+                include=["metadatas"]
+            )
+
+            # Build lookup dict for O(1) access
+            chroma_data = {
+                id: metadata
+                for id, metadata in zip(chroma_result["ids"], chroma_result["metadatas"])
+            }
+        except Exception:
+            chroma_data = {}
+
         items = []
 
         for chapter, project_name in chapters:
-            # 检查 ChromaDB 中是否存在
+            # Lookup from batch result
+            metadata = chroma_data.get(str(chapter.id))
             indexed_at = None
             status_value = "not_indexed"
 
-            try:
-                chroma_result = vector_service.collection.get(
-                    ids=[str(chapter.id)],
-                    include=["metadatas"]
-                )
+            if metadata:
+                indexed_at = metadata.get("indexed_at")
 
-                if chroma_result["ids"]:
-                    metadata = chroma_result["metadatas"][0] if chroma_result["metadatas"] else {}
-                    indexed_at = metadata.get("indexed_at")
+                # 判断是否需要重建
+                if indexed_at and chapter.updated_at:
+                    indexed_time = datetime.fromisoformat(indexed_at.replace("Z", "+00:00"))
+                    # Make chapter.updated_at timezone-aware if it isn't
+                    chapter_updated = chapter.updated_at
+                    if chapter_updated.tzinfo is None:
+                        chapter_updated = chapter_updated.replace(tzinfo=timezone.utc)
 
-                    # 判断是否需要重建
-                    if indexed_at and chapter.updated_at:
-                        indexed_time = datetime.fromisoformat(indexed_at.replace("Z", "+00:00"))
-                        # Make chapter.updated_at timezone-aware if it isn't
-                        chapter_updated = chapter.updated_at
-                        if chapter_updated.tzinfo is None:
-                            from datetime import timezone
-                            chapter_updated = chapter_updated.replace(tzinfo=timezone.utc)
-
-                        if chapter_updated > indexed_time:
-                            status_value = "need_rebuild"
-                        else:
-                            status_value = "indexed"
+                    if chapter_updated > indexed_time:
+                        status_value = "need_rebuild"
                     else:
                         status_value = "indexed"
                 else:
-                    status_value = "not_indexed"
-                    indexed_at = None
-            except Exception:
-                status_value = "not_indexed"
-                indexed_at = None
+                    status_value = "indexed"
 
             # 状态过滤
             if status and status_value != status:
-                total -= 1
                 continue
 
             items.append({
@@ -346,22 +351,24 @@ async def get_chapters_list(
                 "status": status_value
             })
 
+        # Calculate filtered total if status filter is applied
+        filtered_total = len(items)
+
         logger.info(
             f"✅ 章节索引列表获取成功 - "
             f"总数: {total}, "
-            f"返回: {len(items)}, "
+            f"过滤后: {filtered_total}, "
             f"状态过滤: {status or '无'}"
         )
 
         return {
             "total": total,
+            "filtered_total": filtered_total,
             "page": page,
             "limit": limit,
             "items": items
         }
 
     except Exception as e:
-        logger.error(f"❌ 获取章节列表失败: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        logger.exception(f"❌ 获取章节列表失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"获取章节列表失败: {str(e)}")
