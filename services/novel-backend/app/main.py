@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 import logging
 
 from .config import settings
-from .routers import projects, chapters, inspiration, search, export, batch, versions, progressive, rag
+from .routers import projects, chapters, inspiration, search, export, batch, versions, progressive, rag, canvas
 
 # 配置日志
 logging.basicConfig(
@@ -71,6 +71,7 @@ app.include_router(batch.router)
 app.include_router(versions.router)  # 版本管理路由
 app.include_router(progressive.router)  # 渐进式大纲生成与智能分析
 app.include_router(rag.router)  # RAG 索引管理路由
+app.include_router(canvas.router)  # 无限画布生成服务
 
 
 @app.get("/health")

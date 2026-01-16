@@ -1182,3 +1182,201 @@ model NineGridImage {
   @@index([chapter_id], map: "idx_nine_grid_images_chapter")
   @@map("nine_grid_images")
 }
+
+// ============ Infinite Canvas System ============
+
+// 无限画布时间线项目
+model CanvasTimeline {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  novel_project_id   String   @db.Uuid
+  user_id            String   @db.Uuid
+  title              String
+  status             String   @default("draft") // draft, generating, completed, error
+
+  // 配置
+  config             Json     @default("{\"auto_generate\":true,\"use_character_library\":true,\"use_scene_library\":true}")
+
+  // 统计
+  total_chapters     Int      @default(0)
+  completed_chapters Int      @default(0)
+  total_shots        Int      @default(0)
+  total_images       Int      @default(0)
+
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  chapters           TimelineChapter[]
+
+  @@index([user_id], map: "idx_canvas_timeline_user")
+  @@index([novel_project_id], map: "idx_canvas_timeline_project")
+  @@map("canvas_timelines")
+}
+
+// 时间线章节节点
+model TimelineChapter {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  timeline_id    String   @db.Uuid
+  chapter_id     String   @db.Uuid
+  chapter_number Int
+
+  // 生成状态（每个阶段独立追踪）
+  script_status  String   @default("pending") // pending, generating, completed, error
+  shot_status    String   @default("pending")
+  scene_status   String   @default("pending")
+  final_status   String   @default("pending")
+
+  // 统计
+  script_segment_count Int @default(0)
+  shot_count           Int @default(0)
+  scene_image_count    Int @default(0)
+  final_image_count    Int @default(0)
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  timeline        CanvasTimeline    @relation(fields: [timeline_id], references: [id], onDelete: Cascade)
+  script_segments ScriptSegment[]
+
+  @@index([timeline_id], map: "idx_timeline_chapter_timeline")
+  @@index([chapter_id], map: "idx_timeline_chapter_chapter")
+  @@map("timeline_chapters")
+}
+
+// 剧本片段
+model ScriptSegment {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  timeline_chapter_id String   @db.Uuid
+  segment_order       Int
+
+  // 剧本内容
+  content             String   @db.Text
+  scene_description   String   @db.Text
+  character_actions   String   @db.Text
+  dialogue            String?  @db.Text
+
+  // 元数据
+  estimated_duration  Int      @default(0) // 秒
+  emotion_tone        String   @default("")
+
+  // 原始小说文本关联
+  source_text_start   Int      @default(0)
+  source_text_end     Int      @default(0)
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  timeline_chapter TimelineChapter @relation(fields: [timeline_chapter_id], references: [id], onDelete: Cascade)
+  shot_designs     ShotDesign[]
+
+  @@index([timeline_chapter_id], map: "idx_script_segment_chapter")
+  @@map("script_segments")
+}
+
+// 镜头设计
+model ShotDesign {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  script_segment_id String   @db.Uuid
+  shot_order        Int
+
+  // 镜头参数
+  camera_angle      String   @default("")
+  shot_size         String   @default("")
+  panel_type        String   @default("")
+
+  // 内容描述
+  shot_description  String   @db.Text
+  composition_hint  String   @db.Text
+
+  // 资产绑定
+  character_ids     String[] @default([])
+  scene_id          String?  @db.Uuid
+  expression_types  String[] @default([])
+  outfit_ids        String[] @default([])
+
+  // 生成提示词
+  prompt            String   @db.Text
+  negative_prompt   String?  @db.Text
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  script_segment ScriptSegment  @relation(fields: [script_segment_id], references: [id], onDelete: Cascade)
+  scene_images   SceneImage[]
+  comic_panels   ComicPanelResult[]
+
+  @@index([script_segment_id], map: "idx_shot_design_segment")
+  @@map("shot_designs")
+}
+
+// 场景基础图
+model SceneImage {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  shot_design_id     String   @db.Uuid
+
+  // 图像信息
+  image_url          String
+  width              Int      @default(1024)
+  height             Int      @default(768)
+
+  // 生成参数
+  generation_prompt  String   @db.Text
+  scene_id           String?  @db.Uuid
+
+  // AI 生成元数据
+  model_used         String   @default("")
+  seed               Int?
+  generation_params  Json     @default("{}")
+
+  status             String   @default("generating") // generating, completed, failed
+  error_message      String?  @db.Text
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  shot_design  ShotDesign         @relation(fields: [shot_design_id], references: [id], onDelete: Cascade)
+  comic_panels ComicPanelResult[]
+
+  @@index([shot_design_id], map: "idx_scene_image_shot")
+  @@map("scene_images")
+}
+
+// 最终漫画图
+model ComicPanelResult {
+  id                         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  shot_design_id             String   @db.Uuid
+  scene_image_id             String   @db.Uuid
+
+  // 最终图像
+  image_url                  String
+  width                      Int      @default(1024)
+  height                     Int      @default(768)
+
+  // 生成参数
+  generation_prompt          String   @db.Text
+  character_reference_images String[] @default([])
+
+  // 垫图参数
+  controlnet_type            String   @default("reference")
+  controlnet_weight          Float    @default(0.7)
+
+  // AI 生成元数据
+  model_used                 String   @default("")
+  lora_models                String[] @default([])
+  generation_params          Json     @default("{}")
+
+  status                     String   @default("generating") // generating, completed, failed
+  error_message              String?  @db.Text
+  exported_to_panel_id       String?  @db.Uuid
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  shot_design  ShotDesign @relation(fields: [shot_design_id], references: [id], onDelete: Cascade)
+  scene_image  SceneImage @relation(fields: [scene_image_id], references: [id], onDelete: Cascade)
+
+  @@index([shot_design_id], map: "idx_comic_panel_shot")
+  @@index([scene_image_id], map: "idx_comic_panel_scene")
+  @@map("comic_panel_results")
+}
