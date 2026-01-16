@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { logInfo, logError } from "@/lib/api-logger";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -86,6 +87,14 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     const body = await req.json();
     const { title, config, status } = body;
 
+    logInfo("更新时间线配置", {
+      endpoint: "/api/canvas/timeline/[id]",
+      timelineId: id,
+      userId: payload.userId,
+      hasConfig: !!config,
+      hasTitle: !!title,
+    });
+
     const timeline = await prisma.canvasTimeline.findFirst({
       where: { id, user_id: payload.userId },
     });
@@ -104,9 +113,17 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       },
     });
 
+    logInfo("时间线配置更新成功", {
+      timelineId: id,
+      userId: payload.userId,
+    });
+
     return NextResponse.json({ success: true, timeline: updated });
   } catch (error) {
-    console.error("更新时间线失败:", error);
+    logError("更新时间线失败", error, {
+      timelineId: id,
+      userId: payload.userId,
+    });
     return NextResponse.json({ error: "更新时间线失败" }, { status: 500 });
   }
 }

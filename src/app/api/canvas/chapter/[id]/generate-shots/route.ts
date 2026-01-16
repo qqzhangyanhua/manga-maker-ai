@@ -70,41 +70,61 @@ export async function POST(req: Request, { params }: RouteParams) {
       data: { shot_status: "generating" },
     });
 
-    // 调用 novel-backend 的镜头规划服务
+    // 调用 novel-backend 的镜头规划服务（并行优化）
     const client = getNovelBackendClient();
     let totalShots = 0;
     const allShots = [];
 
-    // 为每个剧本片段生成镜头
-    for (const segment of timelineChapter.script_segments) {
-      logInfo("为剧本片段生成镜头", {
-        chapterId,
-        segmentId: segment.id,
-        segmentOrder: segment.segment_order,
-      });
+    logInfo("开始并行生成镜头", {
+      chapterId,
+      segmentCount: timelineChapter.script_segments.length,
+    });
 
-      const planResult = await client.planShots({
-        script_content: segment.content,
-        scene_description: segment.scene_description,
-        character_actions: segment.character_actions,
-        available_characters: [], // TODO: 从数据库获取可用角色列表
-      });
+    // 并行为所有剧本片段生成镜头（性能优化：从串行改为并行）
+    const shotResults = await Promise.all(
+      timelineChapter.script_segments.map(async (segment) => {
+        try {
+          logInfo("为剧本片段生成镜头", {
+            chapterId,
+            segmentId: segment.id,
+            segmentOrder: segment.segment_order,
+          });
 
-      if (!planResult.success || planResult.shots.length === 0) {
-        logError("镜头规划返回空结果", new Error("Empty shots result"), {
-          segmentId: segment.id,
-        });
-        continue; // 跳过这个片段，继续处理下一个
-      }
+          const planResult = await client.planShots({
+            script_content: segment.content,
+            scene_description: segment.scene_description,
+            character_actions: segment.character_actions,
+            available_characters: [], // TODO: 从数据库获取可用角色列表
+          });
 
-      logInfo("镜头规划完成", {
-        segmentId: segment.id,
-        shotCount: planResult.shots.length,
-      });
+          if (!planResult.success || planResult.shots.length === 0) {
+            logError("镜头规划返回空结果", new Error("Empty shots result"), {
+              segmentId: segment.id,
+            });
+            return { segment, shots: [] };
+          }
 
-      // 创建镜头记录
+          logInfo("镜头规划完成", {
+            segmentId: segment.id,
+            shotCount: planResult.shots.length,
+          });
+
+          return { segment, shots: planResult.shots };
+        } catch (error) {
+          logError("片段镜头生成失败", error, {
+            segmentId: segment.id,
+          });
+          return { segment, shots: [] };
+        }
+      })
+    );
+
+    // 批量创建镜头记录
+    for (const { segment, shots } of shotResults) {
+      if (shots.length === 0) continue;
+
       const createdShots = await Promise.all(
-        planResult.shots.map((shot) =>
+        shots.map((shot) =>
           prisma.shotDesign.create({
             data: {
               script_segment_id: segment.id,

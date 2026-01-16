@@ -4,7 +4,8 @@ import { useState, useCallback } from "react";
 import { Plus, Play, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChapterRow } from "./ChapterRow";
-import type { CanvasTimeline, TimelineChapter } from "./types";
+import { TimelineSettings } from "./TimelineSettings";
+import type { CanvasTimeline, TimelineChapter, CanvasTimelineConfig } from "./types";
 
 interface TimelineContainerProps {
   timeline: CanvasTimeline;
@@ -16,10 +17,11 @@ export function TimelineContainer({
   onRefresh,
 }: TimelineContainerProps) {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const handleSettings = useCallback(() => {
     console.log("打开设置面板");
-    // TODO: 实现设置功能
+    setShowSettings(true);
   }, []);
 
   const generateChapterStep = useCallback(
@@ -122,6 +124,15 @@ export function TimelineContainer({
           </div>
         )}
       </div>
+
+      {/* Settings Dialog */}
+      <TimelineSettings
+        open={showSettings}
+        onClose={() => setShowSettings(false)}
+        timelineId={timeline.id}
+        currentConfig={timeline.config as CanvasTimelineConfig}
+        onSaved={onRefresh}
+      />
     </div>
   );
 }

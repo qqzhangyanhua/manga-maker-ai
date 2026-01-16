@@ -1,5 +1,5 @@
 /**
- * Infinite Canvas Types
+ * Infinite Canvas 类型定义
  */
 
 export type GenerationStatus = "pending" | "generating" | "completed" | "error";
@@ -9,6 +9,11 @@ export interface CanvasTimelineConfig {
   use_character_library: boolean;
   use_scene_library: boolean;
   default_comic_style_id?: string;
+  // 新增配置项
+  ai_model?: "gpt-4" | "gpt-3.5-turbo";
+  shot_density?: "sparse" | "medium" | "dense";
+  visual_style?: "manga" | "realistic" | "anime";
+  language?: "zh-CN" | "en-US";
 }
 
 export interface CanvasTimeline {
@@ -16,7 +21,7 @@ export interface CanvasTimeline {
   novel_project_id: string;
   user_id: string;
   title: string;
-  status: GenerationStatus;
+  status: "draft" | "generating" | "completed" | "error";
   config: CanvasTimelineConfig;
   total_chapters: number;
   completed_chapters: number;
@@ -30,7 +35,6 @@ export interface CanvasTimeline {
 export interface TimelineChapter {
   id: string;
   timeline_id: string;
-  chapter_id: string;
   chapter_number: number;
   script_status: GenerationStatus;
   shot_status: GenerationStatus;
@@ -42,77 +46,4 @@ export interface TimelineChapter {
   final_image_count: number;
   created_at: string;
   updated_at: string;
-  script_segments?: ScriptSegment[];
-}
-
-export interface ScriptSegment {
-  id: string;
-  timeline_chapter_id: string;
-  segment_order: number;
-  content: string;
-  scene_description: string;
-  character_actions: string;
-  dialogue?: string;
-  estimated_duration: number;
-  emotion_tone: string;
-  source_text_start: number;
-  source_text_end: number;
-  created_at: string;
-  shot_designs?: ShotDesign[];
-}
-
-export interface ShotDesign {
-  id: string;
-  script_segment_id: string;
-  shot_order: number;
-  camera_angle: string;
-  shot_size: string;
-  panel_type: string;
-  shot_description: string;
-  composition_hint: string;
-  character_ids: string[];
-  scene_id?: string;
-  expression_types: string[];
-  outfit_ids: string[];
-  prompt: string;
-  negative_prompt?: string;
-  created_at: string;
-  scene_images?: SceneImage[];
-  comic_panels?: ComicPanelResult[];
-}
-
-export interface SceneImage {
-  id: string;
-  shot_design_id: string;
-  image_url: string;
-  width: number;
-  height: number;
-  generation_prompt: string;
-  scene_id?: string;
-  model_used: string;
-  seed?: number;
-  generation_params: Record<string, unknown>;
-  status: GenerationStatus;
-  error_message?: string;
-  created_at: string;
-}
-
-export interface ComicPanelResult {
-  id: string;
-  shot_design_id: string;
-  scene_image_id: string;
-  image_url: string;
-  width: number;
-  height: number;
-  generation_prompt: string;
-  character_reference_images: string[];
-  controlnet_type: string;
-  controlnet_weight: number;
-  model_used: string;
-  lora_models: string[];
-  generation_params: Record<string, unknown>;
-  status: GenerationStatus;
-  error_message?: string;
-  exported_to_panel_id?: string;
-  created_at: string;
 }
