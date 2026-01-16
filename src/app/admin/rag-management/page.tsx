@@ -5,6 +5,10 @@ import { Database, BarChart3, Settings, Search, Wrench } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import OverviewTab from "./components/OverviewTab";
+import IndexManagementTab from "./components/IndexManagementTab";
+import QualityMonitoringTab from "./components/QualityMonitoringTab";
+import MaintenanceTab from "./components/MaintenanceTab";
 
 const RAGManagementPage = () => {
   const { data: currentUser, isLoading } = useCurrentUser();
@@ -82,27 +86,19 @@ const RAGManagementPage = () => {
           </TabsList>
 
           <TabsContent value="overview">
-            <div className="comic-card border-2 border-zinc-900 dark:border-zinc-600 p-6">
-              <p>系统概览 Tab（待实现）</p>
-            </div>
+            <OverviewTab />
           </TabsContent>
 
           <TabsContent value="index">
-            <div className="comic-card border-2 border-zinc-900 dark:border-zinc-600 p-6">
-              <p>索引管理 Tab（待实现）</p>
-            </div>
+            <IndexManagementTab />
           </TabsContent>
 
           <TabsContent value="quality">
-            <div className="comic-card border-2 border-zinc-900 dark:border-zinc-600 p-6">
-              <p>质量监控 Tab（待实现）</p>
-            </div>
+            <QualityMonitoringTab />
           </TabsContent>
 
           <TabsContent value="maintenance">
-            <div className="comic-card border-2 border-zinc-900 dark:border-zinc-600 p-6">
-              <p>运维工具 Tab（待实现）</p>
-            </div>
+            <MaintenanceTab />
           </TabsContent>
         </Tabs>
       </div>
