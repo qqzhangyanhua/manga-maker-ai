@@ -1,7 +1,7 @@
 """
 RAG 索引管理路由
 """
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from pydantic import BaseModel
@@ -11,12 +11,33 @@ import logging
 from datetime import datetime, timezone
 
 from ..database import get_db
-from ..models import NovelProject, NovelChapter
+from ..models import NovelProject, NovelChapter, MaintenanceLog
 from ..middleware.auth import get_current_user_id
 from ..services.vector_service import get_vector_service
 
 router = APIRouter(prefix="/rag", tags=["rag"])
 logger = logging.getLogger(__name__)
+
+
+async def record_maintenance_log(
+    db: AsyncSession,
+    user_id: str,
+    operation: str,
+    status: str,
+    details: Optional[dict] = None,
+) -> None:
+    try:
+        log = MaintenanceLog(
+            user_id=UUID(user_id),
+            operation=operation,
+            status=status,
+            details=details or {},
+        )
+        db.add(log)
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        logger.warning(f"维护日志写入失败: {str(e)}")
 
 
 # ============ Pydantic Models ============
@@ -360,7 +381,7 @@ async def get_chapter_detail(
         vector_service = get_vector_service()
 
         if not vector_service.enabled:
-            logger.info(f"   ⚠️  向量服务未启用，返回未索引状态")
+            logger.info("   ⚠️  向量服务未启用，返回未索引状态")
             return ChapterDetailResponse(
                 chapter_id=chapter_id,
                 indexed=False
@@ -393,7 +414,7 @@ async def get_chapter_detail(
                 )
             else:
                 # 4. 未找到索引
-                logger.info(f"   ℹ️  章节未索引")
+                logger.info("   ℹ️  章节未索引")
                 return ChapterDetailResponse(
                     chapter_id=chapter_id,
                     indexed=False
@@ -556,6 +577,22 @@ async def consistency_check(
             f"健康度: {health_score:.2f}%"
         )
 
+        await record_maintenance_log(
+            db=db,
+            user_id=user_id,
+            operation="consistency_check",
+            status="success",
+            details={
+                "project_id": request.project_id,
+                "total_in_pg": total_chapters,
+                "total_in_chroma": len(chroma_ids),
+                "not_indexed": len(not_indexed),
+                "orphaned": len(orphaned),
+                "need_rebuild": len(need_rebuild),
+                "health_score": round(health_score, 2),
+            },
+        )
+
         return {
             "totalInPg": total_chapters,
             "totalInChroma": len(chroma_ids),
@@ -606,7 +643,7 @@ async def rebuild_index(
             logger.info(f"   范围: {request.start_date} 至 {request.end_date}")
 
         elif request.scope == "all":
-            logger.info(f"   范围: 全量重建")
+            logger.info("   范围: 全量重建")
 
         else:
             raise HTTPException(
@@ -620,7 +657,7 @@ async def rebuild_index(
         chapters = result.scalars().all()
 
         if not chapters:
-            logger.info(f"   ℹ️  没有需要重建的章节")
+            logger.info("   ℹ️  没有需要重建的章节")
             return {
                 "success": True,
                 "message": "没有需要重建的章节",
@@ -662,6 +699,22 @@ async def rebuild_index(
         logger.info(
             f"📌 批量重建任务已创建 - 范围: {request.scope}, 章节数: {count}, "
             f"预估成本: ${estimated_cost:.4f}, 预估时间: {estimated_time}"
+        )
+
+        await record_maintenance_log(
+            db=db,
+            user_id=user_id,
+            operation="rebuild",
+            status="queued",
+            details={
+                "scope": request.scope,
+                "project_id": request.project_id,
+                "start_date": request.start_date,
+                "end_date": request.end_date,
+                "estimated_count": count,
+                "estimated_cost": estimated_cost,
+                "estimated_time": estimated_time,
+            },
         )
 
         return {
@@ -889,6 +942,18 @@ async def export_vector_data(
 
         logger.info(f"   ✅ 导出完成 - 总数: {export_data['total_count']}")
 
+        await record_maintenance_log(
+            db=db,
+            user_id=user_id,
+            operation="export",
+            status="success",
+            details={
+                "format": request.format,
+                "project_id": request.project_id,
+                "total_count": export_data["total_count"],
+            },
+        )
+
         return {
             "success": True,
             "format": request.format,
@@ -945,7 +1010,7 @@ async def import_vector_data(
 
                 # 验证数据格式
                 if "data" not in import_data:
-                    logger.error(f"   ❌ 无效的导入文件格式")
+                    logger.error("   ❌ 无效的导入文件格式")
                     return
 
                 data = import_data["data"]
@@ -959,7 +1024,7 @@ async def import_vector_data(
 
                 # 替换模式：先清空
                 if request.merge_mode == "replace":
-                    logger.info(f"   🗑️  替换模式 - 清空现有数据")
+                    logger.info("   🗑️  替换模式 - 清空现有数据")
                     existing_ids = vector_service.collection.get()["ids"]
                     if existing_ids:
                         vector_service.collection.delete(ids=existing_ids)
@@ -988,7 +1053,18 @@ async def import_vector_data(
 
         background_tasks.add_task(import_task)
 
-        logger.info(f"📌 导入任务已创建")
+        logger.info("📌 导入任务已创建")
+
+        await record_maintenance_log(
+            db=db,
+            user_id=user_id,
+            operation="import",
+            status="queued",
+            details={
+                "file_path": request.file_path,
+                "merge_mode": request.merge_mode,
+            },
+        )
 
         return {
             "success": True,
@@ -1056,13 +1132,26 @@ async def cleanup_vector_data(
 
                 logger.info(f"   ✅ 已清理孤立索引: {removed_count} 条, 释放空间: {space_saved_mb} MB")
             else:
-                logger.info(f"   ℹ️  无孤立索引")
+                logger.info("   ℹ️  无孤立索引")
 
         # 压缩数据库（ChromaDB 不直接支持，占位功能）
         if request.compact_db:
-            logger.info(f"   ⚠️  ChromaDB 不支持手动压缩，跳过")
+            logger.info("   ⚠️  ChromaDB 不支持手动压缩，跳过")
 
-        logger.info(f"✅ 数据清理完成")
+        logger.info("✅ 数据清理完成")
+
+        await record_maintenance_log(
+            db=db,
+            user_id=user_id,
+            operation="cleanup",
+            status="success",
+            details={
+                "removed_count": removed_count,
+                "space_saved_mb": space_saved_mb,
+                "remove_orphaned": request.remove_orphaned,
+                "compact_db": request.compact_db,
+            },
+        )
 
         return {
             "success": True,
@@ -1097,28 +1186,30 @@ async def get_maintenance_logs(
             f"操作类型: {operation or '全部'}"
         )
 
-        # Mock 数据（实际应从数据库读取）
-        # TODO: 创建 MaintenanceLog 模型并存储真实日志
-        logs = [
+        query = select(MaintenanceLog).where(MaintenanceLog.user_id == UUID(user_id))
+        if operation:
+            query = query.where(MaintenanceLog.operation == operation)
+
+        query = query.order_by(MaintenanceLog.created_at.desc()).limit(limit)
+        result = await db.execute(query)
+        logs = result.scalars().all()
+
+        response_logs = [
             {
-                "id": f"log-{i}",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "operation": op,
-                "details": f"{op} 操作示例",
-                "status": "success",
-                "user_id": user_id
+                "id": str(log.id),
+                "timestamp": log.created_at.isoformat() if log.created_at else None,
+                "operation": log.operation,
+                "details": log.details or {},
+                "status": log.status,
+                "user_id": str(log.user_id),
             }
-            for i, op in enumerate(["export", "import", "rebuild", "cleanup"][:limit])
+            for log in logs
         ]
 
-        # 过滤操作类型
-        if operation:
-            logs = [log for log in logs if log["operation"] == operation]
-
-        logger.info(f"   ✅ 返回日志: {len(logs)} 条")
+        logger.info(f"   ✅ 返回日志: {len(response_logs)} 条")
 
         return {
-            "logs": logs[:limit]
+            "logs": response_logs
         }
 
     except Exception as e:

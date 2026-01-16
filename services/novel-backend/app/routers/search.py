@@ -6,10 +6,12 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from typing import Literal
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from ..services.search_service import SearchService
 from ..middleware.auth import get_current_user_id
 from ..database import get_db
+from ..models import NovelProject
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -38,9 +40,14 @@ async def search_project(
         搜索结果列表
     """
     
-    # TODO: 检查用户是否有权限访问该项目
-    # await check_project_permission(project_id, user_id, db)
-    
+    project_query = select(NovelProject).where(
+        NovelProject.id == project_id,
+        NovelProject.user_id == user_id
+    )
+    project_result = await db.execute(project_query)
+    if not project_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="项目不存在")
+
     try:
         # 执行搜索
         search_service = SearchService(db)

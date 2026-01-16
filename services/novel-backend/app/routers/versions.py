@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from uuid import UUID
 from datetime import datetime
+import difflib
 
 from ..database import get_db
 from ..models import NovelChapter, NovelChapterVersion, QualityScore
@@ -107,6 +108,21 @@ class VersionComparisonResponse(BaseModel):
     text_diff: Optional[List[TextDiff]] = None
     score_comparison: Optional[Dict[str, Any]] = None
     ai_recommendation: Optional[str] = None
+
+
+def build_text_diff(source: str, target: str) -> List[TextDiff]:
+    diff_lines = difflib.ndiff(source.splitlines(), target.splitlines())
+    diffs: List[TextDiff] = []
+    for line in diff_lines:
+        prefix = line[:2]
+        text = line[2:]
+        if prefix == "  ":
+            diffs.append(TextDiff(type="unchanged", text=text))
+        elif prefix == "+ ":
+            diffs.append(TextDiff(type="added", text=text))
+        elif prefix == "- ":
+            diffs.append(TextDiff(type="removed", text=text))
+    return diffs
 
 
 # ============ API Endpoints ============
@@ -492,6 +508,8 @@ async def compare_versions(
     try:
         # 验证所有版本的所有权并获取版本数据
         versions = []
+        version_entities = []
+        quality_scores = []
         for version_id in request.version_ids:
             version_result = await db.execute(
                 select(NovelChapterVersion)
@@ -515,6 +533,9 @@ async def compare_versions(
                 select(QualityScore).where(QualityScore.version_id == version.id)
             )
             quality_score = score_result.scalar_one_or_none()
+
+            version_entities.append(version)
+            quality_scores.append(quality_score)
 
             versions.append(ChapterVersionResponse(
                 id=str(version.id),
@@ -540,12 +561,38 @@ async def compare_versions(
                 ) if quality_score else None
             ))
 
-        # TODO: 实现文本 diff 和 AI 推荐（后续优化）
+        text_diff = None
+        if len(version_entities) >= 2:
+            text_diff = build_text_diff(version_entities[0].content, version_entities[1].content)
+
+        score_entries = []
+        best_version_id = None
+        best_score = -1
+        for version, quality_score in zip(version_entities, quality_scores):
+            score_value = quality_score.overall_score if quality_score else None
+            score_entries.append({
+                "version_id": str(version.id),
+                "overall_score": score_value,
+            })
+            if score_value is not None and score_value > best_score:
+                best_score = score_value
+                best_version_id = str(version.id)
+
+        score_comparison = {
+            "scores": score_entries,
+            "best_version_id": best_version_id,
+        }
+
+        if best_version_id is None:
+            ai_recommendation = "暂无可用质量评分，暂不推荐版本。"
+        else:
+            ai_recommendation = f"建议优先采用版本 {best_version_id}，质量评分最高（{best_score}）。"
+
         return VersionComparisonResponse(
             versions=versions,
-            text_diff=None,
-            score_comparison=None,
-            ai_recommendation=None
+            text_diff=text_diff,
+            score_comparison=score_comparison,
+            ai_recommendation=ai_recommendation
         )
 
     except HTTPException:

@@ -2,14 +2,16 @@
 批量操作 API 路由
 """
 import json
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from typing import List
 from pydantic import BaseModel, Field
 
 from ..database import get_db
 from ..middleware.auth import get_current_user_id
+from ..models import NovelProject, NovelChapter
 from ..services.batch_service import BatchService
 
 
@@ -68,9 +70,14 @@ async def batch_import_chapters(
         {"success": True, "chapters_created": 10, "chapters": [...]}
     """
     try:
-        # TODO: 检查用户权限
-        # await check_project_permission(request.project_id, user_id, db)
-        
+        project_query = select(NovelProject).where(
+            NovelProject.id == request.project_id,
+            NovelProject.user_id == user_id
+        )
+        project_result = await db.execute(project_query)
+        if not project_result.scalar_one_or_none():
+            raise HTTPException(status_code=404, detail="项目不存在")
+
         batch_service = BatchService(db)
         result = await batch_service.batch_import(
             project_id=request.project_id,
@@ -117,9 +124,14 @@ async def batch_generate_chapters(
     ```
     """
     try:
-        # TODO: 检查用户权限
-        # await check_project_permission(request.project_id, user_id, db)
-        
+        project_query = select(NovelProject).where(
+            NovelProject.id == request.project_id,
+            NovelProject.user_id == user_id
+        )
+        project_result = await db.execute(project_query)
+        if not project_result.scalar_one_or_none():
+            raise HTTPException(status_code=404, detail="项目不存在")
+
         batch_service = BatchService(db)
         
         async def generate_stream():
@@ -176,8 +188,16 @@ async def batch_delete_chapters(
         {"success": True, "chapters_deleted": 5}
     """
     try:
-        # TODO: 检查用户权限（需要验证每个章节的权限）
-        
+        chapter_query = select(NovelChapter.id).join(NovelProject).where(
+            NovelChapter.id.in_(request.chapter_ids),
+            NovelProject.user_id == user_id
+        )
+        chapter_result = await db.execute(chapter_query)
+        allowed_ids = {str(chapter_id) for (chapter_id,) in chapter_result.all()}
+        request_ids = set(request.chapter_ids)
+        if len(allowed_ids) != len(request_ids):
+            raise HTTPException(status_code=404, detail="章节不存在或无权访问")
+
         batch_service = BatchService(db)
         result = await batch_service.batch_delete(
             chapter_ids=request.chapter_ids,

@@ -4,12 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Manga Maker AI** - End-to-end AI comic creation platform covering "Story → Script → Storyboard → Image → Layout" workflow with Digital Actor management, style library, workflow orchestration, and image refinement tools.
+**Manga Maker AI** - End-to-end AI comic and novel creation platform covering "Story → Script → Storyboard → Image → Layout" workflow with Digital Actor management, style library, workflow orchestration, and image refinement tools.
+
+This is a **hybrid architecture** project combining:
+- **Next.js 14 frontend + API** (TypeScript) for comic creation workflow
+- **Python FastAPI microservice** for novel generation and RAG (Retrieval-Augmented Generation)
 
 ## Tech Stack
 
+### Frontend & Comic Backend
 - **Framework**: Next.js 14 (App Router) + React 18 + TypeScript
-- **Database**: PostgreSQL + Prisma ORM
+- **Database**: PostgreSQL 14+ + Prisma ORM
 - **UI**: TailwindCSS + shadcn/ui (Radix UI) + lucide-react icons
 - **3D**: Three.js via @react-three/fiber (pose lab)
 - **Storage**: MinIO/S3-compatible object storage
@@ -17,40 +22,68 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **AI/LLM**: OpenAI-compatible APIs configured via `llm_providers` table
 - **Testing**: Vitest + React Testing Library
 
+### Novel Backend Microservice (Python)
+- **Framework**: FastAPI 0.115.0 + Uvicorn
+- **Database**: Shared PostgreSQL (via asyncpg)
+- **AI**: OpenAI API (GPT-4 Turbo for text generation)
+- **RAG**: ChromaDB + OpenAI Embeddings (text-embedding-3-small)
+- **Document Generation**: python-docx, reportlab
+- **Communication**: REST + SSE (Server-Sent Events) for streaming
+
 ## Package Management
 
-**IMPORTANT**: This project supports both `npm` and `pnpm`. Both lock files exist in the repository.
-- Use `pnpm` for faster installs and better disk space efficiency (recommended)
-- Use `npm` if pnpm is not available
+**IMPORTANT**: This project uses **npm** (NOT pnpm). The README mentions pnpm support, but `package-lock.json` is the source of truth.
 
 ```bash
-# Using pnpm (recommended)
-pnpm install <package>
-pnpm dev
-pnpm build
-pnpm test
+# Install dependencies
+npm install
 
-# Using npm (alternative)
-npm install <package>
+# Development
 npm run dev
+
+# Build & Production
 npm run build
+npm run start
+
+# Testing
 npm test
+npm run test:watch
+
+# Type checking
+npm run type-check
+
+# Linting
+npm run lint
 ```
 
 ## Development Commands
 
-### Development Server
+### Next.js Application
+
 ```bash
-pnpm dev  # or npm run dev
-# Runs on http://localhost:3000
+# Development server (http://localhost:3000)
+npm run dev
+
+# Production build
+npm run build
+
+# Start production server
+npm run start
+
+# Run ESLint
+npm run lint
+
+# TypeScript type checking (no emit)
+npm run type-check
 ```
 
-### Database Operations
+### Database Operations (Prisma)
+
 ```bash
-# Generate Prisma Client (required after schema changes)
+# Generate Prisma Client (REQUIRED after schema changes)
 npx prisma generate
 
-# Create and apply migrations (development)
+# Create migration (development)
 npx prisma migrate dev --name <migration_name>
 
 # Apply migrations (production)
@@ -61,380 +94,329 @@ npx prisma studio
 
 # Seed database
 npx prisma db seed
-```
 
-### Build & Lint
-```bash
-pnpm build  # Build Next.js app
-pnpm lint   # Run ESLint
+# Initialize database (uses migration system)
+./scripts/init-db.sh
 ```
 
 ### Testing
+
 ```bash
-pnpm test         # Run all tests
-pnpm test:watch   # Run tests in watch mode
+# Run all tests (Vitest)
+npm test
+
+# Watch mode
+npm run test:watch
 ```
 
 Test files use Vitest with React Testing Library. Place tests next to source files with `.test.ts` or `.test.tsx` extension.
 
+### Novel Backend Service (Python FastAPI)
+
+**Location**: `services/novel-backend/`
+
+```bash
+# First-time setup
+cd services/novel-backend
+
+# Create virtual environment
+python -m venv .venv
+
+# Activate virtual environment
+source .venv/bin/activate  # macOS/Linux
+# .venv\Scripts\activate   # Windows
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment
+cp .env.example .env
+# Edit .env: DATABASE_URL, OPENAI_API_KEY, JWT_SECRET
+
+# Start service (port 8000)
+uvicorn app.main:app --reload --port 8000
+
+# Health check
+curl http://localhost:8000/health
+
+# API documentation
+# http://localhost:8000/docs (Swagger UI)
+```
+
+**Subsequent starts** (after initial setup):
+```bash
+cd services/novel-backend
+source .venv/bin/activate
+uvicorn app.main:app --reload --port 8000
+```
+
+### Docker Compose (Full Stack)
+
+```bash
+# Start all services (PostgreSQL, MinIO, Redis, Novel Backend)
+docker-compose up -d
+
+# Stop all services
+docker-compose down
+
+# View logs
+docker-compose logs -f novel-backend
+```
+
 ## Architecture Overview
+
+### Microservice Communication
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Client Browser                          │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Next.js App (Port 3000)                        │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  Frontend Pages (React Components)                   │   │
+│  └──────────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  API Routes (/api/*)                                 │   │
+│  │  - /api/auth/*        - Authentication               │   │
+│  │  - /api/character/*   - Comic character CRUD         │   │
+│  │  - /api/story/*       - Story generation             │   │
+│  │  - /api/panel/*       - Storyboard panels            │   │
+│  │  - /api/novel/*       - Proxy to Python backend ──┐  │   │
+│  └──────────────────────────────────────────────────────┘   │
+└───────────────────────────────────┬────────────────┬─────────┘
+                                    │                │
+                                    │                └──────────┐
+                                    ▼                           ▼
+                    ┌───────────────────────────┐   ┌──────────────────────┐
+                    │   PostgreSQL (5432)       │   │ Novel Backend (8000) │
+                    │   - Shared by both apps   │   │  Python FastAPI      │
+                    └───────────────────────────┘   │  ┌────────────────┐  │
+                                    ▲               │  │ Novel Gen      │  │
+                                    │               │  │ RAG Service    │  │
+                                    │               │  │ ChromaDB       │  │
+                    ┌───────────────┴───────────┐   │  └────────────────┘  │
+                    │   MinIO (9000)            │   └──────────────────────┘
+                    │   Object Storage          │               │
+                    └───────────────────────────┘               │
+                                                                │
+                                                                ▼
+                                                    ┌──────────────────────┐
+                                                    │  PostgreSQL (5432)   │
+                                                    │  Same DB, asyncpg    │
+                                                    └──────────────────────┘
+```
+
+**Key Integration Points:**
+
+1. **API Proxy Layer**: `/api/novel/[...path]/route.ts`
+   - Forwards all `/api/novel/*` requests to Python backend
+   - Handles authentication (extracts JWT from Next.js cookie)
+   - Converts cookie auth → Bearer token for FastAPI
+   - Supports both JSON and streaming responses
+
+2. **Typed Client**: `src/lib/novel-backend-client.ts`
+   - TypeScript wrapper for novel-backend API
+   - Automatic retry logic (3 attempts, exponential backoff)
+   - Type-safe request/response interfaces
+   - Used by Next.js API routes and components
+
+3. **Shared Resources**:
+   - PostgreSQL database (same connection string)
+   - JWT secret (shared for auth verification)
+   - MinIO storage (same bucket configuration)
 
 ### Directory Structure
 
 ```
-src/
-├── app/                    # Next.js App Router
-│   ├── api/               # API Routes (REST endpoints)
-│   │   ├── auth/          # Authentication
-│   │   ├── character/     # Character CRUD & generation
-│   │   ├── scene/         # Scene library
-│   │   ├── story/         # Story generation
-│   │   ├── chapter/       # Chapter management & panel generation
-│   │   ├── panel/         # Panel operations
-│   │   ├── project/       # Project management
-│   │   ├── admin/         # Admin endpoints
+.
+├── src/                          # Next.js application
+│   ├── app/                      # App Router
+│   │   ├── api/                  # Next.js API routes
+│   │   │   ├── auth/             # Authentication (JWT cookies)
+│   │   │   ├── character/        # Comic character CRUD
+│   │   │   ├── scene/            # Scene library
+│   │   │   ├── story/            # Story generation
+│   │   │   ├── chapter/          # Chapter management
+│   │   │   ├── panel/            # Storyboard panel operations
+│   │   │   ├── project/          # Comic project management
+│   │   │   ├── admin/            # Admin endpoints
+│   │   │   └── novel/[...path]/  # Proxy to Python backend
+│   │   ├── scripts/[id]/         # Story editor pages
+│   │   ├── storyboard/           # Storyboard editor
+│   │   ├── editor/               # Image refinement
+│   │   ├── workflow/             # Workflow orchestration
+│   │   ├── assets/               # Asset library
+│   │   └── admin/                # Admin dashboard
+│   ├── components/               # React components
+│   │   ├── Storyboard/           # Storyboard editor components
+│   │   ├── ImageEditor/          # Canvas & timeline
+│   │   ├── ui/                   # shadcn/ui base components
 │   │   └── ...
-│   ├── scripts/[id]/      # Story/script editor pages
-│   ├── storyboard/        # Storyboard editor
-│   ├── editor/            # Image refinement center
-│   ├── workflow/          # Workflow orchestration
-│   ├── assets/            # Asset library
-│   └── admin/             # Admin dashboard
-├── components/            # React components
-│   ├── Storyboard/        # Storyboard editor components
-│   ├── ImageEditor/       # Canvas & timeline
-│   ├── ui/                # shadcn/ui base components
+│   ├── lib/                      # Shared utilities & services
+│   │   ├── auth.ts               # JWT signing/verification
+│   │   ├── db.ts                 # Prisma client singleton
+│   │   ├── llm-provider.ts       # LLM API integration
+│   │   ├── credits.ts            # Credits system
+│   │   ├── novel-backend-client.ts  # Python backend client
+│   │   └── ...
+│   └── hooks/                    # Custom React hooks
+│
+├── services/novel-backend/       # Python FastAPI microservice
+│   ├── app/
+│   │   ├── main.py               # FastAPI application
+│   │   ├── config.py             # Settings (pydantic-settings)
+│   │   ├── models.py             # SQLAlchemy models
+│   │   ├── routers/              # API routes
+│   │   │   ├── projects.py       # Novel project CRUD
+│   │   │   ├── chapters.py       # Chapter generation (SSE)
+│   │   │   ├── progressive.py    # Progressive outline generation
+│   │   │   ├── rag.py            # RAG indexing & search
+│   │   │   ├── canvas.py         # Script analysis for storyboard
+│   │   │   └── ...
+│   │   └── services/
+│   │       ├── generation_service.py        # Text generation
+│   │       ├── rag_service.py               # RAG retrieval
+│   │       ├── vector_service.py            # ChromaDB wrapper
+│   │       ├── progressive_outline_service.py
+│   │       └── prompt_templates.py          # LLM prompt templates
+│   ├── requirements.txt          # Python dependencies
+│   ├── .env.example              # Environment template
+│   └── chroma_db/                # ChromaDB persistent storage
+│
+├── prisma/
+│   ├── schema.prisma             # Database schema (shared)
+│   ├── migrations/               # Prisma migrations
+│   └── seed.ts                   # Seed script
+│
+├── scripts/                      # Utility scripts
+│   ├── init-db.sh                # Database initialization
 │   └── ...
-├── lib/                   # Shared utilities & services
-│   ├── auth.ts            # JWT signing/verification
-│   ├── db.ts              # Prisma client singleton
-│   ├── llm-provider.ts    # LLM API integration
-│   ├── credits.ts         # Credits system
-│   ├── unified-image-generation.ts  # Image generation queue
-│   ├── panel-generator.ts # Panel generation logic
-│   └── ...
-└── hooks/                 # Custom React hooks
-
-prisma/
-├── schema.prisma          # Database schema
-└── seed.ts                # Seed script
+│
+├── docker-compose.yml            # Multi-container setup
+└── package.json                  # npm dependencies
 ```
 
-### Core Database Models
+## Core Database Models
 
-**User & Auth:**
-- `User` - User accounts with `credits` (算力余额), `total_credits_used`, role (user/admin), status (active/suspended)
-- `EmailVerification` - Email verification codes (bcrypt hashed, single-use)
-- `CreditTransaction` - Credits transaction history (recharge/consume/refund)
+**Shared between Next.js and Python backends via same PostgreSQL instance.**
 
-**LLM Configuration:**
-- `LlmProvider` - Configurable LLM providers with `provider_type`, `credits_cost`, `priority`, `enabled`
+### User & Auth
+- `User` - User accounts with `credits`, `total_credits_used`, role, status
+- `EmailVerification` - Email verification codes (bcrypt hashed)
+- `CreditTransaction` - Credits transaction history
 
-**Character System (Digital Actor):**
-- `Character` - Main character entity with `reference_image`, `style_prompt`, LoRA training status
-- `CharacterView` - Three-view reference images (front/side/back)
+### LLM Configuration
+- `LlmProvider` - Configurable LLM providers (Next.js only)
+
+### Character System (Comic Creation)
+- `Character` - Digital actors with reference images
+- `CharacterView` - Three-view reference images
 - `CharacterExpression` - Expression matrix (9 emotions)
-- `CharacterOutfit` - Wardrobe system with `is_default` flag
-- `CharacterRelationship` - Character positioning on relationship chart
+- `CharacterOutfit` - Wardrobe system
+- `CharacterRelationship` - Relationship chart positioning
 
-**Scene Library:**
-- `Scene` - Background/environment assets with `scene_type`, tags, prompt
+### Story & Projects
+- `Story` - Story outlines (used by both systems)
+- `StoryCharacter` - Many-to-many Story ↔ Character
+- `Chapter` - Story chapters
+- `Project` - Comic projects
+- `Panel` - Storyboard panels with asset bindings
 
-**Story & Project:**
-- `Story` - Story outline with genre, premise, outline JSON, `suggested_characters` JSONB (AI-analyzed character suggestions for two-step generation)
-- `StoryCharacter` - Many-to-many Story ↔ Character with `role`, `character_arc`
-- `Chapter` - Story chapters with `chapter_order`, summary
-- `Project` - Comic projects linked to Story (optional)
-- `Panel` - Individual storyboard panels with:
-  - `character_id`, `expression_type`, `outfit_id`, `scene_id` (asset bindings)
-  - `script_segment_id`, `script_start`, `script_end` (script linking)
-  - `camera_angle`, `shot_size`, `panel_type`, `importance`
-  - `layout_hint` (for multi-panel layouts: 2镜/4镜/6镜)
-  - `is_shared`, `show_prompt` (gallery sharing)
-- `StoryScript` - Original script text with segmentation info
+### Novel System (Python Backend)
+- `NovelProject` - Novel-specific projects
+- `NovelChapter` - Novel chapters with content
+- `NovelScene` - Scene/location definitions
+- `NovelCharacter` - Novel character profiles
+- `NovelTimeline` - Infinite canvas timeline nodes
 
-**Templates & Workflows:**
+### Scene Library
+- `Scene` - Background/environment assets
+
+### Templates & Workflows
 - `StoryTemplate` - Predefined story structures
 - `PanelTemplate` - Reusable storyboard layouts
 - `Workflow` - Automation workflow tracking
 
-**Generation & Analytics:**
-- `GenerationTask` - Batch generation progress tracking
-- `PanelVariant` - Alternative versions of panels
-- `GeneratedImage` - Gallery of generated images
-- `GenerationLog` - Detailed logs of AI generation actions
-- `UsageStat` - Aggregated daily usage statistics
+## Authentication Architecture
 
-**Version Control:**
-- `ProjectVersion` - Incremental snapshots with `is_pinned`, `is_auto`
-- `ImagePageVersion` - Image refinement versions
+**Cross-Service Authentication Flow:**
 
-**Tagging System:**
-- `Tag` - Universal tags with `type` (system/user), `category`
-- `Tagging` - Polymorphic tagging relationship
+1. **User Login** (Next.js):
+   - `POST /api/auth/login`
+   - Returns JWT in HTTP-only cookie (`comicai_session`)
+   - Cookie domain: Next.js app only
 
-## Authentication Pattern
+2. **Next.js API Routes**:
+   ```typescript
+   import { cookies } from "next/headers";
+   import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 
-All API routes use JWT stored in HTTP-only cookie:
+   const cookieStore = await cookies();
+   const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+   const payload = verifyAuthToken(token);
+   // payload.userId, payload.role, payload.email
+   ```
 
-```typescript
-import { cookies } from "next/headers";
-import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
-import { NextResponse } from "next/server";
+3. **Novel Backend Proxy** (`/api/novel/[...path]/route.ts`):
+   - Extracts JWT from Next.js cookie
+   - Forwards as `Authorization: Bearer <token>` header
+   - Python backend validates using shared `JWT_SECRET`
 
-export async function GET() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+4. **Python Backend**:
+   ```python
+   from fastapi import Header
+   from jose import jwt
 
-  if (!token) {
-    return NextResponse.json({ error: "未登录" }, { status: 401 });
-  }
+   def verify_token(authorization: str = Header(...)):
+       token = authorization.replace("Bearer ", "")
+       payload = jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"])
+       return payload["userId"]
+   ```
 
-  const payload = verifyAuthToken(token);
-  if (!payload?.userId) {
-    return NextResponse.json({ error: "无效的token" }, { status: 401 });
-  }
-
-  // Use payload.userId, payload.role, payload.email
-}
-```
-
-**For admin-only routes:**
+**Admin-only routes**:
 ```typescript
 import { requireAdmin } from "@/lib/auth-helpers";
 
 export async function GET() {
   const result = await requireAdmin();
-  if (result instanceof NextResponse) return result; // Error response
-
+  if (result instanceof NextResponse) return result;
   const payload = result; // AuthTokenPayload
 }
 ```
 
-**Cookie name**: `comicai_session` (defined as `AUTH_COOKIE_NAME` in `@/lib/auth`)
-
-## LLM Provider System
-
-LLM providers are configured in `llm_providers` table and selected by `provider_type`:
-
-```typescript
-{
-  provider_type: "story_generator" | "prompt_optimizer" | "character_analyzer" | "image_generation" | ...,
-  provider_name: "openai",
-  model: "gpt-4",
-  base_url: "https://api.openai.com",
-  api_key: "sk-...",
-  credits_cost: 10,    // Credits consumed per call (0 = free)
-  priority: 1,         // Lower = higher priority
-  enabled: true
-}
-```
-
-**Usage in code:**
-```typescript
-import { callChatCompletionByType } from "@/lib/llm-provider";
-
-const result = await callChatCompletionByType({
-  providerType: "prompt_optimizer",
-  messages: [
-    { role: "system", content: "You are a prompt optimization expert" },
-    { role: "user", content: userInput }
-  ],
-  temperature: 0.6,
-  maxTokens: 1500,
-  options: {
-    userId: "user-id",  // Required if credits_cost > 0
-    skipCreditsCheck: false
-  }
-});
-
-const content = result.content;
-const creditsCost = result.creditsCost; // Credits consumed
-```
-
-**Streaming API:**
-```typescript
-import { callChatCompletionStreamByType } from "@/lib/llm-provider";
-
-for await (const chunk of callChatCompletionStreamByType({
-  providerType: "story_generator",
-  messages: [...],
-  options: { userId }
-})) {
-  // Process text chunk
-}
-```
-
-**Known provider types:**
-- `story_generator` - Story outline & script generation
-- `prompt_optimizer` - Prompt enhancement
-- `character_analyzer` - Character analysis & variations
-- `image_generation` - AI image generation
-- `script_analyzer` - Script analysis
-- `style_generator` - Style-specific prompts
-
-## Credits System (算力系统)
-
-Users have `credits` (current balance) and `total_credits_used` (lifetime consumption).
-
-**Check credits:**
-```typescript
-import { checkCredits } from "@/lib/credits";
-
-const hasEnough = await checkCredits(userId, 100); // Check if user has 100 credits
-```
-
-**Consume credits:**
-```typescript
-import { consumeCredits } from "@/lib/credits";
-
-await consumeCredits({
-  userId,
-  amount: 100,
-  description: "Generate character expression",
-  refType: "generation_log",
-  refId: logId
-});
-```
-
-**Recharge credits:**
-```typescript
-import { rechargeCredits } from "@/lib/credits";
-
-await rechargeCredits({
-  userId,
-  amount: 1000,
-  description: "Monthly subscription",
-  refType: "order",
-  refId: orderId
-});
-```
-
-All transactions are logged in `credit_transactions` table.
-
-## Key API Endpoints
-
-### Auth
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/login` - User login
-- `POST /api/auth/send-code` - Send email verification code
-- `GET /api/auth/me` - Get current user
-- `POST /api/auth/logout` - Logout
-
-### Characters
-- `GET /api/character` - List user's characters
-- `POST /api/character` - Create character (auto-creates default outfit)
-- `GET /api/character/[id]` - Get character details
-- `PATCH /api/character/[id]` - Update character
-- `DELETE /api/character/[id]` - Delete character
-- `POST /api/character/[id]/regenerate-image` - Regenerate character image (fast mode or custom variation)
-- `POST /api/character/generate-views` - Generate three-view images
-- `POST /api/character/generate-expressions` - Generate expression matrix
-- `POST /api/character/generate-similar` - Generate similar character variations
-- `POST /api/character/upload-image` - Upload character image to MinIO
-
-### Scenes
-- `GET /api/scene` - List user's scenes
-- `POST /api/scene` - Create scene
-- `PATCH /api/scene/[id]` - Update scene
-- `DELETE /api/scene/[id]` - Delete scene
-
-### Stories & Chapters
-- `GET /api/story` - List user's stories (pagination, status filter)
-- `POST /api/story/generate` - Generate story outline from premise
-- `POST /api/story/expand` - Expand story into detailed script
-- `GET /api/story/[id]` - Get story details
-- `PATCH /api/story/[id]` - Update story
-- `DELETE /api/story/[id]` - Delete story
-- `POST /api/story/[id]/characters` - Add character to story
-- `GET /api/story/[id]/characters` - Get story characters
-- `DELETE /api/story/[id]/characters/[characterId]` - Remove character from story
-- `PATCH /api/story/[id]/characters/[characterId]` - Update character role/arc
-- `POST /api/story/[id]/analyze-characters` - **Two-Step Generation: Step 1** - Analyze story and return suggested character list (text only, ~5-10 credits)
-- `POST /api/story/[id]/batch-generate-images` - **Two-Step Generation: Step 2** - Batch generate images for selected suggested characters (~30 credits per image)
-- `POST /api/story/[id]/generate-character-image` - Generate image for single suggested character (~30 credits)
-- `GET /api/story/[id]/suggested-characters` - Get suggested characters list
-- `PATCH /api/story/[id]/suggested-characters` - Update or delete suggested character (before image generation)
-- `POST /api/story/[id]/generate-characters` - **[DEPRECATED]** One-step character generation (use two-step flow instead)
-- `POST /api/story/[id]/save-generated-characters` - Save generated characters to library
-- `GET /api/chapter/[id]` - Get chapter details
-- `POST /api/chapter/[id]/generate-panels` - Generate panels for chapter
-- `POST /api/chapter/[id]/generate-panels-stream` - Generate panels with streaming
-
-### Projects & Panels
-- `GET /api/project` - List user's projects
-- `POST /api/project` - Create project
-- `GET /api/project/[id]` - Get project with panels
-- `PATCH /api/project/[id]` - Update project
-- `DELETE /api/project/[id]` - Delete project
-- `POST /api/project/[id]/export` - Export project (PNG/PDF/ZIP)
-- `POST /api/panel/insert` - Insert panel at position
-- `POST /api/panel/split` - Split panel into multiple
-- `POST /api/panel/merge` - Merge panels
-- `PATCH /api/panel/[id]` - Update panel
-- `DELETE /api/panel/[id]` - Delete panel
-- `PATCH /api/panel/batch-update` - Batch update panels
-- `POST /api/panel/[id]/variants` - Generate panel variants
-- `PATCH /api/panel/variants/[id]/select` - Select variant as main
-
-### Templates & Workflows
-- `GET /api/templates` - List panel templates
-- `POST /api/templates/[id]/apply` - Apply template to project
-- `GET /api/workflow` - List workflows
-- `POST /api/workflow/auto-generate` - Create auto-generation workflow
-- `GET /api/workflow/[id]/status` - Get workflow status
-
-### Admin
-- `GET /api/admin/users` - List all users
-- `PATCH /api/admin/users/[id]` - Update user (role/status/credits)
-- `GET /api/admin/comic-styles` - Manage comic styles
-- `GET /api/admin/usage` - View all users' usage statistics
-- `GET /api/admin/generation-logs` - View generation logs
-
-## File Upload (MinIO)
-
-```bash
-# .env configuration
-MINIO_ENDPOINT=localhost
-MINIO_PORT=9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-MINIO_USE_SSL=false
-MINIO_BUCKET_NAME=input-image
-```
-
-**Upload helpers:**
-```typescript
-import { uploadBase64Image } from "@/lib/upload-helpers";
-
-const imageUrl = await uploadBase64Image(base64String, "character-123.png");
-// Returns: http://localhost:9000/input-image/character-123.png
-```
-
 ## Code Style Guidelines
 
-1. **TypeScript Strict Mode**: NO `any` types allowed
-   - **WARNING**: `tsconfig.json` has `"strict": false` but you MUST write code as if it were `true`
-   - Explicitly type all parameters, return values, and variables
+### TypeScript Strict Mode Enforcement
+
+**CRITICAL**: `tsconfig.json` has `"strict": false`, but you MUST write code as if it were `true`.
+
+1. **NO `any` types allowed**
+   - Explicitly type all parameters, return values, variables
    - Use `unknown` instead of `any` when type is genuinely unknown
 
-2. **Type Definitions**: Extract shared types to separate `types.ts` files
+2. **Type Definitions**
+   - Extract shared types to separate `types.ts` files
+   - Example: `src/lib/novel-backend-client.ts` has comprehensive type definitions
 
-3. **File Length**: Single files must not exceed 500 lines
+3. **File Length Limit**: 500 lines maximum
    - Split into sub-components or extract hooks if exceeded
 
-4. **No Emojis**: Use lucide-react icons instead
+4. **No Emojis in UI**
+   - Use lucide-react icons instead
    ```typescript
    import { IconName } from "lucide-react";
    ```
 
-5. **Path Aliases**: Use `@/` for imports from `src/`
+5. **Path Aliases**: Always use `@/` for imports
    ```typescript
    import { prisma } from "@/lib/db";
    import { Button } from "@/components/ui/button";
    ```
 
-6. **Error Handling**: Return consistent error format
+6. **Error Handling**: Consistent format
    ```typescript
    return NextResponse.json(
      { error: "错误描述" },
@@ -442,113 +424,31 @@ const imageUrl = await uploadBase64Image(base64String, "character-123.png");
    );
    ```
 
-## Logging Pattern
+## Testing Strategy
 
-All API routes should use structured logging for monitoring and debugging:
-
-```typescript
-import { logInfo, logError } from "@/lib/api-logger";
-
-export async function POST(req: Request) {
-  const startedAt = Date.now();
-  let userId: string | null = null;
-
-  try {
-    logInfo("Request received", { endpoint: "/api/example", method: "POST" });
-
-    // Authentication
-    userId = payload.userId;
-    logInfo("User authenticated", { endpoint: "/api/example", userId });
-
-    // Validation
-    logInfo("Request validated", { endpoint: "/api/example", userId, ...params });
-
-    // Business logic
-    logInfo("Starting operation", { endpoint: "/api/example", userId });
-    const result = await doSomething();
-    logInfo("Operation completed", {
-      endpoint: "/api/example",
-      userId,
-      durationMs: Date.now() - startedAt
-    });
-
-    return NextResponse.json({ success: true, result });
-  } catch (error) {
-    logError("Operation failed", error, {
-      endpoint: "/api/example",
-      userId: userId || "unknown",
-      durationMs: Date.now() - startedAt
-    });
-    return NextResponse.json({ error: "操作失败" }, { status: 500 });
-  }
-}
+### Frontend Tests (Vitest)
+```bash
+npm test                    # Run all tests
+npm run test:watch          # Watch mode
 ```
 
-**Key logging points:**
-- Request received
-- Authentication success/failure
-- Validation errors
-- Business logic start/completion
-- Database operations
-- External API calls
-- Errors with full context
+- Test files: `*.test.ts`, `*.test.tsx` next to source files
+- Config: `vitest.config.ts`
+- Setup: `vitest.setup.ts`
+- Separate tsconfig: `tsconfig.vitest.json`
 
-## Common Workflows
-
-### Character Creation
-1. `POST /api/character` - Create character (auto-creates default outfit)
-2. `POST /api/character/generate-views` - Generate three-view images
-3. `POST /api/character/generate-expressions` - Generate expression matrix
-4. Character status: `pending` → `training` → `ready` | `failed`
-
-### AI Character Generation (Two-Step Flow)
-**Recommended approach for cost-effective character generation:**
-
-1. **Step 1: Analyze Characters** (~5-10 credits)
-   - `POST /api/story/[id]/analyze-characters` - LLM analyzes story and returns suggested character list
-   - Response includes: name, role, description (Chinese), appearance (English for image generation)
-   - Data stored in `Story.suggested_characters` JSONB field
-   - Users can review and select which characters to generate
-
-2. **Step 2: Generate Selected Characters** (~30 credits per image)
-   - **Batch**: `POST /api/story/[id]/batch-generate-images` - Generate images for multiple characters (max 5 at once)
-   - **Single**: `POST /api/story/[id]/generate-character-image` - Generate image for one character
-   - Auto-creates Character + default outfit + StoryCharacter associations
-   - Uploads images to MinIO storage
-   - Updates `suggested_characters` status (generated=true)
-
-3. **Optional: Manage Suggested Characters**
-   - `GET /api/story/[id]/suggested-characters` - Get suggested characters list
-   - `PATCH /api/story/[id]/suggested-characters` - Update or delete suggested character (before image generation)
-   - Supports actions: `update` (modify character details) or `delete` (remove from list)
-
-4. **Optional: Regenerate Images**
-   - `POST /api/character/[id]/regenerate-image` - Regenerate character image
-   - Supports two modes:
-     - `fast`: Uses original base_prompt
-     - `variation`: Applies custom variation prompt
-
-**Note:** The old one-step flow (`POST /api/story/[id]/generate-characters`) is deprecated but still available for backward compatibility.
-
-### Story to Comic
-1. `POST /api/story/generate` - Generate story outline
-2. `POST /api/story/[id]/characters` - Add characters from library
-3. `POST /api/story/expand` - Expand into detailed script
-4. `POST /api/project` - Create project linked to story
-5. `POST /api/chapter/[id]/generate-panels` - Generate panels for chapters
-6. `POST /api/panel/[id]/variants` - Generate variants for refinement
-
-### Panel Operations
-- **Insert**: Insert new panel at position, auto-reorders subsequent panels
-- **Split**: Split one panel into 2-3 panels
-- **Merge**: Merge consecutive panels into one
-- All operations automatically update `panel_order`
+### Python Backend Tests
+```bash
+cd services/novel-backend
+python test_rag.py          # RAG service tests
+```
 
 ## Environment Variables
 
+### Next.js (.env.local)
 ```bash
 # Database
-DATABASE_URL=postgresql://user:password@host:5432/dbname
+DATABASE_URL=postgresql://manga:manga123@localhost:5432/manga
 
 # Authentication
 AUTH_SECRET=<random_secret_for_jwt>
@@ -568,52 +468,270 @@ MINIO_SECRET_KEY=minioadmin
 MINIO_USE_SSL=false
 MINIO_BUCKET_NAME=input-image
 
-# (Optional) Usage Quotas
+# Novel Backend Service
+NOVEL_SERVICE_URL=http://localhost:8000
+
+# Optional Quotas
 QUOTA_STORYBOARD_DAILY=20
 QUOTA_STORY_DAILY=30
 QUOTA_IMAGE_DAILY=50
 ```
 
-## Enums & Constants
+### Python Backend (services/novel-backend/.env)
+```bash
+# Database (shared with Next.js)
+DATABASE_URL=postgresql://manga:manga123@localhost:5432/manga
 
-**Expression types:**
-`neutral`, `happy`, `sad`, `angry`, `surprised`, `shy`, `confident`, `worried`, `determined`
+# JWT (MUST match Next.js AUTH_SECRET)
+JWT_SECRET=<same_as_nextjs_auth_secret>
+JWT_ALGORITHM=HS256
 
-**Outfit types:**
-`default`, `school`, `battle`, `casual`, `formal`, `sleepwear`, `sports`, `custom`
+# OpenAI API
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_API_BASE=https://api.openai.com/v1
+OPENAI_MODEL=gpt-4-turbo-preview
 
-**Character roles:**
-`protagonist` (主角), `antagonist` (反派), `supporting` (配角), `minor` (龙套)
+# Embedding Model (RAG)
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+# Optional: Separate embedding endpoint
+# OPENAI_EMBEDDING_API_BASE=https://custom-embedding-api.com/v1
 
-**Story genres:**
-`suspense` (悬疑), `romance` (爱情), `adventure` (冒险), `scifi` (科幻), `daily` (日常), `fantasy` (奇幻)
+# ChromaDB (RAG)
+CHROMA_PERSIST_DIR=./chroma_db
+CHROMA_COLLECTION_NAME=novel_chapters
+RAG_TOP_K=3
+RAG_ENABLE_VECTOR_SEARCH=true
 
-**Story lengths:**
-`short` (3-5 acts), `medium` (5-7 acts), `long` (7+ acts)
+# CORS
+CORS_ORIGINS=http://localhost:3000,http://localhost:3001
+LOG_LEVEL=INFO
+```
 
-**Scene types:**
-`indoor`, `outdoor`, `urban`, `nature`, `fantasy`, `scifi`, `historical`, `abstract`
+## Key API Endpoints
 
-**Panel types:**
-`wide`, `medium`, `closeup`, `action`, `dialogue`, `transition`
+### Comic Creation APIs (Next.js)
 
-**Camera angles:**
-`俯视` (top-down), `仰视` (bottom-up), `平视` (eye-level), `荷兰角` (Dutch angle)
+**Auth**:
+- `POST /api/auth/register` - User registration
+- `POST /api/auth/login` - User login (sets HTTP-only cookie)
+- `POST /api/auth/send-code` - Email verification
+- `GET /api/auth/me` - Current user info
+- `POST /api/auth/logout` - Logout
 
-**Shot sizes:**
-`特写` (close-up), `近景` (close shot), `中景` (medium shot), `全景` (full shot), `远景` (long shot)
+**Characters**:
+- `GET /api/character` - List characters
+- `POST /api/character` - Create character (auto-creates default outfit)
+- `POST /api/character/[id]/regenerate-image` - Regenerate character image
+- `POST /api/character/generate-views` - Generate three-view images
+- `POST /api/character/generate-expressions` - Generate expression matrix
 
-**Workflow statuses:**
-`pending`, `running`, `completed`, `failed`, `cancelled`
+**Stories & Panels**:
+- `POST /api/story/generate` - Generate story outline
+- `POST /api/chapter/[id]/generate-panels` - Generate storyboard panels
+- `POST /api/panel/insert` - Insert panel at position
+- `POST /api/panel/split` - Split panel into multiple
+- `POST /api/panel/merge` - Merge consecutive panels
+
+### Novel Generation APIs (Python Backend)
+
+**Access via Next.js proxy**: `/api/novel/*` → forwarded to Python backend
+
+**Projects**:
+- `POST /api/novel/projects` - Create novel project
+- `GET /api/novel/projects` - List projects
+- `GET /api/novel/projects/{id}` - Get project details
+
+**Progressive Outline Generation** (10-step workflow):
+- `POST /api/novel/progressive/concept` - Step 1: Generate one-sentence concept
+- `POST /api/novel/progressive/structure` - Step 2: Three-act structure
+- `POST /api/novel/progressive/detailed-outline` - Step 3: Detailed chapter outline
+- `POST /api/novel/progressive/analyze` - Step 4: Analyze quality (爽点密度/节奏)
+
+**Chapter Generation**:
+- `POST /api/novel/chapters/generate/stream` - Generate chapter with SSE streaming
+- `POST /api/novel/chapters/regenerate` - Regenerate existing chapter
+
+**RAG (Retrieval-Augmented Generation)**:
+- `POST /api/novel/rag/index-chapter` - Index single chapter
+- `POST /api/novel/rag/batch-index` - Batch index project chapters
+- `DELETE /api/novel/rag/chapter/{id}` - Remove chapter from index
+- `GET /api/novel/rag/stats` - RAG system statistics
+
+**Canvas Integration** (Script → Storyboard):
+- `POST /api/novel/canvas/analyze-script` - Analyze chapter text into script segments
+- `POST /api/novel/canvas/generate-shots` - Generate camera shots from segments
+- `POST /api/novel/canvas/generate-scenes` - Generate scene images
+- `POST /api/novel/canvas/generate-finals` - Generate final comic panels
+
+## Novel Backend Architecture Details
+
+### Progressive Outline Generation (10-Step Workflow)
+
+**Design Philosophy**: "网文爽文" style (Chinese web novel with high engagement)
+
+1. **Step 1: Concept** - One-sentence premise
+2. **Step 2: Structure** - Three-act structure (5 sentences)
+3. **Step 3: Detailed Outline** - Chapter-by-chapter outline with "爽点" (pleasure points) markers
+4. **Step 4-10: Quality Analysis**:
+   - 爽点密度 (pleasure point density)
+   - 节奏分析 (pacing analysis)
+   - 开篇吸引力 (opening hook strength)
+   - 主角吸引力 (protagonist appeal)
+   - 冲突强度 (conflict intensity)
+
+### RAG System (Retrieval-Augmented Generation)
+
+**Purpose**: Context-aware chapter generation using vector search
+
+**Stack**:
+- **Vector DB**: ChromaDB (persistent storage in `chroma_db/`)
+- **Embeddings**: OpenAI `text-embedding-3-small` (1536 dimensions)
+- **Retrieval**: Cosine similarity with top-k=3
+
+**Workflow**:
+1. When chapter is created/updated → auto-index to ChromaDB
+2. When generating new chapter → retrieve similar chapters as context
+3. LLM uses retrieved context for consistent style/continuity
+
+**Cost Optimization**:
+- `text-embedding-3-small`: $0.02 per 1M tokens (80% cheaper than ada-002)
+- Fallback to keyword search if embedding fails
+
+### Prompt Engineering
+
+**Location**: `services/novel-backend/app/services/prompt_templates.py`
+
+**Key Components**:
+- `BASE_PERSONA` - "新人网文作家" (new web novel author persona)
+- `ANTI_AI_RULES` - Rules to avoid AI-like writing
+- `GOLDEN_THREE_RULES` - First 3 chapters must hook readers
+- `WEB_NOVEL_CORE` - Core requirements (6000 chars/chapter, fast pacing)
+
+**Template Methods**:
+```python
+NovelPromptTemplates.get_chapter_generation_prompt(
+    chapter_number=1,
+    outline="...",
+    character_profiles=[...],
+    previous_context="...",
+    rag_context=[...]  # Retrieved similar chapters
+)
+```
+
+## Common Workflows
+
+### 1. Comic Creation Workflow
+```
+Story Generation → Character Assignment → Script Generation →
+Panel Generation → Image Generation → Layout & Export
+```
+
+1. `POST /api/story/generate` - Generate story outline
+2. `POST /api/story/[id]/characters` - Add characters from library
+3. `POST /api/story/expand` - Expand into detailed script
+4. `POST /api/project` - Create comic project
+5. `POST /api/chapter/[id]/generate-panels` - Generate storyboard panels
+6. `POST /api/panel/[id]/variants` - Generate panel variants
+
+### 2. Novel Creation Workflow (Progressive Mode)
+```
+Concept → Structure → Detailed Outline → Analysis →
+Chapter Generation (6000 chars) → RAG Indexing
+```
+
+1. `POST /api/novel/progressive/concept` - One-sentence concept
+2. `POST /api/novel/progressive/structure` - Three-act structure
+3. `POST /api/novel/progressive/detailed-outline` - Chapter outlines
+4. `POST /api/novel/progressive/analyze` - Quality analysis
+5. **User reviews and refines outline**
+6. `POST /api/novel/chapters/generate/stream` - Generate chapters with SSE
+7. **Auto-indexed to RAG** for context in subsequent chapters
+
+### 3. Novel → Comic Conversion (Canvas Integration)
+```
+Novel Chapter Text → Script Segments → Camera Shots →
+Scene Images → Final Comic Panels
+```
+
+1. `POST /api/novel/canvas/analyze-script` - Split chapter into segments
+2. `POST /api/novel/canvas/generate-shots` - Generate camera directions
+3. `POST /api/novel/canvas/generate-scenes` - Generate scene images
+4. `POST /api/novel/canvas/generate-finals` - Add speech bubbles & effects
 
 ## Known Limitations
 
-1. **Image Generation**: Requires external AI service integration (Stable Diffusion, DALL-E, etc.)
+1. **Image Generation**: Requires external AI service (Stable Diffusion, DALL-E)
 2. **LoRA Training**: Not implemented - `training_status` remains `pending`
 3. **MinIO Storage**: Requires MinIO server or S3-compatible storage running
+4. **Python Service**: Must run separately from Next.js app (different ports)
 
-## Important Exclusions
+## Docker Deployment
 
-**DO NOT read or modify files in the `example/` directory unless explicitly requested.**
-- Contains standalone demo application separate from main Next.js app
-- Serves as reference implementation only
+```bash
+# Start all services (recommended for production)
+docker-compose up -d
+
+# Services started:
+# - PostgreSQL (5432)
+# - MinIO (9000, 9001 console)
+# - Redis (6379)
+# - Novel Backend (8000)
+
+# Next.js app runs separately:
+npm run build
+npm run start
+```
+
+## Troubleshooting
+
+### Novel Backend Connection Issues
+```bash
+# 1. Check if service is running
+curl http://localhost:8000/health
+
+# 2. Check Next.js environment variable
+echo $NOVEL_SERVICE_URL  # Should be http://localhost:8000
+
+# 3. Check Python backend logs
+cd services/novel-backend
+tail -f app.log
+```
+
+### RAG Not Working
+```bash
+# 1. Check ChromaDB initialization
+curl http://localhost:8000/api/novel/rag/stats
+
+# 2. Verify environment variables
+cd services/novel-backend
+grep RAG_ENABLE_VECTOR_SEARCH .env  # Should be true
+
+# 3. Test embedding API
+python test_rag.py
+```
+
+### Database Migration Issues
+```bash
+# Reset database (WARNING: destroys data)
+npx prisma migrate reset
+
+# Apply pending migrations
+npx prisma migrate deploy
+
+# Regenerate Prisma client
+npx prisma generate
+```
+
+## Important Notes
+
+1. **Shared JWT Secret**: `AUTH_SECRET` (Next.js) MUST equal `JWT_SECRET` (Python)
+2. **Database Schema**: Managed by Prisma migrations, Python uses same schema
+3. **File Limit**: 500 lines per file - split if exceeded
+4. **TypeScript**: Write as if `strict: true` even though it's `false`
+5. **Package Manager**: Use `npm` (not pnpm) - `package-lock.json` is canonical
+
+## Exclusions
+
+**DO NOT modify**:
+- `example/` directory - Contains standalone demo application
+- Files in `.git/`, `node_modules/`, `.next/`, `dist/`

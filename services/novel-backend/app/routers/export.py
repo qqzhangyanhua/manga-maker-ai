@@ -5,12 +5,11 @@ import io
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Literal
 
 from ..database import get_db
 from ..middleware.auth import get_current_user_id
 from ..services.export_service import ExportService
-from ..schemas.export import ExportRequest, ExportConfig
+from ..schemas.export import ExportRequest
 from ..models import NovelProject
 
 
@@ -42,9 +41,18 @@ async def export_novel(
         文件流（StreamingResponse）
     """
     try:
-        # TODO: 检查用户权限
-        # await check_project_permission(project_id, user_id, db)
-        
+        from sqlalchemy import select
+
+        project_stmt = select(NovelProject).where(
+            NovelProject.id == project_id,
+            NovelProject.user_id == user_id
+        )
+        project_result = await db.execute(project_stmt)
+        project = project_result.scalar_one_or_none()
+
+        if not project:
+            raise HTTPException(status_code=404, detail="项目不存在")
+
         # 创建导出服务
         export_service = ExportService(db)
         
@@ -54,15 +62,6 @@ async def export_novel(
             format=request.format,
             config=request.config
         )
-        
-        # 获取项目信息以生成文件名
-        from sqlalchemy import select
-        stmt = select(NovelProject).where(NovelProject.id == project_id)
-        result = await db.execute(stmt)
-        project = result.scalar_one_or_none()
-        
-        if not project:
-            raise HTTPException(status_code=404, detail="项目不存在")
         
         # 设置文件名和 MIME 类型
         filename = f"{project.title}.{request.format}"

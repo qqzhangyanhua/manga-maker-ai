@@ -167,6 +167,22 @@ class NovelPromptTemplate(Base):
     )
 
 
+class MaintenanceLog(Base):
+    __tablename__ = "maintenance_logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), nullable=False)
+    operation = Column(String(50), nullable=False)
+    status = Column(String(20), nullable=False)
+    details = Column(JSON)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_maintenance_logs_user_time", "user_id", "created_at"),
+        Index("idx_maintenance_logs_operation", "operation"),
+    )
+
+
 class NovelQuota(Base):
     """用户配额"""
     __tablename__ = "novel_quotas"
