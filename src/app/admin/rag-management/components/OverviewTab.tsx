@@ -107,7 +107,7 @@ const OverviewTab: React.FC = () => {
       const response = await fetch("/api/novel/rag/rebuild-index", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ force: false }),
+        body: JSON.stringify({ scope: "all" }),
       });
 
       if (!response.ok) throw new Error("Batch rebuild failed");

@@ -87,7 +87,7 @@ const IndexManagementTab: React.FC = () => {
       const response = await fetch("/api/novel/rag/rebuild-index", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chapterIds: [chapterId], force: true }),
+        body: JSON.stringify({ scope: "all" }),
       });
 
       if (!response.ok) throw new Error("Rebuild failed");
