@@ -18,6 +18,7 @@ import {
   ListTodo,
   Tags,
   Receipt,
+  Cpu,
 } from "lucide-react";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { Button } from "@/components/ui/button";
@@ -317,6 +318,25 @@ const AdminHomePage = () => {
                   </p>
                 </div>
                 <Link href="/admin/generation-tasks">
+                  <Button size="sm" className="bg-purple-500 hover:bg-purple-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    进入 &rarr;
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            <div className="p-5 comic-card border-2 border-zinc-900 dark:border-zinc-600 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl group hover:scale-[1.02] transition-all duration-300 bg-white dark:bg-zinc-800 hover:border-purple-500 hover:shadow-[4px_4px_0px_0px_#a855f7]">
+              <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-lg font-bold group-hover:text-purple-500 transition-colors">
+                    <Cpu className="w-6 h-6 text-purple-500" />
+                    RAG 向量管理
+                  </div>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    智能检索。管理章节向量索引、质量监控与数据维护。
+                  </p>
+                </div>
+                <Link href="/admin/rag-management">
                   <Button size="sm" className="bg-purple-500 hover:bg-purple-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
                     进入 &rarr;
                   </Button>
