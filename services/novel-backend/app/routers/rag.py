@@ -33,12 +33,30 @@ class BatchIndexRequest(BaseModel):
     chapter_ids: Optional[List[str]] = None
 
 
+class RAGStatsData(BaseModel):
+    """RAG 统计数据"""
+    enabled: bool
+    collectionName: Optional[str] = None
+    totalDocuments: Optional[int] = None
+    embeddingModel: Optional[str] = None
+    dbSize: Optional[int] = None
+    indexSuccessRate: Optional[float] = None
+    avgSimilarityScore: Optional[float] = None
+
+
+class RecentActivityData(BaseModel):
+    """最近活动数据"""
+    timestamp: str
+    projectName: str
+    chapterNumber: int
+    chapterTitle: str
+    status: str  # "success" | "failed"
+
+
 class RAGStatsResponse(BaseModel):
     """RAG 统计信息响应"""
-    enabled: bool
-    collection_name: Optional[str] = None
-    total_documents: Optional[int] = None
-    embedding_model: Optional[str] = None
+    stats: RAGStatsData
+    recentActivity: List[RecentActivityData]
 
 
 class ChapterDetailResponse(BaseModel):
@@ -228,21 +246,84 @@ async def delete_chapter_index(
 
 
 @router.get("/stats", response_model=RAGStatsResponse)
-async def get_rag_stats():
+async def get_rag_stats(db: AsyncSession = Depends(get_db)):
     """
     获取 RAG 系统统计信息（公开接口）
 
     - 向量数据库是否启用
     - 索引文档总数
     - Embedding 模型
+    - 最近索引活动（前 10 条）
 
     注意：此接口不需要认证，仅返回系统级统计信息
     """
     try:
         vector_service = get_vector_service()
-        stats = vector_service.get_stats()
+        raw_stats = vector_service.get_stats()
 
-        return RAGStatsResponse(**stats)
+        # Convert snake_case to camelCase
+        stats_data = RAGStatsData(
+            enabled=raw_stats.get("enabled", False),
+            collectionName=raw_stats.get("collection_name"),
+            totalDocuments=raw_stats.get("total_documents"),
+            embeddingModel=raw_stats.get("embedding_model"),
+        )
+
+        # Get recent activities (limit 10)
+        recent_activities = []
+        if vector_service.enabled:
+            try:
+                # Get indexed chapters metadata from ChromaDB
+                chroma_result = vector_service.collection.get(include=["metadatas"])
+
+                # Parse and sort by indexed_at timestamp
+                activities_raw = []
+                for metadata in chroma_result.get("metadatas", []):
+                    indexed_at = metadata.get("indexed_at")
+                    if indexed_at:
+                        try:
+                            activities_raw.append({
+                                "timestamp": indexed_at,
+                                "project_id": metadata.get("project_id", ""),
+                                "chapter_number": metadata.get("chapter_number", 0),
+                                "chapter_title": metadata.get("title", "未知标题"),
+                                "status": "success"
+                            })
+                        except Exception:
+                            pass
+
+                # Sort by timestamp descending and take top 10
+                activities_raw.sort(key=lambda x: x["timestamp"], reverse=True)
+                activities_raw = activities_raw[:10]
+
+                # Fetch project names in batch
+                project_ids = list({act["project_id"] for act in activities_raw if act.get("project_id")})
+                project_map = {}
+                if project_ids:
+                    projects_stmt = select(NovelProject.id, NovelProject.title).where(
+                        NovelProject.id.in_(project_ids)
+                    )
+                    result = await db.execute(projects_stmt)
+                    project_map = {str(p_id): p_title for p_id, p_title in result.all()}
+
+                # Build final activities list with camelCase
+                for act in activities_raw:
+                    project_name = project_map.get(act["project_id"], "未知项目")
+                    recent_activities.append(
+                        RecentActivityData(
+                            timestamp=act["timestamp"],
+                            projectName=project_name,
+                            chapterNumber=act["chapter_number"],
+                            chapterTitle=act["chapter_title"],
+                            status=act["status"]
+                        )
+                    )
+
+            except Exception as e:
+                logger.warning(f"获取最近活动失败: {str(e)}")
+                recent_activities = []
+
+        return RAGStatsResponse(stats=stats_data, recentActivity=recent_activities)
 
     except Exception as e:
         logger.error(f"获取 RAG 统计信息失败: {str(e)}")
