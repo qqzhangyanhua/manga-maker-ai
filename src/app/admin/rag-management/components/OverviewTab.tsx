@@ -134,6 +134,11 @@ const OverviewTab: React.FC = () => {
       setActionLoading("cleanup");
       const response = await fetch("/api/novel/rag/cleanup", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          remove_orphaned: true,
+          compact_db: false,
+        }),
       });
 
       if (!response.ok) throw new Error("Cleanup failed");

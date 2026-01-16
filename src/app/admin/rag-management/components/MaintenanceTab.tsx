@@ -63,8 +63,8 @@ const MaintenanceTab: React.FC = () => {
 
   // Cleanup state
   const [cleanupOptions, setCleanupOptions] = useState({
-    orphaned: true,
-    cache: false,
+    remove_orphaned: true,
+    compact_db: false,
   });
   const [showCleanupConfirm, setShowCleanupConfirm] = useState(false);
 
@@ -349,9 +349,9 @@ const MaintenanceTab: React.FC = () => {
             <div className="flex items-center gap-3">
               <Checkbox
                 id="cleanup-orphaned"
-                checked={cleanupOptions.orphaned}
+                checked={cleanupOptions.remove_orphaned}
                 onCheckedChange={(checked) =>
-                  setCleanupOptions((prev) => ({ ...prev, orphaned: checked as boolean }))
+                  setCleanupOptions((prev) => ({ ...prev, remove_orphaned: checked as boolean }))
                 }
               />
               <Label htmlFor="cleanup-orphaned" className="cursor-pointer">
@@ -361,9 +361,9 @@ const MaintenanceTab: React.FC = () => {
             <div className="flex items-center gap-3">
               <Checkbox
                 id="cleanup-cache"
-                checked={cleanupOptions.cache}
+                checked={cleanupOptions.compact_db}
                 onCheckedChange={(checked) =>
-                  setCleanupOptions((prev) => ({ ...prev, cache: checked as boolean }))
+                  setCleanupOptions((prev) => ({ ...prev, compact_db: checked as boolean }))
                 }
               />
               <Label htmlFor="cleanup-cache" className="cursor-pointer">
@@ -373,7 +373,7 @@ const MaintenanceTab: React.FC = () => {
           </div>
           <Button
             onClick={() => setShowCleanupConfirm(true)}
-            disabled={actionLoading !== null || (!cleanupOptions.orphaned && !cleanupOptions.cache)}
+            disabled={actionLoading !== null || (!cleanupOptions.remove_orphaned && !cleanupOptions.compact_db)}
             variant="destructive"
             className="w-full"
           >
@@ -500,8 +500,8 @@ const MaintenanceTab: React.FC = () => {
               <div className="space-y-2">
                 <p>将执行以下清理操作:</p>
                 <ul className="list-disc list-inside">
-                  {cleanupOptions.orphaned && <li>清理孤立索引</li>}
-                  {cleanupOptions.cache && <li>清理过期缓存</li>}
+                  {cleanupOptions.remove_orphaned && <li>清理孤立索引</li>}
+                  {cleanupOptions.compact_db && <li>清理过期缓存</li>}
                 </ul>
                 <p className="text-red-600 dark:text-red-400 font-semibold">
                   此操作不可撤销
