@@ -8,6 +8,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
+import { cn } from "@/lib/utils";
 import { AlertCircle, GitCompare, X, Edit3 } from "lucide-react";
 import { ChapterVersionList } from "./ChapterVersionList";
 import { ChapterSelector } from "./ChapterSelector";

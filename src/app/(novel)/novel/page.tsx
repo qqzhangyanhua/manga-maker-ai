@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, BookOpen, Clock, FileText, Sparkles, ImageIcon, Wand2, Trash2, Loader2 } from "lucide-react";
+import { Plus, BookOpen, Clock, FileText, Sparkles, ImageIcon, Wand2, Trash2, Loader2, Layers } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -138,6 +138,35 @@ export default function NovelDashboard() {
     event.stopPropagation();
     setProjectToDelete(project);
     setDeleteDialogOpen(true);
+  }
+
+  async function handleOpenCanvas(project: NovelProject, event: React.MouseEvent) {
+    event.stopPropagation();
+    try {
+      // 创建或获取现有时间线
+      const response = await fetch("/api/canvas/timeline", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          novel_project_id: project.id,
+          title: `${project.title} - 无限画布`,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("创建时间线失败");
+      }
+
+      const data = await response.json();
+      router.push(`/novel/canvas/${data.timeline.id}`);
+    } catch (error) {
+      console.error("打开画布失败:", error);
+      toast({
+        title: "打开画布失败",
+        description: error instanceof Error ? error.message : "未知错误",
+        variant: "destructive",
+      });
+    }
   }
 
   async function handleConfirmDelete() {
@@ -377,6 +406,17 @@ export default function NovelDashboard() {
                           <span>{new Date(project.updated_at).toLocaleDateString()}</span>
                         </div>
                       </div>
+
+                      {/* Canvas Entry Button */}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full mt-3 bg-purple-500/10 border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300"
+                        onClick={(e) => handleOpenCanvas(project, e)}
+                      >
+                        <Layers className="mr-2 h-3.5 w-3.5" />
+                        无限画布
+                      </Button>
                     </div>
                   </GlassCard>
                 ))}
