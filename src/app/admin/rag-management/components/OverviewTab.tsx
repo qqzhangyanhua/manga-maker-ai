@@ -88,7 +88,7 @@ const OverviewTab: React.FC = () => {
 
       toast({
         title: "一致性检查完成",
-        description: `健康分数: ${data.result.healthScore.toFixed(1)}/100`,
+        description: `健康分数: ${data.healthScore.toFixed(1)}/100`,
       });
     } catch (error) {
       toast({

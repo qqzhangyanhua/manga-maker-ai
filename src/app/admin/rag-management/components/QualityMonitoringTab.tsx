@@ -42,12 +42,12 @@ const QualityMonitoringTab: React.FC = () => {
       if (!response.ok) throw new Error("Consistency check failed");
       const data = await response.json();
 
-      setCheckResult(data.result);
+      setCheckResult(data);
       setLastCheckTime(new Date().toLocaleString());
 
       toast({
         title: "检查完成",
-        description: `健康分数: ${data.result.healthScore.toFixed(1)}/100`,
+        description: `健康分数: ${data.healthScore.toFixed(1)}/100`,
       });
     } catch (error) {
       toast({
