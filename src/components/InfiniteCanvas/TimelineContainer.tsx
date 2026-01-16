@@ -17,8 +17,14 @@ export function TimelineContainer({
 }: TimelineContainerProps) {
   const [isGenerating, setIsGenerating] = useState(false);
 
+  const handleSettings = useCallback(() => {
+    console.log("打开设置面板");
+    // TODO: 实现设置功能
+  }, []);
+
   const generateChapterStep = useCallback(
     async (chapterId: string, step: string) => {
+      console.log(`开始生成章节步骤: ${chapterId}, 步骤: ${step}`);
       try {
         const response = await fetch(
           `/api/canvas/chapter/${chapterId}/${step}`,
@@ -27,6 +33,7 @@ export function TimelineContainer({
         if (!response.ok) {
           throw new Error("生成失败");
         }
+        console.log(`章节步骤生成成功: ${step}`);
         onRefresh();
       } catch (error) {
         console.error(`生成${step}失败:`, error);
@@ -36,9 +43,11 @@ export function TimelineContainer({
   );
 
   const generateAll = useCallback(async () => {
+    console.log("开始全部生成流程");
     setIsGenerating(true);
     try {
       for (const chapter of timeline.chapters || []) {
+        console.log(`处理章节: ${chapter.id}, 章节号: ${chapter.chapter_number}`);
         if (chapter.script_status !== "completed") {
           await generateChapterStep(chapter.id, "generate-script");
         }
@@ -52,6 +61,7 @@ export function TimelineContainer({
           await generateChapterStep(chapter.id, "generate-finals");
         }
       }
+      console.log("全部生成流程完成");
     } finally {
       setIsGenerating(false);
     }
@@ -69,7 +79,7 @@ export function TimelineContainer({
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleSettings}>
             <Settings className="w-4 h-4 mr-1" />
             设置
           </Button>

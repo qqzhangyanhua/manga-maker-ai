@@ -7,12 +7,15 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getNovelBackendClient, NovelBackendError } from "@/lib/novel-backend-client";
+import { logInfo, logError } from "@/lib/api-logger";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
 export async function POST(req: Request, { params }: RouteParams) {
+  const startedAt = Date.now();
   const cookieStore = await cookies();
   const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
 
@@ -28,6 +31,12 @@ export async function POST(req: Request, { params }: RouteParams) {
   const { id: chapterId } = await params;
 
   try {
+    logInfo("开始生成镜头", {
+      endpoint: "/api/canvas/chapter/[id]/generate-shots",
+      chapterId,
+      userId: payload.userId,
+    });
+
     const timelineChapter = await prisma.timelineChapter.findUnique({
       where: { id: chapterId },
       include: {
@@ -51,35 +60,63 @@ export async function POST(req: Request, { params }: RouteParams) {
       );
     }
 
+    logInfo("剧本片段获取成功", {
+      chapterId,
+      segmentCount: timelineChapter.script_segments.length,
+    });
+
     await prisma.timelineChapter.update({
       where: { id: chapterId },
       data: { shot_status: "generating" },
     });
 
-    // TODO: 调用 novel-backend 的 shot_planner 服务
+    // 调用 novel-backend 的镜头规划服务
+    const client = getNovelBackendClient();
     let totalShots = 0;
     const allShots = [];
 
+    // 为每个剧本片段生成镜头
     for (const segment of timelineChapter.script_segments) {
-      const mockShots = [
-        {
-          shot_order: 1,
-          camera_angle: "平视",
-          shot_size: "中景",
-          panel_type: "dialogue",
-          shot_description: `镜头描述 - ${segment.segment_order}`,
-          composition_hint: "三分法构图",
-          prompt: "comic panel, dialogue scene",
-          negative_prompt: "blurry, low quality",
-        },
-      ];
+      logInfo("为剧本片段生成镜头", {
+        chapterId,
+        segmentId: segment.id,
+        segmentOrder: segment.segment_order,
+      });
 
+      const planResult = await client.planShots({
+        script_content: segment.content,
+        scene_description: segment.scene_description,
+        character_actions: segment.character_actions,
+        available_characters: [], // TODO: 从数据库获取可用角色列表
+      });
+
+      if (!planResult.success || planResult.shots.length === 0) {
+        logError("镜头规划返回空结果", new Error("Empty shots result"), {
+          segmentId: segment.id,
+        });
+        continue; // 跳过这个片段，继续处理下一个
+      }
+
+      logInfo("镜头规划完成", {
+        segmentId: segment.id,
+        shotCount: planResult.shots.length,
+      });
+
+      // 创建镜头记录
       const createdShots = await Promise.all(
-        mockShots.map((shot) =>
+        planResult.shots.map((shot) =>
           prisma.shotDesign.create({
             data: {
               script_segment_id: segment.id,
-              ...shot,
+              shot_order: shot.shot_order,
+              camera_angle: shot.camera_angle,
+              shot_size: shot.shot_size,
+              panel_type: "medium", // 默认类型
+              shot_description: shot.action_description,
+              composition_hint: shot.visual_notes || "",
+              prompt: `${shot.camera_angle}, ${shot.shot_size}`,
+              negative_prompt: "blurry, low quality, distorted",
+              character_ids: shot.character_focus ? [shot.character_focus] : [],
             },
           })
         )
@@ -89,6 +126,7 @@ export async function POST(req: Request, { params }: RouteParams) {
       totalShots += createdShots.length;
     }
 
+    // 更新章节状态
     await prisma.timelineChapter.update({
       where: { id: chapterId },
       data: {
@@ -105,15 +143,53 @@ export async function POST(req: Request, { params }: RouteParams) {
       },
     });
 
-    return NextResponse.json({ success: true, shots: allShots });
+    const durationMs = Date.now() - startedAt;
+    logInfo("镜头生成成功", {
+      chapterId,
+      userId: payload.userId,
+      shotCount: totalShots,
+      durationMs,
+    });
+
+    return NextResponse.json({
+      success: true,
+      shots: allShots,
+      metadata: {
+        shot_count: totalShots,
+        segment_count: timelineChapter.script_segments.length,
+        duration_ms: durationMs,
+      },
+    });
   } catch (error) {
-    console.error("生成镜头失败:", error);
+    const durationMs = Date.now() - startedAt;
+
+    logError("生成镜头失败", error, {
+      chapterId,
+      userId: payload.userId,
+      durationMs,
+    });
 
     await prisma.timelineChapter.update({
       where: { id: chapterId },
       data: { shot_status: "error" },
     });
 
-    return NextResponse.json({ error: "生成镜头失败" }, { status: 500 });
+    if (error instanceof NovelBackendError) {
+      return NextResponse.json(
+        {
+          error: "镜头生成失败",
+          detail: error.message,
+        },
+        { status: 502 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        error: "生成镜头失败",
+        detail: error instanceof Error ? error.message : "未知错误",
+      },
+      { status: 500 }
+    );
   }
 }

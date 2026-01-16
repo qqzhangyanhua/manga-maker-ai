@@ -42,49 +42,63 @@ const NodeCard = ({
   onGenerate: () => void;
   onEdit?: () => void;
   disabled?: boolean;
-}) => (
-  <div
-    className={cn(
-      "flex flex-col items-center p-3 rounded-lg border min-w-[120px]",
-      "bg-gray-800/50 border-gray-700",
-      status === "completed" && "border-green-600/50",
-      status === "generating" && "border-purple-600/50",
-      status === "error" && "border-red-600/50"
-    )}
-  >
-    <div className="flex items-center gap-2 mb-2">
-      <StatusIcon status={status} />
-      <span className="text-sm font-medium text-gray-200">{title}</span>
+}) => {
+  const handleGenerateClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    console.log(`生成${title}按钮被点击`);
+    onGenerate();
+  };
+
+  const handleEditClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    console.log(`编辑${title}按钮被点击`);
+    onEdit?.();
+  };
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col items-center p-3 rounded-lg border min-w-[120px]",
+        "bg-gray-800/50 border-gray-700",
+        status === "completed" && "border-green-600/50",
+        status === "generating" && "border-purple-600/50",
+        status === "error" && "border-red-600/50"
+      )}
+    >
+      <div className="flex items-center gap-2 mb-2">
+        <StatusIcon status={status} />
+        <span className="text-sm font-medium text-gray-200">{title}</span>
+      </div>
+      <div className="text-xs text-gray-400 mb-2">
+        {count > 0 ? `${count} 个` : "未生成"}
+      </div>
+      <div className="flex gap-1">
+        {status === "pending" || status === "error" ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleGenerateClick}
+            disabled={disabled}
+            className="h-7 px-2"
+          >
+            <Play className="w-3 h-3 mr-1" />
+            生成
+          </Button>
+        ) : status === "completed" && onEdit ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleEditClick}
+            className="h-7 px-2"
+          >
+            <Edit2 className="w-3 h-3 mr-1" />
+            编辑
+          </Button>
+        ) : null}
+      </div>
     </div>
-    <div className="text-xs text-gray-400 mb-2">
-      {count > 0 ? `${count} 个` : "未生成"}
-    </div>
-    <div className="flex gap-1">
-      {status === "pending" || status === "error" ? (
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={onGenerate}
-          disabled={disabled}
-          className="h-7 px-2"
-        >
-          <Play className="w-3 h-3 mr-1" />
-          生成
-        </Button>
-      ) : status === "completed" && onEdit ? (
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={onEdit}
-          className="h-7 px-2"
-        >
-          <Edit2 className="w-3 h-3 mr-1" />
-          编辑
-        </Button>
-      ) : null}
-    </div>
-  </div>
-);
+  );
+};
 
 export function ChapterRow({
   chapter,

@@ -7,7 +7,7 @@ import logging
 from typing import List
 from pydantic import BaseModel
 from openai import AsyncOpenAI
-from ..config import settings
+from ...config import settings
 
 logger = logging.getLogger(__name__)
 
