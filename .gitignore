@@ -29,3 +29,16 @@ dist-ssr
 
 # Git worktrees
 .worktrees/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# TypeScript build info
+tsconfig.tsbuildinfo
