@@ -59,17 +59,17 @@ const NodeCard = ({
     <div
       className={cn(
         "flex flex-col items-center p-3 rounded-lg border min-w-[120px]",
-        "bg-gray-800/50 border-gray-700",
-        status === "completed" && "border-green-600/50",
-        status === "generating" && "border-purple-600/50",
-        status === "error" && "border-red-600/50"
+        "bg-zinc-900/50 border-zinc-800",
+        status === "completed" && "border-green-600/50 bg-green-900/10",
+        status === "generating" && "border-purple-600/50 bg-purple-900/10",
+        status === "error" && "border-red-600/50 bg-red-900/10"
       )}
     >
       <div className="flex items-center gap-2 mb-2">
         <StatusIcon status={status} />
-        <span className="text-sm font-medium text-gray-200">{title}</span>
+        <span className="text-sm font-medium text-zinc-200">{title}</span>
       </div>
-      <div className="text-xs text-gray-400 mb-2">
+      <div className="text-xs text-zinc-400 mb-2">
         {count > 0 ? `${count} 个` : "未生成"}
       </div>
       <div className="flex gap-1">
@@ -79,7 +79,7 @@ const NodeCard = ({
             variant="outline"
             onClick={handleGenerateClick}
             disabled={disabled}
-            className="h-7 px-2"
+            className="h-7 px-2 border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-800"
           >
             <Play className="w-3 h-3 mr-1" />
             生成
@@ -89,7 +89,7 @@ const NodeCard = ({
             size="sm"
             variant="ghost"
             onClick={handleEditClick}
-            className="h-7 px-2"
+            className="h-7 px-2 text-zinc-400 hover:text-white hover:bg-zinc-800"
           >
             <Edit2 className="w-3 h-3 mr-1" />
             编辑
@@ -111,20 +111,20 @@ export function ChapterRow({
   const [isExpanded, setIsExpanded] = useState(true);
 
   return (
-    <div className="border-b border-gray-700 py-4">
+    <div className="border-b border-zinc-800 py-4">
       {/* Chapter Header */}
       <div
         className="flex items-center gap-4 cursor-pointer mb-4"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white font-bold">
+        <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white font-bold shadow-lg shadow-purple-900/20">
           {chapter.chapter_number}
         </div>
         <div className="flex-1">
           <h3 className="text-lg font-medium text-white">
             第 {chapter.chapter_number} 章
           </h3>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-zinc-400">
             {chapterContent?.slice(0, 50)}...
           </p>
         </div>
@@ -142,7 +142,7 @@ export function ChapterRow({
           />
 
           {/* Arrow */}
-          <div className="text-gray-500">→</div>
+          <div className="text-zinc-600">→</div>
 
           {/* Shots Node */}
           <NodeCard
@@ -154,7 +154,7 @@ export function ChapterRow({
           />
 
           {/* Arrow */}
-          <div className="text-gray-500">→</div>
+          <div className="text-zinc-600">→</div>
 
           {/* Scene Images Node */}
           <NodeCard
@@ -166,7 +166,7 @@ export function ChapterRow({
           />
 
           {/* Arrow */}
-          <div className="text-gray-500">→</div>
+          <div className="text-zinc-600">→</div>
 
           {/* Final Images Node */}
           <NodeCard

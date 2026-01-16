@@ -150,7 +150,7 @@ export function AddChapterDialog({ open, onClose, timelineId, onAdded }: AddChap
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="bg-gray-900 text-white max-w-md">
+      <DialogContent className="bg-[#0f0f13] border-zinc-800 text-white max-w-md">
         <DialogHeader>
           <DialogTitle>添加章节到时间线</DialogTitle>
         </DialogHeader>
@@ -164,15 +164,29 @@ export function AddChapterDialog({ open, onClose, timelineId, onAdded }: AddChap
               onValueChange={setSelectedProjectId}
               disabled={loadingProjects}
             >
-              <SelectTrigger id="project">
+              <SelectTrigger id="project" className="bg-zinc-900/50 border-zinc-800 focus:ring-purple-500/50">
                 <SelectValue placeholder={loadingProjects ? "加载中..." : "选择项目"} />
               </SelectTrigger>
-              <SelectContent>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.title}
-                  </SelectItem>
-                ))}
+              <SelectContent
+                className="z-[100] bg-zinc-900 border-zinc-800 text-white max-h-[300px]"
+                position="popper"
+                sideOffset={4}
+              >
+                {projects.length > 0 ? (
+                  projects.map((project) => (
+                    <SelectItem
+                      key={project.id}
+                      value={project.id}
+                      className="hover:bg-zinc-800 focus:bg-zinc-800 focus:text-purple-400"
+                    >
+                      {project.title}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <div className="p-2 text-sm text-gray-400 text-center">
+                    {loadingProjects ? "加载中..." : "暂无项目"}
+                  </div>
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -185,7 +199,10 @@ export function AddChapterDialog({ open, onClose, timelineId, onAdded }: AddChap
               onValueChange={setSelectedChapterId}
               disabled={!selectedProjectId || loadingChapters}
             >
-              <SelectTrigger id="chapter">
+              <SelectTrigger
+                id="chapter"
+                className="bg-zinc-900/50 border-zinc-800 focus:ring-purple-500/50"
+              >
                 <SelectValue
                   placeholder={
                     !selectedProjectId
@@ -196,25 +213,49 @@ export function AddChapterDialog({ open, onClose, timelineId, onAdded }: AddChap
                   }
                 />
               </SelectTrigger>
-              <SelectContent>
-                {chapters.map((chapter) => (
-                  <SelectItem key={chapter.id} value={chapter.id}>
-                    第{chapter.chapterNumber}章: {chapter.title}
-                  </SelectItem>
-                ))}
+              <SelectContent
+                className="z-[100] bg-zinc-900 border-zinc-800 text-white max-h-[300px]"
+                position="popper"
+                sideOffset={4}
+              >
+                {chapters.length > 0 ? (
+                  chapters.map((chapter) => (
+                    <SelectItem
+                      key={chapter.id}
+                      value={chapter.id}
+                      className="hover:bg-zinc-800 focus:bg-zinc-800 focus:text-purple-400"
+                    >
+                      第{chapter.chapterNumber}章: {chapter.title}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <div className="p-2 text-sm text-gray-400 text-center">
+                    {!selectedProjectId
+                      ? "请先选择项目"
+                      : loadingChapters
+                      ? "加载中..."
+                      : "该项目暂无章节大纲"}
+                  </div>
+                )}
               </SelectContent>
             </Select>
-            {chapters.length === 0 && selectedProjectId && !loadingChapters && (
-              <p className="text-sm text-gray-400">该项目暂无章节大纲</p>
-            )}
           </div>
         </div>
 
         <div className="flex gap-2 justify-end">
-          <Button variant="outline" onClick={onClose} disabled={loading}>
+          <Button 
+            variant="outline" 
+            onClick={onClose} 
+            disabled={loading}
+            className="border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800"
+          >
             取消
           </Button>
-          <Button onClick={handleAdd} disabled={loading || !selectedChapterId}>
+          <Button 
+            onClick={handleAdd} 
+            disabled={loading || !selectedChapterId}
+            className="bg-purple-600 hover:bg-purple-700 text-white"
+          >
             {loading ? "添加中..." : "添加"}
           </Button>
         </div>
