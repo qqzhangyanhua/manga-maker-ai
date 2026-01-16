@@ -392,6 +392,78 @@ def test_get_chapter_detail():
 
 
 
+def test_consistency_check():
+    """测试一致性检查"""
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from jose import jwt
+    from datetime import datetime, timedelta, timezone
+    import os
+
+    client = TestClient(app)
+
+    # 生成有效的 JWT token
+    jwt_secret = os.getenv("JWT_SECRET", "zhangyanhua12345")
+    payload = {
+        "userId": "test-user-id-123",
+        "email": "test@example.com",
+        "exp": datetime.now(timezone.utc) + timedelta(hours=1)
+    }
+    token = jwt.encode(payload, jwt_secret, algorithm="HS256")
+
+    # Test: 执行一致性检查（无项目过滤）
+    response = client.post(
+        "/api/novel/rag/consistency-check",
+        json={},
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+    data = response.json()
+
+    # 验证必需字段
+    assert "total_in_pg" in data, "Response must contain 'total_in_pg'"
+    assert "total_in_chroma" in data, "Response must contain 'total_in_chroma'"
+    assert "not_indexed" in data, "Response must contain 'not_indexed'"
+    assert "orphaned" in data, "Response must contain 'orphaned'"
+    assert "need_rebuild" in data, "Response must contain 'need_rebuild'"
+    assert "health_score" in data, "Response must contain 'health_score'"
+
+    # 验证字段类型
+    assert isinstance(data["total_in_pg"], int), "total_in_pg must be integer"
+    assert isinstance(data["total_in_chroma"], int), "total_in_chroma must be integer"
+    assert isinstance(data["not_indexed"], list), "not_indexed must be list"
+    assert isinstance(data["orphaned"], list), "orphaned must be list"
+    assert isinstance(data["need_rebuild"], list), "need_rebuild must be list"
+    assert isinstance(data["health_score"], (int, float)), "health_score must be number"
+
+    # 验证 health_score 范围
+    assert 0 <= data["health_score"] <= 100, "health_score must be between 0 and 100"
+
+    # 验证 not_indexed 列表结构（如果有数据）
+    if data["not_indexed"]:
+        item = data["not_indexed"][0]
+        assert "chapter_id" in item, "not_indexed item must contain 'chapter_id'"
+        assert "project_name" in item, "not_indexed item must contain 'project_name'"
+        assert "chapter_number" in item, "not_indexed item must contain 'chapter_number'"
+        assert "title" in item, "not_indexed item must contain 'title'"
+
+    # 验证 need_rebuild 列表结构（如果有数据）
+    if data["need_rebuild"]:
+        item = data["need_rebuild"][0]
+        assert "chapter_id" in item, "need_rebuild item must contain 'chapter_id'"
+        assert "updated_at" in item, "need_rebuild item must contain 'updated_at'"
+        assert "indexed_at" in item, "need_rebuild item must contain 'indexed_at'"
+
+    print(f"✅ Test passed! Consistency check results:")
+    print(f"   - Total in PG: {data['total_in_pg']}")
+    print(f"   - Total in Chroma: {data['total_in_chroma']}")
+    print(f"   - Not indexed: {len(data['not_indexed'])}")
+    print(f"   - Orphaned: {len(data['orphaned'])}")
+    print(f"   - Need rebuild: {len(data['need_rebuild'])}")
+    print(f"   - Health score: {data['health_score']:.2f}%")
+
+
 if __name__ == "__main__":
     # 设置环境变量（如果没有 .env 文件）
     if not os.path.exists(".env"):

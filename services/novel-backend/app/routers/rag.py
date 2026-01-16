@@ -334,6 +334,145 @@ async def get_chapter_detail(
         raise HTTPException(status_code=500, detail=f"获取章节详情失败: {str(e)}")
 
 
+class ConsistencyCheckRequest(BaseModel):
+    """一致性检查请求"""
+    project_id: Optional[str] = None
+
+
+@router.post("/consistency-check")
+async def consistency_check(
+    request: ConsistencyCheckRequest,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    数据一致性检查
+
+    - 对比 PostgreSQL 和 ChromaDB
+    - 识别未索引、孤立、需重建的章节
+    - 计算系统健康度评分
+    """
+    try:
+        logger.info(f"🔍 执行一致性检查 - 用户: {user_id}, 项目过滤: {request.project_id or '无'}")
+
+        # 1. 从 PostgreSQL 获取所有章节
+        conditions = []
+        if request.project_id:
+            conditions.append(NovelChapter.project_id == request.project_id)
+
+        chapters_stmt = select(NovelChapter, NovelProject.title.label("project_name")).join(
+            NovelProject, NovelChapter.project_id == NovelProject.id
+        )
+        if conditions:
+            chapters_stmt = chapters_stmt.where(*conditions)
+
+        result = await db.execute(chapters_stmt)
+        pg_chapters = result.all()
+        pg_ids = {str(ch.id): (ch, project_name) for ch, project_name in pg_chapters}
+
+        logger.info(f"   📊 PostgreSQL 章节总数: {len(pg_ids)}")
+
+        # 2. 从 ChromaDB 获取所有索引
+        vector_service = get_vector_service()
+        chroma_ids = set()
+        chroma_metadata = {}
+
+        try:
+            where_filter = None
+            if request.project_id:
+                where_filter = {"project_id": request.project_id}
+
+            chroma_result = vector_service.collection.get(
+                where=where_filter,
+                include=["metadatas"]
+            )
+            chroma_ids = set(chroma_result["ids"])
+            chroma_metadata = {
+                id: meta for id, meta in zip(chroma_result["ids"], chroma_result["metadatas"])
+            }
+
+            logger.info(f"   📊 ChromaDB 索引总数: {len(chroma_ids)}")
+
+        except Exception as e:
+            logger.error(f"   ❌ ChromaDB 查询失败: {str(e)}")
+            chroma_ids = set()
+            chroma_metadata = {}
+
+        # 3. 分析差异
+        not_indexed = []
+        orphaned = []
+        need_rebuild = []
+
+        # 3.1 未索引章节（在 PG 中但不在 ChromaDB 中）
+        for chapter_id, (chapter, project_name) in pg_ids.items():
+            if chapter_id not in chroma_ids:
+                not_indexed.append({
+                    "chapter_id": chapter_id,
+                    "project_name": project_name,
+                    "chapter_number": chapter.chapter_number,
+                    "title": chapter.title
+                })
+
+        # 3.2 孤立索引（在 ChromaDB 中但不在 PG 中）
+        orphaned = list(chroma_ids - set(pg_ids.keys()))
+
+        # 3.3 需要重建的索引（内容已更新但索引未同步）
+        for chapter_id in chroma_ids & set(pg_ids.keys()):
+            chapter, project_name = pg_ids[chapter_id]
+            metadata = chroma_metadata.get(chapter_id, {})
+            indexed_at_str = metadata.get("indexed_at")
+
+            if indexed_at_str and chapter.updated_at:
+                try:
+                    indexed_at = datetime.fromisoformat(indexed_at_str.replace("Z", "+00:00"))
+                    # Make chapter.updated_at timezone-aware if it isn't
+                    chapter_updated = chapter.updated_at
+                    if chapter_updated.tzinfo is None:
+                        chapter_updated = chapter_updated.replace(tzinfo=timezone.utc)
+
+                    if chapter_updated > indexed_at:
+                        need_rebuild.append({
+                            "chapter_id": chapter_id,
+                            "project_name": project_name,
+                            "chapter_number": chapter.chapter_number,
+                            "title": chapter.title,
+                            "updated_at": chapter.updated_at.isoformat(),
+                            "indexed_at": indexed_at_str
+                        })
+                except Exception:
+                    pass
+
+        # 4. 计算健康度评分
+        total_chapters = len(pg_ids)
+        issues_count = len(not_indexed) + len(orphaned) + len(need_rebuild)
+
+        if total_chapters > 0:
+            health_score = max(0, min(100, 100 - (issues_count / total_chapters * 100)))
+        else:
+            health_score = 100.0
+
+        logger.info(
+            f"   ✅ 一致性检查完成 - "
+            f"未索引: {len(not_indexed)}, "
+            f"孤立: {len(orphaned)}, "
+            f"需重建: {len(need_rebuild)}, "
+            f"健康度: {health_score:.2f}%"
+        )
+
+        return {
+            "total_in_pg": total_chapters,
+            "total_in_chroma": len(chroma_ids),
+            "not_indexed": not_indexed,
+            "orphaned": orphaned,
+            "need_rebuild": need_rebuild,
+            "health_score": round(health_score, 2)
+        }
+
+    except Exception as e:
+        logger.exception(f"❌ 一致性检查失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"一致性检查失败: {str(e)}")
+
+
 @router.get("/chapters")
 async def get_chapters_list(
     page: int = 1,
