@@ -496,10 +496,15 @@ async def consistency_check(
         for chapter_id, (chapter, project_name) in pg_ids.items():
             if chapter_id not in chroma_ids:
                 not_indexed.append({
-                    "chapter_id": chapter_id,
-                    "project_name": project_name,
-                    "chapter_number": chapter.chapter_number,
-                    "title": chapter.title
+                    "chapterId": chapter_id,
+                    "projectId": str(chapter.project_id),
+                    "projectName": project_name,
+                    "chapterNumber": chapter.chapter_number,
+                    "title": chapter.title,
+                    "wordCount": chapter.word_count or 0,
+                    "indexedAt": None,
+                    "updatedAt": chapter.updated_at.isoformat() if chapter.updated_at else None,
+                    "status": "not_indexed"
                 })
 
         # 3.2 孤立索引（在 ChromaDB 中但不在 PG 中）
@@ -521,12 +526,15 @@ async def consistency_check(
 
                     if chapter_updated > indexed_at:
                         need_rebuild.append({
-                            "chapter_id": chapter_id,
-                            "project_name": project_name,
-                            "chapter_number": chapter.chapter_number,
+                            "chapterId": chapter_id,
+                            "projectId": str(chapter.project_id),
+                            "projectName": project_name,
+                            "chapterNumber": chapter.chapter_number,
                             "title": chapter.title,
-                            "updated_at": chapter.updated_at.isoformat(),
-                            "indexed_at": indexed_at_str
+                            "wordCount": chapter.word_count or 0,
+                            "indexedAt": indexed_at_str,
+                            "updatedAt": chapter.updated_at.isoformat(),
+                            "status": "need_rebuild"
                         })
                 except Exception:
                     pass
@@ -549,12 +557,12 @@ async def consistency_check(
         )
 
         return {
-            "total_in_pg": total_chapters,
-            "total_in_chroma": len(chroma_ids),
-            "not_indexed": not_indexed,
+            "totalInPg": total_chapters,
+            "totalInChroma": len(chroma_ids),
+            "notIndexed": not_indexed,
             "orphaned": orphaned,
-            "need_rebuild": need_rebuild,
-            "health_score": round(health_score, 2)
+            "needRebuild": need_rebuild,
+            "healthScore": round(health_score, 2)
         }
 
     except Exception as e:
@@ -772,14 +780,14 @@ async def get_chapters_list(
                 continue
 
             items.append({
-                "chapter_id": str(chapter.id),
-                "project_id": str(chapter.project_id),
-                "project_name": project_name,
-                "chapter_number": chapter.chapter_number,
+                "chapterId": str(chapter.id),
+                "projectId": str(chapter.project_id),
+                "projectName": project_name,
+                "chapterNumber": chapter.chapter_number,
                 "title": chapter.title,
-                "word_count": chapter.word_count or 0,
-                "indexed_at": indexed_at,
-                "updated_at": chapter.updated_at.isoformat() if chapter.updated_at else None,
+                "wordCount": chapter.word_count or 0,
+                "indexedAt": indexed_at,
+                "updatedAt": chapter.updated_at.isoformat() if chapter.updated_at else None,
                 "status": status_value
             })
 
@@ -795,7 +803,7 @@ async def get_chapters_list(
 
         return {
             "total": total,
-            "filtered_total": filtered_total,
+            "filteredTotal": filtered_total,
             "page": page,
             "limit": limit,
             "items": items
