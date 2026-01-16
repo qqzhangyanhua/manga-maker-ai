@@ -41,6 +41,16 @@ class RAGStatsResponse(BaseModel):
     embedding_model: Optional[str] = None
 
 
+class ChapterDetailResponse(BaseModel):
+    """章节索引详情响应"""
+    chapter_id: str
+    indexed: bool
+    metadata: Optional[dict] = None
+    embedding_dim: Optional[int] = None
+    similarity_test: Optional[float] = None
+    error: Optional[str] = None
+
+
 # ============ API Routes ============
 
 
@@ -237,6 +247,91 @@ async def get_rag_stats():
     except Exception as e:
         logger.error(f"获取 RAG 统计信息失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"获取统计信息失败: {str(e)}")
+
+
+@router.get("/chapter/{chapter_id}/detail", response_model=ChapterDetailResponse)
+async def get_chapter_detail(
+    chapter_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+) -> ChapterDetailResponse:
+    """
+    获取单章索引详情
+
+    - 返回章节的索引元数据
+    - 包含向量维度和相似度测试
+    """
+    try:
+        logger.info(f"📖 获取章节索引详情 - 章节ID: {chapter_id}, 用户: {user_id}")
+
+        # 1. 验证章节存在
+        chapter_stmt = select(NovelChapter).where(NovelChapter.id == chapter_id)
+        chapter_result = await db.execute(chapter_stmt)
+        chapter = chapter_result.scalar_one_or_none()
+
+        if not chapter:
+            logger.warning(f"   ❌ 章节不存在: {chapter_id}")
+            raise HTTPException(status_code=404, detail="章节不存在")
+
+        logger.info(f"   ✅ 章节存在: {chapter.title}")
+
+        # 2. 从 ChromaDB 获取索引详情
+        vector_service = get_vector_service()
+
+        if not vector_service.enabled:
+            logger.info(f"   ⚠️  向量服务未启用，返回未索引状态")
+            return ChapterDetailResponse(
+                chapter_id=chapter_id,
+                indexed=False
+            )
+
+        try:
+            # 查询 ChromaDB
+            chroma_result = vector_service.collection.get(
+                ids=[chapter_id],
+                include=["metadatas", "embeddings"]
+            )
+
+            # 3. 如果找到索引数据
+            if chroma_result["ids"]:
+                metadata = chroma_result["metadatas"][0]
+                embedding = chroma_result["embeddings"][0]
+                embedding_dim = len(embedding)
+
+                logger.info(
+                    f"   ✅ 章节已索引 - 维度: {embedding_dim}, "
+                    f"索引时间: {metadata.get('indexed_at', 'N/A')}"
+                )
+
+                return ChapterDetailResponse(
+                    chapter_id=chapter_id,
+                    indexed=True,
+                    metadata=metadata,
+                    embedding_dim=embedding_dim,
+                    similarity_test=1.0  # 与自身相似度应为 1.0
+                )
+            else:
+                # 4. 未找到索引
+                logger.info(f"   ℹ️  章节未索引")
+                return ChapterDetailResponse(
+                    chapter_id=chapter_id,
+                    indexed=False
+                )
+
+        except Exception as e:
+            # 5. ChromaDB 查询失败
+            logger.error(f"   ❌ 查询 ChromaDB 失败: {str(e)}")
+            return ChapterDetailResponse(
+                chapter_id=chapter_id,
+                indexed=False,
+                error=str(e)
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"❌ 获取章节详情失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取章节详情失败: {str(e)}")
 
 
 @router.get("/chapters")

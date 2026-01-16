@@ -334,6 +334,63 @@ def test_get_chapters_list():
     print(f"✅ Test passed! Total chapters: {data['total']}, Items: {len(data['items'])}")
 
 
+def test_get_chapter_detail():
+    """测试获取单章索引详情"""
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from jose import jwt
+    from datetime import datetime, timedelta, timezone
+    import os
+
+    client = TestClient(app)
+
+    # 生成有效的 JWT token
+    jwt_secret = os.getenv("JWT_SECRET", "zhangyanhua12345")
+    payload = {
+        "userId": "test-user-id-123",
+        "email": "test@example.com",
+        "exp": datetime.now(timezone.utc) + timedelta(hours=1)
+    }
+    token = jwt.encode(payload, jwt_secret, algorithm="HS256")
+
+    # Test 1: 获取不存在的章节 (应返回 404)
+    response = client.get(
+        "/api/novel/rag/chapter/non-existent-id/detail",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == 404, f"Expected 404 for non-existent chapter, got {response.status_code}"
+
+    # Test 2: 获取存在但未索引的章节
+    # 注意: 这需要数据库中有实际的章节数据
+    # 此处测试 API 结构是否正确
+    test_chapter_id = "test-chapter-1"
+    response = client.get(
+        f"/api/novel/rag/chapter/{test_chapter_id}/detail",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    # 可能返回 200 (未索引) 或 404 (章节不存在)
+    if response.status_code == 200:
+        data = response.json()
+        # 验证响应结构
+        assert "chapter_id" in data, "Response must contain 'chapter_id'"
+        assert "indexed" in data, "Response must contain 'indexed'"
+        assert data["chapter_id"] == test_chapter_id
+
+        # 如果已索引，验证额外字段
+        if data["indexed"]:
+            assert "metadata" in data, "Indexed chapter must contain 'metadata'"
+            assert "embedding_dim" in data, "Indexed chapter must contain 'embedding_dim'"
+            assert isinstance(data["embedding_dim"], int), "embedding_dim must be integer"
+            print(f"✅ Test passed! Chapter indexed: {data['indexed']}, Embedding dim: {data.get('embedding_dim', 'N/A')}")
+        else:
+            print(f"✅ Test passed! Chapter not indexed: {data['indexed']}")
+    elif response.status_code == 404:
+        print(f"✅ Test passed! Chapter does not exist in database (expected for test environment)")
+    else:
+        raise AssertionError(f"Unexpected status code: {response.status_code}, body: {response.text}")
+
+
 
 if __name__ == "__main__":
     # 设置环境变量（如果没有 .env 文件）
