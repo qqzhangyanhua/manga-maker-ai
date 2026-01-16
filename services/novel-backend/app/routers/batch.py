@@ -35,7 +35,7 @@ class BatchGenerateRequest(BaseModel):
 
 class BatchDeleteRequest(BaseModel):
     """批量删除请求"""
-    chapter_ids: List[str] = Field(..., description="章节 ID 列表", min_items=1)
+    chapter_ids: List[str] = Field(..., description="章节 ID 列表")
     soft_delete: bool = Field(True, description="是否软删除")
 
 

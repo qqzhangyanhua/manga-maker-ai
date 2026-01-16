@@ -93,7 +93,7 @@ class UpdateVersionRequest(BaseModel):
 
 class VersionComparisonRequest(BaseModel):
     """版本对比请求"""
-    version_ids: List[str] = Field(..., min_items=2, max_items=5, description="要对比的版本ID列表")
+    version_ids: List[str] = Field(..., description="要对比的版本ID列表")
 
 
 class TextDiff(BaseModel):

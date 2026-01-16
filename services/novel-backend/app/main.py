@@ -7,7 +7,20 @@ from contextlib import asynccontextmanager
 import logging
 
 from .config import settings
-from .routers import projects, chapters, inspiration, search, export, batch, versions, progressive, rag, canvas
+from .routers import (
+    chapters,
+    inspiration,
+    search,
+    export,
+    batch,
+    versions,
+    progressive,
+    canvas,
+)
+# RAG 路由模块（已拆分为 3 个独立模块 + 1 个模型文件）
+from .routers import rag_index, rag_search, rag_maintenance
+# 项目路由模块（已拆分为 3 个独立模块 + 1 个模型文件）
+from .routers import project_crud, project_generation
 
 # 配置日志
 logging.basicConfig(
@@ -62,7 +75,10 @@ app.add_middleware(
 )
 
 # 注册路由
-app.include_router(projects.router)
+# 项目管理路由（已拆分为 2 个模块，按功能组织）
+app.include_router(project_crud.router)  # 项目 CRUD + 统计导出
+app.include_router(project_generation.router)  # AI 生成（角色、世界观、大纲）
+
 app.include_router(chapters.router)
 app.include_router(inspiration.router)
 app.include_router(search.router)
@@ -70,7 +86,12 @@ app.include_router(export.router)
 app.include_router(batch.router)
 app.include_router(versions.router)  # 版本管理路由
 app.include_router(progressive.router)  # 渐进式大纲生成与智能分析
-app.include_router(rag.router)  # RAG 索引管理路由
+
+# RAG 索引管理路由（已拆分为 3 个模块，按功能组织）
+app.include_router(rag_index.router)  # 索引管理（创建、删除、重建）
+app.include_router(rag_search.router)  # 查询检索（统计、详情、列表）
+app.include_router(rag_maintenance.router)  # 维护与一致性（检查、导出、清理）
+
 app.include_router(canvas.router)  # 无限画布生成服务
 
 

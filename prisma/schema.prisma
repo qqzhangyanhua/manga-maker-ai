@@ -1149,6 +1149,19 @@ model NovelPromptTemplate {
   @@map("novel_prompt_templates")
 }
 
+model MaintenanceLog {
+  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id   String  @db.Uuid
+  operation String  @db.VarChar(50)
+  status    String  @db.VarChar(20)
+  details   Json?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([user_id, created_at], map: "idx_maintenance_logs_user_time")
+  @@index([operation], map: "idx_maintenance_logs_operation")
+  @@map("maintenance_logs")
+}
+
 // 用户小说配额（成本控制）
 model NovelQuota {
   user_id           String   @id @db.Uuid
@@ -1379,4 +1392,61 @@ model ComicPanelResult {
   @@index([shot_design_id], map: "idx_comic_panel_shot")
   @@index([scene_image_id], map: "idx_comic_panel_scene")
   @@map("comic_panel_results")
+}
+
+// ============================================================
+// P1 功能增强 - 状态持久化与分析缓存
+// ============================================================
+
+// 渐进式生成会话（解决用户刷新丢失问题）
+model ProgressiveSession {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @db.Uuid
+  project_id String?  @db.Uuid // 关联的项目 ID（可选）
+
+  // 会话状态
+  step       Int      // 当前步骤 (1-10)
+  state      Json     @db.JsonB // 会话状态数据（包含所有中间结果）
+
+  // 元数据
+  session_type String @default("outline") // outline, character, world_setting
+
+  // 生命周期
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime  @default(now()) @db.Timestamptz(6)
+  expires_at DateTime  @db.Timestamptz(6) // 过期时间（24小时后）
+
+  @@index([user_id, expires_at], map: "idx_progressive_sessions_user_expires")
+  @@index([project_id], map: "idx_progressive_sessions_project")
+  @@map("progressive_sessions")
+}
+
+// 智能分析结果缓存（避免重复生成，节省 API 成本）
+model AnalysisReport {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id String   @db.Uuid
+  user_id    String   @db.Uuid
+
+  // 分析类型
+  analysis_type String @db.VarChar(50) // cool_points, pacing, opening_hook, comprehensive, character_analysis, world_setting_analysis
+
+  // 分析结果（JSON 存储）
+  result     Json     @db.JsonB // 分析结果的完整数据
+
+  // 输入内容哈希（用于检测是否需要重新生成）
+  input_hash String   @db.VarChar(64) // SHA256 hash of input content
+
+  // 元数据
+  model_used String?  @db.VarChar(100) // 使用的模型
+  tokens_used Int?    // 消耗的 tokens 数
+  cost_usd   Float?   // 成本（美元）
+
+  // 生命周期
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  expires_at DateTime @db.Timestamptz(6) // 缓存过期时间（7天后）
+
+  @@index([project_id, analysis_type], map: "idx_analysis_reports_project_type")
+  @@index([user_id, created_at], map: "idx_analysis_reports_user_time")
+  @@index([input_hash, analysis_type], map: "idx_analysis_reports_hash_type")
+  @@map("analysis_reports")
 }
