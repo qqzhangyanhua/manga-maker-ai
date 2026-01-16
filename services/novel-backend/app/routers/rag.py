@@ -334,6 +334,14 @@ async def get_chapter_detail(
         raise HTTPException(status_code=500, detail=f"获取章节详情失败: {str(e)}")
 
 
+class RebuildIndexRequest(BaseModel):
+    """批量重建索引请求"""
+    scope: str  # "all" | "project" | "date_range"
+    project_id: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+
+
 class ConsistencyCheckRequest(BaseModel):
     """一致性检查请求"""
     project_id: Optional[str] = None
@@ -471,6 +479,115 @@ async def consistency_check(
     except Exception as e:
         logger.exception(f"❌ 一致性检查失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"一致性检查失败: {str(e)}")
+
+
+@router.post("/rebuild-index")
+async def rebuild_index(
+    request: RebuildIndexRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    批量重建索引
+
+    - 支持全量、按项目、按时间范围重建
+    - 提供成本和耗时估算
+    - 后台异步执行
+    """
+    try:
+        logger.info(f"🔨 批量重建索引请求 - 用户: {user_id}, 范围: {request.scope}")
+
+        # 构建查询条件
+        conditions = []
+
+        if request.scope == "project":
+            if not request.project_id:
+                raise HTTPException(status_code=400, detail="project_id 必填")
+            conditions.append(NovelChapter.project_id == request.project_id)
+            logger.info(f"   范围: 项目ID = {request.project_id}")
+
+        elif request.scope == "date_range":
+            if not request.start_date or not request.end_date:
+                raise HTTPException(status_code=400, detail="start_date 和 end_date 必填")
+
+            start = datetime.fromisoformat(request.start_date)
+            end = datetime.fromisoformat(request.end_date)
+            conditions.append(NovelChapter.updated_at.between(start, end))
+            logger.info(f"   范围: {request.start_date} 至 {request.end_date}")
+
+        elif request.scope == "all":
+            logger.info(f"   范围: 全量重建")
+
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"无效的 scope: {request.scope}，必须是 'all', 'project', 或 'date_range'"
+            )
+
+        # 获取章节列表
+        chapters_stmt = select(NovelChapter).where(*conditions)
+        result = await db.execute(chapters_stmt)
+        chapters = result.scalars().all()
+
+        if not chapters:
+            logger.info(f"   ℹ️  没有需要重建的章节")
+            return {
+                "success": True,
+                "message": "没有需要重建的章节",
+                "estimated_count": 0,
+                "estimated_cost": 0.0,
+                "estimated_time": "0 分钟"
+            }
+
+        # 估算成本和时间
+        count = len(chapters)
+        estimated_cost = count * 0.00005  # $0.00005 per chapter
+        estimated_time = f"{max(1, count // 60)}-{max(2, count // 30)} 分钟"
+
+        # 异步执行重建
+        vector_service = get_vector_service()
+
+        async def rebuild_task():
+            success_count = 0
+            for chapter in chapters:
+                try:
+                    await vector_service.index_chapter(
+                        chapter_id=str(chapter.id),
+                        project_id=str(chapter.project_id),
+                        chapter_number=chapter.chapter_number,
+                        title=chapter.title,
+                        outline=chapter.outline or "",
+                        content=chapter.content,
+                    )
+                    success_count += 1
+                except Exception as e:
+                    logger.error(f"   ❌ 重建章节失败 - ID: {chapter.id}, 错误: {str(e)}")
+
+            logger.info(
+                f"✅ 批量重建完成 - 总数: {count}, 成功: {success_count}, 失败: {count - success_count}"
+            )
+
+        background_tasks.add_task(rebuild_task)
+
+        logger.info(
+            f"📌 批量重建任务已创建 - 范围: {request.scope}, 章节数: {count}, "
+            f"预估成本: ${estimated_cost:.4f}, 预估时间: {estimated_time}"
+        )
+
+        return {
+            "success": True,
+            "message": "批量重建任务已创建",
+            "estimated_count": count,
+            "estimated_cost": estimated_cost,
+            "estimated_time": estimated_time
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ 批量重建索引失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"批量重建索引失败: {str(e)}")
 
 
 @router.get("/chapters")
