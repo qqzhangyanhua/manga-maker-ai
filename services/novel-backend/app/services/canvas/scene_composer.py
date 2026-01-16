@@ -84,40 +84,28 @@ class SceneComposer:
         style: Optional[str] = None,
     ) -> SceneImageOutput:
         """
-        为单个镜头生成场景图
-
-        TODO: 集成真实的图像生成 API
-        当前实现：
-        1. 使用 LLM 优化提示词
-        2. 返回占位图片 URL
-        3. 生产环境需要调用 Stable Diffusion / DALL-E / Midjourney
-
-        未来集成示例：
-        ```python
-        # Stable Diffusion API
-        response = await self.sd_client.generate({
-            "prompt": enhanced_prompt,
-            "negative_prompt": "blurry, low quality, distorted",
-            "width": 800,
-            "height": 600,
-            "steps": 30,
-            "cfg_scale": 7.5,
-        })
-        image_url = await self._upload_to_storage(response.image_data)
-        ```
+        为单个镜头生成优化的提示词
+        
+        职责分离:
+        - 后端 (novel-backend): 使用 LLM 优化提示词
+        - 前端 (Next.js): 图像生成 + MinIO 上传
+        
+        流程:
+        1. 后端返回 status="pending" 和优化的提示词
+        2. 前端调用 unified-image-generation 系统
+        3. 前端将生成的图片 URL 保存到数据库
         """
         # 使用 LLM 优化提示词
         enhanced_prompt = await self._enhance_prompt(shot, style)
+        
+        logger.info(f"场景图提示词优化完成: shot_id={shot.shot_id}")
 
-        # TODO: 调用图像生成 API
-        # 当前返回占位符
-        image_url = f"https://placehold.co/800x600/png?text=Scene_{shot.shot_id[:8]}"
-
+        # 返回待生成任务 (图像生成由前端 Next.js 完成)
         return SceneImageOutput(
             shot_id=shot.shot_id,
-            image_url=image_url,
+            image_url="",  # 空URL,前端生成后填充
             generation_prompt=enhanced_prompt,
-            status="completed",
+            status="pending",  # 待前端生成
         )
 
     async def _enhance_prompt(

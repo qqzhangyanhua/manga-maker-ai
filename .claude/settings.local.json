@@ -129,7 +129,8 @@
       "Skill(superpowers:executing-plans)",
       "Bash(/Users/zhangyanhua/AI/manga-maker-ai/services/novel-backend/.venv/bin/python -m pip install:*)",
       "Bash(test:*)",
-      "Bash(/Users/zhangyanhua/AI/manga-maker-ai/services/novel-backend/.venv/bin/uvicorn:*)"
+      "Bash(/Users/zhangyanhua/AI/manga-maker-ai/services/novel-backend/.venv/bin/uvicorn:*)",
+      "Bash(uv pip install:*)"
     ],
     "deny": [],
     "ask": []

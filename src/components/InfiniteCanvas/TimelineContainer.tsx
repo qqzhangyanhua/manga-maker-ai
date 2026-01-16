@@ -5,6 +5,7 @@ import { Plus, Play, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChapterRow } from "./ChapterRow";
 import { TimelineSettings } from "./TimelineSettings";
+import { AddChapterDialog } from "./AddChapterDialog";
 import type { CanvasTimeline, TimelineChapter, CanvasTimelineConfig } from "./types";
 
 interface TimelineContainerProps {
@@ -18,10 +19,14 @@ export function TimelineContainer({
 }: TimelineContainerProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showAddChapter, setShowAddChapter] = useState(false);
 
   const handleSettings = useCallback(() => {
-    console.log("打开设置面板");
     setShowSettings(true);
+  }, []);
+
+  const handleAddChapter = useCallback(() => {
+    setShowAddChapter(true);
   }, []);
 
   const generateChapterStep = useCallback(
@@ -81,6 +86,10 @@ export function TimelineContainer({
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleAddChapter}>
+            <Plus className="w-4 h-4 mr-1" />
+            添加章节
+          </Button>
           <Button variant="outline" size="sm" onClick={handleSettings}>
             <Settings className="w-4 h-4 mr-1" />
             设置
@@ -120,7 +129,11 @@ export function TimelineContainer({
         ) : (
           <div className="flex flex-col items-center justify-center h-64 text-gray-400">
             <Plus className="w-12 h-12 mb-4" />
-            <p>暂无章节，请先添加章节</p>
+            <p className="mb-4">暂无章节，请先添加章节</p>
+            <Button onClick={handleAddChapter} variant="outline">
+              <Plus className="w-4 h-4 mr-2" />
+              添加章节
+            </Button>
           </div>
         )}
       </div>
@@ -132,6 +145,14 @@ export function TimelineContainer({
         timelineId={timeline.id}
         currentConfig={timeline.config as CanvasTimelineConfig}
         onSaved={onRefresh}
+      />
+
+      {/* Add Chapter Dialog */}
+      <AddChapterDialog
+        open={showAddChapter}
+        onClose={() => setShowAddChapter(false)}
+        timelineId={timeline.id}
+        onAdded={onRefresh}
       />
     </div>
   );

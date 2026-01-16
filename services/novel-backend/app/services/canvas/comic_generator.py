@@ -25,10 +25,11 @@ class ComicPanelOutput(BaseModel):
     """漫画面板输出"""
     scene_id: str
     shot_id: str
-    image_url: str
+    image_url: str = ""  # 改为可选,默认空
     generation_prompt: str
+    dialogue_layout: Optional[dict] = None  # 新增:对话框布局信息
     has_dialogue: bool = False
-    status: str = "completed"
+    status: str = "pending"  # 改为 pending (前端生成)
 
 
 class ComicGenerator:
@@ -91,45 +92,24 @@ class ComicGenerator:
         add_speech_bubbles: bool,
     ) -> ComicPanelOutput:
         """
-        为单个场景生成最终漫画图
-
-        TODO: 集成图像后处理 API
-        当前实现：
-        1. 分析对话内容和位置
-        2. 返回占位图片 URL
-        3. 生产环境需要调用图像后处理服务
-
-        未来集成示例：
-        ```python
-        # 图像后处理 API
-        response = await self.postprocess_client.add_elements({
-            "base_image_url": scene.image_url,
-            "comic_style": comic_style,
-            "elements": [
-                {
-                    "type": "speech_bubble",
-                    "text": scene.dialogue,
-                    "position": dialogue_position,
-                    "character": scene.character_names[0],
-                },
-                {
-                    "type": "effect_lines",
-                    "style": "speed_lines",
-                }
-            ]
-        })
-        final_url = await self._upload_to_storage(response.image_data)
-        ```
+        分析对话框布局,图像处理由前端完成
+        
+        职责:
+        - 后端: 使用 LLM 分析对话框位置和样式
+        - 前端: 下载基础场景图 + 添加对话框 + 上传 MinIO
+        
+        流程:
+        1. 后端返回 dialogue_layout (对话框布局信息)
+        2. 前端使用 comic-panel-composer 添加对话框
+        3. 前端上传最终图到 MinIO 并保存到数据库
         """
-        # 分析对话和布局
+        # 分析对话框布局
         dialogue_layout = None
         if add_speech_bubbles and scene.dialogue:
             dialogue_layout = await self._analyze_dialogue_layout(scene)
+            logger.info(f"对话框布局分析完成: scene_id={scene.scene_id}, bubbles={len(dialogue_layout.get('bubbles', []))}")
 
-        # TODO: 调用图像后处理 API
-        # 当前返回占位符
-        image_url = f"https://placehold.co/1024x768/png?text=Comic_{scene.scene_id[:8]}"
-
+        # 构建生成提示词 (供前端参考)
         generation_prompt = self._build_generation_prompt(
             scene,
             comic_style,
@@ -139,10 +119,11 @@ class ComicGenerator:
         return ComicPanelOutput(
             scene_id=scene.scene_id,
             shot_id=scene.shot_id,
-            image_url=image_url,
+            image_url="",  # 前端填充
             generation_prompt=generation_prompt,
+            dialogue_layout=dialogue_layout,  # 传递给前端
             has_dialogue=bool(scene.dialogue),
-            status="completed",
+            status="pending",  # 待前端处理
         )
 
     async def _analyze_dialogue_layout(
