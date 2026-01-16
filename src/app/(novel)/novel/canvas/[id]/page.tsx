@@ -35,30 +35,45 @@ export default function CanvasPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-900">
-        <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
+      <div className="flex flex-col items-center justify-center h-screen bg-[#0f0f13]">
+        <div className="relative">
+          <Loader2 className="w-12 h-12 animate-spin text-purple-500" />
+          <div className="absolute top-0 left-0 w-12 h-12 rounded-full border-4 border-purple-500/20 animate-pulse"></div>
+        </div>
+        <p className="mt-4 text-zinc-400 text-sm animate-pulse">加载时间线中...</p>
       </div>
     );
   }
 
   if (error || !timeline) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-gray-900 text-white">
-        <p className="text-red-400 mb-4">{error || "时间线不存在"}</p>
-        <Button onClick={() => router.back()}>返回</Button>
+      <div className="flex flex-col items-center justify-center h-screen bg-[#0f0f13] text-white space-y-4">
+        <div className="w-16 h-16 rounded-full bg-red-900/20 flex items-center justify-center border border-red-900/50">
+          <span className="text-3xl">⚠️</span>
+        </div>
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-white mb-2">出错了</h2>
+          <p className="text-red-400 text-sm">{error || "时间线不存在"}</p>
+        </div>
+        <Button 
+          onClick={() => router.back()}
+          className="bg-zinc-800 hover:bg-zinc-700 text-white border-zinc-700"
+        >
+          返回上一页
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="h-screen bg-gray-900 flex flex-col">
+    <div className="h-screen bg-[#0f0f13] flex flex-col text-zinc-100">
       {/* Navigation */}
-      <div className="flex items-center gap-4 p-4 border-b border-gray-700">
+      <div className="flex items-center gap-4 p-4 border-b border-zinc-800 bg-[#0f0f13]/80 backdrop-blur-md sticky top-0 z-50">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => router.back()}
-          className="text-gray-400 hover:text-white"
+          className="text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors duration-200"
         >
           <ArrowLeft className="w-4 h-4 mr-1" />
           返回

@@ -39,12 +39,12 @@ function CompactMode({ estimation }: { estimation: PanelEstimation }) {
         {/* 镜头数徽章 */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <Badge variant="secondary" className="flex items-center gap-1">
+            <Badge variant="secondary" className="flex items-center gap-1 bg-zinc-800 text-zinc-100 hover:bg-zinc-700 border-zinc-700">
               <Film className="h-3 w-3" />
               <span>{estimation.estimatedCount} 镜头</span>
             </Badge>
           </TooltipTrigger>
-          <TooltipContent>
+          <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-200">
             <div className="text-xs space-y-1">
               <p>预估范围：{estimation.minCount} - {estimation.maxCount} 个</p>
               <p>章节字数：{estimation.wordCount} 字</p>
@@ -56,12 +56,12 @@ function CompactMode({ estimation }: { estimation: PanelEstimation }) {
         {/* Credits 徽章 */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <Badge variant="outline" className="flex items-center gap-1">
+            <Badge variant="outline" className="flex items-center gap-1 border-zinc-700 text-zinc-300">
               <Coins className="h-3 w-3 text-purple-500" />
               <span>{estimation.estimatedCredits} Credits</span>
             </Badge>
           </TooltipTrigger>
-          <TooltipContent>
+          <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-200">
             <p className="text-xs">预估消耗算力</p>
           </TooltipContent>
         </Tooltip>
@@ -72,7 +72,7 @@ function CompactMode({ estimation }: { estimation: PanelEstimation }) {
             <TooltipTrigger asChild>
               <AlertCircle className="h-4 w-4 text-purple-500" />
             </TooltipTrigger>
-            <TooltipContent>
+            <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-200">
               <div className="text-xs space-y-1">
                 {estimation.warnings.map((warning, idx) => (
                   <p key={idx}>{warning}</p>
@@ -91,9 +91,9 @@ function CompactMode({ estimation }: { estimation: PanelEstimation }) {
  */
 function DetailedMode({ estimation }: { estimation: PanelEstimation }) {
   return (
-    <div className={cn("space-y-3 p-4 border rounded-lg", novelTheme.card.base)}>
+    <div className={cn("space-y-3 p-4 border rounded-lg border-zinc-800 bg-zinc-900/50", novelTheme.card.base)}>
       {/* 标题 */}
-      <div className="flex items-center gap-2 font-medium">
+      <div className="flex items-center gap-2 font-medium text-zinc-100">
         <Film className="h-5 w-5 text-purple-500" />
         <span>镜头数量预估</span>
       </div>
@@ -101,43 +101,43 @@ function DetailedMode({ estimation }: { estimation: PanelEstimation }) {
       {/* 核心数据 */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1">
-          <div className="text-sm text-muted-foreground">预估镜头数</div>
+          <div className="text-sm text-zinc-400">预估镜头数</div>
           <div className="text-2xl font-bold text-purple-500">
             {estimation.estimatedCount}
           </div>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-zinc-500">
             范围：{estimation.minCount} - {estimation.maxCount}
           </div>
         </div>
 
         <div className="space-y-1">
-          <div className="text-sm text-gray-600 flex items-center gap-1">
+          <div className="text-sm text-zinc-400 flex items-center gap-1">
             <Coins className="h-3 w-3" />
             预估消耗
           </div>
           <div className="text-2xl font-bold text-purple-500">
             {estimation.estimatedCredits}
           </div>
-          <div className="text-xs text-gray-500">Credits</div>
+          <div className="text-xs text-zinc-500">Credits</div>
         </div>
       </div>
 
       {/* 详细信息 */}
-      <div className="grid grid-cols-3 gap-2 pt-3 border-t text-sm">
+      <div className="grid grid-cols-3 gap-2 pt-3 border-t border-zinc-800 text-sm">
         <div>
-          <div className="text-gray-600">章节字数</div>
-          <div className="font-medium flex items-center gap-1">
+          <div className="text-zinc-500">章节字数</div>
+          <div className="font-medium flex items-center gap-1 text-zinc-300">
             <FileText className="h-3 w-3" />
             {estimation.wordCount}
           </div>
         </div>
         <div>
-          <div className="text-gray-600">类型</div>
-          <div className="font-medium">{getGenreLabel(estimation.genre)}</div>
+          <div className="text-zinc-500">类型</div>
+          <div className="font-medium text-zinc-300">{getGenreLabel(estimation.genre)}</div>
         </div>
         <div>
-          <div className="text-gray-600">密度</div>
-          <div className="font-medium">
+          <div className="text-zinc-500">密度</div>
+          <div className="font-medium text-zinc-300">
             {getDensityModeLabel(estimation.densityMode)}
           </div>
         </div>
@@ -145,7 +145,7 @@ function DetailedMode({ estimation }: { estimation: PanelEstimation }) {
 
       {/* 警告信息 */}
       {estimation.warnings.length > 0 && (
-        <Alert variant="default" className="bg-purple-900/20 border-purple-500/30">
+        <Alert variant="default" className="bg-purple-900/20 border-purple-500/30 text-purple-200">
           <AlertCircle className="h-4 w-4 text-purple-400" />
           <AlertDescription>
             <ul className="text-xs space-y-1 mt-1">
@@ -174,8 +174,8 @@ export function PanelEstimationBadge({
   if (loading) {
     return (
       <div className={`flex items-center gap-2 ${className}`}>
-        <div className="h-6 w-24 bg-gray-200 animate-pulse rounded"></div>
-        <div className="h-6 w-20 bg-gray-200 animate-pulse rounded"></div>
+        <div className="h-6 w-24 bg-zinc-800 animate-pulse rounded"></div>
+        <div className="h-6 w-20 bg-zinc-800 animate-pulse rounded"></div>
       </div>
     );
   }
@@ -183,7 +183,7 @@ export function PanelEstimationBadge({
   // 错误状态
   if (error) {
     return (
-      <Badge variant="destructive" className={className}>
+      <Badge variant="destructive" className={cn("bg-red-900/20 text-red-400 border-red-900/50 hover:bg-red-900/30", className)}>
         <AlertCircle className="h-3 w-3 mr-1" />
         {error}
       </Badge>

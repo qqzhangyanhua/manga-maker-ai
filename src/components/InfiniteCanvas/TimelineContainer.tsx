@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Plus, Play, Settings } from "lucide-react";
+import { Plus, Play, Settings, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChapterRow } from "./ChapterRow";
 import { TimelineSettings } from "./TimelineSettings";
@@ -75,64 +75,98 @@ export function TimelineContainer({
   }, [timeline.chapters, generateChapterStep]);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-[#0f0f13]">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-700">
+      <div className="flex items-center justify-between p-4 border-b border-zinc-800 bg-[#0f0f13]/80 backdrop-blur-sm sticky top-0 z-10">
         <div>
-          <h1 className="text-xl font-bold text-white">{timeline.title}</h1>
-          <p className="text-sm text-gray-400">
-            {timeline.completed_chapters}/{timeline.total_chapters} 章节完成 |{" "}
-            {timeline.total_shots} 镜头 | {timeline.total_images} 图片
-          </p>
+          <h1 className="text-xl font-bold text-white tracking-tight">{timeline.title}</h1>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="flex items-center text-xs text-zinc-400 bg-zinc-900/50 px-2 py-0.5 rounded-full border border-zinc-800">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
+              {timeline.completed_chapters}/{timeline.total_chapters} 章节完成
+            </span>
+            <span className="text-xs text-zinc-500">|</span>
+            <span className="text-xs text-zinc-400">
+              {timeline.total_shots} 镜头
+            </span>
+            <span className="text-xs text-zinc-500">|</span>
+            <span className="text-xs text-zinc-400">
+              {timeline.total_images} 图片
+            </span>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleAddChapter}>
-            <Plus className="w-4 h-4 mr-1" />
+        <div className="flex gap-3">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleAddChapter}
+            className="border-zinc-700 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300 hover:text-white transition-colors"
+          >
+            <Plus className="w-4 h-4 mr-1.5" />
             添加章节
           </Button>
-          <Button variant="outline" size="sm" onClick={handleSettings}>
-            <Settings className="w-4 h-4 mr-1" />
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleSettings}
+            className="border-zinc-700 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300 hover:text-white transition-colors"
+          >
+            <Settings className="w-4 h-4 mr-1.5" />
             设置
           </Button>
           <Button
             onClick={generateAll}
             disabled={isGenerating}
-            className="bg-purple-600 hover:bg-purple-700"
+            className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-900/20 transition-all hover:scale-105 active:scale-95"
           >
-            <Play className="w-4 h-4 mr-1" />
+            {isGenerating ? (
+              <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+            ) : (
+              <Play className="w-4 h-4 mr-1.5 fill-current" />
+            )}
             {isGenerating ? "生成中..." : "全部生成"}
           </Button>
         </div>
       </div>
 
       {/* Timeline */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
         {timeline.chapters && timeline.chapters.length > 0 ? (
-          timeline.chapters.map((chapter: TimelineChapter) => (
-            <ChapterRow
-              key={chapter.id}
-              chapter={chapter}
-              onGenerateScript={() =>
-                generateChapterStep(chapter.id, "generate-script")
-              }
-              onGenerateShots={() =>
-                generateChapterStep(chapter.id, "generate-shots")
-              }
-              onGenerateScenes={() =>
-                generateChapterStep(chapter.id, "generate-scenes")
-              }
-              onGenerateFinals={() =>
-                generateChapterStep(chapter.id, "generate-finals")
-              }
-            />
-          ))
+          <div className="space-y-4">
+            {timeline.chapters.map((chapter: TimelineChapter, index: number) => (
+              <ChapterRow
+                key={`${chapter.id}-${index}`}
+                chapter={chapter}
+                onGenerateScript={() =>
+                  generateChapterStep(chapter.id, "generate-script")
+                }
+                onGenerateShots={() =>
+                  generateChapterStep(chapter.id, "generate-shots")
+                }
+                onGenerateScenes={() =>
+                  generateChapterStep(chapter.id, "generate-scenes")
+                }
+                onGenerateFinals={() =>
+                  generateChapterStep(chapter.id, "generate-finals")
+                }
+              />
+            ))}
+          </div>
         ) : (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-400">
-            <Plus className="w-12 h-12 mb-4" />
-            <p className="mb-4">暂无章节，请先添加章节</p>
-            <Button onClick={handleAddChapter} variant="outline">
+          <div className="flex flex-col items-center justify-center h-[60vh] text-zinc-500 animate-in fade-in duration-500">
+            <div className="w-20 h-20 rounded-2xl bg-zinc-900/50 border-2 border-dashed border-zinc-800 flex items-center justify-center mb-6 shadow-xl shadow-black/20">
+              <Plus className="w-8 h-8 text-zinc-600" />
+            </div>
+            <h3 className="text-lg font-medium text-white mb-2">开始你的创作</h3>
+            <p className="mb-8 text-sm max-w-xs text-center leading-relaxed">
+              暂无章节内容。添加第一章开始生成剧本、分镜和最终画面。
+            </p>
+            <Button 
+              onClick={handleAddChapter} 
+              className="bg-zinc-100 text-zinc-900 hover:bg-white transition-all hover:scale-105"
+            >
               <Plus className="w-4 h-4 mr-2" />
-              添加章节
+              立即添加章节
             </Button>
           </div>
         )}

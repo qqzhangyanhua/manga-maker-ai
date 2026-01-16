@@ -162,7 +162,7 @@ export function RelationshipEditDialog({
               id="bidirectional"
               checked={isBidirectional}
               onChange={(e) => setIsBidirectional(e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300"
+              className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-purple-600 focus:ring-purple-500"
             />
             <Label htmlFor="bidirectional" className="font-normal cursor-pointer">
               双向关系 (两个角色互相认识)

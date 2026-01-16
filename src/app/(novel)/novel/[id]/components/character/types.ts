@@ -100,9 +100,9 @@ export function getRoleColor(role: string): string {
       return "bg-purple-500";
     case "minor":
     case "路人":
-      return "bg-gray-500";
+      return "bg-zinc-500";
     default:
-      return "bg-gray-500";
+      return "bg-zinc-500";
   }
 }
 
