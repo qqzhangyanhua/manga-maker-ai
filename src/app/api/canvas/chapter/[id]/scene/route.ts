@@ -58,6 +58,7 @@ export async function GET(
         width: true,
         height: true,
         status: true,
+        location_key: true,
         created_at: true,
       },
       orderBy: {
@@ -65,12 +66,24 @@ export async function GET(
       },
     });
 
+    // 转换字段名以匹配前端期望
+    const formattedScenes = scenes.map(scene => ({
+      id: scene.id,
+      image_url: scene.image_url,
+      prompt: scene.generation_prompt, // 前端期望 prompt 而非 generation_prompt
+      width: scene.width,
+      height: scene.height,
+      status: scene.status,
+      location_key: scene.location_key,
+      created_at: scene.created_at,
+    }));
+
     return NextResponse.json({
       chapterId: timelineChapter.id,
       chapterNumber: timelineChapter.chapter_number,
       status: timelineChapter.scene_status,
-      scenes,
-      totalCount: scenes.length,
+      scenes: formattedScenes,
+      totalCount: formattedScenes.length,
     });
 
   } catch (error) {

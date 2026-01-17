@@ -17,6 +17,40 @@ const ALLOWED_HOSTS = [
 ];
 
 /**
+ * 从 MinIO 配置的 URL 中提取主机名
+ * 支持 http://ip:port 或 ip 格式
+ */
+function getMinioHosts(): string[] {
+  const hosts: string[] = [];
+  const endpoint = process.env.MINIO_ENDPOINT;
+
+  if (endpoint) {
+    // 如果是完整的 URL 格式，提取主机名
+    if (endpoint.includes('://')) {
+      try {
+        const url = new URL(endpoint);
+        hosts.push(url.hostname);
+      } catch {
+        hosts.push(endpoint);
+      }
+    } else {
+      // 直接是主机名或 IP
+      hosts.push(endpoint);
+    }
+  }
+
+  return hosts;
+}
+
+/**
+ * 合并的白名单（包含 MinIO 主机）
+ */
+function getAllowedHosts(): string[] {
+  const minioHosts = getMinioHosts();
+  return [...new Set([...ALLOWED_HOSTS, ...minioHosts])];
+}
+
+/**
  * 私有 IP 地址范围 (RFC 1918, RFC 4193)
  */
 const PRIVATE_IP_RANGES = [
@@ -142,7 +176,8 @@ export function validateImageUrl(
   }
 
   // 5. 检查主机名是否在白名单
-  const isAllowedHost = ALLOWED_HOSTS.some(allowedHost => {
+  const allowedHosts = getAllowedHosts();
+  const isAllowedHost = allowedHosts.some(allowedHost => {
     if (allowedHost === hostname) {
       return true;
     }
@@ -157,7 +192,7 @@ export function validateImageUrl(
     throw new UrlValidationError(
       `Host not in whitelist: ${hostname}`,
       'HOST_NOT_WHITELISTED',
-      { hostname, allowedHosts: ALLOWED_HOSTS }
+      { hostname, allowedHosts }
     );
   }
 
