@@ -16,9 +16,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Save, Sparkles } from "lucide-react";
+import { Plus, Save, Sparkles, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { GenerateCharactersDialog } from "./GenerateCharactersDialog";
+import { GenerateCharacterImageDialog } from "./character/GenerateCharacterImageDialog";
+import { BatchGenerateDialog } from "./character/BatchGenerateDialog";
 import {
   CharacterCard,
   CharacterEditDialog,
@@ -27,6 +29,7 @@ import {
 } from "./character";
 // ✅ 使用主类型文件中的类型
 import type { Character, ChapterOutline } from "../types";
+import type { GenerateCharacterImageResponse } from "@/app/api/novel/character/generate-image/types";
 import { novelTheme } from "../../theme";
 
 interface CharacterManagerProps {
@@ -48,6 +51,9 @@ export function CharacterManager({
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
+  const [isBatchGenerateDialogOpen, setIsBatchGenerateDialogOpen] = useState(false);
+  const [isGenerateImageDialogOpen, setIsGenerateImageDialogOpen] = useState(false);
+  const [characterForImageGeneration, setCharacterForImageGeneration] = useState<Character | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [deleteCharacterId, setDeleteCharacterId] = useState<string | null>(null);
 
@@ -112,6 +118,43 @@ export function CharacterManager({
     }
   };
 
+  const handleOpenGenerateImage = (character: Character) => {
+    setCharacterForImageGeneration(character);
+    setIsGenerateImageDialogOpen(true);
+  };
+
+  const handleImageGenerationSuccess = async (result: GenerateCharacterImageResponse) => {
+    // 乐观更新：立即更新本地状态，无需等待服务器刷新
+    setCharacters(prevCharacters =>
+      prevCharacters.map(c =>
+        c.id === result.updatedCharacter.id
+          ? {
+              ...c,
+              ...result.updatedCharacter,
+              // 确保包含所有生成的字段
+              generatedImageUrl: result.imageUrl,
+              assetCharacterId: result.assetCharacterId,
+              lastGeneratedAt: result.updatedCharacter.lastGeneratedAt,
+            }
+          : c
+      )
+    );
+
+    // 关闭对话框
+    setIsGenerateImageDialogOpen(false);
+    setCharacterForImageGeneration(null);
+
+    // 用户反馈
+    toast.success(`${result.updatedCharacter.name} 的图片已生成并显示`);
+  };
+
+  const handleBatchGenerationComplete = () => {
+    // 批量生成完成后，简单通知并关闭对话框
+    setIsBatchGenerateDialogOpen(false);
+    toast.success("批量生成完成，请刷新页面查看结果");
+    // TODO: 未来可以优化为批量乐观更新
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -126,6 +169,16 @@ export function CharacterManager({
           >
             <Sparkles className="mr-2 h-4 w-4" />
             AI 生成角色
+          </Button>
+          <Button
+            onClick={() => setIsBatchGenerateDialogOpen(true)}
+            variant="outline"
+            disabled={characters.length === 0}
+            title={characters.length === 0 ? "暂无角色可生成" : "批量生成角色图片"}
+            className={novelTheme.button.outline}
+          >
+            <ImageIcon className="mr-2 h-4 w-4" />
+            批量生成图片
           </Button>
           <Button onClick={() => openEditDialog(null)} variant="outline" className={novelTheme.button.outline}>
             <Plus className="mr-2 h-4 w-4" />
@@ -178,6 +231,7 @@ export function CharacterManager({
               character={character}
               onEdit={openEditDialog}
               onDelete={setDeleteCharacterId}
+              onGenerateImage={handleOpenGenerateImage}
             />
           ))}
         </div>
@@ -222,6 +276,27 @@ export function CharacterManager({
         projectId={projectId}
         outlines={outlines}
         onGenerated={handleGeneratedCharacters}
+      />
+
+      {/* 角色图片生成对话框 */}
+      <GenerateCharacterImageDialog
+        isOpen={isGenerateImageDialogOpen}
+        onClose={() => {
+          setIsGenerateImageDialogOpen(false);
+          setCharacterForImageGeneration(null);
+        }}
+        character={characterForImageGeneration}
+        novelProjectId={projectId}
+        onSuccess={handleImageGenerationSuccess}
+      />
+
+      {/* 批量生成对话框 */}
+      <BatchGenerateDialog
+        isOpen={isBatchGenerateDialogOpen}
+        onClose={() => setIsBatchGenerateDialogOpen(false)}
+        characters={characters}
+        novelProjectId={projectId}
+        onSuccess={handleBatchGenerationComplete}
       />
     </div>
   );
