@@ -7,102 +7,90 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
 
-interface NovelProject {
-  id: string;
+interface ChapterOutline {
+  chapterNumber?: number;
+  chapter_number?: number;
   title: string;
-}
-
-interface NovelChapterOutline {
-  id: string;
-  chapterNumber: number;
-  title: string;
+  outline?: string;
+  content?: string;
+  keyEvents?: string[];
+  isKeyChapter?: boolean;
 }
 
 interface AddChapterDialogProps {
   open: boolean;
   onClose: () => void;
   timelineId: string;
+  novelProjectId: string; // 从 Timeline 传入
+  projectTitle: string; // 从 Timeline 传入
   onAdded: () => void;
 }
 
-export function AddChapterDialog({ open, onClose, timelineId, onAdded }: AddChapterDialogProps) {
-  const [projects, setProjects] = useState<NovelProject[]>([]);
-  const [chapters, setChapters] = useState<NovelChapterOutline[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
-  const [selectedChapterId, setSelectedChapterId] = useState<string>("");
+export function AddChapterDialog({
+  open,
+  onClose,
+  timelineId,
+  novelProjectId,
+  projectTitle,
+  onAdded
+}: AddChapterDialogProps) {
+  const [chapters, setChapters] = useState<ChapterOutline[]>([]);
+  const [selectedChapterNumber, setSelectedChapterNumber] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(false);
-  const [loadingProjects, setLoadingProjects] = useState(false);
   const [loadingChapters, setLoadingChapters] = useState(false);
 
-  // 加载小说项目列表
+  // 加载章节列表（从 NovelProject.outlines）
   useEffect(() => {
-    if (open) {
-      loadProjects();
+    if (open && novelProjectId) {
+      loadChapters();
     }
-  }, [open]);
+  }, [open, novelProjectId]);
 
-  // 当选择项目后,加载章节列表
-  useEffect(() => {
-    if (selectedProjectId) {
-      loadChapters(selectedProjectId);
-    } else {
-      setChapters([]);
-      setSelectedChapterId("");
-    }
-  }, [selectedProjectId]);
-
-  // 调试：监控按钮禁用状态
-  useEffect(() => {
-    console.log("[AddChapterDialog] 按钮状态", {
-      loading,
-      selectedChapterId,
-      selectedChapterIdEmpty: !selectedChapterId,
-      buttonDisabled: loading || !selectedChapterId,
-    });
-  }, [loading, selectedChapterId]);
-
-  const loadProjects = async () => {
-    setLoadingProjects(true);
-    try {
-      const response = await fetch("/api/novel/projects");
-      if (!response.ok) {
-        throw new Error("获取项目列表失败");
-      }
-      const data = await response.json();
-      // API 直接返回数组，不是 { projects: [...] }
-      setProjects(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("加载项目失败:", error);
-      toast({
-        title: "加载失败",
-        description: "无法获取小说项目列表",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingProjects(false);
-    }
-  };
-
-  const loadChapters = async (projectId: string) => {
+  const loadChapters = async () => {
     setLoadingChapters(true);
     try {
-      const response = await fetch(`/api/novel/projects/${projectId}/outlines`);
-      if (!response.ok) {
-        throw new Error("获取章节列表失败");
+      // 获取项目的 outlines（章节大纲）
+      const projectResponse = await fetch(`/api/novel/projects/${novelProjectId}`);
+      if (!projectResponse.ok) {
+        throw new Error("获取项目信息失败");
       }
-      const data = await response.json();
-      const chapters = data.outlines || [];
+      const project = await projectResponse.json();
+      const outlines = project.outlines || [];
+
+      // 获取实际已生成的章节内容
+      const chaptersResponse = await fetch(`/api/novel/chapters/project/${novelProjectId}`);
+      if (!chaptersResponse.ok) {
+        throw new Error("获取章节内容失败");
+      }
+      const generatedChapters = await chaptersResponse.json();
+
+      // 合并 outline 和实际生成的章节内容
+      const mergedChapters = outlines.map((outline: ChapterOutline) => {
+        const chapterNum = outline.chapterNumber || outline.chapter_number;
+        const generatedChapter = generatedChapters.find(
+          (gc: { chapter_number: number; content: string }) => gc.chapter_number === chapterNum
+        );
+
+        return {
+          ...outline,
+          chapter_number: chapterNum,
+          content: generatedChapter?.content || outline.content || "",
+        };
+      });
+
       console.log("[AddChapterDialog] 加载章节成功", {
-        projectId,
-        chaptersCount: chapters.length,
-        chapters: chapters.map((c: NovelChapterOutline) => ({
-          id: c.id,
-          idType: typeof c.id,
-          chapterNumber: c.chapterNumber,
-          title: c.title,
+        projectId: novelProjectId,
+        outlinesCount: outlines.length,
+        generatedChaptersCount: generatedChapters.length,
+        mergedChapters: mergedChapters.map((o: ChapterOutline) => ({
+          chapterNumber: o.chapterNumber || o.chapter_number,
+          title: o.title,
+          hasContent: !!o.content,
+          contentLength: o.content?.length || 0,
         })),
       });
-      setChapters(chapters);
+
+      setChapters(mergedChapters);
     } catch (error) {
       console.error("加载章节失败:", error);
       toast({
@@ -117,17 +105,7 @@ export function AddChapterDialog({ open, onClose, timelineId, onAdded }: AddChap
   };
 
   const handleAdd = async () => {
-    console.log("[AddChapterDialog] handleAdd 开始执行", {
-      selectedChapterId,
-      selectedChapterIdType: typeof selectedChapterId,
-      selectedProjectId,
-      timelineId,
-      chaptersCount: chapters.length,
-      chapters: chapters.map(c => ({ id: c.id, idType: typeof c.id, title: c.title })),
-    });
-
-    if (!selectedChapterId) {
-      console.log("[AddChapterDialog] 未选择章节");
+    if (selectedChapterNumber === undefined) {
       toast({
         title: "请选择章节",
         description: "请先选择要添加的章节",
@@ -136,19 +114,11 @@ export function AddChapterDialog({ open, onClose, timelineId, onAdded }: AddChap
       return;
     }
 
-    // ID 统一为字符串类型，直接比较
-    const selectedChapter = chapters.find((c) => c.id === selectedChapterId);
-    console.log("[AddChapterDialog] 查找选中章节结果", {
-      selectedChapterId,
-      selectedChapter,
-      found: !!selectedChapter,
-    });
+    const selectedChapter = chapters.find(
+      (c) => (c.chapterNumber || c.chapter_number) === selectedChapterNumber
+    );
 
     if (!selectedChapter) {
-      console.error("[AddChapterDialog] 未找到选中章节！", {
-        selectedChapterId,
-        availableIds: chapters.map(c => c.id),
-      });
       toast({
         title: "错误",
         description: "未找到选中的章节",
@@ -157,13 +127,21 @@ export function AddChapterDialog({ open, onClose, timelineId, onAdded }: AddChap
       return;
     }
 
+    // 检查是否有内容
+    if (!selectedChapter.content || selectedChapter.content.trim().length === 0) {
+      toast({
+        title: "章节内容为空",
+        description: "该章节还没有生成内容，请先在小说管理页面生成章节内容",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
-    console.log("[AddChapterDialog] 开始请求 API", {
-      url: `/api/canvas/timeline/${timelineId}/chapters`,
-      payload: {
-        chapter_id: selectedChapterId,
-        chapter_number: selectedChapter.chapterNumber,
-      },
+    console.log("[AddChapterDialog] 开始添加章节", {
+      chapterNumber: selectedChapterNumber,
+      projectId: novelProjectId,
+      timelineId,
     });
 
     try {
@@ -171,8 +149,8 @@ export function AddChapterDialog({ open, onClose, timelineId, onAdded }: AddChap
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          chapter_id: selectedChapterId,
-          chapter_number: selectedChapter.chapterNumber,
+          novel_project_id: novelProjectId,
+          chapter_number: selectedChapterNumber,
         }),
       });
 
@@ -185,7 +163,7 @@ export function AddChapterDialog({ open, onClose, timelineId, onAdded }: AddChap
       if (!response.ok) {
         const errorData = await response.json();
         console.error("[AddChapterDialog] API 返回错误", errorData);
-        throw new Error(errorData.error || "添加章节失败");
+        throw new Error(errorData.error || errorData.suggestion || "添加章节失败");
       }
 
       const result = await response.json();
@@ -193,16 +171,12 @@ export function AddChapterDialog({ open, onClose, timelineId, onAdded }: AddChap
 
       toast({
         title: "添加成功",
-        description: `章节 ${selectedChapter.chapterNumber}: ${selectedChapter.title} 已添加到时间线`,
+        description: `章节 ${selectedChapterNumber}: ${selectedChapter.title} 已添加到时间线`,
       });
 
-      console.log("[AddChapterDialog] 调用回调");
       onAdded();
       onClose();
-
-      // 重置选择
-      setSelectedProjectId("");
-      setSelectedChapterId("");
+      setSelectedChapterNumber(undefined);
     } catch (error) {
       console.error("[AddChapterDialog] 添加章节失败:", error);
       toast({
@@ -212,8 +186,12 @@ export function AddChapterDialog({ open, onClose, timelineId, onAdded }: AddChap
       });
     } finally {
       setLoading(false);
-      console.log("[AddChapterDialog] handleAdd 完成");
     }
+  };
+
+  const getWordCount = (content: string | undefined) => {
+    if (!content) return 0;
+    return content.length;
   };
 
   return (
@@ -221,74 +199,33 @@ export function AddChapterDialog({ open, onClose, timelineId, onAdded }: AddChap
       <DialogContent className="bg-[#0f0f13] border-zinc-800 text-white max-w-md z-[100]">
         <DialogHeader>
           <DialogTitle>添加章节到时间线</DialogTitle>
-          <DialogDescription className="sr-only">
-            选择小说项目和章节添加到当前时间线
+          <DialogDescription className="text-zinc-400">
+            项目：{projectTitle}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* 小说项目选择 */}
-          <div className="space-y-2">
-            <Label htmlFor="project">选择小说项目</Label>
-            <Select
-              value={selectedProjectId}
-              onValueChange={setSelectedProjectId}
-              disabled={loadingProjects}
-            >
-              <SelectTrigger id="project" className="bg-zinc-900/50 border-zinc-800 focus:ring-purple-500/50">
-                <SelectValue placeholder={loadingProjects ? "加载中..." : "选择项目"} />
-              </SelectTrigger>
-              <SelectContent
-                className="z-[110] bg-zinc-900 border-zinc-800 text-white max-h-[300px]"
-                position="popper"
-                sideOffset={4}
-              >
-                {projects.length > 0 ? (
-                  projects.map((project, index) => (
-                    <SelectItem
-                      key={project.id || `project-${index}`}
-                      value={project.id}
-                      className="hover:bg-zinc-800 focus:bg-zinc-800 focus:text-purple-400"
-                    >
-                      {project.title}
-                    </SelectItem>
-                  ))
-                ) : (
-                  <div className="p-2 text-sm text-gray-400 text-center">
-                    {loadingProjects ? "加载中..." : "暂无项目"}
-                  </div>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-
           {/* 章节选择 */}
           <div className="space-y-2">
             <Label htmlFor="chapter">选择章节</Label>
             <Select
-              value={selectedChapterId}
+              value={selectedChapterNumber !== undefined ? String(selectedChapterNumber) : ""}
               onValueChange={(value) => {
+                const chapterNumber = parseInt(value, 10);
                 console.log("[AddChapterDialog] 章节选择变化", {
-                  newValue: value,
-                  valueType: typeof value,
-                  previousValue: selectedChapterId,
+                  newValue: chapterNumber,
+                  previousValue: selectedChapterNumber,
                 });
-                setSelectedChapterId(value);
+                setSelectedChapterNumber(chapterNumber);
               }}
-              disabled={!selectedProjectId || loadingChapters}
+              disabled={loadingChapters}
             >
               <SelectTrigger
                 id="chapter"
                 className="bg-zinc-900/50 border-zinc-800 focus:ring-purple-500/50"
               >
                 <SelectValue
-                  placeholder={
-                    !selectedProjectId
-                      ? "请先选择项目"
-                      : loadingChapters
-                      ? "加载中..."
-                      : "选择章节"
-                  }
+                  placeholder={loadingChapters ? "加载中..." : "选择章节"}
                 />
               </SelectTrigger>
               <SelectContent
@@ -297,22 +234,43 @@ export function AddChapterDialog({ open, onClose, timelineId, onAdded }: AddChap
                 sideOffset={4}
               >
                 {chapters.length > 0 ? (
-                  chapters.map((chapter, index) => (
-                    <SelectItem
-                      key={chapter.id || `chapter-${index}`}
-                      value={chapter.id}
-                      className="hover:bg-zinc-800 focus:bg-zinc-800 focus:text-purple-400"
-                    >
-                      第{chapter.chapterNumber}章: {chapter.title}
-                    </SelectItem>
-                  ))
+                  chapters.map((chapter, index) => {
+                    const chapterNum = chapter.chapterNumber || chapter.chapter_number || index + 1;
+                    const wordCount = getWordCount(chapter.content);
+                    const hasContent = wordCount > 0;
+
+                    return (
+                      <SelectItem
+                        key={chapterNum}
+                        value={String(chapterNum)}
+                        className="hover:bg-zinc-800 focus:bg-zinc-800 focus:text-purple-400"
+                        disabled={!hasContent}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span className={!hasContent ? "text-zinc-600" : ""}>
+                            第{chapterNum}章: {chapter.title}
+                          </span>
+                          {hasContent ? (
+                            <span className="text-xs text-gray-500 ml-2">
+                              ({wordCount.toLocaleString()}字)
+                            </span>
+                          ) : (
+                            <span className="text-xs text-yellow-600 ml-2">
+                              (未生成)
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    );
+                  })
                 ) : (
-                  <div className="p-2 text-sm text-gray-400 text-center">
-                    {!selectedProjectId
-                      ? "请先选择项目"
-                      : loadingChapters
-                      ? "加载中..."
-                      : "该项目暂无章节大纲"}
+                  <div className="p-2 text-sm text-gray-400 text-center space-y-1">
+                    <p>{loadingChapters ? "加载中..." : "该项目暂无章节大纲"}</p>
+                    {!loadingChapters && chapters.length === 0 && (
+                      <p className="text-xs text-purple-400">
+                        提示：请先在小说管理页面生成章节大纲
+                      </p>
+                    )}
                   </div>
                 )}
               </SelectContent>
@@ -331,7 +289,7 @@ export function AddChapterDialog({ open, onClose, timelineId, onAdded }: AddChap
           </Button>
           <Button
             onClick={handleAdd}
-            disabled={loading || !selectedChapterId}
+            disabled={loading || selectedChapterNumber === undefined}
             className="bg-purple-600 hover:bg-purple-700 text-white disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed"
           >
             {loading ? "添加中..." : "添加"}

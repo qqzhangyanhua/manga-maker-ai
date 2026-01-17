@@ -1,39 +1,71 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { TimelineContainer } from "@/components/InfiniteCanvas";
-import type { CanvasTimeline } from "@/components/InfiniteCanvas";
+import { InfiniteCanvasView } from "@/components/InfiniteCanvas";
+import { useTimelineWindow } from "@/hooks/useTimelineWindow";
 
 export default function CanvasPage() {
   const params = useParams();
   const router = useRouter();
-  const [timeline, setTimeline] = useState<CanvasTimeline | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [windowCenter, setWindowCenter] = useState(1);
 
-  const fetchTimeline = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/canvas/timeline/${params.id}`);
-      if (!response.ok) {
-        throw new Error("获取时间线失败");
-      }
-      const data = await response.json();
-      setTimeline(data.timeline);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "未知错误");
-    } finally {
-      setLoading(false);
+  const {
+    timeline,
+    isLoading,
+    isError,
+    error,
+    window: windowState,
+    chapterSummaries,
+    navigateTo,
+    navigatePrev,
+    navigateNext,
+    jumpToFirst,
+    jumpToLast,
+    refresh,
+  } = useTimelineWindow({
+    timelineId: params.id as string,
+    initialCenter: windowCenter,
+    range: 2,
+  });
+
+  const handleNavigate = useCallback(
+    (chapterNumber: number) => {
+      setWindowCenter(chapterNumber);
+      navigateTo(chapterNumber);
+    },
+    [navigateTo]
+  );
+
+  const handlePrev = useCallback(() => {
+    if (windowState && windowState.center > 1) {
+      setWindowCenter(windowState.center - 1);
+      navigatePrev();
     }
-  }, [params.id]);
+  }, [windowState, navigatePrev]);
 
-  useEffect(() => {
-    fetchTimeline();
-  }, [fetchTimeline]);
+  const handleNext = useCallback(() => {
+    if (windowState && windowState.center < windowState.total) {
+      setWindowCenter(windowState.center + 1);
+      navigateNext();
+    }
+  }, [windowState, navigateNext]);
 
-  if (loading) {
+  const handleJumpFirst = useCallback(() => {
+    setWindowCenter(1);
+    jumpToFirst();
+  }, [jumpToFirst]);
+
+  const handleJumpLast = useCallback(() => {
+    if (windowState) {
+      setWindowCenter(windowState.total);
+      jumpToLast();
+    }
+  }, [windowState, jumpToLast]);
+
+  if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-[#0f0f13]">
         <div className="relative">
@@ -45,17 +77,17 @@ export default function CanvasPage() {
     );
   }
 
-  if (error || !timeline) {
+  if (isError || !timeline) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-[#0f0f13] text-white space-y-4">
         <div className="w-16 h-16 rounded-full bg-red-900/20 flex items-center justify-center border border-red-900/50">
-          <span className="text-3xl">⚠️</span>
+          <span className="text-3xl">!</span>
         </div>
         <div className="text-center">
           <h2 className="text-xl font-semibold text-white mb-2">出错了</h2>
-          <p className="text-red-400 text-sm">{error || "时间线不存在"}</p>
+          <p className="text-red-400 text-sm">{error?.message || "时间线不存在"}</p>
         </div>
-        <Button 
+        <Button
           onClick={() => router.back()}
           className="bg-zinc-800 hover:bg-zinc-700 text-white border-zinc-700"
         >
@@ -67,7 +99,6 @@ export default function CanvasPage() {
 
   return (
     <div className="h-screen bg-[#0f0f13] flex flex-col text-zinc-100">
-      {/* Navigation */}
       <div className="flex items-center gap-4 p-4 border-b border-zinc-800 bg-[#0f0f13]/80 backdrop-blur-md sticky top-0 z-50">
         <Button
           variant="ghost"
@@ -78,11 +109,25 @@ export default function CanvasPage() {
           <ArrowLeft className="w-4 h-4 mr-1" />
           返回
         </Button>
+        <div className="flex-1">
+          <h1 className="text-lg font-semibold text-white">{timeline.title}</h1>
+          <p className="text-xs text-zinc-500">无限画布 - 可缩放拖拽</p>
+        </div>
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 overflow-hidden">
-        <TimelineContainer timeline={timeline} onRefresh={fetchTimeline} />
+        <InfiniteCanvasView
+          timeline={timeline}
+          windowState={windowState}
+          chapterSummaries={chapterSummaries}
+          onRefresh={refresh}
+          onNavigate={handleNavigate}
+          onPrev={handlePrev}
+          onNext={handleNext}
+          onJumpFirst={handleJumpFirst}
+          onJumpLast={handleJumpLast}
+          isLoading={isLoading}
+        />
       </div>
     </div>
   );

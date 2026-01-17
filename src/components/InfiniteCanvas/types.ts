@@ -36,6 +36,7 @@ export interface TimelineChapter {
   id: string;
   timeline_id: string;
   chapter_number: number;
+  title: string;
   script_status: GenerationStatus;
   shot_status: GenerationStatus;
   scene_status: GenerationStatus;
@@ -44,6 +45,43 @@ export interface TimelineChapter {
   shot_count: number;
   scene_image_count: number;
   final_image_count: number;
+  character_ids: string[];
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * 章节轻量摘要 - 用于导航和进度展示
+ */
+export interface ChapterSummary {
+  id: string;
+  chapter_number: number;
+  script_status: GenerationStatus;
+  shot_status: GenerationStatus;
+  scene_status: GenerationStatus;
+  final_status: GenerationStatus;
+}
+
+/**
+ * 窗口状态 - 当前可视窗口信息
+ */
+export interface WindowState {
+  center: number;
+  range: number;
+  start: number;
+  end: number;
+  total: number;
+  hasMore: {
+    prev: boolean;
+    next: boolean;
+  };
+}
+
+/**
+ * 分页时间线响应
+ */
+export interface PaginatedTimeline extends Omit<CanvasTimeline, 'chapters'> {
+  chapter_summaries: ChapterSummary[];
+  chapters: TimelineChapter[];
+  window: WindowState;
 }

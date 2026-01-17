@@ -73,7 +73,17 @@ const NodeCard = ({
         {count > 0 ? `${count} 个` : "未生成"}
       </div>
       <div className="flex gap-1">
-        {status === "pending" || status === "error" ? (
+        {status === "generating" ? (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled
+            className="h-7 px-2 border-purple-600/50 text-purple-300 bg-purple-900/20 cursor-not-allowed"
+          >
+            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+            生成中...
+          </Button>
+        ) : status === "pending" || status === "error" ? (
           <Button
             size="sm"
             variant="outline"
@@ -82,7 +92,7 @@ const NodeCard = ({
             className="h-7 px-2 border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-800"
           >
             <Play className="w-3 h-3 mr-1" />
-            生成
+            {status === "error" ? "重试" : "生成"}
           </Button>
         ) : status === "completed" && onEdit ? (
           <Button

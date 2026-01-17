@@ -24,6 +24,7 @@ class ShotDesignOutput(BaseModel):
     expression_types: List[str] = []
     prompt: str
     negative_prompt: str = ""
+    location_key: str = ""  # 场景位置标识，用于去重（如 "classroom_A", "hallway_1F"）
 
 
 class ShotPlanner:
@@ -70,6 +71,11 @@ class ShotPlanner:
 - camera_angle: 俯视/仰视/平视/荷兰角
 - shot_size: 特写/近景/中景/全景/远景
 - panel_type: wide/medium/closeup/action/dialogue/transition
+- location_key: 场景位置标识符，用于场景去重
+  - 使用简洁的英文标识，格式：location_type
+  - 例如：classroom, hallway, rooftop, street, cafe, bedroom
+  - 同一场景的不同角度使用相同的 location_key
+  - 不同地点必须使用不同的 location_key
 
 输出格式（JSON数组）：
 [
@@ -80,6 +86,7 @@ class ShotPlanner:
     "panel_type": "dialogue",
     "shot_description": "镜头内容描述",
     "composition_hint": "构图建议",
+    "location_key": "classroom",
     "prompt": "图像生成提示词（英文）",
     "negative_prompt": "负面提示词"
   }
@@ -89,7 +96,8 @@ class ShotPlanner:
 - 镜头之间要有节奏变化
 - 重要情节用特写强调
 - 动作场景多用动态角度
-- 提示词要具体、详细、英文"""
+- 提示词要具体、详细、英文
+- location_key 必须填写，同一地点的镜头使用相同的 key"""
 
         user_prompt = f"""剧本内容：
 {script_content}

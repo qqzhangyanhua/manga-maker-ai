@@ -31,6 +31,7 @@ interface SceneInput {
   image_url: string;
   dialogue: string | null;
   character_names: string[];
+  character_reference_images?: string[];
 }
 
 interface PanelProcessResult {
@@ -83,12 +84,14 @@ export async function POST(req: Request, { params }: RouteParams) {
 
     // 1. 获取章节数据
     const chapterData = await fetchChapterData(chapterId, payload.userId);
-    const { timelineChapter, allScenes, characterMap } = chapterData;
+    const { timelineChapter, allScenes, characterMap, characterImageMap, chapterCharacterIds } = chapterData;
 
     logInfo("章节数据获取成功", {
       chapterId,
       sceneCount: allScenes.length,
       characterCount: characterMap.size,
+      characterImagesCount: characterImageMap.size,
+      chapterCharacterCount: chapterCharacterIds.length,
     });
 
     // 2. 更新章节状态为生成中
@@ -97,22 +100,119 @@ export async function POST(req: Request, { params }: RouteParams) {
       data: { final_status: "generating" },
     });
 
+    // 初始化 novel-backend 客户端
+    const client = getNovelBackendClient();
+
     // 3. 获取对话框布局分析
+    // 获取章节绑定角色的参考图
+    const chapterCharacterReferenceImages = chapterCharacterIds
+      .map((id) => characterImageMap.get(id))
+      .filter(Boolean) as string[];
+
+    // 3.1 检查是否有镜头缺少角色信息，需要 LLM 识别
+    const shotsNeedingIdentification: Array<{
+      shotId: string;
+      dialogue: string | null;
+      description: string;
+    }> = [];
+
+    for (const segment of timelineChapter.script_segments) {
+      for (const shotDesign of segment.shot_designs) {
+        // 如果镜头没有预设角色，需要 LLM 识别
+        if (!shotDesign.character_ids || shotDesign.character_ids.length === 0) {
+          shotsNeedingIdentification.push({
+            shotId: shotDesign.id,
+            dialogue: segment.dialogue,
+            description: shotDesign.shot_description || segment.scene_description,
+          });
+        }
+      }
+    }
+
+    // 3.2 如果有需要识别的镜头，调用 LLM 批量识别
+    const identifiedCharactersMap = new Map<string, string[]>();
+
+    if (shotsNeedingIdentification.length > 0 && chapterCharacterIds.length > 0) {
+      logInfo("开始 LLM 角色识别", {
+        chapterId,
+        shotsNeedingIdentification: shotsNeedingIdentification.length,
+        availableCharacters: chapterCharacterIds.length,
+      });
+
+      try {
+        // 获取章节角色的完整信息用于 LLM 识别
+        const availableCharacters = await prisma.character.findMany({
+          where: { id: { in: chapterCharacterIds } },
+          select: { id: true, name: true, description: true },
+        });
+
+        const identificationResult = await client.batchIdentifyCharacters({
+          shots: shotsNeedingIdentification.map(s => ({
+            shot_id: s.shotId,
+            dialogue: s.dialogue,
+            description: s.description,
+          })),
+          available_characters: availableCharacters.map(c => ({
+            id: c.id,
+            name: c.name,
+            description: c.description || undefined,
+          })),
+        });
+
+        // 将识别结果存入映射
+        for (const [shotId, result] of Object.entries(identificationResult.results)) {
+          if (result.matched_character_ids.length > 0) {
+            identifiedCharactersMap.set(shotId, result.matched_character_ids);
+          }
+        }
+
+        logInfo("LLM 角色识别完成", {
+          chapterId,
+          identifiedShots: identifiedCharactersMap.size,
+          summary: identificationResult.summary,
+        });
+      } catch (error) {
+        // 识别失败不阻塞流程，使用章节角色作为降级
+        logError("LLM 角色识别失败，使用章节角色降级", error, { chapterId });
+      }
+    }
+
     const sceneInputs: SceneInput[] = timelineChapter.script_segments.flatMap((segment) =>
       segment.shot_designs.flatMap((shotDesign) =>
-        shotDesign.scene_images.map((sceneImage) => ({
-          scene_id: sceneImage.id,
-          shot_id: shotDesign.id,
-          image_url: sceneImage.image_url,
-          dialogue: segment.dialogue,
-          character_names: (shotDesign.character_ids || [])
+        shotDesign.scene_images.map((sceneImage) => {
+          // 优先使用预设的角色，否则使用 LLM 识别的角色
+          let effectiveCharacterIds = shotDesign.character_ids || [];
+          if (effectiveCharacterIds.length === 0) {
+            effectiveCharacterIds = identifiedCharactersMap.get(shotDesign.id) || [];
+          }
+
+          // 镜头指定的角色名称
+          const shotCharacterNames = effectiveCharacterIds
             .map((id) => characterMap.get(id))
-            .filter(Boolean) as string[],
-        }))
+            .filter(Boolean) as string[];
+
+          // 镜头角色的参考图（优先）+ 章节角色的参考图（补充）
+          const shotCharacterImages = effectiveCharacterIds
+            .map((id) => characterImageMap.get(id))
+            .filter(Boolean) as string[];
+
+          // 合并参考图：镜头角色 + 章节角色（去重）
+          const allReferenceImages = Array.from(
+            new Set([...shotCharacterImages, ...chapterCharacterReferenceImages])
+          );
+
+          return {
+            scene_id: sceneImage.id,
+            shot_id: shotDesign.id,
+            image_url: sceneImage.image_url,
+            dialogue: segment.dialogue,
+            character_names: shotCharacterNames,
+            character_reference_images: allReferenceImages,
+          };
+        })
       )
     );
 
-    const client = getNovelBackendClient();
     const finalsResult = await client.generateFinals({
       scenes: sceneInputs,
       comic_style: "manga",
@@ -135,6 +235,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     const results = await processComicPanels(
       finalsResult.panels,
       allScenes,
+      sceneInputs,
       chapterId,
       payload.userId
     );
@@ -243,8 +344,8 @@ async function fetchChapterData(chapterId: string, userId: string) {
     throw new Error("请先生成场景图");
   }
 
-  // 获取所有角色名称
-  const characterIds = Array.from(
+  // 获取所有角色名称 (来自镜头设计)
+  const shotCharacterIds = Array.from(
     new Set(
       timelineChapter.script_segments.flatMap((s) =>
         s.shot_designs.flatMap((d) => d.character_ids || [])
@@ -252,14 +353,28 @@ async function fetchChapterData(chapterId: string, userId: string) {
     )
   );
 
+  // 获取章节绑定的角色 (用于参考图)
+  const chapterCharacterIds = timelineChapter.character_ids || [];
+
+  // 合并所有角色 ID
+  const allCharacterIds = Array.from(
+    new Set([...shotCharacterIds, ...chapterCharacterIds])
+  );
+
+  // 获取角色信息（包括 base_image_url）
   const characters = await prisma.character.findMany({
-    where: { id: { in: characterIds } },
-    select: { id: true, name: true },
+    where: { id: { in: allCharacterIds } },
+    select: { id: true, name: true, base_image_url: true },
   });
 
   const characterMap = new Map(characters.map((c) => [c.id, c.name]));
+  const characterImageMap = new Map(
+    characters
+      .filter((c) => c.base_image_url)
+      .map((c) => [c.id, c.base_image_url as string])
+  );
 
-  return { timelineChapter, allScenes, characterMap };
+  return { timelineChapter, allScenes, characterMap, characterImageMap, chapterCharacterIds };
 }
 
 /**
@@ -273,11 +388,15 @@ async function processComicPanels(
     dialogue_layout?: { bubbles: Array<{ text: string; position: string; style: string }> };
   }>,
   allScenes: Array<{ id: string; image_url: string }>,
+  sceneInputs: SceneInput[],
   chapterId: string,
   userId: string
 ): Promise<PanelProcessResult[]> {
+  // 创建场景输入的快速查找映射
+  const sceneInputMap = new Map(sceneInputs.map((s) => [s.scene_id, s]));
+
   const processingTasks = panels.map((panel) =>
-    processSinglePanel(panel, allScenes, chapterId, userId)
+    processSinglePanel(panel, allScenes, sceneInputMap.get(panel.scene_id), chapterId, userId)
   );
 
   // 并行处理 (每批最多 5 个)
@@ -299,6 +418,7 @@ async function processComicPanels(
 
 /**
  * 处理单个漫画面板
+ * 流程：场景图（背景）+ 角色参考图 → AI 合成 → 添加对话框 = 最终图
  */
 async function processSinglePanel(
   panel: {
@@ -308,6 +428,7 @@ async function processSinglePanel(
     dialogue_layout?: { bubbles: Array<{ text: string; position: string; style: string }> };
   },
   allScenes: Array<{ id: string; image_url: string }>,
+  sceneInput: SceneInput | undefined,
   chapterId: string,
   userId: string
 ): Promise<PanelProcessResult> {
@@ -322,9 +443,66 @@ async function processSinglePanel(
       };
     }
 
-    let finalImageUrl: string;
+    let composedImageUrl: string = sceneImage.image_url;
 
-    // 如果有对话框,添加对话框
+    // 如果有角色参考图，使用 AI 生成合成图（场景 + 角色）
+    const characterReferenceImages = sceneInput?.character_reference_images || [];
+    if (characterReferenceImages.length > 0) {
+      logInfo("开始生成带角色的漫画图", {
+        scene_id: panel.scene_id,
+        referenceImageCount: characterReferenceImages.length,
+        characterNames: sceneInput?.character_names || [],
+      });
+
+      // 构建合成提示词：场景背景 + 角色描述
+      const compositionPrompt = buildCompositionPrompt(
+        panel.generation_prompt,
+        sceneInput?.character_names || [],
+        sceneImage.image_url
+      );
+
+      // 使用 unified-image-generation 生成带角色的漫画
+      const { generateImage, waitForTaskCompletion } = await import("@/lib/unified-image-generation");
+
+      const { taskId } = await generateImage(
+        "panel",
+        compositionPrompt,
+        userId,
+        {
+          width: 800,
+          height: 600,
+          negativePrompt: "blurry, low quality, distorted, deformed, ugly, disfigured, bad anatomy",
+          referenceImages: [sceneImage.image_url, ...characterReferenceImages],
+          metadata: {
+            scene_id: panel.scene_id,
+            shot_id: panel.shot_id,
+            chapter_id: chapterId,
+            type: "canvas_final",
+            has_characters: true,
+          },
+        }
+      );
+
+      // 等待图像生成完成
+      const taskStatus = await waitForTaskCompletion(taskId, 120000);
+
+      if (taskStatus.status === "completed" && taskStatus.imageUrl) {
+        composedImageUrl = taskStatus.imageUrl;
+        logInfo("带角色的漫画图生成成功", {
+          scene_id: panel.scene_id,
+          imageUrl: composedImageUrl,
+        });
+      } else {
+        logError("带角色的漫画图生成失败，降级使用纯场景图", new Error(taskStatus.error || "Unknown"), {
+          scene_id: panel.scene_id,
+          taskStatus,
+        });
+      }
+    }
+
+    let finalImageUrl: string = composedImageUrl;
+
+    // 如果有对话框，添加对话框
     if (panel.dialogue_layout?.bubbles?.length) {
       logInfo("添加对话框", {
         scene_id: panel.scene_id,
@@ -332,7 +510,7 @@ async function processSinglePanel(
       });
 
       const imageBuffer = await addSpeechBubbles(
-        sceneImage.image_url,
+        composedImageUrl,
         panel.dialogue_layout as {
           bubbles: Array<{
             text: string;
@@ -360,12 +538,6 @@ async function processSinglePanel(
       logInfo("对话框添加成功", {
         scene_id: panel.scene_id,
         imageUrl: finalImageUrl,
-      });
-    } else {
-      // 没有对话框,直接使用场景图
-      finalImageUrl = sceneImage.image_url;
-      logInfo("无对话框,使用原场景图", {
-        scene_id: panel.scene_id,
       });
     }
 
@@ -410,6 +582,21 @@ async function processSinglePanel(
       error: error instanceof Error ? error.message : "未知错误",
     };
   }
+}
+
+/**
+ * 构建场景+角色合成提示词
+ */
+function buildCompositionPrompt(
+  basePrompt: string,
+  characterNames: string[],
+  sceneImageUrl: string
+): string {
+  const charactersPart = characterNames.length > 0
+    ? `featuring characters: ${characterNames.join(", ")}`
+    : "";
+
+  return `comic panel, manga style, ${basePrompt}, ${charactersPart}, scene composition based on reference background, high quality, detailed illustration`.trim().replace(/,\s*,/g, ",");
 }
 
 /**

@@ -328,6 +328,9 @@ model ComicStyle {
   // Reverse relation for stories using this style
   stories Story[]
 
+  // Reverse relation for timeline chapters using this style
+  timeline_chapters TimelineChapter[]
+
   @@index([enabled, sort_order], map: "idx_comic_styles_enabled_sort")
   @@map("comic_styles")
 }
@@ -1239,6 +1242,12 @@ model TimelineChapter {
   scene_status   String   @default("pending")
   final_status   String   @default("pending")
 
+  // 角色绑定（本章节出现的角色ID列表）
+  character_ids  String[] @default([]) @db.Uuid
+
+  // 风格选择
+  comic_style_id String?  @db.Uuid // FK to ComicStyle
+
   // 统计
   script_segment_count Int @default(0)
   shot_count           Int @default(0)
@@ -1250,10 +1259,12 @@ model TimelineChapter {
 
   // Relations
   timeline        CanvasTimeline    @relation(fields: [timeline_id], references: [id], onDelete: Cascade)
+  comic_style     ComicStyle?       @relation(fields: [comic_style_id], references: [id], onDelete: SetNull)
   script_segments ScriptSegment[]
 
   @@index([timeline_id], map: "idx_timeline_chapter_timeline")
   @@index([chapter_id], map: "idx_timeline_chapter_chapter")
+  @@index([comic_style_id], map: "idx_timeline_chapter_style")
   @@map("timeline_chapters")
 }
 
@@ -1302,11 +1313,17 @@ model ShotDesign {
   shot_description  String   @db.Text
   composition_hint  String   @db.Text
 
+  // 场景位置标识 - 用于场景去重
+  location_key      String   @default("") // e.g., "classroom", "hallway", "rooftop"
+
   // 资产绑定
   character_ids     String[] @default([])
   scene_id          String?  @db.Uuid
   expression_types  String[] @default([])
   outfit_ids        String[] @default([])
+
+  // 共享场景图引用 (多个镜头可共享同一场景图)
+  shared_scene_id   String?  @db.Uuid
 
   // 生成提示词
   prompt            String   @db.Text
@@ -1316,10 +1333,12 @@ model ShotDesign {
 
   // Relations
   script_segment ScriptSegment  @relation(fields: [script_segment_id], references: [id], onDelete: Cascade)
-  scene_images   SceneImage[]
+  scene_images   SceneImage[]   @relation("ShotToSceneImages") // 1:N legacy relation
+  shared_scene   SceneImage?    @relation("SharedScene", fields: [shared_scene_id], references: [id], onDelete: SetNull)
   comic_panels   ComicPanelResult[]
 
   @@index([script_segment_id], map: "idx_shot_design_segment")
+  @@index([location_key], map: "idx_shot_design_location")
   @@map("shot_designs")
 }
 
@@ -1327,6 +1346,9 @@ model ShotDesign {
 model SceneImage {
   id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   shot_design_id     String   @db.Uuid
+
+  // 场景位置标识 - 用于去重分组
+  location_key       String   @default("")
 
   // 图像信息
   image_url          String
@@ -1348,10 +1370,12 @@ model SceneImage {
   created_at DateTime @default(now()) @db.Timestamptz(6)
 
   // Relations
-  shot_design  ShotDesign         @relation(fields: [shot_design_id], references: [id], onDelete: Cascade)
-  comic_panels ComicPanelResult[]
+  shot_design   ShotDesign         @relation("ShotToSceneImages", fields: [shot_design_id], references: [id], onDelete: Cascade)
+  shared_shots  ShotDesign[]       @relation("SharedScene") // 共享此场景的镜头列表
+  comic_panels  ComicPanelResult[]
 
   @@index([shot_design_id], map: "idx_scene_image_shot")
+  @@index([location_key], map: "idx_scene_image_location")
   @@map("scene_images")
 }
 

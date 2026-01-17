@@ -114,6 +114,7 @@ export interface SceneImageOutput {
 export interface GenerateScenesRequest {
   shots: ShotInput[];
   style?: string;
+  pure_scene_mode?: boolean;
 }
 
 /**
@@ -162,6 +163,70 @@ export interface GenerateFinalsRequest {
 export interface GenerateFinalsResponse {
   success: boolean;
   panels: ComicPanelOutput[];
+}
+
+/**
+ * 角色识别请求
+ */
+export interface IdentifyCharactersRequest {
+  dialogue?: string | null;
+  scene_description: string;
+  available_characters: Array<{
+    id: string;
+    name: string;
+    description?: string;
+  }>;
+}
+
+/**
+ * 识别到的角色
+ */
+export interface IdentifiedCharacter {
+  character_name: string;
+  confidence: number;
+  reason: string;
+}
+
+/**
+ * 角色识别响应
+ */
+export interface IdentifyCharactersResponse {
+  success: boolean;
+  identified_characters: IdentifiedCharacter[];
+  unmatched_names: string[];
+  matched_character_ids: string[];
+}
+
+/**
+ * 批量角色识别请求
+ */
+export interface BatchIdentifyCharactersRequest {
+  shots: Array<{
+    shot_id: string;
+    dialogue?: string | null;
+    description: string;
+  }>;
+  available_characters: Array<{
+    id: string;
+    name: string;
+    description?: string;
+  }>;
+}
+
+/**
+ * 批量角色识别响应
+ */
+export interface BatchIdentifyCharactersResponse {
+  success: boolean;
+  results: Record<string, {
+    identified_characters: IdentifiedCharacter[];
+    unmatched_names: string[];
+    matched_character_ids: string[];
+  }>;
+  summary: {
+    total_shots: number;
+    shots_with_characters: number;
+  };
 }
 
 /**
@@ -322,6 +387,80 @@ export class NovelBackendClient {
       logError("漫画图生成失败", error, { url, request });
       throw new NovelBackendError(
         "漫画图生成失败",
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+  }
+
+  /**
+   * 识别角色 - 从对话和场景描述中识别在场角色
+   */
+  async identifyCharacters(
+    request: IdentifyCharactersRequest
+  ): Promise<IdentifyCharactersResponse> {
+    const endpoint = "/api/novel/canvas/identify-characters";
+    const url = `${this.baseUrl}${endpoint}`;
+
+    logInfo("调用 novel-backend 角色识别", {
+      url,
+      characterCount: request.available_characters.length,
+      hasDialogue: !!request.dialogue,
+    });
+
+    try {
+      const response = await this.fetchWithRetry<IdentifyCharactersResponse>(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(request),
+      });
+
+      logInfo("角色识别成功", {
+        identifiedCount: response.identified_characters.length,
+        unmatchedCount: response.unmatched_names.length,
+      });
+
+      return response;
+    } catch (error) {
+      logError("角色识别失败", error, { url, request });
+      throw new NovelBackendError(
+        "角色识别失败",
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+  }
+
+  /**
+   * 批量识别角色 - 为多个镜头识别在场角色
+   */
+  async batchIdentifyCharacters(
+    request: BatchIdentifyCharactersRequest
+  ): Promise<BatchIdentifyCharactersResponse> {
+    const endpoint = "/api/novel/canvas/batch-identify-characters";
+    const url = `${this.baseUrl}${endpoint}`;
+
+    logInfo("调用 novel-backend 批量角色识别", {
+      url,
+      shotCount: request.shots.length,
+      characterCount: request.available_characters.length,
+    });
+
+    try {
+      const response = await this.fetchWithRetry<BatchIdentifyCharactersResponse>(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(request),
+      });
+
+      logInfo("批量角色识别成功", {
+        totalShots: response.summary.total_shots,
+        shotsWithCharacters: response.summary.shots_with_characters,
+      });
+
+      return response;
+    } catch (error) {
+      logError("批量角色识别失败", error, { url, request });
+      throw new NovelBackendError(
+        "批量角色识别失败",
         error instanceof Error ? error.message : String(error)
       );
     }

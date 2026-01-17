@@ -124,22 +124,45 @@ export async function POST(req: Request, { params }: RouteParams) {
       if (shots.length === 0) continue;
 
       const createdShots = await Promise.all(
-        shots.map((shot) =>
-          prisma.shotDesign.create({
+        shots.map((shot) => {
+          // 🔧 数据兼容性处理：支持 Python 返回的多种字段名
+          // Python Pydantic 模型使用 shot_description
+          // 但 TypeScript 类型定义使用 action_description（历史遗留）
+          const shotDescription =
+            (shot as any).shot_description ||  // Python 新模型
+            (shot as any).action_description || // TypeScript 旧类型
+            segment.scene_description ||        // Fallback 到场景描述
+            `${shot.camera_angle} ${shot.shot_size}`; // 最终 fallback
+
+          // 提取 location_key（场景去重标识）
+          const locationKey = (shot as any).location_key || "";
+
+          logInfo("创建镜头记录", {
+            segmentId: segment.id,
+            shotOrder: shot.shot_order,
+            hasDescription: !!shotDescription,
+            locationKey,
+            descriptionSource: (shot as any).shot_description ? "shot_description" :
+                              (shot as any).action_description ? "action_description" :
+                              segment.scene_description ? "scene_description" : "default",
+          });
+
+          return prisma.shotDesign.create({
             data: {
               script_segment_id: segment.id,
               shot_order: shot.shot_order,
               camera_angle: shot.camera_angle,
               shot_size: shot.shot_size,
               panel_type: "medium", // 默认类型
-              shot_description: shot.action_description,
-              composition_hint: shot.visual_notes || "",
-              prompt: `${shot.camera_angle}, ${shot.shot_size}`,
-              negative_prompt: "blurry, low quality, distorted",
+              shot_description: shotDescription,
+              composition_hint: (shot as any).composition_hint || (shot as any).visual_notes || "",
+              location_key: locationKey, // 场景去重标识
+              prompt: (shot as any).prompt || `${shot.camera_angle}, ${shot.shot_size}`,
+              negative_prompt: (shot as any).negative_prompt || "blurry, low quality, distorted",
               character_ids: shot.character_focus ? [shot.character_focus] : [],
             },
-          })
-        )
+          });
+        })
       );
 
       allShots.push(...createdShots);

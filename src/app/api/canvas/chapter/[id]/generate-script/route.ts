@@ -37,39 +37,126 @@ export async function POST(req: Request, { params }: RouteParams) {
       userId: payload.userId,
     });
 
-    // 获取章节信息
+    // 获取时间线章节信息
     const timelineChapter = await prisma.timelineChapter.findUnique({
       where: { id: chapterId },
-      include: {
-        timeline: true,
-      },
     });
 
     if (!timelineChapter) {
       return NextResponse.json({ error: "章节不存在" }, { status: 404 });
     }
 
-    if (timelineChapter.timeline.user_id !== payload.userId) {
+    // 验证时间线所有权
+    const timeline = await prisma.canvasTimeline.findUnique({
+      where: { id: timelineChapter.timeline_id },
+      select: { user_id: true },
+    });
+
+    if (!timeline || timeline.user_id !== payload.userId) {
       return NextResponse.json({ error: "无权操作" }, { status: 403 });
     }
 
-    // 获取小说章节内容
-    const novelChapter = await prisma.novelChapter.findFirst({
-      where: {
-        project_id: timelineChapter.timeline.novel_project_id,
-        chapter_number: timelineChapter.chapter_number,
+    // 直接通过 chapter_id 获取小说章节内容（性能优化：使用主键查询）
+    const novelChapter = await prisma.novelChapter.findUnique({
+      where: { id: timelineChapter.chapter_id },
+      select: {
+        id: true,
+        content: true,
+        status: true,
+        title: true,
+        chapter_number: true,
+        word_count: true,
+        project_id: true,
       },
     });
 
-    const chapterContent = novelChapter?.content || "";
+    if (!novelChapter) {
+      logError("小说章节不存在", new Error("Novel chapter not found"), {
+        chapterId,
+        timelineChapterId: timelineChapter.id,
+        novelChapterId: timelineChapter.chapter_id,
+      });
+      return NextResponse.json(
+        {
+          error: "小说章节不存在",
+          suggestion: "该章节可能已被删除，请重新选择章节",
+        },
+        { status: 404 }
+      );
+    }
+
+    let chapterContent = novelChapter.content || "";
+
+    // Fallback: 如果 NovelChapter.content 为空，尝试从 NovelProject.outlines 获取
+    if (!chapterContent || chapterContent.trim().length === 0) {
+      logInfo("NovelChapter.content 为空，尝试从 NovelProject.outlines 获取", {
+        chapterId,
+        novelChapterId: novelChapter.id,
+        chapterNumber: novelChapter.chapter_number,
+      });
+
+      const project = await prisma.novelProject.findUnique({
+        where: { id: novelChapter.project_id },
+        select: { outlines: true },
+      });
+
+      if (project?.outlines) {
+        const outlines = project.outlines as Array<{
+          chapterNumber?: number;
+          chapter_number?: number;
+          title?: string;
+          outline?: string;
+          content?: string;
+        }>;
+
+        // 查找匹配的 outline (可能用 chapterNumber 或 chapter_number)
+        const matchedOutline = outlines.find(
+          (o) =>
+            (o.chapterNumber === novelChapter.chapter_number ||
+              o.chapter_number === novelChapter.chapter_number)
+        );
+
+        if (matchedOutline?.content) {
+          chapterContent = matchedOutline.content;
+          logInfo("从 NovelProject.outlines 成功获取章节内容", {
+            chapterId,
+            novelChapterId: novelChapter.id,
+            chapterNumber: novelChapter.chapter_number,
+            contentLength: chapterContent.length,
+          });
+        }
+      }
+    }
 
     if (!chapterContent || chapterContent.trim().length === 0) {
       logError("章节内容为空", new Error("Empty chapter content"), {
         chapterId,
         timelineId: timelineChapter.timeline_id,
+        novelChapterId: timelineChapter.chapter_id,
+        chapterStatus: novelChapter.status,
+        wordCount: novelChapter.word_count,
       });
+
+      // 根据章节状态提供不同的建议
+      let errorMessage = "章节内容为空，无法生成剧本";
+      let suggestion = "请检查章节状态";
+
+      if (novelChapter.status === "draft") {
+        suggestion = "该章节尚未生成内容，请先在小说管理页面生成章节内容";
+      } else if (novelChapter.status === "writing") {
+        suggestion = "章节内容正在生成中，请稍后再试";
+      } else if (novelChapter.word_count === 0) {
+        suggestion = "章节字数为0，请重新生成章节内容";
+      }
+
       return NextResponse.json(
-        { error: "章节内容为空，无法生成剧本" },
+        {
+          error: errorMessage,
+          suggestion,
+          chapterStatus: novelChapter.status,
+          chapterTitle: novelChapter.title,
+          wordCount: novelChapter.word_count,
+        },
         { status: 400 }
       );
     }
@@ -77,7 +164,10 @@ export async function POST(req: Request, { params }: RouteParams) {
     logInfo("章节内容获取成功", {
       chapterId,
       contentLength: chapterContent.length,
+      contentPreview: chapterContent.substring(0, 200) + "...",
       chapterNumber: timelineChapter.chapter_number,
+      novelChapterId: novelChapter.id,
+      novelChapterStatus: novelChapter.status,
     });
 
     // 更新状态为生成中
@@ -98,13 +188,33 @@ export async function POST(req: Request, { params }: RouteParams) {
       throw new Error("novel-backend 服务不可用，请稍后重试");
     }
 
+    logInfo("准备调用剧本分析服务", {
+      chapterId,
+      chapter_number: timelineChapter.chapter_number,
+      content_length: chapterContent.length,
+    });
+
     const analyzeResult = await client.analyzeScript({
       chapter_content: chapterContent,
       chapter_number: timelineChapter.chapter_number,
     });
 
-    if (!analyzeResult.success || analyzeResult.segments.length === 0) {
-      throw new Error("剧本分析返回空结果");
+    logInfo("剧本分析服务响应", {
+      chapterId,
+      success: analyzeResult.success,
+      segmentCount: analyzeResult.segments?.length || 0,
+      hasSegments: !!analyzeResult.segments,
+      resultKeys: Object.keys(analyzeResult),
+    });
+
+    if (!analyzeResult.success || !analyzeResult.segments || analyzeResult.segments.length === 0) {
+      logError("剧本分析返回空结果", new Error("Empty script analysis"), {
+        chapterId,
+        analyzeResult: JSON.stringify(analyzeResult).substring(0, 500),
+        contentLength: chapterContent.length,
+        chapterNumber: timelineChapter.chapter_number,
+      });
+      throw new Error("剧本分析返回空结果，请检查章节内容格式或联系管理员");
     }
 
     logInfo("剧本分析完成", {

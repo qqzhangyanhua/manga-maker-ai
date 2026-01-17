@@ -46,6 +46,7 @@ class SceneComposer:
         self,
         shots: List[ShotInput],
         style: Optional[str] = None,
+        pure_scene_mode: bool = True,
     ) -> List[SceneImageOutput]:
         """
         为镜头列表生成场景图
@@ -53,21 +54,21 @@ class SceneComposer:
         Args:
             shots: 镜头设计列表
             style: 可选的视觉风格 (manga, realistic, anime, etc.)
+            pure_scene_mode: 纯场景模式，不包含人物（用于背景生成）
 
         Returns:
             场景图片列表
         """
-        logger.info(f"开始生成场景图: {len(shots)} 个镜头")
+        logger.info(f"开始生成场景图: {len(shots)} 个镜头, pure_scene_mode={pure_scene_mode}")
 
         scenes = []
         for shot in shots:
             try:
-                scene = await self._generate_single_scene(shot, style)
+                scene = await self._generate_single_scene(shot, style, pure_scene_mode)
                 scenes.append(scene)
                 logger.info(f"场景图生成成功: shot_id={shot.shot_id}")
             except Exception as e:
                 logger.error(f"场景图生成失败: shot_id={shot.shot_id}, error={e}")
-                # 继续处理其他镜头
                 scenes.append(SceneImageOutput(
                     shot_id=shot.shot_id,
                     image_url="https://placehold.co/800x600/png?text=Scene+Generation+Failed",
@@ -82,36 +83,36 @@ class SceneComposer:
         self,
         shot: ShotInput,
         style: Optional[str] = None,
+        pure_scene_mode: bool = True,
     ) -> SceneImageOutput:
         """
         为单个镜头生成优化的提示词
-        
+
         职责分离:
         - 后端 (novel-backend): 使用 LLM 优化提示词
         - 前端 (Next.js): 图像生成 + MinIO 上传
-        
+
         流程:
         1. 后端返回 status="pending" 和优化的提示词
         2. 前端调用 unified-image-generation 系统
         3. 前端将生成的图片 URL 保存到数据库
         """
-        # 使用 LLM 优化提示词
-        enhanced_prompt = await self._enhance_prompt(shot, style)
-        
+        enhanced_prompt = await self._enhance_prompt(shot, style, pure_scene_mode)
+
         logger.info(f"场景图提示词优化完成: shot_id={shot.shot_id}")
 
-        # 返回待生成任务 (图像生成由前端 Next.js 完成)
         return SceneImageOutput(
             shot_id=shot.shot_id,
-            image_url="",  # 空URL,前端生成后填充
+            image_url="",
             generation_prompt=enhanced_prompt,
-            status="pending",  # 待前端生成
+            status="pending",
         )
 
     async def _enhance_prompt(
         self,
         shot: ShotInput,
         style: Optional[str] = None,
+        pure_scene_mode: bool = True,
     ) -> str:
         """
         使用 LLM 优化图像生成提示词
@@ -119,18 +120,26 @@ class SceneComposer:
         Args:
             shot: 镜头信息
             style: 视觉风格
+            pure_scene_mode: 纯场景模式，不生成人物
 
         Returns:
             优化后的提示词
         """
-        system_prompt = """你是专业的图像生成提示词工程师。
+        pure_scene_instruction = ""
+        if pure_scene_mode:
+            pure_scene_instruction = """
+重要：这是纯场景/背景图，必须不包含任何人物、角色或人形生物。
+只描述环境、建筑、自然景观、室内装饰等场景元素。
+人物将在后续步骤中单独合成。"""
+
+        system_prompt = f"""你是专业的图像生成提示词工程师。
 根据镜头描述生成适合 AI 绘画的详细提示词。
 
 要求：
-1. 包含场景、角色、动作、光线、构图等元素
+1. 包含场景环境、光线、氛围、构图等元素
 2. 使用英文逗号分隔的关键词格式
 3. 突出镜头的视觉重点
-4. 适合 Stable Diffusion / DALL-E 使用"""
+4. 适合 Stable Diffusion / DALL-E 使用{pure_scene_instruction}"""
 
         style_hint = f"\n视觉风格: {style}" if style else ""
 
@@ -161,5 +170,4 @@ class SceneComposer:
 
         except Exception as e:
             logger.error(f"提示词优化失败: {e}")
-            # 降级：返回原始提示词
             return f"{shot.prompt}, {shot.camera_angle}, {shot.shot_size}"

@@ -157,9 +157,12 @@ async def list_chapters(
             detail="项目不存在"
         )
     
-    # 查询章节
+    # 查询章节 - 只返回已完成且有内容的章节
     chapters_query = select(NovelChapter).where(
-        NovelChapter.project_id == project_id
+        NovelChapter.project_id == project_id,
+        NovelChapter.status == "completed",
+        NovelChapter.content.isnot(None),
+        NovelChapter.content != ""
     ).order_by(NovelChapter.chapter_number)
     
     result = await db.execute(chapters_query)

@@ -81,6 +81,8 @@ class ScriptAnalyzer:
 {chapter_content[:8000]}"""
 
         try:
+            logger.info(f"开始剧本分析 - 章节{chapter_number}，内容长度: {len(chapter_content)}")
+
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -93,19 +95,36 @@ class ScriptAnalyzer:
             )
 
             content = response.choices[0].message.content
+            logger.info(f"LLM 响应内容长度: {len(content) if content else 0}")
+
             if not content:
+                logger.warning("LLM 返回空内容")
                 return []
 
             import json
             data = json.loads(content)
-            segments = data.get("segments", data) if isinstance(data, dict) else data
+            logger.info(f"解析 JSON 成功，数据类型: {type(data)}, 键: {data.keys() if isinstance(data, dict) else 'N/A'}")
 
-            return [
+            segments = data.get("segments", data) if isinstance(data, dict) else data
+            logger.info(f"提取片段，类型: {type(segments)}, 长度: {len(segments) if isinstance(segments, (list, dict)) else 'N/A'}")
+
+            if isinstance(segments, dict):
+                logger.warning(f"segments 是字典而非列表，尝试转换。字典键: {segments.keys()}")
+                # 如果 segments 本身是字典，可能需要再取一次
+                segments = list(segments.values()) if segments else []
+
+            parsed_segments = [
                 ScriptSegmentOutput(**seg)
                 for seg in segments
                 if isinstance(seg, dict)
             ]
 
+            logger.info(f"剧本分析完成，生成 {len(parsed_segments)} 个片段")
+            return parsed_segments
+
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON 解析失败: {e}, 原始内容: {content[:500] if content else 'None'}")
+            raise
         except Exception as e:
-            logger.error(f"剧本分析失败: {e}")
+            logger.error(f"剧本分析失败: {e}", exc_info=True)
             raise

@@ -42,7 +42,12 @@ export const TEXT_STYLE = {
 /**
  * 对话框样式颜色配置
  */
-export const BUBBLE_STYLES = {
+export const BUBBLE_STYLES: Record<string, {
+  fillColor: string;
+  strokeColor: string;
+  lineWidth: number;
+  lineDash: number[];
+}> = {
   speech: {
     fillColor: 'white',
     strokeColor: 'black',
@@ -67,7 +72,7 @@ export const BUBBLE_STYLES = {
     lineWidth: 1,
     lineDash: [],
   },
-} as const;
+};
 
 /**
  * Canvas 限制
