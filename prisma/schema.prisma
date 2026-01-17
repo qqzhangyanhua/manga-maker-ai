@@ -87,6 +87,10 @@ model Character {
   // Phase 3: Comic Style relation
   comic_style_id String? @db.Uuid // FK to ComicStyle
 
+  // Phase 5: Character source tracking
+  source_type      String? // "manual" | "novel" | "story_ai" | "imported"
+  source_reference Json?   // { novelProjectId, chapterId, tempId }
+
   views       CharacterView[]
   expressions CharacterExpression[]
   outfits     CharacterOutfit[]
@@ -1328,6 +1332,8 @@ model ShotDesign {
   // 生成提示词
   prompt            String   @db.Text
   negative_prompt   String?  @db.Text
+  generated_image_url String?
+  generation_status   String   @default("pending")
 
   created_at DateTime @default(now()) @db.Timestamptz(6)
 
