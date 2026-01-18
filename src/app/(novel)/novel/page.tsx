@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { CreateProjectDialog } from "./components/CreateProjectDialog";
 import { InspirationModeDialog } from "./components/InspirationModeDialog";
+import { GlobalSearchBar } from "@/components/search/GlobalSearchBar";
 import { cn } from "@/lib/utils";
 import { novelTheme } from "./theme";
 import "./novel-theme.css";
@@ -259,7 +260,8 @@ export default function NovelDashboard() {
                   使用 AI 辅助创作，让灵感变成精彩故事
                 </p>
               </div>
-              <div className="flex gap-3">
+              <div className="flex gap-3 items-center">
+                <GlobalSearchBar />
                 <Button
                   onClick={() => setInspirationDialogOpen(true)}
                   size="lg"
