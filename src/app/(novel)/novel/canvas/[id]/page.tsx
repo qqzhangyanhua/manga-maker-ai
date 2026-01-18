@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { InfiniteCanvasView } from "@/components/InfiniteCanvas";
 import { useTimelineWindow } from "@/hooks/useTimelineWindow";
 import { novelTheme } from "../../theme";
+import "../../novel-theme.css";
 
 export default function CanvasPage() {
   const params = useParams();
@@ -68,7 +69,7 @@ export default function CanvasPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-[#0f0f13]">
+      <div className="flex flex-col items-center justify-center h-screen bg-[#0f0f13] novel-theme-scope">
         <div className="relative">
           <Loader2 className={`w-12 h-12 ${novelTheme.loading.spinner}`} />
           <div className={`absolute top-0 left-0 w-12 h-12 rounded-full border-4 ${novelTheme.loading.border}`}></div>
@@ -80,7 +81,7 @@ export default function CanvasPage() {
 
   if (isError || !timeline) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-[#0f0f13] text-white space-y-4">
+      <div className="flex flex-col items-center justify-center h-screen bg-[#0f0f13] text-white space-y-4 novel-theme-scope">
         <div className="w-16 h-16 rounded-full bg-red-900/20 flex items-center justify-center border border-red-900/50">
           <span className="text-3xl">!</span>
         </div>
@@ -99,7 +100,7 @@ export default function CanvasPage() {
   }
 
   return (
-    <div className="h-screen bg-[#0f0f13] flex flex-col text-zinc-100">
+    <div className="h-screen bg-[#0f0f13] flex flex-col text-zinc-100 novel-theme-scope">
       <div className="flex items-center gap-4 p-4 border-b border-zinc-800 bg-[#0f0f13]/80 backdrop-blur-md sticky top-0 z-50">
         <Button
           variant="ghost"

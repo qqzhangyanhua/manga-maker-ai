@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,7 +68,7 @@ const MaintenanceTab: React.FC = () => {
   });
   const [showCleanupConfirm, setShowCleanupConfirm] = useState(false);
 
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     try {
       const response = await fetch("/api/novel/rag/maintenance-logs?limit=20");
       if (!response.ok) throw new Error("Failed to fetch logs");
@@ -81,11 +81,11 @@ const MaintenanceTab: React.FC = () => {
         variant: "destructive",
       });
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     fetchLogs();
-  }, []);
+  }, [fetchLogs]);
 
   const handleExport = async () => {
     try {

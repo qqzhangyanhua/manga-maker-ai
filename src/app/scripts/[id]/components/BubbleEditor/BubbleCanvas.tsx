@@ -230,9 +230,13 @@ export function BubbleCanvas({
     dragStart,
     bubble.position,
     bubble.size,
+    bubble.id,
+    bubble.panelId,
     originalSize,
     originalPosition,
+    allBubbles,
     onUpdate,
+    onShowGuides,
   ]);
 
   const preset = BUBBLE_PRESETS[bubble.type];

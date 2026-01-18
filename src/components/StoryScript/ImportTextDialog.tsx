@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -45,21 +45,7 @@ export function ImportTextDialog({
   const [stage, setStage] = useState<ImportStage>("input");
   const [generatedChapterId, setGeneratedChapterId] = useState<string | null>(null);
 
-  // 实时预估（debounce）
-  useEffect(() => {
-    if (!text || text.length < 100 || stage !== "input") {
-      setEstimate(null);
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      fetchEstimate(text);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [text, stage]);
-
-  async function fetchEstimate(content: string) {
+  const fetchEstimate = useCallback(async (content: string) => {
     setStage("estimating");
 
     try {
@@ -86,7 +72,21 @@ export function ImportTextDialog({
         variant: "destructive",
       });
     }
-  }
+  }, [storyId, toast]);
+
+  // 实时预估（debounce）
+  useEffect(() => {
+    if (!text || text.length < 100 || stage !== "input") {
+      setEstimate(null);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      fetchEstimate(text);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [text, stage, fetchEstimate]);
 
   async function handleFileSelect(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];

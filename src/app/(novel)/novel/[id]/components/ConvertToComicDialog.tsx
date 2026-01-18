@@ -429,7 +429,7 @@ export function ConvertToComicDialog({
               <Button variant="outline" onClick={() => setStep("scenes")}>
                 上一步
               </Button>
-              <Button onClick={handleConvert} disabled={isConverting}>
+              <Button onClick={handleConvert} disabled={isConverting} className={novelTheme.button.primary}>
                 {isConverting ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />

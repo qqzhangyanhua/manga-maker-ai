@@ -180,7 +180,7 @@ export function GenerateCharactersDialog({
               <Button
                 onClick={handleAnalyze}
                 disabled={isAnalyzing || outlines.length === 0}
-                className="w-full"
+                className={novelTheme.button.primary}
               >
                 {isAnalyzing ? (
                   <>

@@ -290,15 +290,85 @@ class NovelRAGService:
                 context_parts.append("【世界观设定】")
                 world_setting = project.world_setting
                 if isinstance(world_setting, dict):
+                    # ✨ 地点 - 包含详细描述和氛围
                     if world_setting.get("locations"):
-                        locations = self._safe_extract_names(world_setting['locations'], key="name")
+                        locations = []
+                        for loc in world_setting['locations']:
+                            if isinstance(loc, dict):
+                                name = loc.get('name', '')
+                                description = loc.get('description', '')
+                                atmosphere = loc.get('atmosphere', '')
+                                if name:
+                                    loc_text = f"{name}: {description}"
+                                    if atmosphere:
+                                        loc_text += f" (氛围: {atmosphere})"
+                                    locations.append(loc_text)
                         if locations:
-                            context_parts.append(f"地点: {', '.join(locations)}")
+                            context_parts.append("地点:")
+                            for loc in locations:
+                                context_parts.append(f"  - {loc}")
 
+                    # ✨ 派系/组织 - 包含领导者、成员、目标
+                    if world_setting.get("factions"):
+                        factions = []
+                        for faction in world_setting['factions']:
+                            if isinstance(faction, dict):
+                                name = faction.get('name', '')
+                                description = faction.get('description', '')
+                                leader = faction.get('leader', '')
+                                goals = faction.get('goals', '')
+                                if name:
+                                    faction_text = f"{name}: {description}"
+                                    if leader:
+                                        faction_text += f" (领导: {leader})"
+                                    if goals:
+                                        faction_text += f" (目标: {goals})"
+                                    factions.append(faction_text)
+                        if factions:
+                            context_parts.append("派系/组织:")
+                            for faction in factions:
+                                context_parts.append(f"  - {faction}")
+
+                    # ✨ 世界规则 - 兼容 title/content 和 name/description 两种字段格式
                     if world_setting.get("rules"):
-                        rules = self._safe_extract_names(world_setting['rules'], key="name")
+                        rules = []
+                        for rule in world_setting['rules']:
+                            if isinstance(rule, dict):
+                                # 兼容前端的 title/content 字段
+                                name = rule.get('name') or rule.get('title', '')
+                                description = rule.get('description') or rule.get('content', '')
+                                category = rule.get('category', '')
+                                if name:
+                                    rule_text = f"{name}: {description}"
+                                    if category:
+                                        rule_text += f" (类别: {category})"
+                                    rules.append(rule_text)
                         if rules:
-                            context_parts.append(f"规则: {', '.join(rules)}")
+                            context_parts.append("世界规则:")
+                            for rule in rules:
+                                context_parts.append(f"  - {rule}")
+
+                    # ✨ 时间线 - 重要历史事件
+                    if world_setting.get("timeline"):
+                        timeline = []
+                        for event in world_setting['timeline']:
+                            if isinstance(event, dict):
+                                # 兼容 date 和 year 字段
+                                date = event.get('date') or event.get('year', '')
+                                evt = event.get('event', '')
+                                description = event.get('description', '')
+                                importance = event.get('importance', '')
+                                if date and evt:
+                                    event_text = f"{date}: {evt}"
+                                    if description:
+                                        event_text += f" - {description}"
+                                    if importance == 'high':
+                                        event_text = f"【重要】{event_text}"
+                                    timeline.append(event_text)
+                        if timeline:
+                            context_parts.append("时间线:")
+                            for evt in timeline:
+                                context_parts.append(f"  - {evt}")
                 context_parts.append("")
 
             # 角色设定

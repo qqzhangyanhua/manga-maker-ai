@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { ImagePreviewDialog } from "./ImagePreviewDialog";
 import type { Character } from "./types";
 import type { GenerateCharacterImageResponse } from "@/app/api/novel/character/generate-image/types";
+import { novelTheme } from "../../../theme";
 
 interface ComicStyle {
   id: string;
@@ -229,7 +230,7 @@ export function GenerateCharacterImageDialog({
                   {character.traits.map((trait, i) => (
                     <span
                       key={`trait-${i}`}
-                      className="text-xs px-2 py-1 rounded-full bg-primary/10"
+                      className={`text-xs px-2 py-1 rounded-full ${novelTheme.primary.light}`}
                     >
                       {trait}
                     </span>
@@ -332,6 +333,7 @@ export function GenerateCharacterImageDialog({
           <Button
             onClick={handleGenerate}
             disabled={isGenerating || !prompt.trim()}
+            className={novelTheme.button.primary}
           >
             {isGenerating ? (
               <>

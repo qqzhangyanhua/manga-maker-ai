@@ -148,8 +148,8 @@ export function ChapterVersionList({
             <GlassCard
               key={version.id}
               className={cn("p-5 transition-all duration-300", version.is_selected
-                ? "border-purple-500 bg-purple-500/10 shadow-lg shadow-purple-500/10 backdrop-blur-sm"
-                : cn(novelTheme.card.base, "hover:border-purple-500/30 hover:bg-zinc-900/60")
+                ? `${novelTheme.primary.border} ${novelTheme.primary.light} shadow-lg ${novelTheme.primary.shadow} backdrop-blur-sm`
+                : cn(novelTheme.card.base, `hover:${novelTheme.primary.border}/30 hover:bg-zinc-900/60`)
               )}
             >
               {/* 版本头部 */}
@@ -174,7 +174,7 @@ export function ChapterVersionList({
                         v{version.version_number}
                       </span>
                       {version.is_selected && (
-                        <Badge className="bg-purple-500 hover:bg-purple-600 text-white shadow-purple-500/20 shadow-sm">
+                        <Badge className={`${novelTheme.primary.base} ${novelTheme.primary.hover} text-white ${novelTheme.primary.shadow} shadow-sm`}>
                           <Check className="h-3 w-3 mr-1" />
                           当前版本
                         </Badge>

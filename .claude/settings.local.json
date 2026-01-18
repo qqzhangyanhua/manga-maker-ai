@@ -139,7 +139,9 @@
       "Bash(head:*)",
       "Bash(cd:*)",
       "Bash(if ! grep -q \"novelTheme\" \"$file\")",
-      "Bash(git -C /Users/zhangyanhua/AI/manga-maker-ai status --short)"
+      "Bash(git -C /Users/zhangyanhua/AI/manga-maker-ai status --short)",
+      "Bash(/Users/zhangyanhua/AI/manga-maker-ai/scripts/check-novel-theme.sh)",
+      "Bash(npm run lint)"
     ],
     "deny": [],
     "ask": []

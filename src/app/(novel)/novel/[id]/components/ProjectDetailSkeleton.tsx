@@ -1,12 +1,10 @@
-/**
- * 项目详情页加载骨架屏
- * Sprint 2 Task 2.4: 提取为独立组件提升可维护性
- */
+import { novelTheme } from "../../theme";
+import { cn } from "@/lib/utils";
 
 export function ProjectDetailSkeleton() {
   return (
-    <div className="min-h-screen bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-900/40 via-zinc-900 to-black">
-      <div className="container mx-auto py-12 px-4 max-w-7xl">
+    <div className={novelTheme.layout.background}>
+      <div className={novelTheme.layout.container}>
         <div className="animate-pulse space-y-8">
           {/* 头部骨架 */}
           <div className="flex justify-between items-center">
@@ -22,8 +20,8 @@ export function ProjectDetailSkeleton() {
 
           {/* 内容区骨架 */}
           <div className="grid grid-cols-12 gap-6 mt-8">
-            <div className="col-span-3 h-[600px] bg-zinc-900/40 backdrop-blur-sm rounded-xl border border-purple-500/10"></div>
-            <div className="col-span-9 h-[600px] bg-zinc-900/40 backdrop-blur-sm rounded-xl border border-purple-500/10"></div>
+            <div className={cn("col-span-3 h-[600px] rounded-xl border", novelTheme.card.base)}></div>
+            <div className={cn("col-span-9 h-[600px] rounded-xl border", novelTheme.card.base)}></div>
           </div>
         </div>
       </div>

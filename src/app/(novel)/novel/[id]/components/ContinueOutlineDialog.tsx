@@ -206,6 +206,7 @@ export function ContinueOutlineDialog({
           <Button
             onClick={handleGenerate}
             disabled={isGenerating || existingOutlines.length === 0}
+            className={novelTheme.button.primary}
           >
             {isGenerating ? (
               <>

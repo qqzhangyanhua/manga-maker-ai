@@ -109,7 +109,7 @@ export function OptimizeDescriptionDialog({
                 ? "点击下方按钮，AI 将优化您的项目描述"
                 : "点击下方按钮，AI 将生成项目描述"}
             </p>
-            <Button onClick={handleProcess} disabled={isProcessing}>
+            <Button onClick={handleProcess} disabled={isProcessing} className={novelTheme.button.primary}>
               {isProcessing ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

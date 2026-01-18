@@ -25,7 +25,7 @@ export function GlassCard({
         variant === "default" && "shadow-sm",
         
         // Hover Effects
-        hoverEffect && "hover:border-orange-500/50 hover:bg-zinc-900 hover:shadow-glow/20",
+        hoverEffect && "hover:border-primary/50 hover:bg-zinc-900 hover:shadow-glow/20",
         
         className
       )}

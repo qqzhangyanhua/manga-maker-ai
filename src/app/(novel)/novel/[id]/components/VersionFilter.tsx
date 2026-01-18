@@ -117,16 +117,16 @@ export function VersionFilter({
           onClick={() => setIsExpanded(!isExpanded)}
           className={
             isExpanded
-              ? "bg-purple-600 hover:bg-purple-700"
+              ? `${novelTheme.primary.base} ${novelTheme.primary.hover}`
               : hasActiveFilters
-                ? "border-purple-600 text-purple-400 hover:bg-purple-900/20"
+                ? `border-purple-600 ${novelTheme.primary.text} hover:bg-purple-900/20`
                 : "border-purple-500/20 text-zinc-400 hover:bg-purple-500/10 hover:text-purple-300"
           }
         >
           <Filter className="h-4 w-4 mr-2" />
           高级筛选
           {hasActiveFilters && (
-            <span className="ml-2 px-1.5 py-0.5 text-xs bg-purple-500 rounded-full">
+            <span className={`ml-2 px-1.5 py-0.5 text-xs ${novelTheme.primary.base} rounded-full`}>
               !
             </span>
           )}

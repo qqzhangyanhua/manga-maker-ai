@@ -211,7 +211,7 @@ export function RelationshipEditDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             取消
           </Button>
-          <Button onClick={handleSave}>
+          <Button onClick={handleSave} className={novelTheme.button.primary}>
             <Save className="w-4 h-4 mr-2" />
             保存
           </Button>

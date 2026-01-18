@@ -188,8 +188,8 @@ export function GenerateShotImageDialog({
     staleTime: 30 * 1000,
   });
 
-  const chapterCharacters = chapterCharactersData?.data || [];
-  const novelCharacters = novelCharactersData?.characters || [];
+  const chapterCharacters = useMemo(() => chapterCharactersData?.data || [], [chapterCharactersData?.data]);
+  const novelCharacters = useMemo(() => novelCharactersData?.characters || [], [novelCharactersData?.characters]);
   const isWaitingForChapter = open && !!chapterId && chapterLoading && !chapterError;
   const shouldFallbackToNovel =
     !isWaitingForChapter && (chapterError || chapterCharacters.length === 0);

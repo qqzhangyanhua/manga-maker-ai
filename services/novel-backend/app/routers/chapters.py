@@ -1,10 +1,10 @@
 """
 章节管理路由
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from typing import List, Optional
 from pydantic import BaseModel, Field
 from uuid import UUID
@@ -140,11 +140,29 @@ async def create_chapter(
 @router.get("/project/{project_id}", response_model=List[ChapterResponse])
 async def list_chapters(
     project_id: UUID,
+    status_filter: Optional[str] = Query(
+        "all",
+        regex="^(all|completed|draft|pending)$",
+        description="状态过滤: all(全部) | completed(已完成) | draft(草稿) | pending(待生成)"
+    ),
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
-    """获取项目的章节列表"""
-    
+    """
+    获取项目的章节列表
+
+    Args:
+        project_id: 项目 ID
+        status_filter: 状态过滤
+            - all: 返回所有章节（默认）
+            - completed: 只返回已完成章节
+            - draft: 只返回草稿章节
+            - pending: 只返回待生成章节
+
+    Returns:
+        章节列表
+    """
+
     # 验证项目所有权
     project_query = select(NovelProject).where(
         NovelProject.id == project_id,
@@ -156,18 +174,35 @@ async def list_chapters(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="项目不存在"
         )
-    
-    # 查询章节 - 只返回已完成且有内容的章节
-    chapters_query = select(NovelChapter).where(
-        NovelChapter.project_id == project_id,
-        NovelChapter.status == "completed",
-        NovelChapter.content.isnot(None),
-        NovelChapter.content != ""
-    ).order_by(NovelChapter.chapter_number)
-    
-    result = await db.execute(chapters_query)
+
+    # 构建查询条件
+    query = select(NovelChapter).where(NovelChapter.project_id == project_id)
+
+    # 根据状态过滤
+    if status_filter == "completed":
+        query = query.where(
+            NovelChapter.status == "completed",
+            NovelChapter.content.isnot(None),
+            NovelChapter.content != ""
+        )
+    elif status_filter == "draft":
+        query = query.where(NovelChapter.status == "draft")
+    elif status_filter == "pending":
+        query = query.where(
+            or_(
+                NovelChapter.status == "pending",
+                NovelChapter.content.is_(None),
+                NovelChapter.content == ""
+            )
+        )
+    # status_filter == "all" 不添加额外条件，返回所有章节
+
+    # 排序
+    query = query.order_by(NovelChapter.chapter_number)
+
+    result = await db.execute(query)
     chapters = result.scalars().all()
-    
+
     return [ChapterResponse.model_validate(ch) for ch in chapters]
 
 

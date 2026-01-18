@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -39,14 +39,7 @@ export function AddChapterDialog({
   const [loading, setLoading] = useState(false);
   const [loadingChapters, setLoadingChapters] = useState(false);
 
-  // 加载章节列表（从 NovelProject.outlines）
-  useEffect(() => {
-    if (open && novelProjectId) {
-      loadChapters();
-    }
-  }, [open, novelProjectId]);
-
-  const loadChapters = async () => {
+  const loadChapters = useCallback(async () => {
     setLoadingChapters(true);
     try {
       // 获取项目的 outlines（章节大纲）
@@ -102,7 +95,14 @@ export function AddChapterDialog({
     } finally {
       setLoadingChapters(false);
     }
-  };
+  }, [novelProjectId]); // toast 是稳定的引用，不需要作为依赖项
+
+  // 加载章节列表（从 NovelProject.outlines）
+  useEffect(() => {
+    if (open && novelProjectId) {
+      loadChapters();
+    }
+  }, [open, novelProjectId, loadChapters]);
 
   const handleAdd = async () => {
     if (selectedChapterNumber === undefined) {

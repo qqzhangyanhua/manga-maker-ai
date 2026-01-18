@@ -357,7 +357,7 @@ function CharacterRelationshipGraphInner({
         <Panel position="bottom-right" className="bg-zinc-900/80 backdrop-blur-md border border-purple-500/20 rounded-lg shadow-lg shadow-purple-500/10 p-3">
           <div className="flex gap-4 text-xs text-muted-foreground">
             <div className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-primary" />
+              <div className={cn("w-2 h-2 rounded-full", novelTheme.primary.base)} />
               <span>{nodes.length} 个角色</span>
             </div>
             <div className="flex items-center gap-1">

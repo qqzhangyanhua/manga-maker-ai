@@ -5,13 +5,41 @@
  * 配合 DESIGN.md 中的 Purple Elegance 配色方案
  */
 
+/**
+ * 核心品牌色 - 统一管理主题色
+ * 先定义为单独的常量，避免对象初始化时的自我引用问题
+ */
+const primary = {
+  /** 基础背景色 */
+  base: "bg-purple-600",
+  /** 悬停背景色 */
+  hover: "hover:bg-purple-700",
+  /** 边框颜色 */
+  border: "border-purple-500",
+  /** 文字颜色 */
+  text: "text-purple-500",
+  /** 浅色背景 */
+  light: "bg-purple-500/10",
+  /** 前景文字颜色 (在基础背景色上) */
+  foreground: "text-white",
+  /** 阴影颜色 */
+  shadow: "shadow-purple-500/20",
+  /** 激活状态背景 */
+  active: "data-[state=active]:bg-purple-600",
+} as const;
+
 export const novelTheme = {
+  /**
+   * 核心品牌色 - 统一管理主题色
+   */
+  primary,
+
   /**
    * 按钮样式
    */
   button: {
     /** 主按钮 - 紫色实心按钮 */
-    primary: "bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20",
+    primary: `${primary.base} ${primary.hover} ${primary.foreground} shadow-lg ${primary.shadow}`,
 
     /** Outline 按钮 - 紫色边框 */
     outline: "border-purple-500/30 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 hover:border-purple-500/50",
@@ -65,7 +93,7 @@ export const novelTheme = {
     list: "bg-zinc-900/40 backdrop-blur-md border border-purple-500/10 p-1 h-auto rounded-xl",
 
     /** TabsTrigger - 激活状态 */
-    trigger: "rounded-lg data-[state=active]:bg-purple-600 data-[state=active]:text-white transition-all py-2 px-4",
+    trigger: `rounded-lg ${primary.active} data-[state=active]:text-white transition-all py-2 px-4`,
   },
 
   /**
@@ -130,7 +158,7 @@ export const novelTheme = {
    */
   interaction: {
     /** 卡片悬停 */
-    cardHover: "cursor-pointer hover:shadow-2xl hover:shadow-purple-500/20 transition-all duration-500 border-purple-500/10",
+    cardHover: "cursor-pointer hover:shadow-2xl hover:shadow-purple-500/20 transition-all duration-500 border-purple-500/10 hover:border-purple-500/30",
 
     /** 图片缩放 */
     imageScale: "transition-transform duration-700 group-hover:scale-105",

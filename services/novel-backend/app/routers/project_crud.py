@@ -269,6 +269,119 @@ async def delete_project(
     return None
 
 
+@router.get("/{project_id}/stats")
+async def get_project_detailed_stats(
+    project_id: UUID,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    获取项目详细统计信息
+
+    Returns:
+        {
+            "basic": {
+                "total_words": 50000,
+                "chapter_count": 8,
+                "target_words": 100000,
+                "completion_rate": 0.5
+            },
+            "chapters": {
+                "completed": 7,
+                "draft": 1,
+                "pending": 2,
+                "avg_words_per_chapter": 6250
+            },
+            "rag": {
+                "indexed_chapters": 7,
+                "index_rate": 0.875
+            },
+            "timeline": {
+                "created_at": "...",
+                "updated_at": "...",
+                "last_generated_at": "..."
+            }
+        }
+    """
+    # 验证项目所有权
+    project_query = select(NovelProject).where(
+        NovelProject.id == project_id,
+        NovelProject.user_id == user_id
+    )
+    project_result = await db.execute(project_query)
+    project = project_result.scalar_one_or_none()
+
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="项目不存在"
+        )
+
+    # 基础统计
+    basic_stats_query = select(
+        func.count(NovelChapter.id).label("total_count"),
+        func.coalesce(func.sum(NovelChapter.word_count), 0).label("total_words"),
+        func.avg(NovelChapter.word_count).label("avg_words")
+    ).where(
+        NovelChapter.project_id == project_id,
+        NovelChapter.content.isnot(None),
+        NovelChapter.content != ""
+    )
+    basic_result = await db.execute(basic_stats_query)
+    basic = basic_result.one()
+
+    # 章节状态统计
+    status_query = select(
+        NovelChapter.status,
+        func.count(NovelChapter.id).label("count")
+    ).where(
+        NovelChapter.project_id == project_id
+    ).group_by(NovelChapter.status)
+    status_result = await db.execute(status_query)
+    status_counts = {row.status: row.count for row in status_result}
+
+    # 最后生成时间
+    last_generated_query = select(
+        func.max(NovelChapter.updated_at)
+    ).where(
+        NovelChapter.project_id == project_id,
+        NovelChapter.status == "completed"
+    )
+    last_generated_result = await db.execute(last_generated_query)
+    last_generated_at = last_generated_result.scalar()
+
+    # RAG 索引统计（简化版，实际可查询 ChromaDB）
+    completed_chapters = status_counts.get("completed", 0)
+
+    return {
+        "basic": {
+            "total_words": int(basic.total_words),
+            "chapter_count": int(basic.total_count),
+            "target_words": project.target_words or 0,
+            "completion_rate": round(
+                int(basic.total_words) / project.target_words, 2
+            ) if project.target_words else 0
+        },
+        "chapters": {
+            "completed": status_counts.get("completed", 0),
+            "draft": status_counts.get("draft", 0),
+            "pending": status_counts.get("pending", 0),
+            "avg_words_per_chapter": round(float(basic.avg_words)) if basic.avg_words else 0
+        },
+        "rag": {
+            "indexed_chapters": completed_chapters,
+            "index_rate": round(
+                completed_chapters / int(basic.total_count), 2
+            ) if int(basic.total_count) > 0 else 0
+        },
+        "timeline": {
+            "created_at": project.created_at.isoformat() if project.created_at else None,
+            "updated_at": project.updated_at.isoformat() if project.updated_at else None,
+            "last_generated_at": last_generated_at.isoformat() if last_generated_at else None
+        }
+    }
+
+
 @router.get("/{project_id}/outlines")
 async def get_project_outlines(
     project_id: UUID,

@@ -61,8 +61,8 @@ export function CharacterPreparationDrawer({
   const upgradeMutation = useUpgradeCharacter(chapterId || "");
   const regenerateMutation = useRegenerateCharacterImage(chapterId || "");
 
-  const chapterCharacters = chapterCharactersQuery.data || [];
-  const novelCharacters = novelCharactersQuery.data || [];
+  const chapterCharacters = useMemo(() => chapterCharactersQuery.data || [], [chapterCharactersQuery.data]);
+  const novelCharacters = useMemo(() => novelCharactersQuery.data || [], [novelCharactersQuery.data]);
 
   // 计算统计信息
   const missingImageCount = useMemo(() => {

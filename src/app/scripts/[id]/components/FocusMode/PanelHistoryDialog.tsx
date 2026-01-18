@@ -5,7 +5,7 @@
  * 查看同一分镜的历史生成图片
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -55,14 +55,7 @@ export function PanelHistoryDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
 
-  // 加载历史记录
-  useEffect(() => {
-    if (open && panelId) {
-      loadHistory();
-    }
-  }, [open, panelId]);
-
-  const loadHistory = async () => {
+  const loadHistory = useCallback(async () => {
     if (!panelId) return;
 
     setIsLoading(true);
@@ -84,7 +77,14 @@ export function PanelHistoryDialog({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [panelId, toast]);
+
+  // 加载历史记录
+  useEffect(() => {
+    if (open && panelId) {
+      loadHistory();
+    }
+  }, [open, panelId, loadHistory]);
 
   const handleSelectImage = (image: GeneratedImage) => {
     setSelectedImageId(image.id);

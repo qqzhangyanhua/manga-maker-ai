@@ -346,17 +346,50 @@ class NovelGenerationService:
 
             # 添加世界观信息
             if world_setting and isinstance(world_setting, dict):
+                # ✨ 地点 - 包含详细描述
                 if world_setting.get("locations"):
                     user_prompt += "\n\n世界观-地点：\n"
                     for loc in world_setting["locations"]:
                         if isinstance(loc, dict):
-                            user_prompt += f"- {loc.get('name', '')}：{loc.get('description', '')}\n"
+                            name = loc.get('name', '')
+                            description = loc.get('description', '')
+                            if name:
+                                user_prompt += f"- {name}：{description}\n"
 
+                # ✨ 派系/组织
+                if world_setting.get("factions"):
+                    user_prompt += "\n\n世界观-派系/组织：\n"
+                    for faction in world_setting["factions"]:
+                        if isinstance(faction, dict):
+                            name = faction.get('name', '')
+                            description = faction.get('description', '')
+                            leader = faction.get('leader', '')
+                            if name:
+                                faction_text = f"- {name}：{description}"
+                                if leader:
+                                    faction_text += f" (领导: {leader})"
+                                user_prompt += faction_text + "\n"
+
+                # ✨ 规则 - 兼容 title/content 和 name/description 字段
                 if world_setting.get("rules"):
                     user_prompt += "\n\n世界观-规则：\n"
                     for rule in world_setting["rules"]:
                         if isinstance(rule, dict):
-                            user_prompt += f"- {rule.get('name', '')}：{rule.get('description', '')}\n"
+                            # 兼容前端的 title/content 字段
+                            name = rule.get('name') or rule.get('title', '')
+                            description = rule.get('description') or rule.get('content', '')
+                            if name:
+                                user_prompt += f"- {name}：{description}\n"
+
+                # ✨ 时间线
+                if world_setting.get("timeline"):
+                    user_prompt += "\n\n世界观-时间线：\n"
+                    for event in world_setting["timeline"]:
+                        if isinstance(event, dict):
+                            date = event.get('date') or event.get('year', '')
+                            evt = event.get('event', '')
+                            if date and evt:
+                                user_prompt += f"- {date}: {evt}\n"
 
             user_prompt += "\n\n请生成详细的章节大纲。"
 

@@ -8,6 +8,7 @@ import { Handle, Position, NodeProps } from 'reactflow';
 import { User } from 'lucide-react';
 import type { CharacterNodeData } from './types';
 import { getRoleColor } from './types';
+import { novelTheme } from '../../../theme';
 
 export const CharacterNode = memo(({ data, selected }: NodeProps<CharacterNodeData>) => {
   const roleColor = getRoleColor(data.role);
@@ -17,7 +18,7 @@ export const CharacterNode = memo(({ data, selected }: NodeProps<CharacterNodeDa
       className={`
         relative bg-zinc-900/90 border-2 rounded-lg shadow-lg
         transition-all duration-200
-        ${selected ? 'border-primary shadow-xl shadow-primary/20 scale-105' : 'border-purple-500/20 hover:border-primary/50'}
+        ${selected ? `${novelTheme.primary.border} shadow-xl ${novelTheme.primary.shadow} scale-105` : `border-purple-500/20 hover:${novelTheme.primary.border}/50`}
       `}
       style={{
         width: 180,
@@ -37,14 +38,14 @@ export const CharacterNode = memo(({ data, selected }: NodeProps<CharacterNodeDa
         type="target"
         position={Position.Top}
         id="target-top"
-        className="w-3 h-3 !bg-primary border-2 border-purple-500"
+        className={`w-3 h-3 !${novelTheme.primary.base} border-2 ${novelTheme.primary.border}`}
         isConnectable={true}
       />
       <Handle
         type="source"
         position={Position.Top}
         id="source-top"
-        className="w-3 h-3 !bg-primary border-2 border-purple-500"
+        className={`w-3 h-3 !${novelTheme.primary.base} border-2 ${novelTheme.primary.border}`}
         isConnectable={true}
         style={{ top: 0 }}
       />
@@ -53,14 +54,14 @@ export const CharacterNode = memo(({ data, selected }: NodeProps<CharacterNodeDa
         type="target"
         position={Position.Bottom}
         id="target-bottom"
-        className="w-3 h-3 !bg-primary border-2 border-purple-500"
+        className={`w-3 h-3 !${novelTheme.primary.base} border-2 ${novelTheme.primary.border}`}
         isConnectable={true}
       />
       <Handle
         type="source"
         position={Position.Bottom}
         id="source-bottom"
-        className="w-3 h-3 !bg-primary border-2 border-purple-500"
+        className={`w-3 h-3 !${novelTheme.primary.base} border-2 ${novelTheme.primary.border}`}
         isConnectable={true}
         style={{ bottom: 0 }}
       />
@@ -69,14 +70,14 @@ export const CharacterNode = memo(({ data, selected }: NodeProps<CharacterNodeDa
         type="target"
         position={Position.Left}
         id="target-left"
-        className="w-3 h-3 !bg-primary border-2 border-purple-500"
+        className={`w-3 h-3 !${novelTheme.primary.base} border-2 ${novelTheme.primary.border}`}
         isConnectable={true}
       />
       <Handle
         type="source"
         position={Position.Left}
         id="source-left"
-        className="w-3 h-3 !bg-primary border-2 border-purple-500"
+        className={`w-3 h-3 !${novelTheme.primary.base} border-2 ${novelTheme.primary.border}`}
         isConnectable={true}
         style={{ left: 0 }}
       />
@@ -85,14 +86,14 @@ export const CharacterNode = memo(({ data, selected }: NodeProps<CharacterNodeDa
         type="target"
         position={Position.Right}
         id="target-right"
-        className="w-3 h-3 !bg-primary border-2 border-purple-500"
+        className={`w-3 h-3 !${novelTheme.primary.base} border-2 ${novelTheme.primary.border}`}
         isConnectable={true}
       />
       <Handle
         type="source"
         position={Position.Right}
         id="source-right"
-        className="w-3 h-3 !bg-primary border-2 border-purple-500"
+        className={`w-3 h-3 !${novelTheme.primary.base} border-2 ${novelTheme.primary.border}`}
         isConnectable={true}
         style={{ right: 0 }}
       />
@@ -130,7 +131,7 @@ export const CharacterNode = memo(({ data, selected }: NodeProps<CharacterNodeDa
 
         {/* 关系数量徽章 */}
         {(data.relationshipCount ?? 0) > 0 && (
-          <div className="absolute -bottom-2 -right-2 bg-primary text-primary-foreground text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+          <div className={`absolute -bottom-2 -right-2 ${novelTheme.primary.base} text-primary-foreground text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center`}>
             {data.relationshipCount}
           </div>
         )}

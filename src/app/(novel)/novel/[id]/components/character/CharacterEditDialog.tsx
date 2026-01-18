@@ -255,7 +255,7 @@ export function CharacterEditDialog({
               <Button variant="outline" onClick={handleClose}>
                 取消
               </Button>
-              <Button onClick={handleSave}>保存角色</Button>
+              <Button onClick={handleSave} className={novelTheme.button.primary}>保存角色</Button>
             </div>
           </div>
         </DialogContent>

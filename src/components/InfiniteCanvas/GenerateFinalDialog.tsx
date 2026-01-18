@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Users,
@@ -122,7 +122,7 @@ export function GenerateFinalDialog({
     staleTime: 30 * 1000,
   });
 
-  const characters = charactersData?.characters || [];
+  const characters = useMemo(() => charactersData?.characters || [], [charactersData?.characters]);
 
   // 初始化选中主角
   useEffect(() => {

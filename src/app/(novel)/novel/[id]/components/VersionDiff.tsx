@@ -63,7 +63,7 @@ export function VersionDiff({ version1, version2 }: VersionDiffProps) {
       console.error("Diff computation failed:", error);
       return null;
     }
-  }, [version1.id, version2.id, version1.content, version2.content, version1.version_number, version2.version_number]);
+  }, [version1.content, version2.content, version1.version_number, version2.version_number]);
 
   // 计算统计信息
   const stats = useMemo(() => {
@@ -146,7 +146,7 @@ export function VersionDiff({ version1, version2 }: VersionDiffProps) {
               onClick={() => setDiffViewType("unified")}
               className={
                 diffViewType === "unified"
-                  ? "h-8 px-3 bg-purple-600 hover:bg-purple-700"
+                  ? `h-8 px-3 ${novelTheme.primary.base} ${novelTheme.primary.hover}`
                   : "h-8 px-3 border-zinc-800 hover:bg-zinc-800/50"
               }
             >
@@ -159,7 +159,7 @@ export function VersionDiff({ version1, version2 }: VersionDiffProps) {
               onClick={() => setDiffViewType("split")}
               className={
                 diffViewType === "split"
-                  ? "h-8 px-3 bg-purple-600 hover:bg-purple-700"
+                  ? `h-8 px-3 ${novelTheme.primary.base} ${novelTheme.primary.hover}`
                   : "h-8 px-3 border-zinc-800 hover:bg-zinc-800/50"
               }
             >

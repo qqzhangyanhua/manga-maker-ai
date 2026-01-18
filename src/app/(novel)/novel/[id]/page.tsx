@@ -21,6 +21,7 @@ import type { ChapterOutline } from "./types";
 import { ProjectDetailSkeleton } from "./components/ProjectDetailSkeleton";
 import { novelTheme } from "../theme";
 import { cn } from "@/lib/utils";
+import "../novel-theme.css";
 
 // ✅ 性能优化：动态导入重型组件
 // Sprint 2 Task 2.3: 对话框组件也改为动态导入（非首屏必需）
@@ -109,7 +110,7 @@ function NovelProjectPageContent() {
   // ✅ 错误状态处理
   if (error) {
     return (
-      <div className={novelTheme.layout.background}>
+      <div className={cn(novelTheme.layout.background, "novel-theme-scope")}>
         <ErrorState
           error={error}
           title="加载项目失败"
@@ -152,7 +153,7 @@ function NovelProjectPageContent() {
   };
 
   return (
-    <div className={novelTheme.layout.background}>
+    <div className={cn(novelTheme.layout.background, "novel-theme-scope")}>
       {/* 装饰性光晕 */}
       <div className={novelTheme.layout.glowPrimary} />
       <div className={novelTheme.layout.glowSecondary} />

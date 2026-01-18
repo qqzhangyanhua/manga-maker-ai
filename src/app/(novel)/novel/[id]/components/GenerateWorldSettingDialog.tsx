@@ -194,7 +194,7 @@ export function GenerateWorldSettingDialog({
             <p className="text-muted-foreground text-center">
               点击"开始分析"按钮，AI 将分析章节内容并生成世界观设定建议
             </p>
-            <Button onClick={handleAnalyze} disabled={isAnalyzing}>
+            <Button onClick={handleAnalyze} disabled={isAnalyzing} className={novelTheme.button.primary}>
               {isAnalyzing ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

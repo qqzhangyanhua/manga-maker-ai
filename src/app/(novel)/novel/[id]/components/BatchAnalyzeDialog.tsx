@@ -272,7 +272,7 @@ export function BatchAnalyzeDialog({
               <Button
                 onClick={handleStartAnalysis}
                 disabled={isAnalyzing || unanalyzedVersions.length === 0}
-                className="bg-blue-600 hover:bg-blue-700"
+                className={novelTheme.button.primary}
               >
                 {isAnalyzing ? (
                   <>

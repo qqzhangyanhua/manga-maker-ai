@@ -178,7 +178,7 @@ export function GenerateOutlineDialog({
           <Button variant="outline" onClick={onClose} disabled={isGenerating}>
             取消
           </Button>
-          <Button onClick={handleGenerate} disabled={isGenerating}>
+          <Button onClick={handleGenerate} disabled={isGenerating} className={novelTheme.button.primary}>
             {isGenerating ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

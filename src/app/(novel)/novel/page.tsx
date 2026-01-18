@@ -22,6 +22,7 @@ import { CreateProjectDialog } from "./components/CreateProjectDialog";
 import { InspirationModeDialog } from "./components/InspirationModeDialog";
 import { cn } from "@/lib/utils";
 import { novelTheme } from "./theme";
+import "./novel-theme.css";
 
 interface NovelProject {
   id: string;
@@ -200,21 +201,21 @@ export default function NovelDashboard() {
 
   function getStatusBadge(status: string) {
     const statusMap: Record<string, { label: string; className: string }> = {
-      draft: { label: "草稿", className: "bg-zinc-800 text-zinc-400 border-zinc-700" },
-      writing: { label: "创作中", className: "bg-purple-500/10 text-purple-400 border-purple-500/20" },
-      completed: { label: "已完成", className: "bg-green-500/10 text-green-400 border-green-500/20" },
+      draft: { label: "草稿", className: novelTheme.badge.draft },
+      writing: { label: "创作中", className: novelTheme.badge.writing },
+      completed: { label: "已完成", className: novelTheme.badge.completed },
     };
     const config = statusMap[status] || statusMap.draft;
     return <Badge variant="outline" className={config.className}>{config.label}</Badge>;
   }
 
   return (
-    <div className={novelTheme.layout.background}>
+    <div className={cn(novelTheme.layout.background, "novel-theme-scope")}>
       {/* 用户登录状态检查 */}
       {userLoading && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
-            <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+            <Loader2 className={cn("h-8 w-8 animate-spin", novelTheme.primary.text)} />
             <p className="text-zinc-400">正在验证登录状态...</p>
           </div>
         </div>
@@ -253,7 +254,7 @@ export default function NovelDashboard() {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12 relative z-10">
               <div>
-                <h1 className="text-4xl font-bold tracking-tight text-white mb-2">我的小说 <span className="text-purple-400">.</span></h1>
+                <h1 className="text-4xl font-bold tracking-tight text-white mb-2">我的小说 <span className={novelTheme.primary.text}>.</span></h1>
                 <p className="text-zinc-300 text-lg">
                   使用 AI 辅助创作，让灵感变成精彩故事
                 </p>
@@ -411,7 +412,7 @@ export default function NovelDashboard() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="w-full mt-3 bg-purple-500/10 border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300"
+                        className={cn("w-full mt-3", novelTheme.button.secondary)}
                         onClick={(e) => handleOpenCanvas(project, e)}
                       >
                         <Layers className="mr-2 h-3.5 w-3.5" />

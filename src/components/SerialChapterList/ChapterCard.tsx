@@ -15,7 +15,7 @@ import {
   ChevronRight,
   Layers,
   Edit2,
-  Image,
+  Image as ImageIcon,
 } from "lucide-react";
 import { ChapterPanelEditor } from "./ChapterPanelEditor";
 import { GenerateChapterScenesDialog } from "./GenerateChapterScenesDialog";
@@ -178,7 +178,7 @@ export function ChapterCard({
                   </>
                 ) : (
                   <>
-                    <Image className="w-4 h-4 mr-1" />
+                    <ImageIcon className="w-4 h-4 mr-1" />
                     生成章节背景
                   </>
                 )}

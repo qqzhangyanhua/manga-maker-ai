@@ -7,9 +7,18 @@ from typing import Literal, Optional
 
 class ExportConfig(BaseModel):
     """导出配置"""
+    chapter_range: Optional[list[int]] = Field(
+        default=None,
+        description="章节范围 [起始, 结束]，None 表示全部章节",
+        example=[1, 10]
+    )
     include_metadata: bool = Field(
         default=True,
         description="是否包含元数据（标题、作者等）"
+    )
+    include_outline: bool = Field(
+        default=False,
+        description="是否包含章节大纲"
     )
     chapter_separator: bool = Field(
         default=True,
