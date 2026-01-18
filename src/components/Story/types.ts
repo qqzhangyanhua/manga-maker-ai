@@ -53,8 +53,8 @@ export interface StoryTemplate {
     name: string;
     category: string;
     description: string;
-    structure: unknown;
-    prompts: unknown;
+    structure: { acts?: Array<unknown> };
+    prompts: Record<string, unknown>;
 }
 
 export interface StoryGeneratorProps {

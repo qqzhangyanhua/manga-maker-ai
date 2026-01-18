@@ -23,11 +23,12 @@ import {
 } from "../hooks/useChapterVersions";
 import { useVersionComparisonStore } from "../stores/versionComparisonStore";
 import type { ChapterVersion } from "../types/version";
+import type { ChapterOutline } from "../types";
 import { novelTheme } from "../../theme";
 
 interface ChapterVersionManagerProps {
   projectId: string;
-  selectedChapter: { id: string } | null; // 从父组件接收当前选中的章节
+  selectedChapter: ChapterOutline | null; // 修复：使用完整的 ChapterOutline 类型
 }
 
 export function ChapterVersionManager({
@@ -35,7 +36,7 @@ export function ChapterVersionManager({
   selectedChapter: initialChapter,
 }: ChapterVersionManagerProps) {
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(
-    initialChapter?.id || null
+    initialChapter?._tempId || null // 使用 _tempId 作为章节标识
   );
   const [isEditMode, setIsEditMode] = useState(false);
 

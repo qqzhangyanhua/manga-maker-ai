@@ -274,7 +274,7 @@ export async function POST(req: Request) {
       status: failed === results.length ? "failed" : "success",
       durationMs: Date.now() - startedAt,
       requestPayload: { panel_ids, style, total: panelsWithPrompt.length },
-      responsePayload: { succeeded, failed, results },
+      responsePayload: JSON.parse(JSON.stringify({ succeeded, failed, results })),
     });
 
     return NextResponse.json({

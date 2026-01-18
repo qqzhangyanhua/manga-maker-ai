@@ -5,6 +5,9 @@
 
 import type { PdfParseProgress, PdfParseResult } from "./type";
 
+// 重新导出类型以便其他文件使用
+export type { PdfParseProgress, PdfParseResult };
+
 /**
  * 从PDF文件提取文本
  * @param file PDF文件对象

@@ -10,6 +10,13 @@ interface RequestCache<T> {
   timestamp: number;
 }
 
+// 图片生成 API 响应类型
+export interface GenerateImageResponse {
+  success: boolean;
+  image_url?: string;
+  error?: string;
+}
+
 /**
  * 创建去重的请求函数
  * @param maxAge 缓存最大有效期(毫秒),默认 5000ms
@@ -63,10 +70,10 @@ export function useDedupedRequest<T>(maxAge = 5000) {
  * 为特定场景优化的去重 Hook
  */
 export function usePanelGenerationDedup() {
-  const { request, clearCache } = useDedupedRequest<unknown>(10000); // 图片生成去重时间更长
+  const { request, clearCache } = useDedupedRequest<GenerateImageResponse>(10000); // 图片生成去重时间更长
 
   const generateImage = useCallback(
-    async (panelId: string, prompt: string) => {
+    async (panelId: string, prompt: string): Promise<GenerateImageResponse> => {
       // 将 panelId + prompt 作为唯一键,避免不同提示词命中旧缓存
       const key = `generate-${panelId}-${prompt}`;
       return request(key, async () => {
