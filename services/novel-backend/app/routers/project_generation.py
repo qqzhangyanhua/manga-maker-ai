@@ -13,6 +13,7 @@ from ..database import get_db
 from ..models import NovelProject
 from ..middleware.auth import get_current_user_id
 from ..services.generation_service import NovelGenerationService
+from ..services.rag_service import NovelRAGService  # 新增: RAG 服务
 from .project_models import (
     AnalyzeChaptersCharactersRequest,
     AnalyzeWorldSettingRequest,
@@ -348,7 +349,7 @@ async def generate_outline(
 
     支持两种模式：
     - full: 完整生成（基于项目描述、角色、世界观）
-    - continue: 续写模式（基于现有章节续写后续章节）
+    - continue: 续写模式（基于现有章节续写后续章节，使用 RAG 增强上下文）
     """
     try:
         # 验证项目归属并获取项目信息
@@ -372,16 +373,56 @@ async def generate_outline(
         # 构建故事前提
         premise = project.description or project.title or "未命名故事"
 
-        # 调用生成服务
+        # ✨ 新增: 续写模式下使用 RAG 增强上下文
+        rag_context = None
+        if request_body.mode == "continue":
+            try:
+                rag_service = NovelRAGService(db)
+
+                # 基于最后一章大纲检索相关历史章节
+                if request_body.existing_outlines and len(request_body.existing_outlines) > 0:
+                    last_outline = request_body.existing_outlines[-1].get("outline", "")
+
+                    # 使用 RAG 服务检索语义相关章节
+                    rag_context = await rag_service.search_relevant_chapters(
+                        project_id=project_id,
+                        query=last_outline,
+                        current_chapter_number=request_body.start_chapter - 1,
+                        k=3  # 检索 Top-3 相关章节
+                    )
+
+                    logger.info(
+                        f"📚 RAG 检索完成 - "
+                        f"项目ID: {project_id}, "
+                        f"查询章节号: {request_body.start_chapter - 1}, "
+                        f"检索结果: {len(rag_context)} 条"
+                    )
+            except Exception as rag_error:
+                # RAG 失败不阻塞流程，降级到基础续写
+                logger.warning(f"⚠️ RAG 检索失败，降级到基础续写: {str(rag_error)}")
+                rag_context = None
+
+        # 调用生成服务 - 传递完整参数
         result_data = await generation_service.generate_outline(
             premise=premise,
             characters=project.characters,
             world_setting=project.world_setting,
             chapter_count=request_body.chapter_count,
-            style_prompt=request_body.style_prompt,
+            style=request_body.style_prompt,
+            mode=request_body.mode,
+            existing_outlines=request_body.existing_outlines,
+            start_chapter=request_body.start_chapter,
+            rag_context=rag_context,  # 新增: RAG 检索结果
         )
 
-        logger.info(f"大纲生成成功，项目ID: {project_id}，章节数: {request_body.chapter_count}")
+        logger.info(
+            f"✅ 大纲生成成功 - "
+            f"项目ID: {project_id}, "
+            f"模式: {request_body.mode}, "
+            f"章节数: {request_body.chapter_count}, "
+            f"起始章节: {request_body.start_chapter}, "
+            f"RAG 增强: {'是' if rag_context else '否'}"
+        )
 
         return result_data
 

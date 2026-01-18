@@ -268,7 +268,8 @@ class NovelGenerationService:
         style: Optional[str] = None,
         mode: str = "full",
         existing_outlines: Optional[list] = None,
-        start_chapter: int = 1
+        start_chapter: int = 1,
+        rag_context: Optional[list] = None  # ✨ 新增: RAG 检索上下文
     ) -> dict:
         """
         生成小说大纲
@@ -282,6 +283,7 @@ class NovelGenerationService:
             mode: 生成模式（"full" 完整生成 | "continue" 续写模式）
             existing_outlines: 现有章节大纲（续写模式使用）
             start_chapter: 起始章节号（续写模式使用）
+            rag_context: RAG 检索的相关章节（续写模式增强）
 
         Returns:
             {
@@ -314,7 +316,7 @@ class NovelGenerationService:
                 user_prompt = f"""故事背景：
 {premise}
 
-现有章节（参考上下文）：
+现有章节（需要衔接的剧情）：
 """
                 for outline in existing_outlines:
                     ch_num = outline.get("chapter_number", "?")
@@ -322,11 +324,33 @@ class NovelGenerationService:
                     ch_outline = outline.get("outline", "")
                     user_prompt += f"\n第 {ch_num} 章《{ch_title}》：\n{ch_outline}\n"
 
-                user_prompt += f"\n\n续写要求：\n"
-                user_prompt += f"- 从第 {start_chapter} 章开始生成\n"
-                user_prompt += f"- 生成 {chapter_count} 个新章节\n"
-                user_prompt += f"- 承接上述章节的剧情，保持连贯性\n"
-                user_prompt += f"- 推进故事发展，不要重复现有内容\n"
+                # ✨ 新增: RAG 检索的相关历史章节内容
+                if rag_context and len(rag_context) > 0:
+                    user_prompt += "\n\n相关历史章节（RAG 语义检索，剧情参考）：\n"
+                    for ctx in rag_context:
+                        ch_num = ctx.get("chapter_number", "?")
+                        ch_title = ctx.get("title", "未知")
+                        ch_outline = ctx.get("outline", "")
+                        content_preview = ctx.get("content_preview", "")
+                        summary_preview = ctx.get("summary_preview", "")
+
+                        user_prompt += f"\n【第 {ch_num} 章 - {ch_title}】\n"
+                        if ch_outline:
+                            user_prompt += f"大纲：{ch_outline}\n"
+                        if content_preview:
+                            user_prompt += f"内容摘要：{content_preview}\n"
+                        if summary_preview:
+                            user_prompt += f"剧情状态：{summary_preview}\n"
+                        user_prompt += "---\n"
+
+                user_prompt += f"""
+
+续写要求：
+- 从第 {start_chapter} 章开始生成 {chapter_count} 个新章节
+- 承接现有章节的剧情线索、角色状态、未解决冲突
+- 延续已埋下的伏笔，推进故事发展
+- 避免重复已有内容，引入新的转折或挑战
+"""
             else:
                 # 完整生成模式
                 user_prompt = f"""故事前提：
@@ -395,7 +419,13 @@ class NovelGenerationService:
 
             # 📝 记录大纲生成的完整提示词
             logger.info("=" * 80)
-            logger.info(f"📋 生成章节大纲 - 模式: {mode}, 章节数: {chapter_count}, 起始章节: {start_chapter}")
+            logger.info(
+                f"📋 生成章节大纲 - "
+                f"模式: {mode}, "
+                f"章节数: {chapter_count}, "
+                f"起始章节: {start_chapter}, "
+                f"RAG 增强: {'是' if rag_context else '否'}"
+            )
             logger.info("-" * 80)
             logger.info("System Prompt:")
             logger.info(system_prompt)

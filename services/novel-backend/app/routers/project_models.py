@@ -49,10 +49,21 @@ class OptimizeDescriptionRequest(BaseModel):
 
 
 class GenerateOutlineRequest(BaseModel):
-    """生成大纲请求"""
-    project_id: str
+    """
+    生成大纲请求
+
+    支持两种模式:
+    - full: 完整生成（基于项目描述、角色、世界观）
+    - continue: 续写模式（基于现有章节续写后续章节）
+    """
     chapter_count: int = Field(..., ge=1, le=100, description="章节数量")
-    style_prompt: Optional[str] = None
+    style_prompt: Optional[str] = Field(None, alias="style", description="风格提示")
+    mode: str = Field("full", description="生成模式: full | continue")
+    existing_outlines: Optional[List[dict]] = Field(None, description="现有章节大纲（续写模式使用）")
+    start_chapter: int = Field(1, ge=1, description="起始章节号（续写模式使用）")
+
+    class Config:
+        populate_by_name = True  # 允许同时使用字段名和 alias
 
 
 # ============ Response Models ============
