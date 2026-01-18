@@ -1,42 +1,11 @@
-import {
-  Character,
-  CharacterExpression,
-  CharacterOutfit,
-  CharacterView,
+import { getLightingPromptModifier, isLightingPreset } from "./lighting-presets";
+import type {
+  BuildPanelPromptOptions,
+  CharacterWithAssets,
+  PanelWithProject,
+  PromptBlocks,
   ComicStyle,
-  Panel,
-  Project,
-  Scene,
-} from "@prisma/client";
-import { getLightingPromptModifier } from "./lighting-presets";
-
-type PanelWithProject = Panel & { project: Project | null };
-type CharacterWithAssets = Character & {
-  views: CharacterView[];
-  expressions: CharacterExpression[];
-  outfits: CharacterOutfit[];
-};
-
-export type PromptBlocks = {
-  references: string[];
-  characterProfile: string;
-  scene: string;
-  lighting?: string;
-  dialogue?: string | null;
-  camera?: string;
-  style: string;
-  aspectRatio: string;
-  negative: string;
-};
-
-export type BuildPanelPromptOptions = {
-  panel: PanelWithProject;
-  character?: CharacterWithAssets | null;
-  scene?: Scene | null;
-  style?: ComicStyle | null;
-  soften?: boolean;
-  aspectRatio?: string | null;
-};
+} from "./type";
 
 type ReplacementRecord = {
   from: string;
@@ -154,8 +123,9 @@ export function buildPanelPrompt(options: BuildPanelPromptOptions) {
   const styleText = pickStyleText(style, panel.project?.style);
 
   // 获取场景光效
-  const lightingModifier = scene && 'lighting_preset' in scene && scene.lighting_preset
-    ? getLightingPromptModifier(scene.lighting_preset as any)
+  const lightingPreset = scene?.lighting_preset;
+  const lightingModifier = isLightingPreset(lightingPreset)
+    ? getLightingPromptModifier(lightingPreset)
     : "";
 
   const blocks: PromptBlocks = {

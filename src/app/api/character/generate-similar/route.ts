@@ -4,7 +4,7 @@ import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { callChatCompletionByType } from "@/lib/llm-provider";
 import { callImageGenerationByType } from "@/lib/image-generation";
-import { assertAndIncrementUsage } from "@/lib/usage";
+import { QuotaExceededError, assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
 
 // POST /api/character/generate-similar - Generate similar character variations
@@ -50,12 +50,12 @@ export async function POST(req: Request) {
         providerType: provider_type,
         amount: count,
       });
-    } catch (quotaError: any) {
-      if (quotaError?.code === "QUOTA_EXCEEDED") {
+    } catch (quotaError) {
+      if (quotaError instanceof QuotaExceededError) {
         return NextResponse.json(
           {
             error: quotaError.message,
-            code: "QUOTA_EXCEEDED",
+            code: quotaError.code,
             limit: quotaError.limit,
             used: quotaError.count,
           },

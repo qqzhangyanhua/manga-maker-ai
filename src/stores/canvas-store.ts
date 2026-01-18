@@ -49,6 +49,36 @@ interface SceneDialogState {
 }
 
 /**
+ * 最终漫画生成弹窗状态
+ */
+interface FinalDialogState {
+  isOpen: boolean;
+  chapterId: string | null;
+  chapterTitle: string | null;
+  chapterNumber: number | null;
+  timelineId: string | null;
+}
+
+/**
+ * 单镜头生成弹窗状态
+ */
+export interface ShotGenerateDialogShotInfo {
+  shot_order: number;
+  camera_angle: string;
+  shot_size: string;
+  shot_description: string;
+  panel_type?: string;
+}
+
+interface ShotGenerateDialogState {
+  isOpen: boolean;
+  shotId: string | null;
+  shotInfo: ShotGenerateDialogShotInfo | null;
+  chapterId: string | null;
+  timelineId: string | null;
+}
+
+/**
  * Canvas Store 接口定义
  */
 interface CanvasStore {
@@ -128,6 +158,37 @@ interface CanvasStore {
    * 关闭场景生成弹窗
    */
   closeSceneDialog: () => void;
+
+  // ==================== 最终漫画生成弹窗状态 ====================
+  finalDialog: FinalDialogState;
+
+  /**
+   * 打开最终漫画生成弹窗
+   */
+  openFinalDialog: (chapterId: string, chapterTitle: string, chapterNumber: number, timelineId: string) => void;
+
+  /**
+   * 关闭最终漫画生成弹窗
+   */
+  closeFinalDialog: () => void;
+
+  // ==================== 单镜头生成弹窗状态 ====================
+  shotGenerateDialog: ShotGenerateDialogState;
+
+  /**
+   * 打开单镜头生成弹窗
+   */
+  openShotGenerateDialog: (
+    shotId: string,
+    shotInfo: ShotGenerateDialogShotInfo,
+    chapterId: string,
+    timelineId: string
+  ) => void;
+
+  /**
+   * 关闭单镜头生成弹窗
+   */
+  closeShotGenerateDialog: () => void;
 }
 
 /**
@@ -152,6 +213,20 @@ export const useCanvasStore = create<CanvasStore>((set) => ({
     chapterId: null,
     chapterTitle: null,
     chapterNumber: null,
+    timelineId: null,
+  },
+  finalDialog: {
+    isOpen: false,
+    chapterId: null,
+    chapterTitle: null,
+    chapterNumber: null,
+    timelineId: null,
+  },
+  shotGenerateDialog: {
+    isOpen: false,
+    shotId: null,
+    shotInfo: null,
+    chapterId: null,
     timelineId: null,
   },
 
@@ -232,6 +307,51 @@ export const useCanvasStore = create<CanvasStore>((set) => ({
       timelineId: null,
     },
   }),
+
+  openFinalDialog: (chapterId: string, chapterTitle: string, chapterNumber: number, timelineId: string) => set({
+    finalDialog: {
+      isOpen: true,
+      chapterId,
+      chapterTitle,
+      chapterNumber,
+      timelineId,
+    },
+  }),
+
+  closeFinalDialog: () => set({
+    finalDialog: {
+      isOpen: false,
+      chapterId: null,
+      chapterTitle: null,
+      chapterNumber: null,
+      timelineId: null,
+    },
+  }),
+
+  openShotGenerateDialog: (
+    shotId: string,
+    shotInfo: ShotGenerateDialogShotInfo,
+    chapterId: string,
+    timelineId: string
+  ) => set({
+    shotGenerateDialog: {
+      isOpen: true,
+      shotId,
+      shotInfo,
+      chapterId,
+      timelineId,
+    },
+  }),
+
+  closeShotGenerateDialog: () => set({
+    shotGenerateDialog: {
+      isOpen: false,
+      shotId: null,
+      shotInfo: null,
+      chapterId: null,
+      timelineId: null,
+    },
+  }),
 }));
 
 /**
@@ -287,3 +407,33 @@ export const useOpenSceneDialog = () => useCanvasStore((state) => state.openScen
  * 获取关闭场景生成弹窗的方法
  */
 export const useCloseSceneDialog = () => useCanvasStore((state) => state.closeSceneDialog);
+
+/**
+ * 获取最终漫画生成弹窗状态
+ */
+export const useFinalDialog = () => useCanvasStore((state) => state.finalDialog);
+
+/**
+ * 获取打开最终漫画生成弹窗的方法
+ */
+export const useOpenFinalDialog = () => useCanvasStore((state) => state.openFinalDialog);
+
+/**
+ * 获取关闭最终漫画生成弹窗的方法
+ */
+export const useCloseFinalDialog = () => useCanvasStore((state) => state.closeFinalDialog);
+
+/**
+ * 获取单镜头生成弹窗状态
+ */
+export const useShotGenerateDialog = () => useCanvasStore((state) => state.shotGenerateDialog);
+
+/**
+ * 获取打开单镜头生成弹窗的方法
+ */
+export const useOpenShotGenerateDialog = () => useCanvasStore((state) => state.openShotGenerateDialog);
+
+/**
+ * 获取关闭单镜头生成弹窗的方法
+ */
+export const useCloseShotGenerateDialog = () => useCanvasStore((state) => state.closeShotGenerateDialog);

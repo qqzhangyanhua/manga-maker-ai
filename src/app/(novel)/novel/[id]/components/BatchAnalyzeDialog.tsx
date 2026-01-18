@@ -21,6 +21,7 @@ import { Sparkles, CheckCircle, XCircle, Loader2, AlertCircle } from "lucide-rea
 import { toast } from "sonner";
 import { analyzeVersionQuality } from "../services/versionService";
 import type { ChapterVersion } from "../types/version";
+import { novelTheme } from "../../theme";
 
 interface BatchAnalyzeDialogProps {
   versions: ChapterVersion[];

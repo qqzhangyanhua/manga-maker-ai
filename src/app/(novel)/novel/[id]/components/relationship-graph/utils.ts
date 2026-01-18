@@ -3,11 +3,13 @@
  */
 import dagre from 'dagre';
 import type { Node, Edge, Position } from 'reactflow';
+import { RELATION_TYPE_CONFIGS } from './types';
 import type {
   CharacterNode,
   RelationshipEdge,
   LayoutType,
   CharacterNodeData,
+  RelationType,
 } from './types';
 import type { Character } from '../../types';
 
@@ -137,6 +139,11 @@ export function relationshipsToEdges(characters: Character[]): RelationshipEdge[
       if (processedPairs.has(pairKey)) return;
       processedPairs.add(pairKey);
 
+      const relationType: RelationType =
+        typeof rel.relation === 'string' && rel.relation in RELATION_TYPE_CONFIGS
+          ? (rel.relation as RelationType)
+          : 'neutral';
+
       edges.push({
         id: `${char.id}-${rel.characterId}`,
         source: char.id,
@@ -146,7 +153,7 @@ export function relationshipsToEdges(characters: Character[]): RelationshipEdge[
           id: `${char.id}-${rel.characterId}`,
           source: char.id,
           target: rel.characterId,
-          type: (rel.relation as any) || 'neutral',
+          type: relationType,
           description: rel.description,
           isBidirectional: true,
         },

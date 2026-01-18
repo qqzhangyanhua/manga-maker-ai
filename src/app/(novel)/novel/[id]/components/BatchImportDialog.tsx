@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Upload, FileText, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
+import { novelTheme } from "../../theme";
 
 interface BatchImportDialogProps {
   projectId: string

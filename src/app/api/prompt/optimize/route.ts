@@ -101,10 +101,10 @@ ${character ? `<character>${character}</character>` : ""}
       suggestions: parsed.suggestions || [],
       original: prompt,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("[Prompt Optimize Error]", error);
 
-    if (error.message?.includes("未找到可用的模型配置")) {
+    if (error instanceof Error && error.message.includes("未找到可用的模型配置")) {
       return NextResponse.json(
         {
           error: "AI 优化功能未配置",

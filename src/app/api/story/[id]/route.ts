@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { withAuth } from "@/lib/api-helpers";
+import { ApiError, withAuth } from "@/lib/api-helpers";
 
 /**
  * GET /api/story/[id]
@@ -53,13 +53,11 @@ export async function GET(
         });
 
         if (!story) {
-            throw new Error("故事不存在");
+            throw new ApiError("故事不存在", 404, "NOT_FOUND");
         }
 
         if (story.user_id !== userId) {
-            const error = new Error("无权访问") as any;
-            error.status = 403;
-            throw error;
+            throw new ApiError("无权访问", 403, "FORBIDDEN");
         }
 
         // Extract projectId if exists
@@ -128,13 +126,11 @@ export async function PATCH(
         });
 
         if (!story) {
-            throw new Error("故事不存在");
+            throw new ApiError("故事不存在", 404, "NOT_FOUND");
         }
 
         if (story.user_id !== userId) {
-            const error = new Error("无权修改") as any;
-            error.status = 403;
-            throw error;
+            throw new ApiError("无权修改", 403, "FORBIDDEN");
         }
 
         // Update story
@@ -179,13 +175,11 @@ export async function DELETE(
         });
 
         if (!story) {
-            throw new Error("故事不存在");
+            throw new ApiError("故事不存在", 404, "NOT_FOUND");
         }
 
         if (story.user_id !== userId) {
-            const error = new Error("无权删除") as any;
-            error.status = 403;
-            throw error;
+            throw new ApiError("无权删除", 403, "FORBIDDEN");
         }
 
         // Delete story

@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { Prisma, prisma } from "@/lib/db";
 import type { SuccessResponse, BatchGenerateInput, BatchGenerateResponse } from "@/types/template";
 
 /**
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     const projectId = searchParams.get("projectId");
 
     // Build where clause
-    const where: any = {
+    const where: Prisma.GenerationTaskWhereInput = {
       user_id: payload.userId
     };
 
@@ -242,7 +242,7 @@ export async function POST(req: NextRequest) {
         status: "pending",
         progress: 0,
         current_panel_index: 0,
-        settings: settings as any,
+        settings: settings as Prisma.InputJsonValue,
         error_logs: undefined
       }
     });

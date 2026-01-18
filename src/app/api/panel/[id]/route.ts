@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { withAuth } from "@/lib/api-helpers";
+import { ApiError, withAuth } from "@/lib/api-helpers";
 
 export async function GET(
   req: Request,
@@ -16,13 +16,11 @@ export async function GET(
     });
 
     if (!panel) {
-      throw new Error("分镜不存在");
+      throw new ApiError("分镜不存在", 404, "NOT_FOUND");
     }
 
     if (panel.project.user_id !== userId) {
-      const error = new Error("无权限访问此分镜") as any;
-      error.status = 403;
-      throw error;
+      throw new ApiError("无权限访问此分镜", 403, "FORBIDDEN");
     }
 
     return panel;
@@ -47,9 +45,7 @@ export async function PATCH(
     }
 
     if (existingPanel.project.user_id !== userId) {
-      const error = new Error("无权限修改此分镜") as any;
-      error.status = 403;
-      throw error;
+      throw new ApiError("无权限修改此分镜", 403, "FORBIDDEN");
     }
 
     const body = await req.json();
@@ -156,9 +152,7 @@ export async function DELETE(
     }
 
     if (existingPanel.project.user_id !== userId) {
-      const error = new Error("无权限删除此分镜") as any;
-      error.status = 403;
-      throw error;
+      throw new ApiError("无权限删除此分镜", 403, "FORBIDDEN");
     }
 
     // 删除 panel

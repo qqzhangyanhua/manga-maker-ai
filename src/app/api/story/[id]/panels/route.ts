@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { withAuth } from "@/lib/api-helpers";
+import { ApiError, withAuth } from "@/lib/api-helpers";
 
 /**
  * GET /api/story/[id]/panels
@@ -24,15 +24,11 @@ export async function GET(
         });
 
         if (!story) {
-            const error = new Error("故事不存在") as any;
-            error.status = 404;
-            throw error;
+            throw new ApiError("故事不存在", 404, "NOT_FOUND");
         }
 
         if (story.user_id !== userId) {
-            const error = new Error("无权访问") as any;
-            error.status = 403;
-            throw error;
+            throw new ApiError("无权访问", 403, "FORBIDDEN");
         }
 
         if (!story.projects || story.projects.length === 0) {

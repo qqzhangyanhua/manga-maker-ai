@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { Prisma, prisma } from "@/lib/db";
 import { PREDEFINED_TEMPLATES } from "@/lib/story-templates";
+import type { StoryTemplate } from "@prisma/client";
 
 /**
  * GET /api/story/templates
@@ -25,7 +26,7 @@ export async function GET(req: Request) {
         }
 
         // Build query
-        const where: any = {};
+        const where: Prisma.StoryTemplateWhereInput = {};
         if (category) {
             where.category = category;
         }
@@ -52,13 +53,13 @@ export async function GET(req: Request) {
                 : PREDEFINED_TEMPLATES;
 
             // Convert to DB format for consistency
-            const predefinedAsDb = predefinedFiltered.map((t) => ({
+            const predefinedAsDb: StoryTemplate[] = predefinedFiltered.map((t) => ({
                 id: `predefined_${t.name}`,
                 name: t.name,
                 category: t.category,
                 description: t.description,
-                structure: t.structure as any,
-                prompts: t.prompts as any,
+                structure: t.structure as Prisma.JsonValue,
+                prompts: t.prompts as Prisma.JsonValue,
                 is_public: true,
                 user_id: null,
                 usage_count: 0,
@@ -66,7 +67,7 @@ export async function GET(req: Request) {
                 updated_at: new Date(),
             }));
 
-            templates = [...predefinedAsDb, ...dbTemplates] as any;
+            templates = [...predefinedAsDb, ...dbTemplates];
         }
 
         return NextResponse.json({

@@ -48,17 +48,20 @@ export function useBatchGeneration(storyId: string, projectId: string) {
 
                         // 如果完成,更新缓存
                         if (data.status === 'completed' && data.imageUrl) {
-                            queryClient.setQueryData(['story', storyId], (old: any) => {
-                                if (!old) return old;
-                                return {
-                                    ...old,
-                                    panels: old.panels.map((p: Panel) =>
-                                        p.id === panelId
-                                            ? { ...p, generated_image: data.imageUrl, image_url: data.imageUrl }
-                                            : p
-                                    ),
-                                };
-                            });
+                            queryClient.setQueryData(
+                                ["story", storyId],
+                                (old: { panels: Panel[] } | undefined) => {
+                                    if (!old) return old;
+                                    return {
+                                        ...old,
+                                        panels: old.panels.map((panel) =>
+                                            panel.id === panelId
+                                                ? { ...panel, generated_image: data.imageUrl, image_url: data.imageUrl }
+                                                : panel
+                                        ),
+                                    };
+                                }
+                            );
                         }
                     } catch (error) {
                         console.error(`Poll task ${task.taskId} error:`, error);

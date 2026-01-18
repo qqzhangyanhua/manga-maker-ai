@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { withAuth } from "@/lib/api-helpers";
+import { ApiError, withAuth } from "@/lib/api-helpers";
 import type { CharacterRole } from "@/types/phase2.types";
 
 const VALID_ROLES: CharacterRole[] = ["protagonist", "antagonist", "supporting", "minor"];
@@ -20,15 +20,11 @@ export async function DELETE(
     });
 
     if (!story) {
-      const error = new Error("故事不存在") as any;
-      error.status = 404;
-      throw error;
+      throw new ApiError("故事不存在", 404, "NOT_FOUND");
     }
 
     if (story.user_id !== userId) {
-      const error = new Error("无权访问此故事") as any;
-      error.status = 403;
-      throw error;
+      throw new ApiError("无权访问此故事", 403, "FORBIDDEN");
     }
 
     const storyCharacter = await prisma.storyCharacter.findUnique({
@@ -44,9 +40,7 @@ export async function DELETE(
     });
 
     if (!storyCharacter) {
-      const error = new Error("该角色不在此故事中") as any;
-      error.status = 404;
-      throw error;
+      throw new ApiError("该角色不在此故事中", 404, "NOT_FOUND");
     }
 
     await prisma.storyCharacter.delete({
@@ -94,15 +88,11 @@ export async function PATCH(
     });
 
     if (!story) {
-      const error = new Error("故事不存在") as any;
-      error.status = 404;
-      throw error;
+      throw new ApiError("故事不存在", 404, "NOT_FOUND");
     }
 
     if (story.user_id !== userId) {
-      const error = new Error("无权访问此故事") as any;
-      error.status = 403;
-      throw error;
+      throw new ApiError("无权访问此故事", 403, "FORBIDDEN");
     }
 
     const storyCharacter = await prisma.storyCharacter.findUnique({
@@ -115,9 +105,7 @@ export async function PATCH(
     });
 
     if (!storyCharacter) {
-      const error = new Error("该角色不在此故事中") as any;
-      error.status = 404;
-      throw error;
+      throw new ApiError("该角色不在此故事中", 404, "NOT_FOUND");
     }
 
     const body = await req.json();
@@ -140,9 +128,7 @@ export async function PATCH(
       if (VALID_ROLES.includes(role as CharacterRole)) {
         updateData.role = role;
       } else {
-        const error = new Error(`无效的角色类型，必须是: ${VALID_ROLES.join(", ")}`) as any;
-        error.status = 400;
-        throw error;
+        throw new ApiError(`无效的角色类型，必须是: ${VALID_ROLES.join(", ")}`, 400, "BAD_REQUEST");
       }
     }
 

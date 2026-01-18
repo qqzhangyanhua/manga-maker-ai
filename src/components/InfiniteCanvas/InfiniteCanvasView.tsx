@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useMemo, useState, useEffect } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import ReactFlow, {
   Background,
   Controls,
@@ -10,7 +12,7 @@ import ReactFlow, {
   Panel,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { Wifi, WifiOff, CheckSquare, Zap, Settings, Plus } from 'lucide-react';
+import { Wifi, WifiOff, CheckSquare, Zap, Settings, Plus, Users } from 'lucide-react';
 
 import type { PaginatedTimeline, WindowState, ChapterSummary } from './types';
 import { transformTimelineToFlow, calculateOverallProgress } from './utils/transformData';
@@ -31,9 +33,12 @@ import { TimelineSettings } from './TimelineSettings';
 import { GenerationProgress } from './GenerationProgress';
 import { AddChapterDialog } from './AddChapterDialog';
 import { GenerateSceneDialog } from './GenerateSceneDialog';
+import { GenerateFinalDialog } from './GenerateFinalDialog';
 import { EmptyCanvasState } from './EmptyCanvasState';
 import { ChapterNavigator } from './ChapterNavigator';
 import { WindowNavigationPanel } from './WindowNavigationPanel';
+import { CharacterPreparationDrawer } from './CharacterPreparationDrawer';
+import { Badge } from '@/components/ui/badge';
 
 interface InfiniteCanvasViewProps {
   timeline: PaginatedTimeline;
@@ -73,10 +78,19 @@ export function InfiniteCanvasView({
   const [settingsOpen, setSettingsOpen] = useState(false);
   // 添加章节对话框状态
   const [addChapterOpen, setAddChapterOpen] = useState(false);
+  // 角色准备抽屉状态
+  const [characterDrawerOpen, setCharacterDrawerOpen] = useState(false);
 
   // 场景生成弹窗状态 (从 store 获取)
   const sceneDialog = useCanvasStore(state => state.sceneDialog);
   const closeSceneDialog = useCanvasStore(state => state.closeSceneDialog);
+
+  // 最终漫画生成弹窗状态 (从 store 获取)
+  const finalDialog = useCanvasStore(state => state.finalDialog);
+  const closeFinalDialog = useCanvasStore(state => state.closeFinalDialog);
+
+  // React Query client for cache management
+  const queryClient = useQueryClient();
 
   // 调试：监听状态变化
   useEffect(() => {
@@ -141,6 +155,102 @@ export function InfiniteCanvasView({
 
   // 启用工作流自动化
   useWorkflowAutomation(timeline.id);
+
+  // 最终漫画生成 mutation
+  const generateFinalsMutation = useMutation({
+    mutationFn: async ({ chapterId, selectedCharacters }: {
+      chapterId: string;
+      selectedCharacters: Array<{
+        name: string;
+        role: string;
+        description: string;
+        tempId: string;
+      }>;
+    }) => {
+      const response = await fetch(`/api/canvas/chapter/${chapterId}/generate-finals`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          characters: selectedCharacters
+        }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '生成失败');
+      }
+      return response.json();
+    },
+    onMutate: async ({ chapterId }) => {
+      // 乐观更新: 立即关闭弹窗并显示 generating 状态
+      closeFinalDialog();
+
+      // 取消正在进行的查询
+      await queryClient.cancelQueries({ queryKey: ['timeline', timeline.id] });
+
+      // 获取并保存之前的数据
+      const queries = queryClient.getQueriesData({ queryKey: ['timeline', timeline.id] });
+      const previousDataMap = new Map(queries);
+
+      // 更新所有匹配的查询缓存
+      queryClient.setQueriesData(
+        { queryKey: ['timeline', timeline.id] },
+        (old: unknown) => {
+          if (!old || typeof old !== 'object') return old;
+          const data = old as { chapters?: Array<{ id: string; final_status: string }> };
+          if (!data.chapters) return old;
+          return {
+            ...data,
+            chapters: data.chapters.map((ch) =>
+              ch.id === chapterId
+                ? { ...ch, final_status: 'generating' }
+                : ch
+            ),
+          };
+        }
+      );
+
+      return { previousDataMap };
+    },
+    onSuccess: async (responseData, { chapterId }) => {
+      toast.success('漫画生成成功', {
+        description: `生成 ${responseData.metadata?.panel_count || 0} 张漫画`
+      });
+
+      // 更新缓存为完成状态
+      queryClient.setQueriesData(
+        { queryKey: ['timeline', timeline.id] },
+        (old: unknown) => {
+          if (!old || typeof old !== 'object') return old;
+          const data = old as { chapters?: Array<{ id: string; final_status: string; final_image_count: number }> };
+          if (!data.chapters) return old;
+          return {
+            ...data,
+            chapters: data.chapters.map((ch) =>
+              ch.id === chapterId
+                ? {
+                    ...ch,
+                    final_status: 'completed',
+                    final_image_count: responseData.metadata?.panel_count || 0,
+                  }
+                : ch
+            ),
+          };
+        }
+      );
+
+      // 刷新数据以确保与数据库同步
+      await queryClient.refetchQueries({ queryKey: ['timeline', timeline.id] });
+    },
+    onError: (error: Error, _variables, context) => {
+      toast.error('漫画生成失败', { description: error.message });
+      // 回滚到之前的数据
+      if (context?.previousDataMap) {
+        context.previousDataMap.forEach((data, key) => {
+          queryClient.setQueryData(key as string[], data);
+        });
+      }
+    },
+  });
 
   // 刷新数据时更新节点
   const handleRefresh = useCallback(() => {
@@ -238,6 +348,14 @@ export function InfiniteCanvasView({
                   title="时间线设置"
                 >
                   <Settings className="w-4 h-4" />
+                </button>
+                {/* 角色准备按钮 */}
+                <button
+                  onClick={() => setCharacterDrawerOpen(true)}
+                  className="relative p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-purple-400 transition-colors"
+                  title="角色准备"
+                >
+                  <Users className="w-4 h-4" />
                 </button>
                 {/* 全局操作 */}
                 <GlobalActions timeline={timeline} />
@@ -381,6 +499,32 @@ export function InfiniteCanvasView({
           onSuccess={handleRefresh}
         />
       )}
+
+      {/* 最终漫画生成对话框 */}
+      {finalDialog.chapterId && finalDialog.timelineId && (
+        <GenerateFinalDialog
+          open={finalDialog.isOpen}
+          onOpenChange={(open) => !open && closeFinalDialog()}
+          chapterId={finalDialog.chapterId}
+          chapterTitle={finalDialog.chapterTitle || ''}
+          chapterNumber={finalDialog.chapterNumber || 1}
+          timelineId={finalDialog.timelineId}
+          onConfirm={(selectedCharacters) => {
+            generateFinalsMutation.mutate({
+              chapterId: finalDialog.chapterId!,
+              selectedCharacters
+            });
+          }}
+        />
+      )}
+
+      {/* 角色准备抽屉 */}
+      <CharacterPreparationDrawer
+        isOpen={characterDrawerOpen}
+        onClose={() => setCharacterDrawerOpen(false)}
+        chapterId={timeline.chapters?.[0]?.id || null}
+        timelineId={timeline.id}
+      />
     </div>
   );
 }

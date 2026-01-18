@@ -3,20 +3,7 @@
  * 使用动态导入避免Next.js打包问题
  */
 
-export interface PdfParseProgress {
-  current: number;
-  total: number;
-  percentage: number;
-}
-
-export interface PdfParseResult {
-  text: string;
-  pageCount: number;
-  metadata?: {
-    title?: string;
-    author?: string;
-  };
-}
+import type { PdfParseProgress, PdfParseResult } from "./type";
 
 /**
  * 从PDF文件提取文本
@@ -52,9 +39,10 @@ export async function extractTextFromPdf(
     const textContent = await page.getTextContent();
 
     // 拼接页面文本
-    const pageText = textContent.items
-      .map((item: any) => item.str)
-      .join(' ');
+    const items = textContent.items as Array<{ str?: string }>;
+    const pageText = items
+      .map((item) => item.str || "")
+      .join(" ");
 
     textParts.push(pageText);
 

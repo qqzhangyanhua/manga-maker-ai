@@ -63,7 +63,7 @@ export function useDedupedRequest<T>(maxAge = 5000) {
  * 为特定场景优化的去重 Hook
  */
 export function usePanelGenerationDedup() {
-  const { request, clearCache } = useDedupedRequest<any>(10000); // 图片生成去重时间更长
+  const { request, clearCache } = useDedupedRequest<unknown>(10000); // 图片生成去重时间更长
 
   const generateImage = useCallback(
     async (panelId: string, prompt: string) => {

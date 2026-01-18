@@ -28,6 +28,7 @@ import {
 import { Film, Loader2, ChevronRight, Users, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import type { ChapterOutline } from "../types";
+import { novelTheme } from "../../theme";
 
 interface NovelCharacter {
   name: string;

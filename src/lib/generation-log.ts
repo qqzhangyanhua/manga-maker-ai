@@ -1,4 +1,4 @@
-import { prisma } from "./db";
+import { prisma, Prisma } from "./db";
 
 type GenerationStatus = "success" | "failed" | "pending";
 
@@ -9,8 +9,8 @@ export async function recordGenerationLog(params: {
   status: GenerationStatus;
   projectId?: string | null;
   durationMs?: number;
-  requestPayload?: any;
-  responsePayload?: any;
+  requestPayload?: Prisma.InputJsonValue;
+  responsePayload?: Prisma.InputJsonValue;
   errorMessage?: string;
 }) {
   const {
@@ -44,7 +44,7 @@ export async function recordGenerationLog(params: {
   }
 }
 
-const sanitizeJson = (value: any) => {
+const sanitizeJson = (value: Prisma.InputJsonValue) => {
   try {
     return JSON.parse(JSON.stringify(value));
   } catch {

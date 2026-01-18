@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { Prisma, prisma } from "@/lib/db";
 import { withAuth } from "@/lib/api-helpers";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export async function GET(req: Request) {
 
         const skip = (page - 1) * limit;
 
-        const whereCondition: any = {
+        const whereCondition: Prisma.StoryWhereInput = {
             user_id: userId,
         };
 

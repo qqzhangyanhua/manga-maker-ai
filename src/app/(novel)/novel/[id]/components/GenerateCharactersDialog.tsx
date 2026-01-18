@@ -20,6 +20,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Sparkles, Loader2, User } from "lucide-react";
 import { toast } from "sonner";
 import type { Character, ChapterOutline } from "./character";
+import { novelTheme } from "../../theme";
 
 interface GeneratedCharacter {
   name: string;
@@ -79,9 +80,9 @@ export function GenerateCharactersDialog({
 
       if (response.ok) {
         const data = await response.json();
-        const characters = data.characters.map((char: any) => ({
+        const characters = ((data.characters || []) as GeneratedCharacter[]).map((char) => ({
           ...char,
-          selected: true, // 默认全选
+          selected: true,
         }));
         setSuggestedCharacters(characters);
         setHasAnalyzed(true);
@@ -154,7 +155,7 @@ export function GenerateCharactersDialog({
       <DialogContent className="sm:max-w-[700px] max-h-[80vh] bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-purple-500" />
+            <Sparkles className={novelTheme.dialog.titleIcon} />
             AI 生成角色
           </DialogTitle>
           <DialogDescription>
@@ -166,7 +167,7 @@ export function GenerateCharactersDialog({
           {!hasAnalyzed ? (
             // 分析前的状态
             <div className="space-y-4">
-              <div className="rounded-lg bg-purple-900/20 border border-purple-500/10 p-4 text-sm">
+              <div className={novelTheme.dialog.infoBox}>
                 <p className="font-medium mb-2">📖 分析范围</p>
                 <ul className="space-y-1 text-muted-foreground">
                   <li>• 已生成章节数：{outlines.length} 章</li>

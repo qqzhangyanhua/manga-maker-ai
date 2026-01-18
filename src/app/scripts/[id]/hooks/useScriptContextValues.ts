@@ -13,7 +13,6 @@ import type { UIState, UIActions } from "./useUIState";
 import type { CharacterRole } from "@/components/StoryCharacter/types";
 
 interface UseScriptContextValuesProps {
-  // Data - 使用 any 以避免重复类型定义
   storyId: string;
   projectId: string | null;
   story: ScriptEditorDataContext["story"];

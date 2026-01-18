@@ -26,6 +26,13 @@ export function DialogsManager({
   onExecuteGeneration,
 }: DialogsManagerProps) {
   const { toast } = useToast();
+  const suggestedCharactersForSync = novelCharacterSync.charactersWithStatus.map((character) => ({
+    name: character.name,
+    role: character.role,
+    description: "",
+    appearance: "",
+    generated: character.generated,
+  }));
 
   // 角色详情对话框状态
   const [selectedCharacter, setSelectedCharacter] = useState<SelectedCharacter | null>(null);
@@ -91,7 +98,7 @@ export function DialogsManager({
           open={novelCharacterSync.dialogOpen}
           onOpenChange={novelCharacterSync.closeDialog}
           storyId={storyId}
-          suggestedCharacters={novelCharacterSync.charactersWithStatus as any} // 临时修复类型
+          suggestedCharacters={suggestedCharactersForSync}
           onSuccess={() => {
             novelCharacterSync.closeDialog();
             void onRefetchStoryCharacters();

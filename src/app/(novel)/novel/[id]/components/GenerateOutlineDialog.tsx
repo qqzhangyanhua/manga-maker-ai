@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { novelTheme } from "../../theme";
 
 interface GenerateOutlineDialogProps {
   isOpen: boolean;
@@ -116,7 +117,7 @@ export function GenerateOutlineDialog({
       <DialogContent className="sm:max-w-[500px] bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-purple-500" />
+            <Sparkles className={novelTheme.dialog.titleIcon} />
             AI 生成大纲
           </DialogTitle>
           <DialogDescription>
@@ -148,7 +149,7 @@ export function GenerateOutlineDialog({
               <SelectTrigger id="style" className="bg-zinc-900/40 border-purple-500/10 focus:ring-purple-500/50">
                 <SelectValue placeholder="选择风格（可选）" />
               </SelectTrigger>
-              <SelectContent className="bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl">
+              <SelectContent className={novelTheme.dialog.content}>
                 <SelectItem value="none">不指定</SelectItem>
                 <SelectItem value="玄幻">玄幻</SelectItem>
                 <SelectItem value="科幻">科幻</SelectItem>
@@ -162,7 +163,7 @@ export function GenerateOutlineDialog({
             </Select>
           </div>
 
-          <div className="rounded-lg bg-purple-900/20 border border-purple-500/10 p-3 text-sm text-purple-200">
+          <div className={novelTheme.dialog.infoBox}>
             <p className="font-medium mb-1">💡 提示</p>
             <ul className="space-y-1 text-xs">
               <li>• AI 会参考项目描述、世界观和角色设定</li>

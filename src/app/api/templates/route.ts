@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { Prisma, prisma } from "@/lib/db";
 import { ensureOfficialTemplatesSeed } from "@/lib/templates";
 import type { PanelTemplate, SuccessResponse } from "@/types/template";
 
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
     const targetCharacters = searchParams.get("targetCharacters") ? parseInt(searchParams.get("targetCharacters")!, 10) : null;
 
     // Build where clause for DB-level filtering (Type, Tags, Search)
-    const where: any = {};
+    const where: Prisma.PanelTemplateWhereInput = {};
 
     // Filter by type
     if (type === "my") {
@@ -141,35 +141,40 @@ export async function GET(req: NextRequest) {
     });
 
     // Perform In-Memory Filtering for JSON fields
-    let filteredTemplates = allCandidates.filter(t => {
-      // Parse template_data if needed
-      let meta: any = null;
+    let filteredTemplates = allCandidates.filter((t) => {
+      let meta: Record<string, unknown> | null = null;
       if (t.template_data) {
-        if (typeof t.template_data === 'string') {
+        if (typeof t.template_data === "string") {
           try {
-            meta = JSON.parse(t.template_data).meta;
-          } catch (e) { /* ignore parse error */ }
-        } else {
-          meta = (t.template_data as any).meta;
+            const parsed = JSON.parse(t.template_data) as { meta?: Record<string, unknown> };
+            meta = parsed.meta ?? null;
+          } catch {
+            meta = null;
+          }
+        } else if (typeof t.template_data === "object" && !Array.isArray(t.template_data)) {
+          meta = (t.template_data as { meta?: Record<string, unknown> }).meta ?? null;
         }
       }
 
-      // Filter: Category
+      const metaValue = meta as {
+        category?: string;
+        complexityLevel?: string;
+        recommendedCharacters?: { min?: number; max?: number };
+      };
+
       if (category && category !== "all") {
-        if (meta?.category !== category) return false;
+        if (metaValue?.category !== category) return false;
       }
 
-      // Filter: Difficulty
       if (difficulty && difficulty !== "all") {
-        if (meta?.complexityLevel !== difficulty) return false;
+        if (metaValue?.complexityLevel !== difficulty) return false;
       }
 
-      // Filter: Target Characters (Range)
       if (targetCharacters) {
-        if (!meta?.recommendedCharacters) return false;
-        const { min, max } = meta.recommendedCharacters;
-        const minVal = min ?? 1;
-        const maxVal = max ?? 100;
+        const recommended = metaValue?.recommendedCharacters;
+        if (!recommended) return false;
+        const minVal = recommended.min ?? 1;
+        const maxVal = recommended.max ?? 100;
         if (targetCharacters < minVal || targetCharacters > maxVal) return false;
       }
 

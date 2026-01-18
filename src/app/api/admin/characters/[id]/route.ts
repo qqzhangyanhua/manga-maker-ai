@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth-helpers";
+import { getErrorStatus } from "@/lib/api-helpers";
 
 const trainingStatuses = ["pending", "training", "ready", "failed"] as const;
 
@@ -23,7 +24,7 @@ const characterUpdateSchema = z
 
 const handleError = (error: unknown) => {
   const message = error instanceof Error ? error.message : "未知错误";
-  const status = (error as any)?.status ?? 500;
+  const status = error instanceof Error ? getErrorStatus(error) : 500;
   return NextResponse.json({ success: false, message }, { status });
 };
 

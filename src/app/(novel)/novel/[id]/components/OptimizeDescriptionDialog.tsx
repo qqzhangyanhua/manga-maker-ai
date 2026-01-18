@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Sparkles, Loader2, Check } from "lucide-react";
 import { toast } from "sonner";
+import { novelTheme } from "../../theme";
 
 interface OptimizeDescriptionDialogProps {
   isOpen: boolean;

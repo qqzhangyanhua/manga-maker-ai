@@ -4,6 +4,7 @@ import { Lock } from "lucide-react";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
 import { TAB_VALUES } from "../hooks/useUIState";
 import { SerialChapterList } from "@/components/SerialChapterList";
+import type { Panel as SerialPanel } from "@/components/SerialChapterList/types";
 import { StoryCharactersManager } from "./StoryCharactersManager";
 import { StoryImagesGallery } from "./StoryImagesGallery";
 import { LayoutExportTab } from "./LayoutExportTab";
@@ -39,6 +40,13 @@ export function ScriptPageTabs({
   onRefetchPanels,
   onError,
 }: ScriptPageTabsProps) {
+  const serialPanels = panels as unknown as SerialPanel[];
+  const batchPanels = serialPanels as unknown as Array<{
+    id: string;
+    prompt_used?: string;
+    [key: string]: unknown;
+  }>;
+
   return (
     <Tabs value={activeTab} onValueChange={onTabChange} className="w-full">
       <TabsList className="mb-6 bg-transparent border-b border-gray-800 rounded-none w-full justify-start h-auto p-0">
@@ -89,12 +97,12 @@ export function ScriptPageTabs({
 
       {/* 章节创作视图 */}
       <TabsContent value={TAB_VALUES.SERIAL} className="mt-0">
-        <BatchOperationsManager panels={panels as any} onRefresh={onRefetchPanels} />
+        <BatchOperationsManager panels={batchPanels} onRefresh={onRefetchPanels} />
         <SerialChapterList
           storyId={storyId}
           projectId={projectId}
           chapters={chapters}
-          panels={panels as any}
+          panels={serialPanels}
           characters={characterAssets}
           charactersLoading={isCharactersLoading}
           isGeneratingPanels={isGenerating}

@@ -125,41 +125,55 @@ export async function POST(req: Request, { params }: RouteParams) {
 
       const createdShots = await Promise.all(
         shots.map((shot) => {
-          // 🔧 数据兼容性处理：支持 Python 返回的多种字段名
-          // Python Pydantic 模型使用 shot_description
-          // 但 TypeScript 类型定义使用 action_description（历史遗留）
+          const shotData = shot as unknown as Record<string, unknown>;
           const shotDescription =
-            (shot as any).shot_description ||  // Python 新模型
-            (shot as any).action_description || // TypeScript 旧类型
-            segment.scene_description ||        // Fallback 到场景描述
-            `${shot.camera_angle} ${shot.shot_size}`; // 最终 fallback
+            (typeof shotData.shot_description === "string" ? shotData.shot_description : undefined) ||
+            (typeof shotData.action_description === "string" ? shotData.action_description : undefined) ||
+            segment.scene_description ||
+            `${typeof shotData.camera_angle === "string" ? shotData.camera_angle : ""} ${typeof shotData.shot_size === "string" ? shotData.shot_size : ""}`.trim();
 
-          // 提取 location_key（场景去重标识）
-          const locationKey = (shot as any).location_key || "";
+          const locationKey = typeof shotData.location_key === "string" ? shotData.location_key : "";
+          const descriptionSource = typeof shotData.shot_description === "string"
+            ? "shot_description"
+            : typeof shotData.action_description === "string"
+              ? "action_description"
+              : segment.scene_description
+                ? "scene_description"
+                : "default";
+
+          const shotOrder = typeof shotData.shot_order === "number" ? shotData.shot_order : 0;
+          const cameraAngle = typeof shotData.camera_angle === "string" ? shotData.camera_angle : "";
+          const shotSize = typeof shotData.shot_size === "string" ? shotData.shot_size : "";
+          const compositionHint = typeof shotData.composition_hint === "string"
+            ? shotData.composition_hint
+            : typeof shotData.visual_notes === "string"
+              ? shotData.visual_notes
+              : "";
+          const prompt = typeof shotData.prompt === "string" ? shotData.prompt : `${cameraAngle}, ${shotSize}`.trim();
+          const negativePrompt = typeof shotData.negative_prompt === "string" ? shotData.negative_prompt : "blurry, low quality, distorted";
+          const characterFocus = typeof shotData.character_focus === "string" ? shotData.character_focus : null;
 
           logInfo("创建镜头记录", {
             segmentId: segment.id,
-            shotOrder: shot.shot_order,
+            shotOrder,
             hasDescription: !!shotDescription,
             locationKey,
-            descriptionSource: (shot as any).shot_description ? "shot_description" :
-                              (shot as any).action_description ? "action_description" :
-                              segment.scene_description ? "scene_description" : "default",
+            descriptionSource,
           });
 
           return prisma.shotDesign.create({
             data: {
               script_segment_id: segment.id,
-              shot_order: shot.shot_order,
-              camera_angle: shot.camera_angle,
-              shot_size: shot.shot_size,
-              panel_type: "medium", // 默认类型
+              shot_order: shotOrder,
+              camera_angle: cameraAngle,
+              shot_size: shotSize,
+              panel_type: "medium",
               shot_description: shotDescription,
-              composition_hint: (shot as any).composition_hint || (shot as any).visual_notes || "",
-              location_key: locationKey, // 场景去重标识
-              prompt: (shot as any).prompt || `${shot.camera_angle}, ${shot.shot_size}`,
-              negative_prompt: (shot as any).negative_prompt || "blurry, low quality, distorted",
-              character_ids: shot.character_focus ? [shot.character_focus] : [],
+              composition_hint: compositionHint,
+              location_key: locationKey,
+              prompt,
+              negative_prompt: negativePrompt,
+              character_ids: characterFocus ? [characterFocus] : [],
             },
           });
         })

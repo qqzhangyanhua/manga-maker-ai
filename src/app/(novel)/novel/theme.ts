@@ -174,6 +174,75 @@ export const novelTheme = {
     /** 聚光灯覆盖层 */
     overlay: "pointer-events-none absolute inset-0 z-30 transition-opacity duration-500",
   },
+
+  /**
+   * 对话框样式
+   */
+  dialog: {
+    /** 对话框内容 - 玻璃态效果 */
+    content: "bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl",
+
+    /** 对话框标题图标 */
+    titleIcon: "h-5 w-5 text-purple-500",
+
+    /** 对话框提示框 */
+    infoBox: "rounded-lg bg-purple-900/20 border border-purple-500/10 p-3 text-sm text-purple-200",
+  },
+
+  /**
+   * 加载状态
+   */
+  loading: {
+    /** 加载图标 */
+    spinner: "animate-spin text-purple-500",
+
+    /** 加载边框 */
+    border: "border-purple-500/20 animate-pulse",
+  },
+
+  /**
+   * Select 下拉框样式
+   */
+  select: {
+    /** Select 内容 */
+    content: "bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl",
+
+    /** Select 触发器 */
+    trigger: "bg-zinc-900/40 border-purple-500/10 focus:ring-purple-500/50",
+  },
+
+  /**
+   * Popover 弹出框样式
+   */
+  popover: {
+    /** Popover 内容 */
+    content: "bg-zinc-900/95 border-purple-500/20 backdrop-blur-xl",
+  },
+
+  /**
+   * 渐变效果
+   */
+  gradient: {
+    /** 紫粉渐变 */
+    purplePink: "bg-gradient-to-br from-purple-500 to-pink-500",
+
+    /** 紫粉渐变（半透明） */
+    purplePinkSoft: "bg-gradient-to-br from-purple-500/20 to-pink-500/20",
+  },
+
+  /**
+   * 图标颜色
+   */
+  icon: {
+    /** 紫色图标 */
+    purple: "text-purple-500",
+
+    /** 紫色图标（浅色） */
+    purpleLight: "text-purple-400",
+
+    /** 紫色图标（深色） */
+    purpleDark: "text-purple-600",
+  },
 } as const;
 
 /**

@@ -128,6 +128,10 @@ export function TaskProgressMonitor({
   const panelCount = task.panel_ids.length;
   const currentIndex = task.current_panel_index;
   const progress = task.progress;
+  const taskSettings = task.settings as { quality?: string; failureMode?: string } | null;
+  const errorLogs = Array.isArray(task.error_logs)
+    ? (task.error_logs as Array<{ error?: string }>)
+    : [];
 
   return (
     <Card>
@@ -187,29 +191,29 @@ export function TaskProgressMonitor({
           <div className="flex justify-between">
             <span className="text-muted-foreground">质量:</span>
             <span className="font-medium">
-              {(task.settings as any).quality === "high" ? "高质量" : "标准质量"}
+              {taskSettings?.quality === "high" ? "高质量" : "标准质量"}
             </span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">失败处理:</span>
             <span className="font-medium">
-              {(task.settings as any).failureMode === "stop" ? "停止任务" : "跳过失败项"}
+              {taskSettings?.failureMode === "stop" ? "停止任务" : "跳过失败项"}
             </span>
           </div>
         </div>
 
         {/* Error logs */}
-        {task.error_logs && (task.error_logs as any[]).length > 0 && (
+        {errorLogs.length > 0 && (
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              <p className="font-semibold mb-2">遇到 {(task.error_logs as any[]).length} 个错误:</p>
+              <p className="font-semibold mb-2">遇到 {errorLogs.length} 个错误:</p>
               <ul className="list-disc list-inside space-y-1 text-sm">
-                {(task.error_logs as any[]).slice(0, 3).map((log: any, index: number) => (
-                  <li key={index}>{log.error}</li>
+                {errorLogs.slice(0, 3).map((log, index) => (
+                  <li key={index}>{log.error ?? "未知错误"}</li>
                 ))}
-                {(task.error_logs as any[]).length > 3 && (
-                  <li>还有 {(task.error_logs as any[]).length - 3} 个错误...</li>
+                {errorLogs.length > 3 && (
+                  <li>还有 {errorLogs.length - 3} 个错误...</li>
                 )}
               </ul>
             </AlertDescription>

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { withAuth } from "@/lib/api-helpers";
+import { ApiError, withAuth } from "@/lib/api-helpers";
 
 /**
  * GET /api/story/[id]/chapters
@@ -18,15 +18,11 @@ export async function GET(
     });
 
     if (!story) {
-      const error = new Error("故事不存在") as any;
-      error.status = 404;
-      throw error;
+      throw new ApiError("故事不存在", 404, "NOT_FOUND");
     }
 
     if (story.user_id !== userId) {
-      const error = new Error("无权访问此故事") as any;
-      error.status = 403;
-      throw error;
+      throw new ApiError("无权访问此故事", 403, "FORBIDDEN");
     }
 
     const chapters = await prisma.chapter.findMany({
@@ -62,9 +58,7 @@ export async function POST(
     const { title, summary } = body;
 
     if (!title || typeof title !== "string") {
-      const error = new Error("章节标题不能为空") as any;
-      error.status = 400;
-      throw error;
+      throw new ApiError("章节标题不能为空", 400, "BAD_REQUEST");
     }
 
     const story = await prisma.story.findUnique({
@@ -73,15 +67,11 @@ export async function POST(
     });
 
     if (!story) {
-      const error = new Error("故事不存在") as any;
-      error.status = 404;
-      throw error;
+      throw new ApiError("故事不存在", 404, "NOT_FOUND");
     }
 
     if (story.user_id !== userId) {
-      const error = new Error("无权访问此故事") as any;
-      error.status = 403;
-      throw error;
+      throw new ApiError("无权访问此故事", 403, "FORBIDDEN");
     }
 
     const lastChapter = await prisma.chapter.findFirst({

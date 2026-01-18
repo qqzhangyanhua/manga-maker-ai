@@ -1,4 +1,4 @@
-export type OnboardingChoice = "trial" | "full" | "explore";
+export type OnboardingChoice = "trial" | "full";
 
 export interface OnboardingStep {
   step: number;
@@ -45,12 +45,6 @@ export const ONBOARDING_CHOICES = [
     id: "full" as const,
     title: "完整创作",
     description: "从故事开始，完整体验创作流程",
-    recommended: false,
-  },
-  {
-    id: "explore" as const,
-    title: "浏览示例",
-    description: "从优质示例入手，一键复制到你的账号",
     recommended: false,
   },
 ];

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { Prisma, prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +29,7 @@ export async function GET(req: Request) {
         const limit = parseInt(searchParams.get("limit") || "20");
 
         // Build query
-        const where: any = { user_id: payload.userId };
+        const where: Prisma.WorkflowWhereInput = { user_id: payload.userId };
         if (status) {
             where.status = status;
         }

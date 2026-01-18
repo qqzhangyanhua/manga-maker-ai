@@ -45,28 +45,36 @@ const RelationshipChart = ({ onBack }: RelationshipChartProps) => {
           : { relationships: [] };
 
         // Create a map of character_id -> position
+        const relationshipItems = (relationshipsData.relationships || []) as Array<{
+          character_id: string;
+          position_x: number;
+          position_y: number;
+          scale: number;
+        }>;
         const positionMap = new Map<string, { x: number; y: number; scale: number }>(
-          relationshipsData.relationships.map((rel: any) => [
+          relationshipItems.map((rel) => [
             rel.character_id,
             { x: rel.position_x, y: rel.position_y, scale: rel.scale },
           ])
         );
 
-        // Combine character data with positions
-        const combinedData: CharacterPosition[] = charactersData.characters.map(
-          (char: any, index: number) => {
-            const savedPosition = positionMap.get(char.id);
-            return {
-              id: `rel-${char.id}`,
-              character_id: char.id,
-              name: char.name,
-              image: char.base_image_url || "/placeholder-character.png",
-              x: savedPosition?.x ?? 100 + index * 150,
-              y: savedPosition?.y ?? 200 + (index % 2) * 50,
-              scale: savedPosition?.scale ?? 1.0,
-            };
-          }
-        );
+        const characterItems = (charactersData.characters || []) as Array<{
+          id: string;
+          name: string;
+          base_image_url?: string | null;
+        }>;
+        const combinedData: CharacterPosition[] = characterItems.map((char, index) => {
+          const savedPosition = positionMap.get(char.id);
+          return {
+            id: `rel-${char.id}`,
+            character_id: char.id,
+            name: char.name,
+            image: char.base_image_url || "/placeholder-character.png",
+            x: savedPosition?.x ?? 100 + index * 150,
+            y: savedPosition?.y ?? 200 + (index % 2) * 50,
+            scale: savedPosition?.scale ?? 1.0,
+          };
+        });
 
         setCharacters(combinedData);
       } catch (error) {

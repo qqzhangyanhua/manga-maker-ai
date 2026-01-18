@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import type { WorkflowResult } from "@/lib/type";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -27,7 +28,7 @@ interface WorkflowStatus {
     status: "pending" | "running" | "completed" | "failed" | "cancelled";
     currentStep: string | null;
     progress: number;
-    result?: any;
+    result?: WorkflowResult | null;
     error?: string;
     createdAt: Date;
     startedAt?: Date;
@@ -71,17 +72,27 @@ export function WorkflowDashboard() {
             const data = await response.json();
 
             if (data.success && data.workflows) {
-                // Transform API response to match WorkflowStatus interface
-                const transformedWorkflows: WorkflowStatus[] = data.workflows.map((w: any) => ({
-                    id: w.id,
-                    status: w.status,
-                    currentStep: w.current_step,
-                    progress: w.progress,
-                    result: w.result,
-                    error: w.error,
-                    createdAt: new Date(w.created_at),
-                    startedAt: w.started_at ? new Date(w.started_at) : undefined,
-                    completedAt: w.completed_at ? new Date(w.completed_at) : undefined,
+                const workflowsData = (data.workflows || []) as Array<{
+                    id: string;
+                    status: WorkflowStatus["status"];
+                    current_step: string | null;
+                    progress: number;
+                    result?: WorkflowResult | null;
+                    error?: string | null;
+                    created_at: string;
+                    started_at?: string | null;
+                    completed_at?: string | null;
+                }>;
+                const transformedWorkflows: WorkflowStatus[] = workflowsData.map((workflow) => ({
+                    id: workflow.id,
+                    status: workflow.status,
+                    currentStep: workflow.current_step,
+                    progress: workflow.progress,
+                    result: workflow.result ?? null,
+                    error: workflow.error ?? undefined,
+                    createdAt: new Date(workflow.created_at),
+                    startedAt: workflow.started_at ? new Date(workflow.started_at) : undefined,
+                    completedAt: workflow.completed_at ? new Date(workflow.completed_at) : undefined,
                 }));
                 setWorkflows(transformedWorkflows);
             }

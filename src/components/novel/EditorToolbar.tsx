@@ -83,16 +83,21 @@ function isValidCoords(coords: unknown): coords is { left: number; right: number
     return false;
   }
 
-  const c = coords as any;
+  const coordRecord = coords as {
+    left?: unknown;
+    right?: unknown;
+    top?: unknown;
+    bottom?: unknown;
+  };
   return (
-    typeof c.left === 'number' &&
-    typeof c.right === 'number' &&
-    typeof c.top === 'number' &&
-    typeof c.bottom === 'number' &&
-    isFinite(c.left) &&
-    isFinite(c.right) &&
-    isFinite(c.top) &&
-    isFinite(c.bottom)
+    typeof coordRecord.left === 'number' &&
+    typeof coordRecord.right === 'number' &&
+    typeof coordRecord.top === 'number' &&
+    typeof coordRecord.bottom === 'number' &&
+    isFinite(coordRecord.left) &&
+    isFinite(coordRecord.right) &&
+    isFinite(coordRecord.top) &&
+    isFinite(coordRecord.bottom)
   );
 }
 

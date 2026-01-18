@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
-import { assertAndIncrementUsage } from "@/lib/usage";
+import { QuotaExceededError, assertAndIncrementUsage } from "@/lib/usage";
 import { generateImage } from "@/lib/unified-image-generation";
 import { recordGenerationLog } from "@/lib/generation-log";
-import { prisma } from "@/lib/db";
+import { Prisma, prisma } from "@/lib/db";
 
 const payloadSchema = z.object({
   prompt: z.string().min(10, "请提供至少 10 个字描述希望优化的方向"),
@@ -17,7 +17,7 @@ const payloadSchema = z.object({
   versionId: z.string().optional(),
   width: z.number().min(512).max(2048).optional(),
   height: z.number().min(512).max(2048).optional(),
-  canvasSchema: z.record(z.any()).optional(),
+  canvasSchema: z.record(z.unknown()).optional(),
 });
 
 const buildOptimizePrompt = (payload: z.infer<typeof payloadSchema>) => {
@@ -91,8 +91,8 @@ export async function POST(req: Request) {
           basePrompt: prompt,
           previousVersionId: versionId ?? null,
           layoutSchema: canvasSchema ?? undefined,
-        },
-        canvas_schema: canvasSchema ?? undefined,
+        } as Prisma.InputJsonValue,
+        canvas_schema: canvasSchema ? (canvasSchema as Prisma.InputJsonValue) : undefined,
       },
     });
 
@@ -135,18 +135,18 @@ export async function POST(req: Request) {
         updated_at: version.updated_at,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("图片优化接口调用失败:", error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors?.[0]?.message ?? "参数错误" }, { status: 400 });
     }
 
-    if (error?.code === "QUOTA_EXCEEDED") {
+    if (error instanceof QuotaExceededError) {
       return NextResponse.json(
         {
           error: `已达到每日图片配额（${error.limit} 次），今日已使用 ${error.count} 次`,
-          code: "QUOTA_EXCEEDED",
+          code: error.code,
         },
         { status: 429 },
       );

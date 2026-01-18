@@ -21,6 +21,7 @@ export const useComicStyleForm = (stylesLength: number, onSuccess: () => void) =
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingStyle, setEditingStyle] = useState<ComicStyle | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [form, setForm] = useState<ComicStyleFormData>(getEmptyForm(stylesLength));
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -148,6 +149,60 @@ export const useComicStyleForm = (stylesLength: number, onSuccess: () => void) =
     fileInputRef.current?.click();
   };
 
+  const handleGenerateImage = async () => {
+    if (!form.name_zh || !form.prompt_prefix) {
+      toast({
+        title: "请先填写中文名称和 AI 提示词前缀",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setGenerating(true);
+
+      const generationPrompt = `${form.prompt_prefix}, high quality, professional comic book style illustration, vibrant colors, clean lines, ${form.name_zh} art style`;
+
+      const res = await fetch("/api/image-generation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: generationPrompt,
+          negative_prompt:
+            "low quality, blurry, distorted, ugly, bad anatomy, watermark, text, signature",
+          width: 512,
+          height: 512,
+          steps: 30,
+          cfg_scale: 7,
+          type: "comic-style",
+          metadata: {
+            style_name: form.name_zh,
+            style_key: form.style_key,
+          },
+        }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: "生成失败" }));
+        throw new Error(error.error || "生成失败");
+      }
+
+      const data = await res.json();
+
+      if (data.image_url) {
+        setForm((prev) => ({ ...prev, image_url: data.image_url }));
+        toast({ title: "图片生成成功" });
+      } else {
+        throw new Error("未返回图片 URL");
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "生成失败";
+      toast({ title: message, variant: "destructive" });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   return {
     dialogOpen,
     setDialogOpen,
@@ -156,10 +211,12 @@ export const useComicStyleForm = (stylesLength: number, onSuccess: () => void) =
     setForm,
     submitting: submitMutation.isPending,
     uploading,
+    generating,
     fileInputRef,
     handleOpenDialog,
     handleSubmit,
     handleFileSelect,
+    handleGenerateImage,
     triggerFileInput,
   };
 };

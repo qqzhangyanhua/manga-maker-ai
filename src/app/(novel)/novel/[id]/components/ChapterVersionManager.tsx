@@ -27,7 +27,7 @@ import { novelTheme } from "../../theme";
 
 interface ChapterVersionManagerProps {
   projectId: string;
-  selectedChapter: any | null; // 从父组件接收当前选中的章节
+  selectedChapter: { id: string } | null; // 从父组件接收当前选中的章节
 }
 
 export function ChapterVersionManager({

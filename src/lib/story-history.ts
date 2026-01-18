@@ -2,16 +2,9 @@
  * Story History Management - LocalStorage for draft stories
  */
 
-export interface StoryHistoryItem {
-    id: string;
-    premise: string;
-    title?: string;
-    genre?: string;
-    status: "draft" | "generating" | "completed";
-    createdAt: number;
-    updatedAt: number;
-    outline?: any;
-}
+import type { StoryHistoryItem } from "./type";
+
+export type { StoryHistoryItem } from "./type";
 
 const STORAGE_KEY = "manga_maker_story_history";
 const MAX_HISTORY_ITEMS = 10;
@@ -127,7 +120,7 @@ export function autoSaveStory(data: {
     genre?: string;
     title?: string;
     status: "draft" | "generating" | "completed";
-    outline?: any;
+    outline?: StoryHistoryItem["outline"];
 }): StoryHistoryItem {
     return saveStoryHistory(data);
 }

@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { logInfo, logError } from "@/lib/api-logger";
 import { generateCharacterBaseImage } from "./image-generation";
 import type {
@@ -121,7 +122,7 @@ export async function POST(req: Request, { params }: RouteParams) {
           description: existingCharacter.description,
           base_image_url: existingCharacter.base_image_url,
           source_type: (existingCharacter.source_type as "manual" | "novel" | "story_ai" | "imported") || "manual",
-          source_reference: existingCharacter.source_reference as NovelSourceReference,
+          source_reference: existingCharacter.source_reference as unknown as NovelSourceReference,
         },
         isNew: false,
         message: `已关联现有角色「${existingCharacter.name}」`,
@@ -148,7 +149,7 @@ export async function POST(req: Request, { params }: RouteParams) {
         comic_style_id: comicStyleId || null,
         training_status: "pending",
         source_type: "novel",
-        source_reference: sourceReference,
+        source_reference: sourceReference as unknown as Prisma.InputJsonValue,
       },
     });
 

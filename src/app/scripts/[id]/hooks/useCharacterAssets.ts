@@ -13,10 +13,12 @@ export function useCharacterAssets(options?: { enabled?: boolean }) {
     queryKey: ["character-assets"],
     queryFn: async () => {
       const response = await fetch("/api/character");
-      const data: CharacterListResponse = await response.json().catch(() => ({ characters: [] } as CharacterListResponse));
+      const data = (await response.json().catch(() => ({ characters: [] }))) as CharacterListResponse & {
+        error?: string;
+      };
 
       if (!response.ok) {
-        const message = (data as any)?.error || "获取角色列表失败";
+        const message = data.error || "获取角色列表失败";
         throw new Error(message);
       }
 

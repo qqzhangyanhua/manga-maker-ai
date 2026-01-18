@@ -112,7 +112,12 @@ export const LIGHTING_PRESETS: LightingPresetDefinition[] = [
  * Get lighting preset definition by key
  */
 export function getLightingPreset(key: LightingPreset): LightingPresetDefinition | undefined {
-  return LIGHTING_PRESETS.find(p => p.key === key);
+  return LIGHTING_PRESETS.find((preset) => preset.key === key);
+}
+
+export function isLightingPreset(value: string | null | undefined): value is LightingPreset {
+  if (!value) return false;
+  return LIGHTING_PRESETS.some((preset) => preset.key === value);
 }
 
 /**

@@ -90,21 +90,27 @@ export function useStoryboardData(projectId: string): UseStoryboardDataReturn {
 
         if (charsRes.ok) {
           const data = await charsRes.json();
-          const normalized: StoryboardCharacter[] = (data.characters || []).map((c: any) => ({
-            id: c.id,
-            name: c.name,
-            viewCount: c.views?.length || 0,
+          const charactersData = (data.characters || []) as Array<{
+            id: string;
+            name: string;
+            views?: Array<unknown>;
+          }>;
+          const normalized: StoryboardCharacter[] = charactersData.map((character) => ({
+            id: character.id,
+            name: character.name,
+            viewCount: character.views?.length || 0,
           }));
           setCharacters(normalized);
         }
 
         if (stylesRes.ok) {
           const data = await stylesRes.json();
-          const normalized: StoryboardStyle[] = (data.data || []).map((s: any) => ({
-            style_key: s.style_key,
-            name_zh: s.name_zh,
-            name_en: s.name_en,
-            description: s.description,
+          const stylesData = (data.data || []) as StoryboardStyle[];
+          const normalized: StoryboardStyle[] = stylesData.map((style) => ({
+            style_key: style.style_key,
+            name_zh: style.name_zh,
+            name_en: style.name_en,
+            description: style.description,
           }));
           setStyles(normalized);
         }

@@ -18,6 +18,39 @@ interface LayoutSettings {
   showDialogBubbles?: boolean;
 }
 
+interface ExportPanel {
+  id: string;
+  panel_order: number;
+  description: string;
+  dialogue: string | null;
+  panel_type: string;
+  importance: string;
+  camera_angle: string | null;
+  shot_size: string | null;
+  prompt_used: string | null;
+  visual_prompt: string | null;
+  generated_image: string | null;
+  expression_type: string | null;
+  character: { id: string; name: string } | null;
+  outfit: { id: string; outfit_type: string } | null;
+  scene: { id: string; name: string } | null;
+}
+
+interface ExportProject {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  style: string | null;
+  status: string;
+  cover_image: string | null;
+  created_at: Date;
+  updated_at: Date;
+  Story: { id: string; title: string } | null;
+  script: { content: string; segments: unknown } | null;
+  panels: ExportPanel[];
+}
+
 // POST /api/project/[id]/export - Export project
 export async function POST(req: Request, { params }: RouteParams) {
   try {
@@ -70,7 +103,7 @@ export async function POST(req: Request, { params }: RouteParams) {
           },
         },
       },
-    });
+    }) as ExportProject | null;
 
     if (!project) {
       return NextResponse.json({ error: "项目不存在" }, { status: 404 });
@@ -138,8 +171,8 @@ export async function POST(req: Request, { params }: RouteParams) {
  * 导出为 PDF 格式
  */
 async function exportToPDF(
-  project: any,
-  panels: any[],
+  project: ExportProject,
+  panels: ExportPanel[],
   layout: LayoutSettings
 ) {
   const pdfDoc = await PDFDocument.create();
@@ -271,8 +304,8 @@ async function exportToPDF(
  * 实际的 PNG 渲染应该在客户端使用 Canvas 完成
  */
 async function exportToPNG(
-  project: any,
-  panels: any[],
+  project: ExportProject,
+  panels: ExportPanel[],
   layout: LayoutSettings
 ) {
   // 方案：返回 ZIP 包含所有单张 PNG
@@ -316,7 +349,7 @@ async function exportToPNG(
 /**
  * 导出为 ZIP（包含所有分镜原图）
  */
-async function exportToZIP(project: any, panels: any[]) {
+async function exportToZIP(project: ExportProject, panels: ExportPanel[]) {
   const zip = new JSZip();
 
   // 添加项目元数据
@@ -374,7 +407,7 @@ async function exportToZIP(project: any, panels: any[]) {
 /**
  * 导出为 JSON（原有功能保留）
  */
-async function exportToJSON(project: any) {
+async function exportToJSON(project: ExportProject) {
   const exportData = {
     version: "1.0",
     exportedAt: new Date().toISOString(),
@@ -400,7 +433,7 @@ async function exportToJSON(project: any) {
           segmentedData: project.script.segments,
         }
       : null,
-    panels: project.panels.map((panel: any) => ({
+    panels: project.panels.map((panel) => ({
       id: panel.id,
       order: panel.panel_order,
       description: panel.description,

@@ -4,41 +4,12 @@
  */
 
 import { prisma, Prisma } from "./db";
-import { generateStoryOutline, StoryGenre } from "./story-generator";
+import { generateStoryOutline } from "./story-generator";
 import { callChatCompletionByType } from "./llm-provider";
 import { generateImageBatch } from "./unified-image-generation";
+import type { StoryOutline, StoryboardData, WorkflowConfig, WorkflowResult, WorkflowStatus, WorkflowStep } from "./type";
 
-export type WorkflowStep = "story" | "script" | "storyboard" | "images" | "export" | "complete";
-export type WorkflowStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
-
-export interface WorkflowConfig {
-    // Story generation
-    premise: string;
-    genre?: StoryGenre;
-    characterCount?: number;
-    storyLength?: "short" | "medium" | "long";
-    templateId?: string;
-
-    // Storyboard
-    panelCount?: number;
-    style?: string;
-
-    // Image generation
-    generateImages?: boolean;
-    imageWidth?: number;
-    imageHeight?: number;
-
-    // Export
-    exportFormat?: "pdf" | "images" | "both";
-}
-
-export interface WorkflowResult {
-    storyId?: string;
-    projectId?: string;
-    panelCount?: number;
-    generatedImages?: number;
-    exportUrls?: string[];
-}
+export type { WorkflowConfig, WorkflowResult, WorkflowStatus, WorkflowStep } from "./type";
 
 export class WorkflowEngine {
     private workflowId: string;
@@ -122,7 +93,6 @@ export class WorkflowEngine {
                 premise: this.config.premise,
                 genre: outline.genre,
                 outline: outline as unknown as Prisma.InputJsonValue,
-                // characters: outline.characters as any, // REMOVED: Use story_characters relation
                 template_id: this.config.templateId || null,
                 status: "completed",
             },
@@ -134,7 +104,7 @@ export class WorkflowEngine {
     /**
      * Step 2: Generate storyboard from story
      */
-    private async generateStoryboard(storyId: string) {
+    private async generateStoryboard(storyId: string): Promise<Prisma.ProjectGetPayload<{ include: { panels: true } }>> {
         const story = await prisma.story.findUnique({
             where: { id: storyId },
             include: {
@@ -150,22 +120,26 @@ export class WorkflowEngine {
             throw new Error("Story not found");
         }
 
+        const outline = story.outline as StoryOutline | null;
+        const outlineLogline = outline?.logline || "";
+        const outlineActs = Array.isArray(outline?.acts) ? outline.acts : [];
+
         // Convert story to storyboard script
         const storyboardPrompt = `
 根据以下故事大纲,生成漫画分镜脚本:
 
 标题: ${story.title}
 类型: ${story.genre}
-梗概: ${(story.outline as Record<string, unknown>).logline}
+梗概: ${outlineLogline}
 
 角色:
-${story.story_characters.map((sc) => `- ${sc.character.name}: ${sc.character.description || ''}`).join("\n")}
+${story.story_characters.map((sc) => `- ${sc.character.name}: ${sc.character.description || ""}`).join("\n")}
 
 剧情:
-${(story.outline as any).acts.map((act: any, i: number) => `
-第${i + 1}幕: ${act.name}
-${act.summary}
-场景: ${act.scenes.join(", ")}
+${outlineActs.map((act, index) => `
+第${index + 1}幕: ${act.name}
+${act.summary || ""}
+场景: ${Array.isArray(act.scenes) ? act.scenes.join(", ") : ""}
 `).join("\n")}
 
 请生成${this.config.panelCount || "6-8"}个分镜,包含详细的场景描述、对话和视觉提示词。
@@ -187,15 +161,20 @@ ${act.summary}
             },
         });
 
-        let storyboardData;
+        let storyboardData: StoryboardData;
         try {
-            storyboardData = JSON.parse(content);
+            storyboardData = JSON.parse(content) as StoryboardData;
         } catch {
             throw new Error("Failed to parse storyboard data");
         }
 
+        const storyboardPanels = Array.isArray(storyboardData.panels) ? storyboardData.panels : [];
+        const scriptSegments = Array.isArray(storyboardData.script_segments)
+            ? (storyboardData.script_segments as Prisma.InputJsonValue)
+            : undefined;
+
         // Create project with panels
-        const project = await prisma.project.create({
+        const project = (await prisma.project.create({
             data: {
                 user_id: this.userId,
                 story_id: storyId,
@@ -204,11 +183,11 @@ ${act.summary}
                 style: this.config.style || storyboardData.style || "manga",
                 status: "in_progress",
                 panels: {
-                    create: storyboardData.panels.map((panel: any) => ({
-                        panel_order: panel.panel_order,
-                        panel_type: panel.panel_type,
-                        importance: panel.importance,
-                        description: panel.description,
+                    create: storyboardPanels.map((panel, index) => ({
+                        panel_order: panel.panel_order ?? index + 1,
+                        panel_type: panel.panel_type ?? null,
+                        importance: panel.importance ?? null,
+                        description: panel.description ?? null,
                         dialogue: panel.dialogue || null,
                         character_name: panel.character_name || null,
                         emotion: panel.emotion || null,
@@ -218,11 +197,11 @@ ${act.summary}
                         visual_prompt: panel.visual_prompt || panel.description,
                     })),
                 },
-                script: storyboardData.script_segments
+                script: Array.isArray(scriptSegments)
                     ? {
                         create: {
                             content: story.premise,
-                            segments: storyboardData.script_segments || [],
+                            segments: scriptSegments,
                         },
                     }
                     : undefined,
@@ -232,7 +211,7 @@ ${act.summary}
                     orderBy: { panel_order: "asc" },
                 },
             },
-        });
+        })) as Prisma.ProjectGetPayload<{ include: { panels: true } }>;
 
         return project;
     }
@@ -275,7 +254,7 @@ ${act.summary}
         status: WorkflowStatus,
         currentStep?: WorkflowStep,
         progress?: number,
-        result?: any,
+        result?: Prisma.InputJsonValue,
         error?: string
     ) {
         await prisma.workflow.update({
@@ -284,7 +263,7 @@ ${act.summary}
                 status,
                 current_step: currentStep,
                 progress,
-                result: result ? (result as any) : undefined,
+                result: result ?? undefined,
                 error,
                 updated_at: new Date(),
                 ...(status === "completed" && { completed_at: new Date() }),
@@ -352,7 +331,7 @@ export async function createWorkflow(
             status: "pending",
             current_step: null,
             progress: 0,
-            config: config as any,
+            config: config as Prisma.InputJsonValue,
         },
     });
 

@@ -1,5 +1,18 @@
 import { prisma } from "./db";
 
+export class QuotaExceededError extends Error {
+  readonly code = "QUOTA_EXCEEDED";
+  readonly limit: number;
+  readonly count: number;
+
+  constructor(limit: number, count: number) {
+    super(`已达到每日上限 ${limit}，请明日再试或联系管理员提升配额`);
+    this.name = "QuotaExceededError";
+    this.limit = limit;
+    this.count = count;
+  }
+}
+
 type UsageAction =
   | "storyboard_generation"
   | "story_generation"
@@ -64,11 +77,7 @@ export async function assertAndIncrementUsage(params: {
   const nextCount = currentCount + amount;
 
   if (limit && nextCount > limit) {
-    const error = new Error(`已达到每日上限 ${limit}，请明日再试或联系管理员提升配额`);
-    (error as any).code = "QUOTA_EXCEEDED";
-    (error as any).limit = limit;
-    (error as any).count = currentCount;
-    throw error;
+    throw new QuotaExceededError(limit, currentCount);
   }
 
   const updated = await prisma.usageStat.upsert({
@@ -135,7 +144,10 @@ export async function getUsageSummary(userId: string) {
     "image_generation",
     "llm_chat"
   ];
-  const summary: Record<UsageAction, Awaited<ReturnType<typeof getUsageSnapshot>>> = {} as any;
+  const summary: Record<UsageAction, Awaited<ReturnType<typeof getUsageSnapshot>>> = {} as Record<
+    UsageAction,
+    Awaited<ReturnType<typeof getUsageSnapshot>>
+  >;
   for (const action of actions) {
     summary[action] = await getUsageSnapshot({ userId, action });
   }

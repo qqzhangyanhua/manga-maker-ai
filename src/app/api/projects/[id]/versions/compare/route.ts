@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import type { SuccessResponse, CompareVersionsResponse, VersionDiff, ProjectVersion } from "@/types/template";
+import type { SuccessResponse, CompareVersionsResponse, VersionDiff, ProjectVersion, VersionPanel } from "@/types/template";
 
 interface RouteParams {
   params: {
@@ -100,74 +100,112 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Parse version data
-    const dataFrom = versionFrom.version_data as any;
-    const dataTo = versionTo.version_data as any;
+    const dataFrom = versionFrom.version_data as Record<string, unknown>;
+    const dataTo = versionTo.version_data as Record<string, unknown>;
 
-    // Compare project metadata
+    const projectFrom = typeof dataFrom.project === "object" && dataFrom.project !== null && !Array.isArray(dataFrom.project)
+      ? (dataFrom.project as Record<string, unknown>)
+      : {};
+    const projectTo = typeof dataTo.project === "object" && dataTo.project !== null && !Array.isArray(dataTo.project)
+      ? (dataTo.project as Record<string, unknown>)
+      : {};
+
     const projectChanges: string[] = [];
-    const projectValues: { from: Record<string, any>; to: Record<string, any> } = {
+    const projectValues: { from: Record<string, unknown>; to: Record<string, unknown> } = {
       from: {},
       to: {}
     };
 
-    if (dataFrom.project.title !== dataTo.project.title) {
+    if (projectFrom.title !== projectTo.title) {
       projectChanges.push("title");
-      projectValues.from.title = dataFrom.project.title;
-      projectValues.to.title = dataTo.project.title;
+      projectValues.from.title = projectFrom.title;
+      projectValues.to.title = projectTo.title;
     }
 
-    if (dataFrom.project.description !== dataTo.project.description) {
+    if (projectFrom.description !== projectTo.description) {
       projectChanges.push("description");
-      projectValues.from.description = dataFrom.project.description;
-      projectValues.to.description = dataTo.project.description;
+      projectValues.from.description = projectFrom.description;
+      projectValues.to.description = projectTo.description;
     }
 
-    if (dataFrom.project.style !== dataTo.project.style) {
+    if (projectFrom.style !== projectTo.style) {
       projectChanges.push("style");
-      projectValues.from.style = dataFrom.project.style;
-      projectValues.to.style = dataTo.project.style;
+      projectValues.from.style = projectFrom.style;
+      projectValues.to.style = projectTo.style;
     }
 
-    // Compare panels
-    const panelsFrom = dataFrom.panels || [];
-    const panelsTo = dataTo.panels || [];
+    const panelsFromRaw = Array.isArray(dataFrom.panels) ? dataFrom.panels : [];
+    const panelsToRaw = Array.isArray(dataTo.panels) ? dataTo.panels : [];
 
-    // Create panel ID maps for comparison
-    const panelMapFrom = new Map(panelsFrom.map((p: any) => [p.id, p]));
-    const panelMapTo = new Map(panelsTo.map((p: any) => [p.id, p]));
+    const normalizePanels = (panels: unknown[]) =>
+      panels.filter((panel): panel is Record<string, unknown> => typeof panel === "object" && panel !== null);
 
-    // Find added panels
-    const addedPanels = panelsTo.filter((p: any) => !panelMapFrom.has(p.id));
+    const panelsFrom = normalizePanels(panelsFromRaw);
+    const panelsTo = normalizePanels(panelsToRaw);
 
-    // Find removed panels
-    const removedPanels = panelsFrom.filter((p: any) => !panelMapTo.has(p.id));
+    const panelMapFrom = new Map<string, Record<string, unknown>>();
+    const panelMapTo = new Map<string, Record<string, unknown>>();
 
-    // Find modified panels
+    for (const panel of panelsFrom) {
+      const id = typeof panel.id === "string" ? panel.id : null;
+      if (id) panelMapFrom.set(id, panel);
+    }
+
+    for (const panel of panelsTo) {
+      const id = typeof panel.id === "string" ? panel.id : null;
+      if (id) panelMapTo.set(id, panel);
+    }
+
+    const toVersionPanel = (panel: Record<string, unknown>): VersionPanel => ({
+      id: typeof panel.id === "string" ? panel.id : "",
+      panel_order: typeof panel.panel_order === "number" ? panel.panel_order : 0,
+      description: typeof panel.description === "string" ? panel.description : "",
+      panel_type: typeof panel.panel_type === "string" ? panel.panel_type : "",
+      importance: typeof panel.importance === "string" ? panel.importance : "",
+      camera_angle: typeof panel.camera_angle === "string" ? panel.camera_angle : null,
+      shot_size: typeof panel.shot_size === "string" ? panel.shot_size : null,
+      dialogue: typeof panel.dialogue === "string" ? panel.dialogue : null,
+      character_id: typeof panel.character_id === "string" ? panel.character_id : null,
+      emotion: typeof panel.emotion === "string" ? panel.emotion : null,
+      generated_image: typeof panel.generated_image === "string" ? panel.generated_image : null,
+      prompt_used: typeof panel.prompt_used === "string" ? panel.prompt_used : null,
+    });
+
+    const addedPanels = panelsTo.filter((panel) => {
+      const id = typeof panel.id === "string" ? panel.id : null;
+      return id ? !panelMapFrom.has(id) : false;
+    }).map(toVersionPanel);
+
+    const removedPanels = panelsFrom.filter((panel) => {
+      const id = typeof panel.id === "string" ? panel.id : null;
+      return id ? !panelMapTo.has(id) : false;
+    }).map(toVersionPanel);
+
     const modifiedPanels: Array<{ panelId: string; changes: string[] }> = [];
 
-    panelsTo.forEach((panelTo: any) => {
-      const panelFrom = panelMapFrom.get(panelTo.id);
-      if (!panelFrom) return; // This is an added panel
+    panelsTo.forEach((panelTo) => {
+      const panelId = typeof panelTo.id === "string" ? panelTo.id : null;
+      if (!panelId) return;
+      const panelFrom = panelMapFrom.get(panelId);
+      if (!panelFrom) return;
 
       const changes: string[] = [];
 
-      // Check each field for changes
       const fieldsToCompare = [
-        'description', 'panel_type', 'importance', 'camera_angle',
-        'shot_size', 'dialogue', 'character_name', 'emotion',
-        'generated_image', 'prompt_used', 'panel_order'
+        "description", "panel_type", "importance", "camera_angle",
+        "shot_size", "dialogue", "character_name", "emotion",
+        "generated_image", "prompt_used", "panel_order"
       ] as const;
 
-      fieldsToCompare.forEach(field => {
-        if ((panelFrom as any)[field] !== (panelTo as any)[field]) {
+      fieldsToCompare.forEach((field) => {
+        if (panelFrom[field] !== panelTo[field]) {
           changes.push(field);
         }
       });
 
       if (changes.length > 0) {
         modifiedPanels.push({
-          panelId: panelTo.id,
+          panelId,
           changes
         });
       }

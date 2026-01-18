@@ -27,6 +27,7 @@ import type {
   TimelineEvent
 } from "./world-setting";
 import type { ChapterOutline } from "./types";
+import { novelTheme } from "../../theme";
 
 interface GeneratedWorldSetting {
   locations: (Location & { selected: boolean })[];

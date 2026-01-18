@@ -20,7 +20,7 @@ interface CharacterSetupDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     storyContext?: string;
-    onCharacterCreated?: (character: any) => void;
+    onCharacterCreated?: (character: unknown) => void;
 }
 
 export function CharacterSetupDialog({
@@ -72,11 +72,12 @@ export function CharacterSetupDialog({
 
             setDescription("");
             onOpenChange(false);
-        } catch (error: any) {
+        } catch (error) {
             console.error("Character setup error:", error);
+            const message = error instanceof Error ? error.message : "生成失败";
             toast({
                 title: "生成失败",
-                description: error.message,
+                description: message,
                 variant: "destructive",
             });
         } finally {

@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from "react";
 import { Loader2, Sparkles, BookOpen, Users, Globe } from "lucide-react";
+import { novelTheme } from "../../theme";
 
 const GENERATION_STEPS = [
   { icon: Sparkles, text: "分析你的创意方向...", duration: 5000 },
@@ -47,8 +48,8 @@ export function GeneratingView() {
     <div className="py-12 text-center space-y-6">
       {/* 主加载动画 */}
       <div className="relative">
-        <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
-          <Loader2 className="h-10 w-10 animate-spin text-purple-500" />
+        <div className={`w-20 h-20 mx-auto rounded-full ${novelTheme.gradient.purplePinkSoft} flex items-center justify-center`}>
+          <Loader2 className={`h-10 w-10 ${novelTheme.loading.spinner}`} />
         </div>
         {/* 外圈动画 */}
         <div className="absolute inset-0 w-20 h-20 mx-auto rounded-full border-2 border-purple-500/30 animate-ping" />
@@ -57,7 +58,7 @@ export function GeneratingView() {
       {/* 当前步骤 */}
       <div className="space-y-2">
         <div className="flex items-center justify-center gap-2 text-sm font-medium">
-          <CurrentIcon className="h-4 w-4 text-purple-500" />
+          <CurrentIcon className={`h-4 w-4 ${novelTheme.icon.purple}`} />
           <span>{GENERATION_STEPS[currentStep].text}</span>
         </div>
         <p className="text-xs text-muted-foreground">

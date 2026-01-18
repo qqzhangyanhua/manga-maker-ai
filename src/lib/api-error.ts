@@ -200,7 +200,7 @@ export async function parseApiError(response: Response): Promise<string> {
 /**
  * 检查错误是否为特定类型
  */
-export function isErrorType<T extends new (...args: any[]) => ApiError>(
+export function isErrorType<T extends new (...args: unknown[]) => ApiError>(
   error: unknown,
   ErrorClass: T
 ): error is InstanceType<T> {

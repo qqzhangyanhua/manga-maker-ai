@@ -1,8 +1,8 @@
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma, Prisma } from "@/lib/db";
-import { generateStoryOutlineStream } from "@/lib/story-generator";
-import { assertAndIncrementUsage } from "@/lib/usage";
+import { generateStoryOutlineStream, type StoryGenre } from "@/lib/story-generator";
+import { QuotaExceededError, assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
 import { logInfo, logError } from "@/lib/api-logger";
 
@@ -10,9 +10,11 @@ interface StreamEvent {
     type: "validating" | "generating" | "saving" | "done" | "error" | "chunk";
     message: string;
     chunk?: string;
-    outline?: any;
-    story?: any;
+    outline?: Awaited<ReturnType<typeof generateStoryOutlineStream>>;
+    story?: Awaited<ReturnType<typeof prisma.story.create>>;
 }
+
+const STORY_GENRES: StoryGenre[] = ["suspense", "romance", "adventure", "scifi", "daily", "fantasy"];
 
 export async function POST(req: Request) {
     const encoder = new TextEncoder();
@@ -91,6 +93,8 @@ export async function POST(req: Request) {
                     return;
                 }
 
+                const normalizedGenre = STORY_GENRES.find((value) => value === genre);
+
                 // Query comic style if styleKey provided
                 let comicStyle: { id: string; prompt_prefix: string | null } | null = null;
                 if (styleKey) {
@@ -118,8 +122,8 @@ export async function POST(req: Request) {
                         providerType: "story_generator",
                     });
                     logInfo("Quota check passed", { endpoint: "/api/story/generate", userId });
-                } catch (quotaError: any) {
-                    if (quotaError?.code === "QUOTA_EXCEEDED") {
+                } catch (quotaError) {
+                    if (quotaError instanceof QuotaExceededError) {
                         logInfo("Quota exceeded", {
                             endpoint: "/api/story/generate",
                             userId,
@@ -128,7 +132,7 @@ export async function POST(req: Request) {
                         });
                         sendEvent(controller, {
                             type: "error",
-                            message: quotaError.message || "配额已用完",
+                            message: quotaError.message,
                         });
                         controller.close();
                         return;
@@ -148,7 +152,7 @@ export async function POST(req: Request) {
                 const outline = await generateStoryOutlineStream(
                     {
                         premise,
-                        genre: genre as any,
+                        genre: normalizedGenre,
                         characterCount,
                         length,
                         templateId,
@@ -187,7 +191,6 @@ export async function POST(req: Request) {
                             premise,
                             genre: outline.genre,
                             outline: outline as unknown as Prisma.InputJsonValue,
-                            // characters: outline.characters as any, // REMOVED: Use story_characters relation
                             template_id: templateId || null,
                             comic_style_id: comicStyle?.id || null,
                             status: "draft",

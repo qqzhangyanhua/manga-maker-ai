@@ -29,6 +29,7 @@ import { GraphToolbar } from './GraphToolbar';
 import type { Character } from '../../types';
 import type {
   CharacterNode as CharacterNodeType,
+  CharacterNodeData,
   RelationshipEdge as RelationshipEdgeType,
   LayoutType,
   RelationshipEdgeData,
@@ -330,7 +331,7 @@ function CharacterRelationshipGraphInner({
         {/* 小地图 */}
         <MiniMap
           nodeColor={(node) => {
-            const data = node.data as any;
+            const data = node.data as CharacterNodeData;
             if (data.role === 'protagonist') return '#3b82f6';
             if (data.role === 'antagonist') return '#dc2626';
             if (data.role === 'supporting') return '#10b981';

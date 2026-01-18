@@ -74,12 +74,12 @@ export function ScriptDataProvider({ storyId, children }: ScriptDataProviderProp
     // 核心数据
     storyId,
     projectId: data?.projectId || null,
-    story: data?.story as any || null,
-    chapters: data?.chapters as any || [],
-    panels: data?.panels as any || [],
+    story: (data?.story ?? null) as unknown as ScriptDataContextValue["story"],
+    chapters: (data?.chapters ?? []) as unknown as ScriptDataContextValue["chapters"],
+    panels: (data?.panels ?? []) as unknown as ScriptDataContextValue["panels"],
 
     // 角色数据
-    characterAssets: characterAssets as any || [],
+    characterAssets: (characterAssets ?? []) as unknown as ScriptDataContextValue["characterAssets"],
     storyCharacters: storyCharacters || [],
 
     // 加载状态

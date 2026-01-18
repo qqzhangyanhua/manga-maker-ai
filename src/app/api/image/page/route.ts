@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { z } from "zod";
+import type { ImagePageVersion } from "@prisma/client";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { Prisma, prisma } from "@/lib/db";
 
 const sourceTypeEnum = z.enum(["original", "optimize", "layout", "upload"]);
 const statusEnum = z.enum(["pending", "completed", "failed"]);
@@ -14,11 +15,11 @@ const createSchema = z.object({
   status: statusEnum.default("completed"),
   projectId: z.string().uuid().optional(),
   taskId: z.string().optional(),
-  metadata: z.record(z.any()).optional(),
-  canvasSchema: z.record(z.any()).optional(),
+  metadata: z.record(z.unknown()).optional(),
+  canvasSchema: z.record(z.unknown()).optional(),
 });
 
-const serializeVersion = (version: any, includeSchema: boolean) => ({
+const serializeVersion = (version: ImagePageVersion, includeSchema: boolean) => ({
   id: version.id,
   label: version.label,
   source_type: version.source_type,
@@ -58,7 +59,7 @@ export async function GET(req: Request) {
     const pageSizeParam = parseInt(searchParams.get("page_size") || "20", 10);
     const pageSize = Math.min(Math.max(pageSizeParam, 1), 200);
 
-    const whereClause: any = {
+    const whereClause: Prisma.ImagePageVersionWhereInput = {
       user_id: auth.userId,
       ...(projectId ? { project_id: projectId } : {}),
       ...(taskId ? { task_id: taskId } : {}),
@@ -104,8 +105,8 @@ export async function POST(req: Request) {
         status: payload.status,
         image_url: payload.imageUrl ?? null,
         task_id: payload.taskId ?? null,
-        metadata: payload.metadata ?? undefined,
-        canvas_schema: payload.canvasSchema ?? undefined,
+        metadata: payload.metadata ? (payload.metadata as Prisma.InputJsonValue) : undefined,
+        canvas_schema: payload.canvasSchema ? (payload.canvasSchema as Prisma.InputJsonValue) : undefined,
       },
     });
 
@@ -113,7 +114,7 @@ export async function POST(req: Request) {
       success: true,
       version: serializeVersion(version, true),
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("创建画面版本失败:", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors?.[0]?.message ?? "参数错误" }, { status: 400 });

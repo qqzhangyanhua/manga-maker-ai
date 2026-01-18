@@ -15,7 +15,9 @@ import Link from "next/link";
 import { ArrowLeft, Lightbulb, Clock, Check, AlertCircle } from "lucide-react";
 import { Navbar } from "@/components/Landing";
 import { StoryGenerator } from "@/components/Story/StoryGenerator";
+import type { GeneratedStory } from "@/components/Story/types";
 import { StoryHistory } from "@/components/Story/StoryHistory";
+import type { StoryOutline } from "@/lib/type";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { autoSaveStory, type StoryHistoryItem } from "@/lib/story-history";
@@ -60,7 +62,7 @@ export default function StoryPage() {
         genre?: string;
         title?: string;
         status: "draft" | "generating" | "completed";
-        outline?: any;
+        outline?: StoryOutline;
     } | null>(null);
 
     // Fetch comic styles on mount
@@ -270,15 +272,23 @@ export default function StoryPage() {
     }, []);
 
     // Handle story generated - MUST use useCallback to prevent infinite loop
-    const handleStoryGenerated = useCallback((story: any) => {
+    const handleStoryGenerated = useCallback((story: GeneratedStory) => {
         console.log("Story generated:", story);
-        // Auto-save completed story
+        const outline: StoryOutline = {
+            title: story.title,
+            genre: story.genre,
+            logline: story.logline,
+            setting: story.setting,
+            acts: story.acts || story.outline?.acts || [],
+            characters: story.characters || story.outline?.characters || [],
+            themes: story.themes || story.outline?.themes || [],
+        };
         setCurrentStoryData({
-            premise: story.premise || generatedIdea || "",
+            premise: generatedIdea || "",
             genre: story.genre,
             title: story.title,
             status: "completed",
-            outline: story,
+            outline,
         });
     }, [generatedIdea]);
 

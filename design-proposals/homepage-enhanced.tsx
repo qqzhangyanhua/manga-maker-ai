@@ -20,12 +20,6 @@ import { HeroSection, ShowcaseSection, PricingSection, Navbar } from "@/componen
 
 const recordShortcuts = [
   {
-    title: "示例项目",
-    description: "浏览优质示例，一键复制到你的账号开始学习",
-    href: "/samples",
-    icon: Layers,
-  },
-  {
     title: "剧本记录",
     description: "查看所有生成的故事与剧本，继续修改或派生分镜",
     href: "/scripts",

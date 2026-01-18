@@ -58,8 +58,9 @@ const PromptOptimizationDialog = ({
 
       const data = await res.json();
       setResult(data);
-    } catch (err: any) {
-      setError(err.message || "网络错误，请稍后再试");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "网络错误，请稍后再试";
+      setError(message);
     } finally {
       setIsLoading(false);
     }

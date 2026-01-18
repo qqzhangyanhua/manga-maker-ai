@@ -181,6 +181,8 @@ export function transformTimelineToFlow(timeline: TimelineData): {
       position: { x: finalX, y: laneY },
       data: {
         chapterId: chapter.id,
+        chapterTitle: chapter.title,
+        chapterNumber: chapter.chapter_number,
         status: chapter.final_status,
         count: chapter.final_image_count,
         canGenerate: chapter.scene_status === 'completed',

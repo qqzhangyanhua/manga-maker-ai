@@ -21,10 +21,11 @@ import {
 } from "@/components/ui/card";
 import { Save, X, Plus, Trash2, BookOpen, Users, Tag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import type { EditableStory, StoryAct, StoryCharacter, StoryOutline } from "./type";
 
 interface EditableStoryFormProps {
-    story: any;
-    onSave: (updatedStory: any) => void;
+    story: EditableStory;
+    onSave: (updatedStory: EditableStory) => void;
     onCancel: () => void;
 }
 
@@ -67,8 +68,8 @@ export function EditableStoryForm({ story, onSave, onCancel }: EditableStoryForm
     const [genre, setGenre] = useState(normalizedData.genre);
     const [logline, setLogline] = useState(normalizedData.logline);
     const [setting, setSetting] = useState(normalizedData.setting);
-    const [acts, setActs] = useState(normalizedData.acts);
-    const [characters, setCharacters] = useState(normalizedData.characters);
+    const [acts, setActs] = useState<StoryAct[]>(normalizedData.acts);
+    const [characters, setCharacters] = useState<StoryCharacter[]>(normalizedData.characters);
     const [themes, setThemes] = useState(normalizedData.themes);
 
     async function handleSave() {
@@ -153,11 +154,12 @@ export function EditableStoryForm({ story, onSave, onCancel }: EditableStoryForm
 
                 onSave(data.story);
             }
-        } catch (error: any) {
+        } catch (error) {
             console.error("Save story error:", error);
+            const message = error instanceof Error ? error.message : "保存失败";
             toast({
                 title: "保存失败",
-                description: error.message,
+                description: message,
                 variant: "destructive",
             });
         } finally {
@@ -172,7 +174,7 @@ export function EditableStoryForm({ story, onSave, onCancel }: EditableStoryForm
     }
 
     function removeAct(index: number) {
-        setActs(acts.filter((_: any, i: number) => i !== index));
+        setActs(acts.filter((_, i) => i !== index));
     }
 
     function addAct() {
@@ -195,7 +197,7 @@ export function EditableStoryForm({ story, onSave, onCancel }: EditableStoryForm
     }
 
     function removeCharacter(index: number) {
-        setCharacters(characters.filter((_: any, i: number) => i !== index));
+        setCharacters(characters.filter((_, i) => i !== index));
     }
 
     function addCharacter() {
@@ -316,7 +318,7 @@ export function EditableStoryForm({ story, onSave, onCancel }: EditableStoryForm
                     </div>
 
                     <div className="space-y-3">
-                        {acts.map((act: any, idx: number) => (
+                        {acts.map((act, idx) => (
                             <div
                                 key={idx}
                                 className="p-4 border rounded-md space-y-2 bg-muted/50"
@@ -414,7 +416,7 @@ export function EditableStoryForm({ story, onSave, onCancel }: EditableStoryForm
                     </div>
 
                     <div className="space-y-3">
-                        {characters.map((char: any, idx: number) => (
+                        {characters.map((char, idx) => (
                             <div
                                 key={idx}
                                 className="p-4 border rounded-md space-y-2 bg-muted/50"

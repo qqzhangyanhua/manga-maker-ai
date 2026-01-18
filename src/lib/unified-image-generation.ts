@@ -3,6 +3,7 @@
  */
 
 import { callImageGenerationByType } from "./image-generation";
+import type { JsonRecord } from "./type";
 
 export type ImageGenerationType = "panel" | "expression" | "outfit" | "character" | "scene" | "page";
 
@@ -18,7 +19,7 @@ export interface ImageGenerationTask {
     cfg?: number;
     seed?: number;
     userId: string;
-    metadata?: Record<string, any>;
+    metadata?: JsonRecord;
     // Phase 2: Reference images for IP-Adapter
     referenceImages?: string[];
 }
@@ -38,6 +39,7 @@ class ImageGenerationQueue {
     private processing: Set<string> = new Set();
     private maxConcurrent: number = 3; // Max concurrent generations
     private queue: ImageGenerationTask[] = [];
+    private completionCallbacks: Map<string, (result: TaskStatus) => Promise<void>> = new Map();
 
     /**
      * Add a task to the queue
@@ -64,6 +66,13 @@ class ImageGenerationQueue {
      */
     getStatus(taskId: string): TaskStatus | undefined {
         return this.tasks.get(taskId);
+    }
+
+    /**
+     * Register a callback to be called when task completes or fails
+     */
+    onTaskComplete(taskId: string, callback: (result: TaskStatus) => Promise<void>): void {
+        this.completionCallbacks.set(taskId, callback);
     }
 
     /**
@@ -123,13 +132,30 @@ class ImageGenerationQueue {
             const imageUrl = await this.generateImage(nextTask);
 
             // Mark as completed
-            this.tasks.set(nextTask.id, {
+            const completedStatus: TaskStatus = {
                 id: nextTask.id,
                 status: "completed",
                 progress: 100,
                 imageUrl,
                 completedAt: new Date(),
-            });
+            };
+            this.tasks.set(nextTask.id, completedStatus);
+
+            // Call completion callback if registered
+            const callback = this.completionCallbacks.get(nextTask.id);
+            if (callback) {
+                console.log(`[ImageQueue] Invoking completion callback for task ${nextTask.id}`);
+                try {
+                    await callback(completedStatus);
+                    console.log(`[ImageQueue] ✅ Callback completed successfully for task ${nextTask.id}`);
+                } catch (callbackError) {
+                    console.error(`[ImageQueue] ❌ Completion callback failed for task ${nextTask.id}:`, callbackError);
+                } finally {
+                    this.completionCallbacks.delete(nextTask.id);
+                }
+            } else {
+                console.log(`[ImageQueue] No callback registered for task ${nextTask.id}`);
+            }
 
             // Remove from queue
             this.queue = this.queue.filter((t) => t.id !== nextTask.id);
@@ -137,13 +163,30 @@ class ImageGenerationQueue {
             console.error(`Image generation failed for task ${nextTask.id}:`, error);
 
             // Mark as failed
-            this.tasks.set(nextTask.id, {
+            const failedStatus: TaskStatus = {
                 id: nextTask.id,
                 status: "failed",
                 progress: 0,
                 error: error instanceof Error ? error.message : "Unknown error",
                 completedAt: new Date(),
-            });
+            };
+            this.tasks.set(nextTask.id, failedStatus);
+
+            // Call completion callback even on failure
+            const callback = this.completionCallbacks.get(nextTask.id);
+            if (callback) {
+                console.log(`[ImageQueue] Invoking failure callback for task ${nextTask.id}`);
+                try {
+                    await callback(failedStatus);
+                    console.log(`[ImageQueue] ✅ Failure callback completed for task ${nextTask.id}`);
+                } catch (callbackError) {
+                    console.error(`[ImageQueue] ❌ Failure callback error for task ${nextTask.id}:`, callbackError);
+                } finally {
+                    this.completionCallbacks.delete(nextTask.id);
+                }
+            } else {
+                console.log(`[ImageQueue] No callback registered for failed task ${nextTask.id}`);
+            }
         } finally {
             // Remove from processing set
             this.processing.delete(nextTask.id);
@@ -273,7 +316,7 @@ export async function generateImage(
         negativePrompt?: string;
         width?: number;
         height?: number;
-        metadata?: Record<string, any>;
+        metadata?: JsonRecord;
         referenceImages?: string[]; // Phase 2: Reference images for IP-Adapter
     }
 ): Promise<{ taskId: string; status: TaskStatus }> {
@@ -315,7 +358,7 @@ export async function generateImageBatch(
         type: ImageGenerationType;
         prompt: string;
         userId: string;
-        metadata?: Record<string, any>;
+        metadata?: JsonRecord;
     }>
 ): Promise<string[]> {
     const queue = getImageGenerationQueue();

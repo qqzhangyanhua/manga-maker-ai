@@ -132,7 +132,14 @@
       "Bash(/Users/zhangyanhua/AI/manga-maker-ai/services/novel-backend/.venv/bin/uvicorn:*)",
       "Bash(uv pip install:*)",
       "Skill(bugfix)",
-      "Bash(./verify-canvas-sync-fix.sh)"
+      "Bash(./verify-canvas-sync-fix.sh)",
+      "Skill(codeagent)",
+      "Bash(codeagent-wrapper --backend codex -:*)",
+      "Bash(PGPASSWORD=3MRL8JKw5fn5Njy5 psql:*)",
+      "Bash(head:*)",
+      "Bash(cd:*)",
+      "Bash(if ! grep -q \"novelTheme\" \"$file\")",
+      "Bash(git -C /Users/zhangyanhua/AI/manga-maker-ai status --short)"
     ],
     "deny": [],
     "ask": []

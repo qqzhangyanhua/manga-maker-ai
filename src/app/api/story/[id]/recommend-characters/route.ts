@@ -113,11 +113,14 @@ export async function POST(
 
 最多返回 3 个推荐。`;
 
+    const storyLengthValue = (story as unknown as { story_length?: unknown }).story_length;
+    const storyLength = typeof storyLengthValue === "string" ? storyLengthValue : "未知";
+
     const userPrompt = `请分析以下剧本并推荐需要添加的角色类型：
 
 剧本标题：${story.title || "未命名"}
 剧本类型：${story.genre || "未知"}
-剧本长度：${(story as any).story_length || "未知"}
+剧本长度：${storyLength}
 
 剧本大纲：
 ${story.outline || story.premise || "无大纲信息"}

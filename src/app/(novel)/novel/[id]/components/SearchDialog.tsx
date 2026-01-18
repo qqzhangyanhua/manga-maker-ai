@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Search, FileText, Loader2 } from "lucide-react"
 import { toast } from "sonner"
+import { novelTheme } from "../../theme";
 
 interface SearchResult {
   chapterId: string
@@ -108,7 +109,14 @@ export function SearchDialog({
           </div>
 
           {/* 搜索类型 */}
-          <Tabs value={searchScope} onValueChange={(v) => setSearchScope(v as any)}>
+          <Tabs
+            value={searchScope}
+            onValueChange={(value) => {
+              if (value === "all" || value === "title" || value === "outline" || value === "content") {
+                setSearchScope(value);
+              }
+            }}
+          >
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="all">全部</TabsTrigger>
               <TabsTrigger value="title">标题</TabsTrigger>

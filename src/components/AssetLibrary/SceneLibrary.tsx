@@ -59,7 +59,7 @@ type Scene = {
   source_novel_id: string | null;
   is_ai_generated: boolean;
   generation_cost: number;
-  generation_params: any;
+  generation_params: Record<string, unknown> | null;
 };
 
 const sceneTypes = [

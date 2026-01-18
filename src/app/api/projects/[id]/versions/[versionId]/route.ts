@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { Prisma, prisma } from "@/lib/db";
 import type { SuccessResponse } from "@/types/template";
 
 interface RouteParams {
@@ -186,7 +186,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     }
 
     // Build update data
-    const updateData: any = {};
+    const updateData: Prisma.ProjectVersionUpdateInput = {};
     if (label !== undefined) {
       updateData.label = label?.trim() || null;
       updateData.is_auto = false; // Label means manual version

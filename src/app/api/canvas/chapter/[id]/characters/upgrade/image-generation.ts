@@ -4,7 +4,7 @@
 
 import { prisma } from "@/lib/db";
 import { callImageGenerationByType } from "@/lib/image-generation";
-import { uploadBase64ImageToMinio } from "@/lib/upload-helpers";
+import { uploadBase64Image } from "@/lib/upload-helpers";
 import { logInfo, logError } from "@/lib/api-logger";
 
 export interface GenerateCharacterImageOptions {
@@ -67,28 +67,32 @@ export async function generateCharacterBaseImage(
   });
 
   // 4. 调用图片生成API
-  const imageBase64 = await callImageGenerationByType({
+  const result = await callImageGenerationByType({
     providerType: "character_generation",
     prompt,
-    negativePrompt: buildNegativePrompt(),
+    negative_prompt: buildNegativePrompt(),
     width: 512,
     height: 768,
     steps: 25,
-    cfg: 7.5,
+    cfg_scale: 7.5,
     options: { userId },
   });
+
+  if (!result.success || !result.images || result.images.length === 0) {
+    throw new Error(result.error || "图片生成失败");
+  }
+
+  const imageBase64 = result.images[0];
 
   logInfo("图片生成API调用成功", {
     characterId,
   });
 
   // 5. 上传到MinIO
-  const imageUrl = await uploadBase64ImageToMinio({
-    base64: imageBase64,
-    folder: `characters/${characterId}`,
-    filename: `base_image_${Date.now()}.png`,
-    userId,
-  });
+  const imageUrl = await uploadBase64Image(
+    imageBase64,
+    `characters/${characterId}/base_image_${Date.now()}.png`
+  );
 
   logInfo("图片上传MinIO成功", {
     characterId,

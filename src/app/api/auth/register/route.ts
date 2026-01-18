@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { attachAuthCookie, hashText, signAuthToken, verifyHash } from "@/lib/auth";
+import { getErrorStatus } from "@/lib/api-helpers";
 import { DEFAULT_REGISTER_CREDITS } from "@/lib/credits";
 import { checkAndIncrementWindowLimitDistributed } from "@/lib/rate-limit";
 
@@ -200,7 +201,7 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     console.error("注册失败", error);
-    const status = (error as any)?.status ?? 500;
+    const status = error instanceof Error ? getErrorStatus(error) : 500;
     const message = error instanceof Error ? error.message : "注册失败，请稍后再试";
     return NextResponse.json({ success: false, message }, { status });
   }

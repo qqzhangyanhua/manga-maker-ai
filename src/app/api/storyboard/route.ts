@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { Prisma, prisma } from "@/lib/db";
 import { callChatCompletionByType } from "@/lib/llm-provider";
-import { assertAndIncrementUsage } from "@/lib/usage";
+import { QuotaExceededError, assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
 
 const systemPrompt = `你是一位资深的漫画分镜导演和AI绘画专家。
@@ -116,12 +116,12 @@ export async function POST(req: Request) {
         action: "storyboard_generation",
         providerType: "storyboard",
       });
-    } catch (quotaError: any) {
-      if (quotaError?.code === "QUOTA_EXCEEDED") {
+    } catch (quotaError) {
+      if (quotaError instanceof QuotaExceededError) {
         return NextResponse.json(
           {
             error: quotaError.message,
-            code: "QUOTA_EXCEEDED",
+            code: quotaError.code,
             limit: quotaError.limit,
             used: quotaError.count,
           },
@@ -154,9 +154,9 @@ export async function POST(req: Request) {
     });
 
     // 解析LLM返回的JSON
-    let storyboardData;
+    let storyboardData: Record<string, unknown>;
     try {
-      storyboardData = JSON.parse(content);
+      storyboardData = JSON.parse(content) as Record<string, unknown>;
     } catch {
       await recordGenerationLog({
         userId,
@@ -178,20 +178,29 @@ export async function POST(req: Request) {
       );
     }
 
+    const panels = Array.isArray(storyboardData.panels) ? storyboardData.panels : [];
+
     // 保存到数据库
     if (saveToDb) {
-      // 验证并规范化 panel 数据
+      const projectTitle = typeof storyboardData.project_title === "string" ? storyboardData.project_title : "未命名项目";
+      const storyboardStyle = typeof storyboardData.style === "string" ? storyboardData.style : undefined;
+      const scriptSegments = Array.isArray(storyboardData.script_segments) ? storyboardData.script_segments : null;
+      const asString = (value: unknown) => (typeof value === "string" ? value : undefined);
+      const asNumber = (value: unknown) => (typeof value === "number" ? value : undefined);
+
       const validPanelTypes = ["wide", "medium", "closeup", "action", "dialogue", "transition"];
       const validImportanceLevels = ["high", "medium", "low"];
 
-      const normalizedPanels = storyboardData.panels.map((panel: any, index: number) => {
-        // 确保 panel_type 有效
-        let panelType = panel.panel_type;
+      const normalizedPanels = panels.map((panel, index) => {
+        const panelData = panel as Record<string, unknown>;
+        const dialogue = asString(panelData.dialogue);
+        const shotSize = asString(panelData.shot_size);
+
+        let panelType = asString(panelData.panel_type);
         if (!panelType || !validPanelTypes.includes(panelType)) {
-          // 根据上下文推断默认类型
-          if (panel.dialogue) {
+          if (dialogue) {
             panelType = "dialogue";
-          } else if (panel.shot_size === "特写") {
+          } else if (shotSize === "特写") {
             panelType = "closeup";
           } else if (index === 0) {
             panelType = "wide";
@@ -200,48 +209,52 @@ export async function POST(req: Request) {
           }
         }
 
-        // 确保 importance 有效
-        let importance = panel.importance;
+        let importance = asString(panelData.importance);
         if (!importance || !validImportanceLevels.includes(importance)) {
           importance = "medium";
         }
 
+        const description = asString(panelData.description) ?? "无描述";
+        const englishPrompt = asString(panelData.english_prompt);
+        const visualPrompt = asString(panelData.visual_prompt);
+        const panelOrder = asNumber(panelData.panel_order) ?? index + 1;
+        const scriptStart = asNumber(panelData.script_start);
+        const scriptEnd = asNumber(panelData.script_end);
+
         return {
-          panel_order: panel.panel_order || index + 1,
+          panel_order: panelOrder,
           panel_type: panelType,
           importance: importance,
-          description: panel.description || "无描述",
-          dialogue: panel.dialogue || null,
-          character_id: panel.character_id || null, // Use character_id from LLM response
-          emotion: panel.emotion || null,
-          prompt_used: panel.english_prompt || panel.description || "",
-          generated_image: null, // 预留给图像生成
-
-          // New fields for script editor
-          script_segment_id: panel.script_segment_id || null,
-          script_start: panel.script_start ?? null,
-          script_end: panel.script_end ?? null,
-          camera_angle: panel.camera_angle || null,
-          shot_size: panel.shot_size || null,
-          visual_prompt: panel.visual_prompt || panel.description || "",
+          description: description,
+          dialogue: dialogue ?? null,
+          character_id: asString(panelData.character_id) ?? null,
+          emotion: asString(panelData.emotion) ?? null,
+          prompt_used: englishPrompt ?? description,
+          generated_image: null,
+          script_segment_id: asString(panelData.script_segment_id) ?? null,
+          script_start: scriptStart ?? null,
+          script_end: scriptEnd ?? null,
+          camera_angle: asString(panelData.camera_angle) ?? null,
+          shot_size: shotSize ?? null,
+          visual_prompt: visualPrompt ?? description,
         };
       });
 
       const project = await prisma.project.create({
         data: {
           user_id: payload.userId,
-          title: storyboardData.project_title || "未命名项目",
+          title: projectTitle,
           description: story,
-          style: storyboardData.style || style || null,
+          style: storyboardStyle ?? style ?? null,
           status: "draft",
           story_id: storyId || null, // Link to Story if provided
           panels: {
             create: normalizedPanels,
           },
-          script: storyboardData.script_segments ? {
+          script: scriptSegments ? {
             create: {
               content: story,
-              segments: storyboardData.script_segments || [],
+              segments: scriptSegments as Prisma.InputJsonValue,
             },
           } : undefined,
         },
@@ -263,7 +276,7 @@ export async function POST(req: Request) {
         requestPayload: { story, panelCount, style, saveToDb, storyId },
         responsePayload: {
           project_id: project.id,
-          panel_count: storyboardData.panels?.length ?? 0,
+          panel_count: panels.length,
         },
       });
 
@@ -271,7 +284,7 @@ export async function POST(req: Request) {
         success: true,
         project,
         usage: usageSnapshot,
-        message: `成功生成 ${storyboardData.panels.length} 个分镜`,
+        message: `成功生成 ${panels.length} 个分镜`,
       });
     }
 
@@ -283,7 +296,7 @@ export async function POST(req: Request) {
       durationMs: Date.now() - startedAt,
       requestPayload: { story, panelCount, style, saveToDb },
       responsePayload: {
-        panel_count: storyboardData.panels?.length ?? 0,
+        panel_count: panels.length,
       },
     });
 
@@ -292,7 +305,7 @@ export async function POST(req: Request) {
       success: true,
       storyboard: storyboardData,
       usage: usageSnapshot,
-      message: `成功生成 ${storyboardData.panels.length} 个分镜`,
+      message: `成功生成 ${panels.length} 个分镜`,
     });
 
   } catch (error) {

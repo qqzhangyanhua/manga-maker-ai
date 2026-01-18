@@ -37,6 +37,7 @@ export async function GET(
         chapter_number: true,
         shot_status: true,
         shot_count: true,
+        timeline_id: true,
       },
     });
 
@@ -60,6 +61,8 @@ export async function GET(
         shot_description: true,
         composition_hint: true,
         prompt: true,
+        generated_image_url: true,
+        generation_status: true,
         created_at: true,
       },
       orderBy: {
@@ -70,6 +73,7 @@ export async function GET(
     return NextResponse.json({
       chapterId: timelineChapter.id,
       chapterNumber: timelineChapter.chapter_number,
+      timelineId: timelineChapter.timeline_id,
       status: timelineChapter.shot_status,
       shots,
       totalCount: shots.length,

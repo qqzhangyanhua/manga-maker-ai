@@ -4,13 +4,13 @@ import { memo } from 'react';
 import { Handle, Position } from 'reactflow';
 import { BookImage, Play, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useOpenDetail, useCanvasStore } from '@/stores/canvas-store';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { useOpenDetail, useCanvasStore, useOpenFinalDialog } from '@/stores/canvas-store';
 import type { GenerationStatus } from '../types';
 
 interface FinalNodeData {
   chapterId: string;
+  chapterTitle: string;
+  chapterNumber: number;
   status: GenerationStatus;
   count: number;
   canGenerate: boolean;
@@ -57,95 +57,21 @@ export const FinalNode = memo(({ data }: FinalNodeProps) => {
   const Icon = config.icon;
   const isGenerating = data.status === 'generating';
   const openDetail = useOpenDetail();
-  const queryClient = useQueryClient();
+  const openFinalDialog = useOpenFinalDialog();
 
   const batchMode = useCanvasStore(state => state.batchMode);
   const selectedNodeIds = useCanvasStore(state => state.selectedNodeIds);
   const selectNode = useCanvasStore(state => state.selectNode);
   const isSelected = selectedNodeIds.has(data.chapterId);
 
-  const generateMutation = useMutation({
-    mutationFn: async () => {
-      const response = await fetch(`/api/canvas/chapter/${data.chapterId}/generate-finals`, {
-        method: 'POST',
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || '生成失败');
-      }
-      return response.json();
-    },
-    onMutate: async () => {
-      // 乐观更新: 立即显示 generating 状态
-      // 使用模糊匹配更新所有以 ["timeline", timelineId] 开头的查询
-      await queryClient.cancelQueries({ queryKey: ['timeline', data.timelineId] });
-
-      // 获取所有匹配的查询并保存之前的数据
-      const queries = queryClient.getQueriesData({ queryKey: ['timeline', data.timelineId] });
-      const previousDataMap = new Map(queries);
-
-      // 更新所有匹配的查询缓存
-      queryClient.setQueriesData(
-        { queryKey: ['timeline', data.timelineId] },
-        (old: unknown) => {
-          if (!old || typeof old !== 'object') return old;
-          const timeline = old as { chapters?: Array<{ id: string; final_status: string }> };
-          if (!timeline.chapters) return old;
-          return {
-            ...timeline,
-            chapters: timeline.chapters.map((ch) =>
-              ch.id === data.chapterId
-                ? { ...ch, final_status: 'generating' }
-                : ch
-            ),
-          };
-        }
-      );
-
-      return { previousDataMap };
-    },
-    onSuccess: async (responseData) => {
-      toast.success('漫画生成成功');
-
-      // 立即更新缓存为最终状态
-      queryClient.setQueriesData(
-        { queryKey: ['timeline', data.timelineId] },
-        (old: unknown) => {
-          if (!old || typeof old !== 'object') return old;
-          const timeline = old as { chapters?: Array<{ id: string; final_status: string; final_image_count: number }> };
-          if (!timeline.chapters) return old;
-          return {
-            ...timeline,
-            chapters: timeline.chapters.map((ch) =>
-              ch.id === data.chapterId
-                ? {
-                    ...ch,
-                    final_status: 'completed',
-                    final_image_count: responseData.metadata?.panel_count || 0,
-                  }
-                : ch
-            ),
-          };
-        }
-      );
-
-      // 强制刷新数据以确保与数据库同步
-      await queryClient.refetchQueries({ queryKey: ['timeline', data.timelineId] });
-    },
-    onError: (error: Error, _variables, context) => {
-      toast.error('漫画生成失败', { description: error.message });
-      // 回滚到之前的数据
-      if (context?.previousDataMap) {
-        context.previousDataMap.forEach((data, key) => {
-          queryClient.setQueryData(key as string[], data);
-        });
-      }
-    },
-  });
-
   const handleGenerate = (e: React.MouseEvent) => {
     e.stopPropagation();
-    generateMutation.mutate();
+    openFinalDialog(
+      data.chapterId,
+      data.chapterTitle,
+      data.chapterNumber,
+      data.timelineId
+    );
   };
 
   const handleClick = (e: React.MouseEvent) => {
@@ -228,20 +154,11 @@ export const FinalNode = memo(({ data }: FinalNodeProps) => {
               <Button
                 size="sm"
                 onClick={handleGenerate}
-                disabled={!data.canGenerate || generateMutation.isPending}
+                disabled={!data.canGenerate}
                 className="w-full h-8 bg-purple-600 hover:bg-purple-700 text-white text-xs disabled:bg-zinc-800 disabled:text-zinc-500"
               >
-                {generateMutation.isPending ? (
-                  <>
-                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                    生成中...
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-3 h-3 mr-1" />
-                    {data.status === 'error' ? '重新生成' : '生成'}
-                  </>
-                )}
+                <Play className="w-3 h-3 mr-1" />
+                {data.status === 'error' ? '重新生成' : '生成'}
               </Button>
             )}
             {data.status === 'generating' && (

@@ -156,11 +156,11 @@ export async function PATCH(
     let total_words = undefined;
 
     if (outlines !== undefined && Array.isArray(outlines)) {
-      chapter_count = outlines.length;
-      // 计算总字数（累加所有章节的 word_count）
-      total_words = outlines.reduce((sum: number, chapter: any) => {
-        const wordCount = chapter.word_count || chapter.wordCount || 0;
-        return sum + (typeof wordCount === "number" ? wordCount : 0);
+      const outlineItems = outlines as Array<Record<string, unknown>>;
+      chapter_count = outlineItems.length;
+      total_words = outlineItems.reduce((sum, chapter) => {
+        const wordCountValue = chapter.word_count ?? chapter.wordCount ?? 0;
+        return sum + (typeof wordCountValue === "number" ? wordCountValue : 0);
       }, 0);
 
       logInfo("Calculated statistics", {

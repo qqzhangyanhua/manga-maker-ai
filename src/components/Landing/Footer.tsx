@@ -25,7 +25,6 @@ const footerLinks = [
         title: "资源",
         items: [
             { label: "使用文档", href: "#" },
-            { label: "示例项目", href: "/samples" },
             { label: "社区展示", href: "#" },
             { label: "API 文档", href: "#" },
         ],

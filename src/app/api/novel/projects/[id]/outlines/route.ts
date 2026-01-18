@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { Prisma, prisma } from "@/lib/db";
 import { logInfo, logError } from "@/lib/api-logger";
 
 export async function GET(
@@ -129,21 +129,24 @@ export async function PUT(
 
     // 解析请求体
     const body = await req.json();
-    const { outlines } = body;
+    const outlines = body.outlines as unknown;
 
     if (!Array.isArray(outlines)) {
       return NextResponse.json({ error: "outlines 必须是数组" }, { status: 400 });
     }
 
-    // 验证大纲格式
-    for (const outline of outlines) {
-      if (!outline.chapter_number || typeof outline.chapter_number !== "number") {
+    const outlineItems = outlines as Array<Record<string, unknown>>;
+
+    for (const outline of outlineItems) {
+      const chapterNumber = outline.chapter_number;
+      if (typeof chapterNumber !== "number") {
         return NextResponse.json(
           { error: "每个大纲必须包含有效的 chapter_number" },
           { status: 400 }
         );
       }
-      if (!outline.title || typeof outline.title !== "string") {
+      const title = outline.title;
+      if (typeof title !== "string") {
         return NextResponse.json(
           { error: "每个大纲必须包含有效的 title" },
           { status: 400 }
@@ -155,21 +158,21 @@ export async function PUT(
       endpoint: "/api/novel/projects/[id]/outlines",
       userId,
       projectId,
-      outlinesCount: outlines.length,
+      outlinesCount: outlineItems.length,
     });
 
     // 计算总字数
-    const total_words = outlines.reduce((sum: number, chapter: any) => {
-      const wordCount = chapter.word_count || chapter.wordCount || 0;
-      return sum + (typeof wordCount === "number" ? wordCount : 0);
+    const total_words = outlineItems.reduce((sum, chapter) => {
+      const wordCountValue = chapter.word_count ?? chapter.wordCount ?? 0;
+      return sum + (typeof wordCountValue === "number" ? wordCountValue : 0);
     }, 0);
 
     // 更新大纲和章节计数
     const updatedProject = await prisma.novelProject.update({
       where: { id: projectId },
       data: {
-        outlines,
-        chapter_count: outlines.length,
+        outlines: outlineItems as Prisma.InputJsonValue,
+        chapter_count: outlineItems.length,
         total_words,
         updated_at: new Date(),
       },

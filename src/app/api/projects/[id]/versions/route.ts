@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { Prisma, prisma } from "@/lib/db";
 import type { SuccessResponse, CreateVersionInput, ProjectVersion } from "@/types/template";
 
 interface RouteParams {
@@ -241,32 +241,35 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       }) : null;
 
       if (previousVersion) {
-        const prevData = previousVersion.version_data as any;
+        const prevData = previousVersion.version_data as Record<string, unknown>;
+        const prevProject = typeof prevData.project === "object" && prevData.project !== null && !Array.isArray(prevData.project)
+          ? (prevData.project as Record<string, unknown>)
+          : {};
+        const prevPanelsRaw = Array.isArray(prevData.panels) ? prevData.panels : [];
+        const prevPanels = prevPanelsRaw.filter((panel): panel is Record<string, unknown> => typeof panel === "object" && panel !== null);
+
         const changes: string[] = [];
 
-        // Check project changes
-        if (prevData.project.title !== versionData.project.title) {
+        if (prevProject.title !== versionData.project.title) {
           changes.push("标题已修改");
         }
-        if (prevData.project.description !== versionData.project.description) {
+        if (prevProject.description !== versionData.project.description) {
           changes.push("描述已修改");
         }
 
-        // Check panel changes
-        const prevPanelCount = prevData.panels?.length || 0;
+        const prevPanelCount = prevPanels.length;
         const currPanelCount = versionData.panels.length;
         if (currPanelCount > prevPanelCount) {
           changes.push(`新增 ${currPanelCount - prevPanelCount} 个分镜`);
         } else if (currPanelCount < prevPanelCount) {
           changes.push(`删除 ${prevPanelCount - currPanelCount} 个分镜`);
         } else {
-          // Check if panels were modified
           const modifiedCount = versionData.panels.filter((panel, idx) => {
-            const prevPanel = prevData.panels[idx];
-            return prevPanel && (
-              prevPanel.description !== panel.description ||
-              prevPanel.generated_image !== panel.generated_image
-            );
+            const prevPanel = prevPanels[idx];
+            if (!prevPanel) return false;
+            const prevDescription = typeof prevPanel.description === "string" ? prevPanel.description : null;
+            const prevImage = typeof prevPanel.generated_image === "string" ? prevPanel.generated_image : null;
+            return prevDescription !== panel.description || prevImage !== panel.generated_image;
           }).length;
           if (modifiedCount > 0) {
             changes.push(`修改 ${modifiedCount} 个分镜`);
@@ -283,7 +286,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         project_id: projectId,
         version_number: nextVersionNumber,
         label: label?.trim() || null,
-        version_data: versionData as any,
+        version_data: versionData as Prisma.InputJsonValue,
         change_summary: changeSummary,
         is_auto: !label, // If no label provided, it's auto-save
         is_pinned: false,

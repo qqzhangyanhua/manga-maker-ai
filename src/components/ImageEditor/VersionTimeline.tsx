@@ -77,7 +77,14 @@ const VersionTimeline = ({
         <span className="text-xs text-muted-foreground">{filtered.length} 个版本</span>
       </div>
       <div className="flex flex-wrap gap-3">
-        <Select value={statusFilter} onValueChange={(value: any) => onStatusFilterChange(value)}>
+        <Select
+          value={statusFilter}
+          onValueChange={(value) => {
+            if (value === "all" || value === "pending" || value === "completed" || value === "failed") {
+              onStatusFilterChange(value);
+            }
+          }}
+        >
           <SelectTrigger className="h-8 w-[140px]">
             <SelectValue placeholder="状态筛选" />
           </SelectTrigger>
@@ -88,7 +95,14 @@ const VersionTimeline = ({
             <SelectItem value="failed">失败</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={sortOrder} onValueChange={(value: any) => onSortOrderChange(value)}>
+        <Select
+          value={sortOrder}
+          onValueChange={(value) => {
+            if (value === "desc" || value === "asc") {
+              onSortOrderChange(value);
+            }
+          }}
+        >
           <SelectTrigger className="h-8 w-[140px]">
             <SelectValue placeholder="排序方式" />
           </SelectTrigger>

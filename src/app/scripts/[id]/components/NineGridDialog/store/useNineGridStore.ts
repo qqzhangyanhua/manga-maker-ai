@@ -3,11 +3,14 @@
  */
 
 import { create } from "zustand";
+import type { toast as toastFunction } from "@/hooks/use-toast";
 import type {
     Panel,
     ComicStyle,
     CharacterAsset,
 } from "../types";
+
+type ToastHandler = typeof toastFunction;
 
 interface NineGridState {
     // Data
@@ -39,9 +42,9 @@ interface NineGridActions {
     setChapter: (chapterId: string) => void;
 
     // Panel actions
-    loadPanels: (chapterId: string, toast: any) => Promise<void>;
+    loadPanels: (chapterId: string, toast: ToastHandler) => Promise<void>;
     togglePanel: (panelId: string) => void;
-    selectFirst9: (toast: any) => void;
+    selectFirst9: (toast: ToastHandler) => void;
     clearSelection: () => void;
 
     // Style and asset actions

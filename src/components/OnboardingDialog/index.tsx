@@ -83,10 +83,6 @@ export function OnboardingDialog({ onOpenTrialDialog }: OnboardingDialogProps) {
         // 跳转到故事创作页面
         router.push("/story");
         break;
-      case "explore":
-        // 跳转到示例项目页面
-        router.push("/samples");
-        break;
     }
   }, [selectedChoice, router, onOpenTrialDialog]);
 

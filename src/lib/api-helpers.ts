@@ -69,6 +69,13 @@ export async function withAuth<T = unknown>(
   }
 }
 
+export function getErrorStatus(error: Error): number {
+  if ("status" in error && typeof error.status === "number") {
+    return error.status;
+  }
+  return 500;
+}
+
 /**
  * 统一的错误处理
  */
@@ -86,8 +93,7 @@ export function handleApiError(error: unknown): NextResponse {
   }
 
   if (error instanceof Error) {
-    // 支持带 status 属性的 Error 对象
-    const status = (error as any).status || 500;
+    const status = getErrorStatus(error);
     return NextResponse.json(
       { error: error.message },
       { status }

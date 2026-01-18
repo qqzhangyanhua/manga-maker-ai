@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { withAuth } from "@/lib/api-helpers";
+import { ApiError, withAuth } from "@/lib/api-helpers";
 import type { CharacterRole } from "@/types/phase2.types";
 
 const VALID_ROLES: CharacterRole[] = ["protagonist", "antagonist", "supporting", "minor"];
@@ -20,15 +20,11 @@ export async function POST(
     });
 
     if (!story) {
-      const error = new Error("故事不存在") as any;
-      error.status = 404;
-      throw error;
+      throw new ApiError("故事不存在", 404, "NOT_FOUND");
     }
 
     if (story.user_id !== userId) {
-      const error = new Error("无权访问此故事") as any;
-      error.status = 403;
-      throw error;
+      throw new ApiError("无权访问此故事", 403, "FORBIDDEN");
     }
 
     const body = await req.json();
@@ -39,9 +35,7 @@ export async function POST(
     };
 
     if (!character_id) {
-      const error = new Error("缺少 character_id") as any;
-      error.status = 400;
-      throw error;
+      throw new ApiError("缺少 character_id", 400, "BAD_REQUEST");
     }
 
     const validatedRole = (role && VALID_ROLES.includes(role as CharacterRole))
@@ -53,15 +47,11 @@ export async function POST(
     });
 
     if (!character) {
-      const error = new Error("角色不存在") as any;
-      error.status = 404;
-      throw error;
+      throw new ApiError("角色不存在", 404, "NOT_FOUND");
     }
 
     if (character.user_id !== userId) {
-      const error = new Error("无权使用此角色") as any;
-      error.status = 403;
-      throw error;
+      throw new ApiError("无权使用此角色", 403, "FORBIDDEN");
     }
 
     const existing = await prisma.storyCharacter.findUnique({
@@ -74,9 +64,7 @@ export async function POST(
     });
 
     if (existing) {
-      const error = new Error("该角色已添加到此故事") as any;
-      error.status = 400;
-      throw error;
+      throw new ApiError("该角色已添加到此故事", 400, "BAD_REQUEST");
     }
 
     const maxOrder = await prisma.storyCharacter.aggregate({
@@ -127,15 +115,11 @@ export async function GET(
     });
 
     if (!story) {
-      const error = new Error("故事不存在") as any;
-      error.status = 404;
-      throw error;
+      throw new ApiError("故事不存在", 404, "NOT_FOUND");
     }
 
     if (story.user_id !== userId) {
-      const error = new Error("无权访问此故事") as any;
-      error.status = 403;
-      throw error;
+      throw new ApiError("无权访问此故事", 403, "FORBIDDEN");
     }
 
     const storyCharacters = await prisma.storyCharacter.findMany({

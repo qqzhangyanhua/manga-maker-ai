@@ -53,18 +53,6 @@ const items = [
         iconColor: "text-amber-400",
         iconBg: "bg-amber-500/5",
     },
-    {
-        title: "示例项目",
-        description: "学习优秀的漫画分镜结构。",
-        href: "/samples",
-        icon: Layers,
-        span: "md:col-span-1",
-        theme: "stone",
-        bgGradient: "from-stone-500/10 via-stone-500/5 to-transparent",
-        borderHover: "group-hover:border-stone-500/50",
-        iconColor: "text-stone-400",
-        iconBg: "bg-stone-500/10",
-    },
 ];
 
 // 最后一个 "用量与日志" 作为一个更紧凑的一行，或者放在 Bento 的最后

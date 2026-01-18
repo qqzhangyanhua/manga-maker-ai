@@ -19,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Palette, Plus, Edit2, Trash2, ChevronUp, ChevronDown, Eye, EyeOff, Upload, Loader2 } from "lucide-react";
+import { Palette, Plus, Edit2, Trash2, ChevronUp, ChevronDown, Eye, EyeOff, Upload, Loader2, Sparkles, Download } from "lucide-react";
 import { ComicStyle, PRESET_COLORS } from "./types";
 import { useComicStyleList } from "./hooks/useComicStyleList";
 import { useComicStyleForm } from "./hooks/useComicStyleForm";
@@ -31,6 +31,8 @@ const ComicStylesAdminPage = () => {
   const isAdmin = (currentUser?.role || "user") === "admin";
 
   const [deletingStyle, setDeletingStyle] = useState<ComicStyle | null>(null);
+  const [batchGenerating, setBatchGenerating] = useState(false);
+  const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
 
   const { styles, loading, fetchStyles, handleToggleEnabled, handleSortChange } =
     useComicStyleList();
@@ -43,10 +45,12 @@ const ComicStylesAdminPage = () => {
     setForm,
     submitting,
     uploading,
+    generating,
     fileInputRef,
     handleOpenDialog,
     handleSubmit,
     handleFileSelect,
+    handleGenerateImage,
     triggerFileInput,
   } = useComicStyleForm(styles.length, fetchStyles);
 
@@ -83,12 +87,197 @@ const ComicStylesAdminPage = () => {
     deleteMutation.mutate(deletingStyle.id);
   };
 
+  const handleExportJSON = () => {
+    const exportData = styles.map((style) => ({
+      id: style.id,
+      style_key: style.style_key,
+      name_zh: style.name_zh,
+      name_en: style.name_en,
+      image_url: style.image_url,
+      tag_color: style.tag_color,
+      description: style.description,
+      prompt_prefix: style.prompt_prefix,
+      sort_order: style.sort_order,
+      enabled: style.enabled,
+      usage_count: style.usage_count,
+      created_at: style.created_at,
+      updated_at: style.updated_at,
+    }));
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `comic-styles-${new Date().toISOString().split("T")[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({ title: "导出成功", description: `已导出 ${styles.length} 个风格` });
+  };
+
+  const handleExportCSV = () => {
+    const headers = [
+      "ID",
+      "风格标识",
+      "中文名称",
+      "英文名称",
+      "图片URL",
+      "标签颜色",
+      "描述",
+      "AI提示词前缀",
+      "排序",
+      "启用状态",
+      "使用次数",
+      "创建时间",
+      "更新时间",
+    ];
+
+    const rows = styles.map((style) => [
+      style.id,
+      style.style_key,
+      style.name_zh,
+      style.name_en,
+      style.image_url || "",
+      style.tag_color,
+      style.description || "",
+      style.prompt_prefix || "",
+      style.sort_order,
+      style.enabled ? "启用" : "禁用",
+      style.usage_count,
+      style.created_at ? new Date(style.created_at).toLocaleString("zh-CN") : "",
+      style.updated_at ? new Date(style.updated_at).toLocaleString("zh-CN") : "",
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) =>
+        row
+          .map((cell) => {
+            const cellStr = String(cell);
+            if (cellStr.includes(",") || cellStr.includes('"') || cellStr.includes("\n")) {
+              return `"${cellStr.replace(/"/g, '""')}"`;
+            }
+            return cellStr;
+          })
+          .join(",")
+      ),
+    ].join("\n");
+
+    const blob = new Blob(["\ufeff" + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `comic-styles-${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({ title: "导出成功", description: `已导出 ${styles.length} 个风格` });
+  };
+
+  const handleBatchGenerateImages = async () => {
+    const stylesWithoutImages = styles.filter(
+      (style) => !style.image_url && style.prompt_prefix
+    );
+
+    if (stylesWithoutImages.length === 0) {
+      toast({
+        title: "没有需要生成图片的风格",
+        description: "所有风格都已有图片,或缺少 AI 提示词前缀",
+      });
+      return;
+    }
+
+    const confirmed = confirm(
+      `将为 ${stylesWithoutImages.length} 个风格生成图片,这可能需要一些时间。是否继续?`
+    );
+
+    if (!confirmed) return;
+
+    setBatchGenerating(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const style of stylesWithoutImages) {
+      try {
+        const generationPrompt = `${style.prompt_prefix}, high quality, professional comic book style illustration, vibrant colors, clean lines, ${style.name_zh} art style`;
+
+        const res = await fetch("/api/image-generation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: generationPrompt,
+            negative_prompt:
+              "low quality, blurry, distorted, ugly, bad anatomy, watermark, text, signature",
+            width: 512,
+            height: 512,
+            steps: 30,
+            cfg_scale: 7,
+            type: "comic-style",
+            metadata: {
+              style_name: style.name_zh,
+              style_key: style.style_key,
+            },
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.image_url) {
+            await fetch(`/api/admin/comic-styles/${style.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ image_url: data.image_url }),
+            });
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } else {
+          failCount++;
+        }
+      } catch (error) {
+        console.error(`Failed to generate image for ${style.name_zh}:`, error);
+        failCount++;
+      }
+    }
+
+    setBatchGenerating(false);
+    queryClient.invalidateQueries({ queryKey: ["admin-comic-styles"] });
+    fetchStyles();
+
+    toast({
+      title: "批量生成完成",
+      description: `成功: ${successCount}, 失败: ${failCount}`,
+    });
+  };
+
   if (userLoading) {
-    return <div className="p-10">加载中...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-primary" />
+          <p className="text-muted-foreground">加载中...</p>
+        </div>
+      </div>
+    );
   }
 
   if (!isAdmin) {
-    return <div className="p-10">权限不足，需要管理员角色。</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-lg text-muted-foreground">权限不足，需要管理员角色。</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -106,7 +295,49 @@ const ComicStylesAdminPage = () => {
         </div>
 
         <div className="p-5 comic-card bg-card space-y-6">
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              {styles.filter((s) => !s.image_url && s.prompt_prefix).length > 0 && (
+                <Button
+                  onClick={handleBatchGenerateImages}
+                  disabled={loading || batchGenerating}
+                  variant="outline"
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0 hover:from-purple-600 hover:to-pink-600"
+                >
+                  {batchGenerating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      批量生成中...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      批量生成图片 ({styles.filter((s) => !s.image_url && s.prompt_prefix).length})
+                    </>
+                  )}
+                </Button>
+              )}
+              {styles.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={handleExportJSON}
+                    disabled={loading}
+                    variant="outline"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    导出 JSON
+                  </Button>
+                  <Button
+                    onClick={handleExportCSV}
+                    disabled={loading}
+                    variant="outline"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    导出 CSV
+                  </Button>
+                </div>
+              )}
+            </div>
             <Button
               onClick={() => handleOpenDialog()}
               disabled={loading}
@@ -146,7 +377,8 @@ const ComicStylesAdminPage = () => {
                             <img
                               src={style.image_url}
                               alt={style.name_zh}
-                              className="w-16 h-16 object-cover rounded-md border border-border"
+                              className="w-16 h-16 object-cover rounded-md border border-border cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                              onClick={() => setPreviewImage({ url: style.image_url, name: style.name_zh })}
                             />
                           ) : (
                             <div className="w-16 h-16 bg-muted rounded-md flex items-center justify-center">
@@ -274,7 +506,8 @@ const ComicStylesAdminPage = () => {
                       <img
                         src={form.image_url}
                         alt="预览"
-                        className="w-full h-full object-cover rounded-lg border border-border"
+                        className="w-full h-full object-cover rounded-lg border border-border cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                        onClick={() => setPreviewImage({ url: form.image_url, name: form.name_zh || "预览" })}
                       />
                     </div>
                   )}
@@ -283,7 +516,7 @@ const ComicStylesAdminPage = () => {
                       type="button"
                       variant="outline"
                       onClick={triggerFileInput}
-                      disabled={uploading}
+                      disabled={uploading || generating}
                     >
                       {uploading ? (
                         <>
@@ -297,16 +530,36 @@ const ComicStylesAdminPage = () => {
                         </>
                       )}
                     </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleGenerateImage}
+                      disabled={uploading || generating || !form.name_zh || !form.prompt_prefix}
+                      className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0 hover:from-purple-600 hover:to-pink-600"
+                    >
+                      {generating ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          生成中...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          AI 生成
+                        </>
+                      )}
+                    </Button>
                     <span className="text-xs text-muted-foreground">或</span>
                     <Input
                       value={form.image_url}
                       onChange={(e) => setForm({ ...form, image_url: e.target.value })}
                       placeholder="输入图片 URL"
                       className="flex-1"
+                      disabled={uploading || generating}
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    支持 JPG、PNG、WebP 格式，最大 4MB
+                    支持 JPG、PNG、WebP 格式，最大 4MB。AI 生成需先填写"中文名称"和"AI 提示词前缀"。
                   </p>
                 </div>
               </div>
@@ -430,6 +683,23 @@ const ComicStylesAdminPage = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <Dialog open={!!previewImage} onOpenChange={(open) => !open && setPreviewImage(null)}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>{previewImage?.name} - 风格预览</DialogTitle>
+            </DialogHeader>
+            <div className="flex items-center justify-center p-4">
+              {previewImage && (
+                <img
+                  src={previewImage.url}
+                  alt={previewImage.name}
+                  className="max-w-full max-h-[70vh] object-contain rounded-lg"
+                />
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

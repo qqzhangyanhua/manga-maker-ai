@@ -33,6 +33,24 @@ export async function POST(req: Request) {
       );
     }
 
+    // **修复：先检查是否已存在该小说项目的时间线**
+    const existingTimeline = await prisma.canvasTimeline.findFirst({
+      where: {
+        novel_project_id,
+        user_id: payload.userId,
+      },
+      orderBy: {
+        created_at: "desc", // 如果有多个，返回最新的
+      },
+    });
+
+    if (existingTimeline) {
+      console.log(`[Timeline API] 复用现有时间线: ${existingTimeline.id} for project ${novel_project_id}`);
+      return NextResponse.json({ success: true, timeline: existingTimeline });
+    }
+
+    // 不存在才创建新时间线
+    console.log(`[Timeline API] 创建新时间线 for project ${novel_project_id}`);
     const timeline = await prisma.canvasTimeline.create({
       data: {
         novel_project_id,

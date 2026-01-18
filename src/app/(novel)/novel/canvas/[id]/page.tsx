@@ -6,6 +6,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InfiniteCanvasView } from "@/components/InfiniteCanvas";
 import { useTimelineWindow } from "@/hooks/useTimelineWindow";
+import { novelTheme } from "../../theme";
 
 export default function CanvasPage() {
   const params = useParams();
@@ -69,8 +70,8 @@ export default function CanvasPage() {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-[#0f0f13]">
         <div className="relative">
-          <Loader2 className="w-12 h-12 animate-spin text-purple-500" />
-          <div className="absolute top-0 left-0 w-12 h-12 rounded-full border-4 border-purple-500/20 animate-pulse"></div>
+          <Loader2 className={`w-12 h-12 ${novelTheme.loading.spinner}`} />
+          <div className={`absolute top-0 left-0 w-12 h-12 rounded-full border-4 ${novelTheme.loading.border}`}></div>
         </div>
         <p className="mt-4 text-zinc-400 text-sm animate-pulse">加载时间线中...</p>
       </div>

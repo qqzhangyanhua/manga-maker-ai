@@ -17,8 +17,8 @@ interface StoryTemplate {
     name: string;
     category: string;
     description: string;
-    structure: any;
-    prompts: any;
+    structure: { acts?: Array<unknown> };
+    prompts: Record<string, unknown>;
 }
 
 interface StoryTemplateSelectorProps {

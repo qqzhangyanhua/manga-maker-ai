@@ -40,11 +40,11 @@ import { cn } from "@/lib/utils";
 import { useFocusMode } from "../../contexts/FocusModeContext";
 import { ReferenceImageSelector } from "../ReferenceImageSelector";
 import type { ReferenceImage } from "../FocusMode/types";
-import type { Panel } from "../../types/script-editor.types";
+import type { Panel as ScriptPanel } from "../../types/script-editor.types";
 import { usePanelImageGeneration } from "../../hooks/usePanelImageGeneration";
 import { useScriptData } from "../../providers/ScriptDataProvider";
 import { GenerateCharacterImageDialog } from "../GenerateCharacterImageDialog";
-import type { Character } from "@prisma/client";
+import type { Character as PrismaCharacter, Panel as PrismaPanel } from "@prisma/client";
 import { useErrorHandler } from "../../hooks/useErrorHandler";
 import { useLoadingState } from "../../hooks/useLoadingState";
 import { buildCompletePrompt, extractCharacterNames } from "@/lib/panel-prompt-builder";
@@ -88,7 +88,7 @@ export function PanelConfigSidebar({ className, storyId, projectId }: PanelConfi
 
   // 角色图片生成对话框状态
   const [generateImageDialogOpen, setGenerateImageDialogOpen] = useState(false);
-  const [selectedCharacterForGeneration, setSelectedCharacterForGeneration] = useState<Character | null>(null);
+  const [selectedCharacterForGeneration, setSelectedCharacterForGeneration] = useState<PrismaCharacter | null>(null);
 
   // 同步当前面板数据到本地状态
   useEffect(() => {
@@ -177,16 +177,19 @@ export function PanelConfigSidebar({ className, storyId, projectId }: PanelConfi
       state.config.selectedCharacters.includes(c.id)
     );
 
+    const promptPanel = {
+      ...state.currentPanel,
+      description: basePrompt,
+      camera_angle: null,
+      shot_size: null,
+    } as unknown as PrismaPanel;
+
     const enhancedPrompt = buildCompletePrompt(
-      {
-        description: basePrompt,
-        camera_angle: null,
-        shot_size: null,
-      } as any,
-      selectedCharacters as any[],
+      promptPanel,
+      selectedCharacters as unknown as PrismaCharacter[],
       {
         preferredSource: "description",
-        includeCameraInfo: false, // FocusModePanel 没有镜头信息
+        includeCameraInfo: false,
         includeStyleInstructions: true,
         hasReferenceImages: allReferenceImages.length > 0,
         customStyle: "Japanese manga/comic style",
@@ -322,7 +325,7 @@ export function PanelConfigSidebar({ className, storyId, projectId }: PanelConfi
   const filteredCharacters = characters.filter(char => storyCharacterIds.has(char.id));
 
   // 打开角色图片生成对话框
-  const handleOpenGenerateDialog = (character: Character) => {
+  const handleOpenGenerateDialog = (character: PrismaCharacter) => {
     setSelectedCharacterForGeneration(character);
     setGenerateImageDialogOpen(true);
   };
@@ -550,7 +553,7 @@ export function PanelConfigSidebar({ className, storyId, projectId }: PanelConfi
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleOpenGenerateDialog(character as Character);
+                                handleOpenGenerateDialog(character as PrismaCharacter);
                               }}
                               disabled={isGenerating}
                               className="absolute bottom-1 right-1 p-1.5 bg-orange-500 hover:bg-orange-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -724,7 +727,7 @@ export function PanelConfigSidebar({ className, storyId, projectId }: PanelConfi
           open={referenceImageSelectorOpen}
           storyId={storyId}
           projectId={projectId}
-          panels={panels as unknown as Panel[]}
+          panels={panels as unknown as ScriptPanel[]}
           onOpenChange={setReferenceImageSelectorOpen}
           onConfirm={(images) => {
             actions.updateConfig({ referenceImages: images });

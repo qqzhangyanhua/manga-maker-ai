@@ -7,7 +7,7 @@ import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { logInfo, logError } from "@/lib/api-logger";
-import * as EPubModule from "epub-gen-memory";
+import EPubGenerator from "epub-gen-memory";
 
 type ExportFormat = "txt" | "markdown" | "epub" | "docx" | "pdf";
 
@@ -102,8 +102,9 @@ export async function POST(
       );
     }
 
-    const outlines = project.outlines as any[];
-    if (!Array.isArray(outlines) || outlines.length === 0) {
+    const outlinesValue = project.outlines as unknown;
+    const outlines = Array.isArray(outlinesValue) ? outlinesValue : [];
+    if (outlines.length === 0) {
       return NextResponse.json(
         { error: "项目中没有章节大纲，请先生成大纲" },
         { status: 400 }
@@ -117,16 +118,24 @@ export async function POST(
 
     // 从 outlines 提取章节数据
     chapters = outlines.map((outline) => {
-      const content = outline.content || "";
+      const outlineData = outline as Record<string, unknown>;
+      const content = typeof outlineData.content === "string" ? outlineData.content : "";
+      const chapterNumber = typeof outlineData.chapterNumber === "number"
+        ? outlineData.chapterNumber
+        : typeof outlineData.chapter_number === "number"
+          ? outlineData.chapter_number
+          : 0;
+      const title = typeof outlineData.title === "string" ? outlineData.title : "";
+
       logInfo("Processing chapter", {
-        chapterNumber: outline.chapterNumber || outline.chapter_number,
-        title: outline.title,
+        chapterNumber,
+        title,
         contentLength: content.length,
       });
 
       return {
-        chapterNumber: outline.chapterNumber || outline.chapter_number || 0,
-        title: outline.title || "",
+        chapterNumber,
+        title,
         content,
       };
     });
@@ -226,7 +235,7 @@ export async function POST(
  * 导出为纯文本格式
  */
 async function exportToTxt(
-  project: any,
+  project: { title: string; description: string | null; genre: string | null },
   chapters: ChapterData[],
   config: ExportConfig
 ): Promise<ArrayBuffer> {
@@ -268,7 +277,7 @@ async function exportToTxt(
  * 导出为 Markdown 格式
  */
 async function exportToMarkdown(
-  project: any,
+  project: { title: string; description: string | null; genre: string | null },
   chapters: ChapterData[],
   config: ExportConfig
 ): Promise<ArrayBuffer> {
@@ -304,7 +313,7 @@ async function exportToMarkdown(
  * 导出为 EPUB 格式
  */
 async function exportToEpub(
-  project: any,
+  project: { title: string; description: string | null; genre: string | null },
   chapters: ChapterData[],
   config: ExportConfig
 ): Promise<ArrayBuffer> {
@@ -319,7 +328,15 @@ async function exportToEpub(
         .join("\n")}`,
     }));
 
-    const options: any = {
+    const options: {
+      title: string;
+      author: string;
+      description: string;
+      publisher: string;
+      tocTitle: string;
+      appendChapterTitles: boolean;
+      verbose: boolean;
+    } = {
       title: project.title,
       author: "作者",
       description: project.description || "",
@@ -329,9 +346,7 @@ async function exportToEpub(
       verbose: false,
     };
 
-    // 使用函数方式生成 EPUB（不是类）
-    const epubGenerator = (EPubModule as any).default || EPubModule;
-    const buffer = await epubGenerator(options, epubChapters);
+    const buffer = await EPubGenerator(options, epubChapters);
 
     // 确保返回正确的 ArrayBuffer
     if (buffer instanceof Uint8Array) {

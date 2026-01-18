@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Download, FileText, FileType, File, Loader2 } from "lucide-react"
 import { toast } from "sonner"
+import { novelTheme } from "../../theme";
 
 interface ExportDialogProps {
   projectId: string

@@ -2,6 +2,7 @@
  * 图像生成服务测试
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { LlmProvider } from "@prisma/client";
 import { callImageGenerationByType } from "./image-generation";
 
 // Mock ensureLlmProvider
@@ -10,7 +11,30 @@ vi.mock("./llm-provider", () => ({
 }));
 
 // Mock fetch
-global.fetch = vi.fn();
+global.fetch = vi.fn() as unknown as typeof fetch;
+const fetchMock = vi.mocked(global.fetch);
+
+const buildProvider = (overrides: Partial<LlmProvider>): LlmProvider => ({
+  id: 1,
+  provider_type: "image_generation",
+  provider_name: "openai",
+  model: "dall-e-3",
+  base_url: "https://api.openai.com",
+  api_key: "sk-test",
+  priority: 1,
+  enabled: true,
+  desc: null,
+  credits_cost: 0,
+  created_at: new Date(),
+  updated_at: new Date(),
+  ...overrides,
+});
+
+const mockJsonResponse = <T>(payload: T, overrides?: Partial<Response>): Response => ({
+  ok: true,
+  json: async () => payload,
+  ...overrides,
+}) as Response;
 
 describe("callImageGenerationByType - OpenAI支持", () => {
   beforeEach(() => {
@@ -19,24 +43,16 @@ describe("callImageGenerationByType - OpenAI支持", () => {
 
   it("应该支持 OpenAI provider_name", async () => {
     const { ensureLlmProvider } = await import("./llm-provider");
-    const mockProvider = {
-      provider_name: "openai",
-      model: "dall-e-3",
-      base_url: "https://api.openai.com",
-      api_key: "sk-test",
-    };
+    const mockProvider = buildProvider({});
 
-    (ensureLlmProvider as any).mockResolvedValue(mockProvider);
+    vi.mocked(ensureLlmProvider).mockResolvedValue(mockProvider);
 
-    const mockResponse = {
-      ok: true,
-      json: async () => ({
-        created: 1234567890,
-        data: [{ b64_json: "base64imagedata" }],
-      }),
-    };
+    const mockResponse = mockJsonResponse({
+      created: 1234567890,
+      data: [{ b64_json: "base64imagedata" }],
+    });
 
-    (global.fetch as any).mockResolvedValue(mockResponse);
+    fetchMock.mockResolvedValue(mockResponse);
 
     const result = await callImageGenerationByType({
       providerType: "image_generation",
@@ -62,24 +78,20 @@ describe("callImageGenerationByType - OpenAI支持", () => {
 
   it("应该支持 dall-e 别名", async () => {
     const { ensureLlmProvider } = await import("./llm-provider");
-    const mockProvider = {
+    const mockProvider = buildProvider({
       provider_name: "dall-e",
       model: "dall-e-2",
-      base_url: "https://api.openai.com",
-      api_key: "sk-test",
-    };
+    });
 
-    (ensureLlmProvider as any).mockResolvedValue(mockProvider);
 
-    const mockResponse = {
-      ok: true,
-      json: async () => ({
-        created: 1234567890,
-        data: [{ b64_json: "base64imagedata" }],
-      }),
-    };
+    vi.mocked(ensureLlmProvider).mockResolvedValue(mockProvider);
 
-    (global.fetch as any).mockResolvedValue(mockResponse);
+    const mockResponse = mockJsonResponse({
+      created: 1234567890,
+      data: [{ b64_json: "base64imagedata" }],
+    });
+
+    fetchMock.mockResolvedValue(mockResponse);
 
     const result = await callImageGenerationByType({
       providerType: "image_generation",
@@ -93,14 +105,9 @@ describe("callImageGenerationByType - OpenAI支持", () => {
 
   it("应该在 API Key 未配置时抛出错误", async () => {
     const { ensureLlmProvider } = await import("./llm-provider");
-    const mockProvider = {
-      provider_name: "openai",
-      model: "dall-e-3",
-      base_url: "https://api.openai.com",
-      api_key: undefined,
-    };
+    const mockProvider = buildProvider({ api_key: "" });
 
-    (ensureLlmProvider as any).mockResolvedValue(mockProvider);
+    vi.mocked(ensureLlmProvider).mockResolvedValue(mockProvider);
 
     const result = await callImageGenerationByType({
       providerType: "image_generation",
@@ -113,23 +120,16 @@ describe("callImageGenerationByType - OpenAI支持", () => {
 
   it("应该处理 API 错误响应", async () => {
     const { ensureLlmProvider } = await import("./llm-provider");
-    const mockProvider = {
-      provider_name: "openai",
-      model: "dall-e-3",
-      base_url: "https://api.openai.com",
-      api_key: "sk-test",
-    };
+    const mockProvider = buildProvider({});
 
-    (ensureLlmProvider as any).mockResolvedValue(mockProvider);
+    vi.mocked(ensureLlmProvider).mockResolvedValue(mockProvider);
 
-    const mockResponse = {
-      ok: false,
-      status: 429,
-      statusText: "Too Many Requests",
-      json: async () => ({ error: { message: "Rate limit exceeded" } }),
-    };
+    const mockResponse = mockJsonResponse(
+      { error: { message: "Rate limit exceeded" } },
+      { ok: false, status: 429, statusText: "Too Many Requests" }
+    );
 
-    (global.fetch as any).mockResolvedValue(mockResponse);
+    fetchMock.mockResolvedValue(mockResponse);
 
     const result = await callImageGenerationByType({
       providerType: "image_generation",
@@ -142,32 +142,26 @@ describe("callImageGenerationByType - OpenAI支持", () => {
 
   it("应该使用 DALL-E 3 默认使用 hd quality", async () => {
     const { ensureLlmProvider } = await import("./llm-provider");
-    const mockProvider = {
-      provider_name: "openai",
-      model: "dall-e-3",
-      base_url: "https://api.openai.com",
-      api_key: "sk-test",
-    };
+    const mockProvider = buildProvider({});
 
-    (ensureLlmProvider as any).mockResolvedValue(mockProvider);
+    vi.mocked(ensureLlmProvider).mockResolvedValue(mockProvider);
 
-    const mockResponse = {
-      ok: true,
-      json: async () => ({
-        created: 1234567890,
-        data: [{ b64_json: "base64imagedata" }],
-      }),
-    };
+    const mockResponse = mockJsonResponse({
+      created: 1234567890,
+      data: [{ b64_json: "base64imagedata" }],
+    });
 
-    (global.fetch as any).mockResolvedValue(mockResponse);
+    fetchMock.mockResolvedValue(mockResponse);
 
     await callImageGenerationByType({
       providerType: "image_generation",
       prompt: "test prompt",
     });
 
-    const fetchCall = (global.fetch as any).mock.calls[0];
-    const requestBody = JSON.parse(fetchCall[1].body);
+    const fetchCall = fetchMock.mock.calls[0];
+    const requestBody = JSON.parse(
+      typeof fetchCall[1]?.body === "string" ? fetchCall[1].body : "{}"
+    );
 
     expect(requestBody.quality).toBe("hd");
     expect(requestBody.model).toBe("dall-e-3");
@@ -175,24 +169,16 @@ describe("callImageGenerationByType - OpenAI支持", () => {
 
   it("应该对不支持的尺寸使用默认值", async () => {
     const { ensureLlmProvider } = await import("./llm-provider");
-    const mockProvider = {
-      provider_name: "openai",
-      model: "dall-e-3",
-      base_url: "https://api.openai.com",
-      api_key: "sk-test",
-    };
+    const mockProvider = buildProvider({});
 
-    (ensureLlmProvider as any).mockResolvedValue(mockProvider);
+    vi.mocked(ensureLlmProvider).mockResolvedValue(mockProvider);
 
-    const mockResponse = {
-      ok: true,
-      json: async () => ({
-        created: 1234567890,
-        data: [{ b64_json: "base64imagedata" }],
-      }),
-    };
+    const mockResponse = mockJsonResponse({
+      created: 1234567890,
+      data: [{ b64_json: "base64imagedata" }],
+    });
 
-    (global.fetch as any).mockResolvedValue(mockResponse);
+    fetchMock.mockResolvedValue(mockResponse);
 
     await callImageGenerationByType({
       providerType: "image_generation",
@@ -201,8 +187,10 @@ describe("callImageGenerationByType - OpenAI支持", () => {
       height: 600,
     });
 
-    const fetchCall = (global.fetch as any).mock.calls[0];
-    const requestBody = JSON.parse(fetchCall[1].body);
+    const fetchCall = fetchMock.mock.calls[0];
+    const requestBody = JSON.parse(
+      typeof fetchCall[1]?.body === "string" ? fetchCall[1].body : "{}"
+    );
 
     expect(requestBody.size).toBe("1024x1024");
   });

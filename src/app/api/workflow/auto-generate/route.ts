@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { createWorkflow, type WorkflowConfig } from "@/lib/workflow-engine";
-import { assertAndIncrementUsage } from "@/lib/usage";
+import { QuotaExceededError, assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
 
 /**
@@ -58,12 +58,12 @@ export async function POST(req: Request) {
                 providerType: "workflow",
                 amount: estimatedUsage,
             });
-        } catch (quotaError: any) {
-            if (quotaError?.code === "QUOTA_EXCEEDED") {
+        } catch (quotaError) {
+            if (quotaError instanceof QuotaExceededError) {
                 return NextResponse.json(
                     {
                         error: quotaError.message,
-                        code: "QUOTA_EXCEEDED",
+                        code: quotaError.code,
                         limit: quotaError.limit,
                         used: quotaError.count,
                     },

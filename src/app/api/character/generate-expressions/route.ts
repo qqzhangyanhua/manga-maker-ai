@@ -12,7 +12,7 @@ import {
 } from "@/lib/expression-generation";
 import { base64ToBuffer } from "@/lib/image-generation";
 import { minioClient, MINIO_BUCKET, ensureBucketExists, getPublicUrl } from "@/lib/minio";
-import { assertAndIncrementUsage } from "@/lib/usage";
+import { QuotaExceededError, assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
 import { findBestReferenceImage } from "@/lib/character-reference";
 
@@ -92,7 +92,7 @@ export async function POST(req: Request) {
 
     try {
       await ensureLlmProvider(imageProviderType);
-    } catch (providerError: any) {
+    } catch (providerError) {
       const message =
         providerError instanceof Error ? providerError.message : "模型未配置，请先在 /admin/llm-providers 添加";
       return NextResponse.json(
@@ -102,7 +102,7 @@ export async function POST(req: Request) {
     }
     try {
       await ensureLlmProvider(promptProviderType);
-    } catch (providerError: any) {
+    } catch (providerError) {
       const message =
         providerError instanceof Error ? providerError.message : "模型未配置，请先在 /admin/llm-providers 添加";
       return NextResponse.json(
@@ -118,12 +118,12 @@ export async function POST(req: Request) {
         providerType: imageProviderType,
         amount: expressionsToGenerate.length,
       });
-    } catch (quotaError: any) {
-      if (quotaError?.code === "QUOTA_EXCEEDED") {
+    } catch (quotaError) {
+      if (quotaError instanceof QuotaExceededError) {
         return NextResponse.json(
           {
             error: quotaError.message,
-            code: "QUOTA_EXCEEDED",
+            code: quotaError.code,
             limit: quotaError.limit,
             used: quotaError.count,
           },

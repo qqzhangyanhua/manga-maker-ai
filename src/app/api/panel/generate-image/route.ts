@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { assertAndIncrementUsage } from "@/lib/usage";
+import { QuotaExceededError, assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
 import { findBestReferenceImage } from "@/lib/character-reference";
 import { generateImage } from "@/lib/unified-image-generation";
@@ -96,12 +96,12 @@ export async function POST(req: Request) {
         providerType: "image_generation",
         amount: 1,
       });
-    } catch (quotaError: any) {
-      if (quotaError?.code === "QUOTA_EXCEEDED") {
+    } catch (quotaError) {
+      if (quotaError instanceof QuotaExceededError) {
         return NextResponse.json(
           {
             error: quotaError.message,
-            code: "QUOTA_EXCEEDED",
+            code: quotaError.code,
             limit: quotaError.limit,
             used: quotaError.count,
           },
@@ -410,12 +410,12 @@ export async function PUT(req: Request) {
         providerType: "image_generation",
         amount: panelsToGenerate.length,
       });
-    } catch (quotaError: any) {
-      if (quotaError?.code === "QUOTA_EXCEEDED") {
+    } catch (quotaError) {
+      if (quotaError instanceof QuotaExceededError) {
         return NextResponse.json(
           {
             error: quotaError.message,
-            code: "QUOTA_EXCEEDED",
+            code: quotaError.code,
             limit: quotaError.limit,
             used: quotaError.count,
           },

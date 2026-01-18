@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { Prisma, prisma } from "@/lib/db";
 
 const sourceTypeEnum = z.enum(["original", "optimize", "layout", "upload"]);
 const statusEnum = z.enum(["pending", "completed", "failed"]);
@@ -12,9 +12,9 @@ const updateSchema = z.object({
   sourceType: sourceTypeEnum.optional(),
   status: statusEnum.optional(),
   imageUrl: z.string().optional(),
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.unknown()).optional(),
   taskId: z.string().optional(),
-  canvasSchema: z.record(z.any()).optional(),
+  canvasSchema: z.record(z.unknown()).optional(),
 });
 
 const authenticate = async () => {
@@ -56,9 +56,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         ...(payload.sourceType ? { source_type: payload.sourceType } : {}),
         ...(payload.status ? { status: payload.status } : {}),
         ...(payload.imageUrl !== undefined ? { image_url: payload.imageUrl } : {}),
-        ...(payload.metadata ? { metadata: payload.metadata } : {}),
+        ...(payload.metadata ? { metadata: payload.metadata as Prisma.InputJsonValue } : {}),
         ...(payload.taskId !== undefined ? { task_id: payload.taskId } : {}),
-        ...(payload.canvasSchema !== undefined ? { canvas_schema: payload.canvasSchema } : {}),
+        ...(payload.canvasSchema !== undefined ? { canvas_schema: payload.canvasSchema as Prisma.InputJsonValue } : {}),
         updated_at: new Date(),
       },
     });
@@ -79,7 +79,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         updated_at: updated.updated_at,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("更新画面版本失败:", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors?.[0]?.message ?? "参数错误" }, { status: 400 });

@@ -318,12 +318,14 @@ export async function GET(
       // From scenes table (AI-generated chapter backgrounds)
       ...sceneImages.map(scene => {
         const chapterInfo = scene.source_chapter_id ? chapterMap.get(scene.source_chapter_id) : null;
+        const generationParams = scene.generation_params as Record<string, unknown> | null;
+        const sceneStyle = typeof generationParams?.style === "string" ? generationParams.style : null;
 
         return {
           id: scene.id,
           image_url: scene.image_url || "",
           prompt: scene.prompt || scene.description || "",
-          style: (scene.generation_params as any)?.style || null,
+          style: sceneStyle,
           source_type: "scene" as const,
           source_id: scene.id,
           created_at: scene.created_at.toISOString(),

@@ -5,14 +5,27 @@ import { prisma } from "@/lib/db";
 import { z } from "zod";
 
 const createStyleSchema = z.object({
-  style_key: z.string().min(2).max(50).regex(/^[a-z0-9_-]+$/),
-  name_zh: z.string().min(1).max(50),
-  name_en: z.string().min(1).max(50),
-  image_url: z.string().min(1),
+  style_key: z
+    .string()
+    .min(2, "风格标识至少需要2个字符")
+    .max(50, "风格标识最多50个字符")
+    .regex(
+      /^[a-z0-9_-]+$/,
+      "风格标识只能包含小写字母、数字、下划线(_)和连字符(-)"
+    ),
+  name_zh: z
+    .string()
+    .min(1, "中文名称不能为空")
+    .max(50, "中文名称最多50个字符"),
+  name_en: z
+    .string()
+    .min(1, "英文名称不能为空")
+    .max(50, "英文名称最多50个字符"),
+  image_url: z.string().min(1, "图片URL不能为空"),
   tag_color: z.string().default("bg-primary text-background"),
   description: z.string().optional(),
   prompt_prefix: z.string().optional(),
-  sort_order: z.number().int().default(0),
+  sort_order: z.number().int("排序必须是整数").default(0),
   enabled: z.boolean().default(true),
 });
 
@@ -107,8 +120,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(style, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
+      // 格式化验证错误信息，使其更易读
+      const formattedErrors = error.errors.map((err) => ({
+        field: err.path.join("."),
+        message: err.message,
+      }));
+
       return NextResponse.json(
-        { error: "数据验证失败", details: error.errors },
+        {
+          error: "数据验证失败",
+          details: formattedErrors,
+          // 保留原始错误信息用于调试
+          _raw: error.errors,
+        },
         { status: 400 }
       );
     }

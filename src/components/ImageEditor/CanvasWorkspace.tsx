@@ -4,9 +4,9 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import * as fabric from "fabric";
 
 export type CanvasSchema = {
-  objects: Record<string, any>[] | null;
-  history?: Record<string, any>[][] | null;
-  future?: Record<string, any>[][] | null;
+  objects: Record<string, unknown>[] | null;
+  history?: Record<string, unknown>[][] | null;
+  future?: Record<string, unknown>[][] | null;
   template?: string | null;
 };
 
@@ -52,8 +52,8 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
   ({ initialImage, onHistoryChange, onTemplateChange, autoHeight = false, initialHeight }, ref) => {
     const containerRef = useRef<HTMLCanvasElement | null>(null);
     const canvasRef = useRef<fabric.Canvas | null>(null);
-    const historyRef = useRef<Record<string, any>[][]>([]);
-    const futureRef = useRef<Record<string, any>[][]>([]);
+    const historyRef = useRef<Record<string, unknown>[][]>([]);
+    const futureRef = useRef<Record<string, unknown>[][]>([]);
     const templateRef = useRef<string | null>(null);
     const [ready, setReady] = useState(false);
     const [canvasHeight, setCanvasHeight] = useState(initialHeight || DEFAULT_CANVAS_HEIGHT);
@@ -106,7 +106,7 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
       onTemplateChange?.(templateRef.current);
     }, [onTemplateChange]);
 
-    const captureSnapshot = useCallback((): Record<string, any>[] => {
+    const captureSnapshot = useCallback((): Record<string, unknown>[] => {
       if (!canvasRef.current) return [];
       return canvasRef.current
         .getObjects()
@@ -141,7 +141,7 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
       canvas.renderAll();
     }, [pushHistory]);
 
-    const applySnapshot = useCallback((objects: Record<string, any>[] | null | undefined) => {
+    const applySnapshot = useCallback((objects: Record<string, unknown>[] | null | undefined) => {
       if (!canvasRef.current) return;
       clearOverlays(false);
       if (!objects || objects.length === 0) {
@@ -340,8 +340,8 @@ const CanvasWorkspace = forwardRef<CanvasController, CanvasWorkspaceProps>(
 
     const loadSchema = useCallback(async (schema?: CanvasSchema | null) => {
       if (!canvasRef.current) return;
-      historyRef.current = (schema?.history as Record<string, any>[][]) || [];
-      futureRef.current = (schema?.future as Record<string, any>[][]) || [];
+      historyRef.current = (schema?.history as Record<string, unknown>[][]) || [];
+      futureRef.current = (schema?.future as Record<string, unknown>[][]) || [];
       templateRef.current = schema?.template ?? null;
       notifyHistory();
       notifyTemplate();

@@ -6,7 +6,7 @@ import { Navbar } from "@/components/Landing";
 import { ArrowLeft, Download, Save, Loader2, Grid, Eye, RotateCcw, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { CanvasWorkspace, type CanvasController } from "@/components/ImageEditor/CanvasWorkspace";
+import { CanvasWorkspace, type CanvasController, type CanvasSchema } from "@/components/ImageEditor/CanvasWorkspace";
 
 interface LayoutProject {
   id: string;
@@ -22,7 +22,7 @@ interface LayoutProject {
 interface LayoutVersion {
   id: string;
   label: string;
-  canvas_schema: any;
+  canvas_schema: CanvasSchema | null;
   image_url: string | null;
   created_at: string;
 }

@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { hashText } from "@/lib/auth";
+import { getErrorStatus } from "@/lib/api-helpers";
 
 export const runtime = "nodejs";
 
@@ -17,7 +18,7 @@ const userUpdateSchema = z.object({
 
 const handleError = (error: unknown) => {
   const message = error instanceof Error ? error.message : "未知错误";
-  const status = (error as any)?.status ?? 500;
+  const status = error instanceof Error ? getErrorStatus(error) : 500;
   return NextResponse.json({ success: false, message }, { status });
 };
 
