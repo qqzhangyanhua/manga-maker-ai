@@ -3,6 +3,23 @@
  */
 
 /**
+ * 完整章节数据（包含正文内容）
+ * 用于世界观提取等需要完整章节数据的场景
+ */
+export interface NovelChapter {
+  id: string;
+  chapter_number: number;
+  title: string;
+  outline?: string | null;
+  content?: string | null;
+  word_count: number;
+  status: string;
+  is_key_chapter?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/**
  * 章节大纲（前端格式 - camelCase）
  */
 export interface ChapterOutline {
@@ -125,6 +142,7 @@ export interface NovelProject {
   world_setting: WorldSetting | null;
   characters: Character[] | null;
   outlines: ChapterOutline[] | null;
+  chapters?: NovelChapter[] | null;  // ✅ 新增：完整章节列表（包含content）
   created_at: string;
   updated_at: string;
 }

@@ -8,7 +8,7 @@
 import { useState, lazy, Suspense } from "react";
 import { useParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, Settings, Globe, Users, FileText, TrendingUp, Network, GitBranch } from "lucide-react";
+import { BookOpen, Settings, Globe, Users, FileText, TrendingUp, Network, GitBranch, Database, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -64,6 +64,16 @@ const CharacterRelationshipGraph = lazy(() =>
 const ChapterVersionManager = lazy(() =>
   import("./components/ChapterVersionManager").then(mod => ({
     default: mod.ChapterVersionManager
+  }))
+);
+const WorldEntriesTab = lazy(() =>
+  import("./components/world").then(mod => ({
+    default: mod.WorldEntriesTab
+  }))
+);
+const ForeshadowingTab = lazy(() =>
+  import("./components/world").then(mod => ({
+    default: mod.ForeshadowingTab
   }))
 );
 
@@ -198,6 +208,14 @@ function NovelProjectPageContent() {
               <Globe className="h-4 w-4 mr-2" />
               世界观
             </TabsTrigger>
+            <TabsTrigger value="world-memory" className={novelTheme.tabs.trigger}>
+              <Database className="h-4 w-4 mr-2" />
+              记忆库
+            </TabsTrigger>
+            <TabsTrigger value="foreshadowing" className={novelTheme.tabs.trigger}>
+              <Eye className="h-4 w-4 mr-2" />
+              伏笔
+            </TabsTrigger>
             <TabsTrigger value="progress" className={novelTheme.tabs.trigger}>
               <TrendingUp className="h-4 w-4 mr-2" />
               创作进度
@@ -271,6 +289,28 @@ function NovelProjectPageContent() {
                   initialData={worldSetting}
                   outlines={outlines}
                   onSave={handleSaveWorldSetting}
+                />
+              </Suspense>
+            </GlassCard>
+          </TabsContent>
+
+          <TabsContent value="world-memory" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <GlassCard className={cn(novelTheme.card.base, "p-6")}>
+              <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
+                <WorldEntriesTab
+                  projectId={projectId}
+                  chapters={project.chapters}  // ✅ 传递完整章节列表（包含content）
+                />
+              </Suspense>
+            </GlassCard>
+          </TabsContent>
+
+          <TabsContent value="foreshadowing" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <GlassCard className={cn(novelTheme.card.base, "p-6")}>
+              <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
+                <ForeshadowingTab
+                  projectId={projectId}
+                  currentChapter={outlines.length > 0 ? outlines.length : 1}
                 />
               </Suspense>
             </GlassCard>

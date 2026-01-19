@@ -521,6 +521,171 @@ class NovelPromptTemplates:
 }
 """
 
+    # ============ 世界观提取提示词 ============
+
+    WORLD_EXTRACTION_PROMPT = """你是一位专业的小说编辑，擅长从文本中提取世界观设定信息。
+
+任务：从提供的小说章节内容中，提取出以下类型的世界观条目：
+
+【条目类型说明】
+1. location（地点）：故事中出现的地名、场所、区域
+   - 提取属性：region（所属区域）、terrain（地形特征）、significance（剧情重要性）
+
+2. character（人物）：非主角的配角、反派、路人甲
+   - 提取属性：role（角色定位）、affiliation（所属势力）、ability（能力特长）、personality（性格特点）
+
+3. event（事件）：故事中发生的重要事件、历史事件
+   - 提取属性：time_period（发生时间）、scale（规模）、outcome（结果影响）
+
+4. item（物品）：重要道具、宝物、装备
+   - 提取属性：rarity（稀有度）、power（能力效果）、origin（来源背景）
+
+5. rule（规则）：世界观规则、力量体系、社会制度
+   - 提取属性：category（规则类别）、scope（适用范围）、exceptions（例外情况）
+
+6. foreshadowing（伏笔）：埋下的伏笔、未解之谜、暗示
+   - 提取属性：importance（重要程度）、reveal_hint（揭示时机建议）
+   - 额外字段：hint_text（伏笔原文/线索）
+
+【提取规则】
+1. 只提取明确出现在文本中的内容，不要推测或编造
+2. 每个条目必须有原文引用作为依据（source_text）
+3. confidence（置信度）评估标准：
+   - 0.9-1.0：明确描述，有详细信息
+   - 0.7-0.9：有明确提及，信息较完整
+   - 0.5-0.7：简单提及，信息有限
+   - 0.5以下：模糊暗示，不建议提取
+4. 名称要简洁明了，描述要概括但信息完整
+5. 伏笔类型需要标注埋设章节号（planted_chapter）
+
+【输出格式】
+返回 JSON 数组，每个条目格式如下：
+```json
+[
+  {
+    "type": "location",
+    "name": "天命城",
+    "description": "修仙界最大的交易城市，位于东洲中心，由天命阁管辖。城中有各种修仙资源交易，是修士聚集之地。",
+    "properties": {
+      "region": "东洲",
+      "terrain": "平原城市",
+      "significance": "重要交易地点"
+    },
+    "confidence": 0.9,
+    "source_text": "天命城是东洲最繁华的城市，无数修士在此交易丹药、法器..."
+  },
+  {
+    "type": "foreshadowing",
+    "name": "神秘黑袍人的身份",
+    "description": "第三章出现的神秘黑袍人似乎认识主角，但主角完全没有印象。此人实力深不可测，目的不明。",
+    "properties": {
+      "importance": "高",
+      "reveal_hint": "预计在后续剧情中揭示"
+    },
+    "confidence": 0.85,
+    "source_text": "那黑袍人静静看着云轩，嘴角勾起一丝意味深长的笑容：'我们又见面了...'",
+    "planted_chapter": 3,
+    "hint_text": "黑袍人说'又见面了'，暗示与主角有旧识"
+  }
+]
+```
+
+【注意事项】
+1. 不要提取主角信息（主角通常在项目设定中已定义）
+2. 地点名称要保持原文写法
+3. 人物只提取有实际描写或对话的角色，路人不提取
+4. 规则类条目要确保是明确的规则设定，不是角色的个人看法
+5. 伏笔要有明确的"未解"或"暗示"特征，已揭示的不算伏笔
+"""
+
+    @classmethod
+    def get_world_extraction_prompt(
+        cls,
+        chapter_number: int,
+        entry_types: list[str],
+    ) -> str:
+        """
+        获取世界观提取的系统提示词
+
+        Args:
+            chapter_number: 章节号
+            entry_types: 要提取的条目类型列表
+        """
+        prompt = cls.WORLD_EXTRACTION_PROMPT
+
+        type_filter = f"\n\n【本次提取的类型】\n只需要提取以下类型的条目：{', '.join(entry_types)}\n"
+        prompt += type_filter
+
+        prompt += f"\n【当前章节】第 {chapter_number} 章\n"
+        prompt += "如果提取到伏笔类型，planted_chapter 应设为 " + str(chapter_number) + "\n"
+
+        return prompt
+
+    # ============ 伏笔生成提示词 ============
+
+    FORESHADOWING_GENERATION_PROMPT = """你是一位资深的网文策划师，擅长设计引人入胜的伏笔。
+
+任务：根据提供的小说背景和章节内容，生成一个合理的伏笔建议。
+
+【伏笔设计原则】
+1. 伏笔要有"未解之谜"的特征，读者能感觉到有深意但无法完全理解
+2. 伏笔应与当前剧情自然融合，不显突兀
+3. 揭示时机要合理，太早失去悬念，太晚读者遗忘
+4. 伏笔的重要程度要与揭示章节间隔匹配
+
+【伏笔类型参考】
+- 身份谜团：神秘人物的真实身份
+- 物品线索：看似普通的物品实有深意
+- 对话暗示：角色的话语中隐藏信息
+- 场景细节：环境描写中的异常之处
+- 行为异常：角色不合常理的举动
+- 预言/预感：对未来的模糊暗示
+
+【输出格式】
+返回 JSON 格式：
+{
+  "name": "伏笔名称（简洁概括，5-15字）",
+  "description": "伏笔详细描述（包含背景、现象、疑点，50-150字）",
+  "hint_text": "伏笔线索/原文建议（读者能注意到的细节，30-80字）",
+  "planted_chapter": 章节号,
+  "planned_reveal_chapter": 建议揭示章节号,
+  "properties": {
+    "importance": "高/中/低",
+    "reveal_hint": "揭示时机建议"
+  },
+  "reasoning": "设计思路说明（为什么这是一个好伏笔）"
+}
+
+【注意事项】
+1. 伏笔名称要有神秘感但不剧透
+2. 描述要清晰说明"读者能看到什么"和"读者会疑惑什么"
+3. hint_text 是给作者的写作建议，描述应该如何在正文中体现这个伏笔
+4. 揭示章节建议：小伏笔间隔5-10章，中伏笔10-20章，大伏笔20-50章
+"""
+
+    @classmethod
+    def get_foreshadowing_generation_prompt(
+        cls,
+        chapter_number: int,
+        context_hint: str | None = None,
+    ) -> str:
+        """
+        获取伏笔生成的系统提示词
+
+        Args:
+            chapter_number: 当前章节号
+            context_hint: 用户提供的额外提示
+        """
+        prompt = cls.FORESHADOWING_GENERATION_PROMPT
+
+        prompt += f"\n\n【当前章节】第 {chapter_number} 章\n"
+        prompt += f"planted_chapter 应设为 {chapter_number}\n"
+
+        if context_hint:
+            prompt += f"\n【用户额外要求】\n{context_hint}\n"
+
+        return prompt
+
     OPENING_HOOK_ANALYSIS = """你是一位专业的网文编辑，擅长评估开篇吸引力。
 
 任务：评估前三章是否能吸引读者追读。

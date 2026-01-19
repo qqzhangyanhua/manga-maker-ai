@@ -16,3 +16,4 @@ chromadb==0.4.22
 tiktoken==0.5.2
 numpy<2.0  # ChromaDB compatibility (np.float_ removed in NumPy 2.0)
 jieba==0.42.1
+bleach==6.1.0

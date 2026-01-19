@@ -16,6 +16,8 @@ from .routers import (
     versions,
     progressive,
     canvas,
+    world,
+    world_extraction,
 )
 # RAG 路由模块（已拆分为 3 个独立模块 + 1 个模型文件）
 from .routers import rag_index, rag_search, rag_maintenance
@@ -93,6 +95,8 @@ app.include_router(rag_search.router)  # 查询检索（统计、详情、列表
 app.include_router(rag_maintenance.router)  # 维护与一致性（检查、导出、清理）
 
 app.include_router(canvas.router)  # 无限画布生成服务
+app.include_router(world.router)  # 世界观记忆库与伏笔管理
+app.include_router(world_extraction.router)  # 世界观 AI 提取
 
 
 @app.get("/health")

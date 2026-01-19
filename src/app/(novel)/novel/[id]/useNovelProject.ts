@@ -104,7 +104,15 @@ export function useNovelProject(projectId: string): UseNovelProjectResult {
         setLoading(true);
         setError(null);
 
-        const response = await fetch(`/api/novel/projects/${projectId}`);
+        const apiUrl = `/api/novel/projects/${projectId}`;
+        console.log('[useNovelProject] Fetching:', apiUrl);
+
+        const response = await fetch(apiUrl);
+
+        console.log('[useNovelProject] Response status:', response.status);
+        console.log('[useNovelProject] Response headers:', {
+          contentType: response.headers.get('content-type'),
+        });
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ error: "获取项目失败" }));
@@ -112,6 +120,19 @@ export function useNovelProject(projectId: string): UseNovelProjectResult {
         }
 
         const data = await response.json();
+
+        // ✅ 调试：检查返回的数据
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[useNovelProject] Fetched project data:', {
+            projectId: data.id,
+            title: data.title,
+            hasChapters: !!data.chapters,
+            chaptersCount: data.chapters?.length || 0,
+            chapters: data.chapters,
+            rawData: data,  // ← 打印完整原始数据
+          });
+        }
+
         setProject(data);
       } catch (err) {
         const errorObj = err instanceof Error ? err : new Error("获取项目失败");

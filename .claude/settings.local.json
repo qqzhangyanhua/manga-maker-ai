@@ -141,7 +141,21 @@
       "Bash(if ! grep -q \"novelTheme\" \"$file\")",
       "Bash(git -C /Users/zhangyanhua/AI/manga-maker-ai status --short)",
       "Bash(/Users/zhangyanhua/AI/manga-maker-ai/scripts/check-novel-theme.sh)",
-      "Bash(npm run lint)"
+      "Bash(npm run lint)",
+      "Bash(npm run dev)",
+      "Bash(git log:*)",
+      "Bash(npm logout)",
+      "Bash(pnpm --version:*)",
+      "WebFetch(domain:localhost)",
+      "WebFetch(domain:github.com)",
+      "mcp__Fetch__fetch_url",
+      "mcp__Fetch__extract_elements",
+      "mcp__Fetch__get_page_metadata",
+      "Bash(claude mcp add chrome-devtools --scope user npx chrome-devtools-mcp@latest)",
+      "Bash(npx chrome-devtools-mcp@latest:*)",
+      "Bash(claude mcp list:*)",
+      "Bash(export:*)",
+      "Bash(bash:*)"
     ],
     "deny": [],
     "ask": []

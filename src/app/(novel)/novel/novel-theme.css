@@ -1,0 +1,30 @@
+/**
+ * 小说模块主题覆盖
+ *
+ * 覆盖全局 --primary 变量为紫色主题 (#933EEA)
+ * 这样所有使用 bg-primary、text-primary 的组件
+ * 都会自动使用紫色而不是全局的橙色
+ */
+
+/*
+ * 将 #933EEA 转换为 HSL 格式
+ * #933EEA = rgb(147, 62, 234) = hsl(271, 80%, 58%)
+ */
+.novel-theme-scope {
+  /* 紫色主题变量覆盖 */
+  --primary: 271 80% 58%;           /* #933EEA */
+  --primary-foreground: 0 0% 100%;  /* 白色文字 */
+
+  /* Ring 颜色也改为紫色 */
+  --ring: 271 80% 58%;
+
+  /* 可选：调整其他相关颜色以匹配紫色主题 */
+  --accent: 271 80% 58%;
+}
+
+/* Dark mode 下也保持紫色主题 */
+.dark .novel-theme-scope {
+  --primary: 271 80% 58%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 271 80% 58%;
+}

@@ -133,10 +133,17 @@ async def list_projects(
 @router.get("/{project_id}", response_model=ProjectResponse)
 async def get_project(
     project_id: UUID,
+    include_chapters: bool = True,  # ✅ 新增参数：是否包含章节列表
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
-    """获取项目详情"""
+    """
+    获取项目详情
+
+    Args:
+        project_id: 项目ID
+        include_chapters: 是否包含完整章节列表（包括content）, 默认True
+    """
 
     query = select(NovelProject).where(
         NovelProject.id == project_id,
@@ -161,6 +168,33 @@ async def get_project(
     stats_result = await db.execute(stats_query)
     stats = stats_result.one()
 
+    # ✅ 查询完整章节列表（包含content）
+    chapters_data = None
+    if include_chapters:
+        chapters_query = select(NovelChapter).where(
+            NovelChapter.project_id == project_id
+        ).order_by(NovelChapter.chapter_number)
+
+        chapters_result = await db.execute(chapters_query)
+        chapters = chapters_result.scalars().all()
+
+        # 转换为响应格式
+        chapters_data = [
+            {
+                "id": str(ch.id),
+                "chapter_number": ch.chapter_number,
+                "title": ch.title,
+                "outline": ch.outline,
+                "content": ch.content,
+                "word_count": ch.word_count,
+                "status": ch.status,
+                "is_key_chapter": ch.is_key_chapter,
+                "created_at": ch.created_at,
+                "updated_at": ch.updated_at,
+            }
+            for ch in chapters
+        ]
+
     # 手动构造响应,确保UUID转换为字符串
     return {
         "id": str(project.id),
@@ -177,6 +211,7 @@ async def get_project(
         "chapter_count": stats.chapter_count,
         "created_at": project.created_at,
         "updated_at": project.updated_at,
+        "chapters": chapters_data,  # ✅ 返回完整章节列表
     }
 
 

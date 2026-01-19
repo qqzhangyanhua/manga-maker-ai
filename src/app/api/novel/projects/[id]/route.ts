@@ -63,6 +63,24 @@ export async function GET(
         chapter_count: true,
         created_at: true,
         updated_at: true,
+        // ✅ 添加：查询完整章节列表（包含content）
+        chapters: {
+          select: {
+            id: true,
+            chapter_number: true,
+            title: true,
+            outline: true,
+            content: true,
+            word_count: true,
+            status: true,
+            is_key_chapter: true,
+            created_at: true,
+            updated_at: true,
+          },
+          orderBy: {
+            chapter_number: 'asc',
+          },
+        },
       },
     });
 

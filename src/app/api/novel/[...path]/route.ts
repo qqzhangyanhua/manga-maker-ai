@@ -62,10 +62,11 @@ async function handleRequest(
     }
 
     // 构建目标 URL（Next.js 15 中 params 是 Promise）
+    // FastAPI 路由在 / 下，不是 /api/novel/ 下
     const { path: pathSegments } = await params;
     const path = pathSegments.join("/");
     const url = new URL(req.url);
-    const targetUrl = `${NOVEL_SERVICE_URL}/api/novel/${path}${url.search}`;
+    const targetUrl = `${NOVEL_SERVICE_URL}/${path}${url.search}`;
 
     console.log(`[Novel API Proxy] ${req.method} ${targetUrl}`);
 

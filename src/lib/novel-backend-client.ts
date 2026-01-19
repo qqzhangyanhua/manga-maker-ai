@@ -252,7 +252,7 @@ export class NovelBackendClient {
   async analyzeScript(
     request: AnalyzeScriptRequest
   ): Promise<AnalyzeScriptResponse> {
-    const endpoint = "/api/novel/canvas/analyze-script";
+    const endpoint = "/canvas/analyze-script";
     const url = `${this.baseUrl}${endpoint}`;
 
     logInfo("调用 novel-backend 剧本分析", {
@@ -289,7 +289,7 @@ export class NovelBackendClient {
    * 为剧本片段规划镜头
    */
   async planShots(request: PlanShotsRequest): Promise<PlanShotsResponse> {
-    const endpoint = "/api/novel/canvas/plan-shots";
+    const endpoint = "/canvas/plan-shots";
     const url = `${this.baseUrl}${endpoint}`;
 
     logInfo("调用 novel-backend 镜头规划", {
@@ -325,7 +325,7 @@ export class NovelBackendClient {
   async generateScenes(
     request: GenerateScenesRequest
   ): Promise<GenerateScenesResponse> {
-    const endpoint = "/api/novel/canvas/generate-scenes";
+    const endpoint = "/canvas/generate-scenes";
     const url = `${this.baseUrl}${endpoint}`;
 
     logInfo("调用 novel-backend 场景图生成", {
@@ -361,7 +361,7 @@ export class NovelBackendClient {
   async generateFinals(
     request: GenerateFinalsRequest
   ): Promise<GenerateFinalsResponse> {
-    const endpoint = "/api/novel/canvas/generate-finals";
+    const endpoint = "/canvas/generate-finals";
     const url = `${this.baseUrl}${endpoint}`;
 
     logInfo("调用 novel-backend 漫画图生成", {
@@ -398,7 +398,7 @@ export class NovelBackendClient {
   async identifyCharacters(
     request: IdentifyCharactersRequest
   ): Promise<IdentifyCharactersResponse> {
-    const endpoint = "/api/novel/canvas/identify-characters";
+    const endpoint = "/canvas/identify-characters";
     const url = `${this.baseUrl}${endpoint}`;
 
     logInfo("调用 novel-backend 角色识别", {
@@ -435,7 +435,7 @@ export class NovelBackendClient {
   async batchIdentifyCharacters(
     request: BatchIdentifyCharactersRequest
   ): Promise<BatchIdentifyCharactersResponse> {
-    const endpoint = "/api/novel/canvas/batch-identify-characters";
+    const endpoint = "/canvas/batch-identify-characters";
     const url = `${this.baseUrl}${endpoint}`;
 
     logInfo("调用 novel-backend 批量角色识别", {

@@ -7,6 +7,25 @@ from uuid import UUID
 from datetime import datetime
 
 
+# ============ 章节简化模型（用于项目详情返回） ============
+
+class ChapterInProject(BaseModel):
+    """项目中的章节信息（包含content）"""
+    id: str
+    chapter_number: int
+    title: str
+    outline: Optional[str]
+    content: Optional[str]  # ✅ 包含正文内容
+    word_count: int
+    status: str
+    is_key_chapter: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 # ============ Request Models ============
 
 
@@ -85,6 +104,7 @@ class ProjectResponse(BaseModel):
     chapter_count: int
     created_at: datetime
     updated_at: datetime
+    chapters: Optional[List[ChapterInProject]] = None  # ✅ 新增：完整章节列表
 
     class Config:
         from_attributes = True
