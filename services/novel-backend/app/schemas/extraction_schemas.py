@@ -35,7 +35,7 @@ class ExtractionRequest(BaseModel):
 
 class ExtractionProgressEvent(BaseModel):
     """提取进度事件"""
-    phase: Literal["preparing", "analyzing", "extracting", "deduplicating"]
+    phase: Literal["preparing", "analyzing", "extracting", "deduplicating", "warning", "skipping"]
     chapter_id: Optional[int] = None
     chapter_title: Optional[str] = None
     progress: float = Field(..., ge=0.0, le=1.0)

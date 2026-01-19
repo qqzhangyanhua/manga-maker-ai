@@ -11,7 +11,7 @@ import json
 import logging
 
 from ..config import settings
-from ..models import NovelChapter, WorldEntry
+from ..models import NovelChapter, NovelChapterVersion, NovelProject, WorldEntry
 from ..schemas.extraction_schemas import (
     ExtractedEntry,
     ExtractionProgressEvent,
@@ -199,14 +199,108 @@ class WorldExtractorService:
     async def _get_chapters(
         self, project_id: UUID, chapter_ids: list[int]
     ) -> list[NovelChapter]:
-        """获取指定章节"""
+        """获取指定章节，并从 project.outlines 获取正文内容"""
+        # 1. 获取项目的 outlines JSON（包含正文）
+        project_query = select(NovelProject).where(NovelProject.id == project_id)
+        project_result = await self.db.execute(project_query)
+        project = project_result.scalar_one_or_none()
+
+        # 构建章节号 -> 正文内容的映射
+        outlines_content_map: dict[int, str] = {}
+        if project and project.outlines:
+            for outline in project.outlines:
+                chapter_num = outline.get("chapter_number")
+                content_json = outline.get("content")
+                if chapter_num and content_json:
+                    # 解析 TipTap JSON 格式，提取纯文本
+                    plain_text = self._extract_text_from_tiptap(content_json)
+                    if plain_text:
+                        outlines_content_map[chapter_num] = plain_text
+                        logger.info(
+                            f"[_get_chapters] 从 outlines 获取章节 {chapter_num} 正文 "
+                            f"({len(plain_text)}字)"
+                        )
+
+        # 2. 查询章节基本信息
         query = select(NovelChapter).where(
             NovelChapter.project_id == project_id,
             NovelChapter.chapter_number.in_(chapter_ids),
         ).order_by(NovelChapter.chapter_number)
 
         result = await self.db.execute(query)
-        return list(result.scalars().all())
+        chapters = list(result.scalars().all())
+
+        # 3. 将 outlines 中的正文内容赋值给章节
+        for ch in chapters:
+            # 优先从 outlines 获取正文
+            if ch.chapter_number in outlines_content_map:
+                ch.content = outlines_content_map[ch.chapter_number]
+                logger.info(
+                    f"[_get_chapters] 章节 {ch.chapter_number}: "
+                    f"使用 outlines 正文 ({len(ch.content)}字)"
+                )
+            # 其次从 chapter_versions 获取
+            elif not ch.content or len(ch.content.strip()) == 0:
+                version_query = select(NovelChapterVersion).where(
+                    NovelChapterVersion.chapter_id == ch.id,
+                    NovelChapterVersion.is_selected == True,
+                )
+                version_result = await self.db.execute(version_query)
+                selected_version = version_result.scalar_one_or_none()
+
+                if selected_version and selected_version.content:
+                    ch.content = selected_version.content
+                    logger.info(
+                        f"[_get_chapters] 章节 {ch.chapter_number}: "
+                        f"从选中版本获取正文 ({len(selected_version.content)}字)"
+                    )
+
+            content_len = len(ch.content) if ch.content else 0
+            outline_len = len(ch.outline) if ch.outline else 0
+            logger.info(
+                f"[_get_chapters] 章节 {ch.chapter_number} 最终: "
+                f"content={content_len}字, outline={outline_len}字"
+            )
+
+        return chapters
+
+    def _extract_text_from_tiptap(self, content: str | dict) -> str:
+        """从 TipTap JSON 格式中提取纯文本"""
+        try:
+            # 如果是字符串，先解析为 JSON
+            if isinstance(content, str):
+                content = json.loads(content)
+
+            # 递归提取文本
+            texts = []
+            self._collect_text_nodes(content, texts)
+            return "\n".join(texts)
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.warning(f"TipTap JSON 解析失败: {e}")
+            # 如果解析失败，可能本身就是纯文本
+            if isinstance(content, str):
+                return content
+            return ""
+
+    def _collect_text_nodes(self, node: dict | list, texts: list[str]) -> None:
+        """递归收集 TipTap 文档中的文本节点"""
+        if isinstance(node, list):
+            for item in node:
+                self._collect_text_nodes(item, texts)
+        elif isinstance(node, dict):
+            # 如果是文本节点，提取文本
+            if node.get("type") == "text" and "text" in node:
+                texts.append(node["text"])
+            # 如果是段落节点，处理完子节点后添加换行
+            elif node.get("type") == "paragraph":
+                para_texts: list[str] = []
+                if "content" in node:
+                    self._collect_text_nodes(node["content"], para_texts)
+                if para_texts:
+                    texts.append("".join(para_texts))
+            # 其他节点类型，递归处理子节点
+            elif "content" in node:
+                self._collect_text_nodes(node["content"], texts)
 
     async def _get_existing_entries(self, project_id: UUID) -> list[WorldEntry]:
         """获取项目现有条目（用于去重）"""
