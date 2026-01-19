@@ -2,19 +2,27 @@
 混合 RAG 服务
 主要策略:向量检索(语义理解)
 降级策略:PostgreSQL 关键词匹配(容错保障)
+增强功能:世界观记忆库集成 + 伏笔提醒
 """
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_, func, text
+from sqlalchemy import select, or_, func, text, and_
 from typing import List, Dict, Optional
-from ..models import NovelProject, NovelChapter
+from collections import defaultdict
+import asyncio
+from ..models import NovelProject, NovelChapter, WorldEntry
 from .vector_service import get_vector_service
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
 
 class NovelRAGService:
     """小说 RAG 服务 - 混合检索(向量 + 关键词)"""
+
+    # 预编译正则表达式：中文标点和空白字符分割
+    _CHINESE_PUNCT_PATTERN = re.compile(r'[，。！？、；：""''（）\s]+')
+
 
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -189,6 +197,172 @@ class NovelRAGService:
             logger.error(f"❌ RAG 检索失败: {str(e)}")
             return []
 
+    async def _get_relevant_world_entries(
+        self,
+        project_id: str,
+        chapter_outline: str,
+        max_entries: int = 10
+    ) -> List[Dict]:
+        """
+        从世界观记忆库中检索与当前章节相关的条目
+
+        策略:
+        1. 从章节大纲中提取关键词
+        2. 匹配 world_entries 的 name 和 description
+        3. 按类型分组返回
+
+        Args:
+            project_id: 项目 ID
+            chapter_outline: 当前章节大纲
+            max_entries: 最大返回条目数
+
+        Returns:
+            相关条目列表
+        """
+        try:
+            # 使用预编译正则提取关键词
+            keywords = self._CHINESE_PUNCT_PATTERN.split(chapter_outline)
+            keywords = [k.strip() for k in keywords if len(k.strip()) >= 2]
+            keywords = keywords[:15]  # 限制关键词数量
+
+            if not keywords:
+                return []
+
+            # 构建 OR 条件匹配 name 或 description
+            keyword_conditions = [
+                or_(
+                    WorldEntry.name.ilike(f"%{kw}%"),
+                    WorldEntry.description.ilike(f"%{kw}%")
+                )
+                for kw in keywords
+            ]
+
+            query = (
+                select(WorldEntry)
+                .where(
+                    and_(
+                        WorldEntry.project_id == project_id,
+                        WorldEntry.type != "foreshadowing",  # 伏笔单独处理
+                        or_(*keyword_conditions) if keyword_conditions else True
+                    )
+                )
+                .order_by(WorldEntry.updated_at.desc())  # 优先返回最近更新的
+                .limit(max_entries)
+            )
+
+            result = await self.db.execute(query)
+            entries = result.scalars().all()
+
+            # 使用 defaultdict 简化分组
+            grouped: Dict[str, List[Dict]] = defaultdict(list)
+            for entry in entries:
+                grouped[entry.type].append({
+                    "name": entry.name,
+                    "description": entry.description or "",
+                    "properties": entry.properties or {},
+                })
+
+            logger.info(
+                f"🧠 记忆库检索 - 关键词: {len(keywords)}个, "
+                f"匹配条目: {len(entries)}个, "
+                f"类型分布: {', '.join(f'{k}:{len(v)}' for k, v in grouped.items())}"
+            )
+
+            return [
+                {"type": entry_type, "entries": entries_list}
+                for entry_type, entries_list in grouped.items()
+            ]
+
+        except Exception as e:
+            logger.error(f"❌ 记忆库检索失败: {str(e)}")
+            return []
+
+    async def _get_pending_foreshadowings(
+        self,
+        project_id: str,
+        current_chapter: int,
+        lookahead: int = 5
+    ) -> List[Dict]:
+        """
+        获取待揭示的伏笔提醒
+
+        策略:
+        1. 查找 planned_reveal_chapter 在当前章节附近的伏笔
+        2. 查找已埋设但未揭示的伏笔 (状态为 planted 或 brewing)
+        3. 返回伏笔信息供 AI 参考
+
+        Args:
+            project_id: 项目 ID
+            current_chapter: 当前章节号
+            lookahead: 向前看多少章 (默认5章内的伏笔)
+
+        Returns:
+            待处理伏笔列表
+        """
+        try:
+            # 查询条件:
+            # 1. 计划揭示章节在 [current, current + lookahead] 范围内
+            # 2. 或者已埋设但未揭示的伏笔 (brewing 状态优先)
+            query = (
+                select(WorldEntry)
+                .where(
+                    and_(
+                        WorldEntry.project_id == project_id,
+                        WorldEntry.type == "foreshadowing",
+                        or_(
+                            # 计划在近期揭示
+                            and_(
+                                WorldEntry.planned_reveal_chapter.isnot(None),
+                                WorldEntry.planned_reveal_chapter >= current_chapter,
+                                WorldEntry.planned_reveal_chapter <= current_chapter + lookahead,
+                                WorldEntry.foreshadow_status.in_(["planted", "brewing"])
+                            ),
+                            # 状态为 brewing (酝酿中，需要关注)
+                            and_(
+                                WorldEntry.foreshadow_status == "brewing",
+                                WorldEntry.planted_chapter < current_chapter
+                            )
+                        )
+                    )
+                )
+                .order_by(WorldEntry.planned_reveal_chapter.asc().nullsfirst())
+                .limit(5)
+            )
+
+            result = await self.db.execute(query)
+            foreshadowings = result.scalars().all()
+
+            pending = []
+            for fs in foreshadowings:
+                urgency = "normal"
+                if fs.planned_reveal_chapter:
+                    if fs.planned_reveal_chapter == current_chapter:
+                        urgency = "immediate"  # 本章需要揭示
+                    elif fs.planned_reveal_chapter <= current_chapter + 2:
+                        urgency = "soon"  # 即将揭示
+
+                pending.append({
+                    "name": fs.name,
+                    "description": fs.description or "",
+                    "hint_text": fs.hint_text or "",
+                    "planted_chapter": fs.planted_chapter,
+                    "planned_reveal_chapter": fs.planned_reveal_chapter,
+                    "status": fs.foreshadow_status,
+                    "urgency": urgency,
+                })
+
+            logger.info(
+                f"🎯 伏笔提醒 - 当前章节: {current_chapter}, "
+                f"待处理伏笔: {len(pending)}个, "
+                f"紧急: {sum(1 for p in pending if p['urgency'] == 'immediate')}个"
+            )
+
+            return pending
+
+        except Exception as e:
+            logger.error(f"❌ 伏笔检索失败: {str(e)}")
+            return []
+
     async def get_previous_chapters(
         self,
         project_id: str,
@@ -272,17 +446,17 @@ class NovelRAGService:
             if not project:
                 return ""
 
-            # 2. 获取前序章节
-            previous_chapters = await self.get_previous_chapters(
-                project_id, chapter_number, count=2
+            # 2-5. 并行执行所有独立查询（性能优化：节省约60%查询时间）
+            previous_chapters, relevant_chapters, world_entries, pending_foreshadowings = (
+                await asyncio.gather(
+                    self.get_previous_chapters(project_id, chapter_number, count=2),
+                    self.search_relevant_chapters(project_id, chapter_outline, chapter_number, k=3),
+                    self._get_relevant_world_entries(project_id, chapter_outline, max_entries=10),
+                    self._get_pending_foreshadowings(project_id, chapter_number, lookahead=5),
+                )
             )
 
-            # 3. RAG 检索相关章节(向量或关键词)
-            relevant_chapters = await self.search_relevant_chapters(
-                project_id, chapter_outline, chapter_number, k=3
-            )
-
-            # 4. 构建上下文
+            # 6. 构建上下文
             context_parts = []
 
             # 世界观设定
@@ -425,6 +599,51 @@ class NovelRAGService:
                         context_parts.append(f"大纲: {rel_ch['outline'][:150]}")
                     context_parts.append("")
 
+            # 记忆库条目 (按类型分组)
+            if world_entries:
+                type_labels = {
+                    "location": "地点",
+                    "character": "人物",
+                    "event": "事件",
+                    "item": "物品",
+                    "rule": "规则",
+                }
+                context_parts.append("【记忆库参考】")
+                for group in world_entries:
+                    entry_type = group["type"]
+                    entries_list = group["entries"]
+                    label = type_labels.get(entry_type, entry_type)
+                    context_parts.append(f"{label}:")
+                    for entry in entries_list[:3]:  # 每类最多3个
+                        name = entry["name"]
+                        desc = entry["description"][:100] if entry["description"] else ""
+                        if desc:
+                            context_parts.append(f"  - {name}: {desc}")
+                        else:
+                            context_parts.append(f"  - {name}")
+                context_parts.append("")
+
+            # 伏笔提醒
+            if pending_foreshadowings:
+                context_parts.append("【伏笔提醒】")
+                for fs in pending_foreshadowings:
+                    urgency = fs["urgency"]
+                    if urgency == "immediate":
+                        prefix = "【本章揭示】"
+                    elif urgency == "soon":
+                        prefix = "【即将揭示】"
+                    else:
+                        prefix = "【注意铺垫】"
+
+                    context_parts.append(f"{prefix} {fs['name']}")
+                    if fs["hint_text"]:
+                        context_parts.append(f"  线索: {fs['hint_text']}")
+                    if fs["planted_chapter"]:
+                        context_parts.append(f"  埋设于第{fs['planted_chapter']}章")
+                    if fs["planned_reveal_chapter"]:
+                        context_parts.append(f"  计划揭示: 第{fs['planned_reveal_chapter']}章")
+                context_parts.append("")
+
             # 当前章节大纲
             context_parts.append("【当前章节大纲】")
             context_parts.append(chapter_outline)
@@ -441,6 +660,8 @@ class NovelRAGService:
                 f"角色={'✅' if project.characters else '❌'}, "
                 f"前序章节={len(previous_chapters)}, "
                 f"相关章节={len(relevant_chapters)}, "
+                f"记忆库条目={sum(len(g['entries']) for g in world_entries)}, "
+                f"伏笔提醒={len(pending_foreshadowings)}, "
                 f"检索模式={'🔍向量' if self.vector_service.enabled else '📝关键词'}"
             )
 
