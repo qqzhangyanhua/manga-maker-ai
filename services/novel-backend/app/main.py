@@ -59,12 +59,40 @@ async def lifespan(app: FastAPI):
 
 
 # 创建 FastAPI 应用
+# 注意: 移除了 root_path="/api/novel" 配置
+# 原因: FastAPI 在使用 root_path 时会将其添加到所有路由和 OpenAPI 文档路径前,
+#      导致实际路径变成 /api/novel/api/novel/*, 造成 404 错误。
+#      本服务设计为通过 Next.js 代理访问 (/api/novel/* -> http://localhost:8000/*),
+#      因此 FastAPI 应用本身不需要感知 /api/novel 前缀。
 app = FastAPI(
     title="Novel Backend Service",
-    description="AI 小说创作后端服务",
+    description="""
+AI 小说创作后端服务 - 提供小说生成、RAG 检索、世界观管理等功能
+
+**重要**: 本服务必须通过 Next.js 代理访问，不应直接暴露给外部用户。
+- 生产环境: Next.js 代理 `/api/novel/*` 到本服务
+- 开发环境: 可直接访问用于测试 (http://localhost:8000)
+
+**代理路径映射**:
+- 客户端请求: `POST /api/novel/projects` (Next.js)
+- 后端实际路径: `POST /projects` (FastAPI)
+""",
     version="1.0.0",
     lifespan=lifespan,
-    root_path="/api/novel",  # 统一路由前缀（通过 Next.js 代理）
+    servers=[
+        {
+            "url": "http://localhost:3000/api/novel",
+            "description": "开发环境 - 通过 Next.js 代理访问 (推荐)"
+        },
+        {
+            "url": "http://localhost:8000",
+            "description": "开发环境 - 直接访问后端服务 (仅用于测试)"
+        },
+        {
+            "url": "https://your-domain.com/api/novel",
+            "description": "生产环境 - 通过 Next.js 代理访问 (必须)"
+        }
+    ],
 )
 
 # 配置 CORS

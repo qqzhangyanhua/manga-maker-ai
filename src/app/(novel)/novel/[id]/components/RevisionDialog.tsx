@@ -65,15 +65,51 @@ export function RevisionDialog({
       })
 
       if (!response.ok) {
-        throw new Error("修订失败")
+        const errorData = await response.json().catch(() => ({ error: "未知错误" }))
+        throw new Error(errorData.error || errorData.message || "修订失败")
       }
 
-      const data = await response.json()
-      setRevisedText(data.revised_text || "")
-      toast.success("修订完成！")
+      // 处理 SSE 流式响应
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+
+      if (!reader) {
+        throw new Error("无法读取响应流")
+      }
+
+      let accumulated = ""
+
+      while (true) {
+        const { done, value } = await reader.read()
+
+        if (done) break
+
+        const chunk = decoder.decode(value, { stream: true })
+        const lines = chunk.split("\n")
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const data = line.slice(6)
+
+            if (data === "[DONE]") {
+              setRevisedText(accumulated)
+              toast.success("修订完成！")
+              return
+            }
+
+            if (data.startsWith("[ERROR:")) {
+              const errorMsg = data.slice(7, -1)
+              throw new Error(errorMsg)
+            }
+
+            accumulated += data
+            setRevisedText(accumulated)
+          }
+        }
+      }
     } catch (error) {
       console.error("Revision error:", error)
-      toast.error("修订失败，请重试")
+      toast.error(error instanceof Error ? error.message : "修订失败，请重试")
     } finally {
       setLoading(false)
     }

@@ -86,6 +86,12 @@ class GenerateChapterRequest(BaseModel):
     use_rag: bool = True  # 是否使用 RAG 增强
 
 
+class ReviseContentRequest(BaseModel):
+    """修订内容请求"""
+    original_text: str = Field(..., min_length=1, description="原始文本")
+    instruction: str = Field(..., min_length=1, description="修改指令")
+
+
 # ============ API Endpoints ============
 
 @router.post("", response_model=ChapterResponse, status_code=status.HTTP_201_CREATED)
@@ -677,44 +683,118 @@ async def generate_multiple_versions(
     }
 
 
-@router.post("/revise")
+@router.post("/{chapter_id}/revise")
 async def revise_content_stream(
-    request: dict,
+    chapter_id: UUID,
+    request: ReviseContentRequest,
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    AI 修订内容（流式）
-    
+    AI 修订章节内容（流式）
+
     Args:
-        original_content: 原始内容
-        revision_instruction: 修改指令
+        chapter_id: 章节 ID (路径参数)
+        request: 修订请求
+            - original_text: 原始文本
+            - instruction: 修改指令
+
+    Returns:
+        SSE 流式响应（修订后的内容）
+
+    Raises:
+        404: 章节不存在
+        403: 无权访问此章节
+        400: 请求参数无效
     """
-    original_content = request.get("original_content", "")
-    revision_instruction = request.get("revision_instruction", "")
-    
-    if not original_content or not revision_instruction:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="原始内容和修改指令不能为空"
+    logger.info(f"[章节修订] 开始处理请求 - chapter_id: {chapter_id}, user_id: {user_id}")
+    logger.info(f"[章节修订] 修订参数 - instruction: {request.instruction}, original_text_length: {len(request.original_text)}")
+
+    try:
+        # 查询章节
+        logger.info(f"[章节修订] 查询章节 - chapter_id: {chapter_id}, 类型: {type(chapter_id)}")
+        chapter_query = select(NovelChapter).where(NovelChapter.id == chapter_id)
+        chapter_result = await db.execute(chapter_query)
+        chapter = chapter_result.scalar_one_or_none()
+
+        logger.info(f"[章节修订] 章节查询结果 - found: {chapter is not None}")
+
+        if not chapter:
+            logger.warning(f"[章节修订] 章节不存在 - chapter_id: {chapter_id}, user_id: {user_id}")
+            # 检查是否存在该 UUID 的任何章节（不限用户）
+            all_chapters_query = select(NovelChapter.id, NovelChapter.project_id).where(NovelChapter.id == chapter_id)
+            all_chapters_result = await db.execute(all_chapters_query)
+            any_chapter = all_chapters_result.first()
+            logger.info(f"[章节修订] 全局章节查询结果 - found: {any_chapter is not None}, data: {any_chapter}")
+
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="章节不存在"
+            )
+
+        logger.info(f"[章节修订] 章节信息 - id: {chapter.id}, project_id: {chapter.project_id}, chapter_number: {chapter.chapter_number}, title: {chapter.title}")
+
+        # 验证项目所有权
+        logger.info(f"[章节修订] 验证项目所有权 - project_id: {chapter.project_id}, user_id: {user_id}")
+        project_query = select(NovelProject).where(
+            NovelProject.id == chapter.project_id,
+            NovelProject.user_id == user_id
         )
-    
+        project_result = await db.execute(project_query)
+        project = project_result.scalar_one_or_none()
+
+        logger.info(f"[章节修订] 项目查询结果 - found: {project is not None}")
+
+        if not project:
+            logger.warning(f"[章节修订] 无权访问章节 - chapter_id: {chapter_id}, project_id: {chapter.project_id}, user_id: {user_id}")
+            # 检查项目是否存在但属于其他用户
+            project_exists_query = select(NovelProject.id, NovelProject.user_id).where(NovelProject.id == chapter.project_id)
+            project_exists_result = await db.execute(project_exists_query)
+            project_info = project_exists_result.first()
+            logger.info(f"[章节修订] 项目实际所有者 - project_id: {chapter.project_id}, actual_user_id: {project_info[1] if project_info else 'N/A'}")
+
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="无权访问此章节"
+            )
+
+        logger.info(f"[章节修订] 权限验证通过 - project_id: {project.id}, title: {project.title}")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[章节修订] 数据库查询异常 - chapter_id: {chapter_id}, error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"查询章节失败: {str(e)}"
+        )
+
+    # 执行内容修订
+    logger.info(f"[章节修订] 初始化生成服务 - chapter_id: {chapter_id}")
     generation_service = NovelGenerationService()
-    
+
     async def event_generator():
         """SSE 事件生成器"""
         try:
+            logger.info(f"[章节修订] 开始生成修订内容 - chapter_id: {chapter_id}")
+            chunk_count = 0
             async for chunk in generation_service.revise_content(
-                original_content=original_content,
-                revision_instruction=revision_instruction,
+                original_content=request.original_text,
+                revision_instruction=request.instruction,
             ):
+                chunk_count += 1
+                if chunk_count % 10 == 0:  # 每 10 个 chunk 记录一次
+                    logger.debug(f"[章节修订] 已生成 {chunk_count} 个 chunks - chapter_id: {chapter_id}")
                 yield f"data: {chunk}\n\n"
-            
+
+            logger.info(f"[章节修订] 修订完成 - chapter_id: {chapter_id}, total_chunks: {chunk_count}")
             yield "data: [DONE]\n\n"
-            
+
         except Exception as e:
+            logger.error(f"[章节修订] 修订失败 - chapter_id: {chapter_id}, error: {str(e)}", exc_info=True)
             yield f"data: [ERROR: {str(e)}]\n\n"
-    
+
+    logger.info(f"[章节修订] 返回 SSE 流 - chapter_id: {chapter_id}")
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",

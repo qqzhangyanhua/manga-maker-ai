@@ -20,6 +20,7 @@ import type { Editor } from "@tiptap/react";
 import { novelTheme } from "../../theme";
 
 interface ChapterOutline {
+  id?: string;
   chapterNumber: number;
   title: string;
   outline: string;
@@ -46,6 +47,7 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
   const [saving, setSaving] = useState(false);
   const [isRevisionDialogOpen, setIsRevisionDialogOpen] = useState(false);
   const [selectedText, setSelectedText] = useState("");
+  const [realChapterId, setRealChapterId] = useState<string | null>(null);
 
   // 存储编辑器实例的引用（由 RichTextEditor 提供）
   const editorRef = useRef<Editor | null>(null);
@@ -56,12 +58,61 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
     setTitle(chapter.title);
     setOutline(chapter.outline || "");
     setContent(chapter.content || "");
+    // 重置 realChapterId，因为切换到了新章节
+    setRealChapterId(null);
   }, [chapter.chapterNumber, chapter.title, chapter.outline, chapter.content]);
 
   // 获取编辑器实例的回调
   const handleEditorReady = useCallback((editor: Editor) => {
     editorRef.current = editor;
   }, []);
+
+  // 获取或创建真实的章节 ID（用于调用后端 API）
+  async function getOrCreateChapterId(): Promise<string | null> {
+    // 如果已有缓存的 realChapterId，直接返回
+    if (realChapterId) {
+      return realChapterId;
+    }
+
+    try {
+      // 先尝试查找是否已有对应的 chapter
+      const listResponse = await fetch(`/api/novel/chapters/project/${project.id}`);
+      if (listResponse.ok) {
+        const chapters = await listResponse.json();
+        const existingChapter = chapters.find(
+          (ch: { chapter_number: number }) => ch.chapter_number === chapter.chapterNumber
+        );
+        if (existingChapter) {
+          setRealChapterId(existingChapter.id);
+          return existingChapter.id;
+        }
+      }
+
+      // 如果不存在，创建新的 chapter 记录
+      const createResponse = await fetch("/api/novel/chapters", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          project_id: project.id,
+          chapter_number: chapter.chapterNumber,
+          title: title,
+          outline: outline,
+        }),
+      });
+
+      if (!createResponse.ok) {
+        throw new Error("创建章节记录失败");
+      }
+
+      const newChapter = await createResponse.json();
+      setRealChapterId(newChapter.id);
+      return newChapter.id;
+    } catch (error) {
+      console.error("获取章节ID失败:", error);
+      toast.error(error instanceof Error ? error.message : "获取章节ID失败");
+      return null;
+    }
+  }
 
   async function handleGenerate() {
     if (!outline.trim()) {
@@ -73,42 +124,14 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
       setGenerating(true);
       setContent(""); // 清空现有内容
 
-      // 步骤1：创建或查找对应的 chapter 记录（后端需要 chapter_id）
-      let chapterId: string | null = null;
-
-      // 先尝试查找是否已有对应的 chapter
-      const listResponse = await fetch(`/api/novel/chapters/project/${project.id}`);
-      if (listResponse.ok) {
-        const chapters = await listResponse.json();
-        const existingChapter = chapters.find(
-          (ch: { chapter_number: number }) => ch.chapter_number === chapter.chapterNumber
-        );
-        if (existingChapter) {
-          chapterId = existingChapter.id;
-        }
+      // 步骤1：获取或创建章节ID
+      const chapterId = await getOrCreateChapterId();
+      if (!chapterId) {
+        throw new Error("无法获取章节ID");
       }
 
-      // 如果不存在，创建新的 chapter 记录
-      if (!chapterId) {
-        const createResponse = await fetch("/api/novel/chapters", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            project_id: project.id,
-            chapter_number: chapter.chapterNumber,
-            title: title,
-            outline: outline,
-          }),
-        });
-
-        if (!createResponse.ok) {
-          throw new Error("创建章节记录失败");
-        }
-
-        const newChapter = await createResponse.json();
-        chapterId = newChapter.id;
-      } else {
-        // 🔧 修复：如果 chapter 已存在，更新其 outline 和 title 确保使用最新值
+      // 如果章节已存在，更新其 outline 和 title 确保使用最新值
+      if (realChapterId) {
         const updateResponse = await fetch(`/api/novel/chapters/${chapterId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -200,7 +223,7 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
     }
   }
 
-  function handleReviseSelection() {
+  async function handleReviseSelection() {
     const editor = editorRef.current;
     if (!editor) return;
 
@@ -209,6 +232,13 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
 
     if (!text || text.trim().length === 0) {
       toast.error("请先选中要修订的文本");
+      return;
+    }
+
+    // 获取真实的章节 ID
+    const chapterId = await getOrCreateChapterId();
+    if (!chapterId) {
+      toast.error("无法获取章节信息，请稍后重试");
       return;
     }
 
@@ -340,7 +370,7 @@ export function ChapterEditor({ chapter, project, onUpdate }: ChapterEditorProps
 
       {/* 修订对话框 */}
       <RevisionDialog
-        chapterId={project.id}
+        chapterId={realChapterId || project.id}
         open={isRevisionDialogOpen}
         onOpenChange={setIsRevisionDialogOpen}
         selectedText={selectedText}

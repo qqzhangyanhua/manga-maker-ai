@@ -23,6 +23,7 @@ export interface NovelChapter {
  * 章节大纲（前端格式 - camelCase）
  */
 export interface ChapterOutline {
+  id?: string; // 真实的数据库 ID（从 NovelChapter 映射而来）
   _tempId?: string; // 临时唯一ID，用于React key，不存储到数据库
   chapterNumber: number;
   title: string;
@@ -173,8 +174,9 @@ function generateTempId(): string {
 /**
  * 转换后端 snake_case 格式的 outline 为前端 camelCase 格式
  */
-export function normalizeOutline(outline: Partial<ChapterOutlineBackend & ChapterOutline>): ChapterOutline {
+export function normalizeOutline(outline: Partial<ChapterOutlineBackend & ChapterOutline & { id?: string }>): ChapterOutline {
   return {
+    id: (outline as any).id, // 保留真实的数据库 ID
     _tempId: (outline as ChapterOutline)._tempId || generateTempId(),
     chapterNumber: outline.chapterNumber ?? outline.chapter_number ?? 0,
     title: outline.title ?? "",
