@@ -17,11 +17,49 @@ from ..middleware.auth import get_current_user_id
 from ..services.export_service import ExportService
 from .project_models import ProjectCreate, ProjectUpdate, ProjectResponse
 
-router = APIRouter(prefix="/projects", tags=["projects-crud"])
+router = APIRouter(prefix="/projects", tags=["Projects - CRUD"])
 logger = logging.getLogger(__name__)
 
 
-@router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=ProjectResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="创建新项目",
+    description="""
+创建一个新的小说项目。
+
+**功能**：
+- 初始化项目基础信息（标题、简介、类型等）
+- 设置世界观和主要角色
+- 设定目标字数
+- 项目默认状态为 draft（草稿）
+
+**后续操作**：
+- 使用 `/projects/{project_id}/generate-characters` 生成角色
+- 使用 `/projects/{project_id}/generate-outline` 生成章节大纲
+- 使用 `/chapters/generate` 开始创作章节
+""",
+    responses={
+        201: {
+            "description": "项目创建成功",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "id": "123e4567-e89b-12d3-a456-426614174000",
+                        "user_id": "987fcdeb-51a2-43d7-8f9e-0123456789ab",
+                        "title": "修仙传说：逆天改命",
+                        "status": "draft",
+                        "total_words": 0,
+                        "chapter_count": 0
+                    }
+                }
+            }
+        },
+        400: {"description": "请求参数无效"},
+        401: {"description": "未授权（Token 无效或过期）"},
+    }
+)
 async def create_project(
     project_data: ProjectCreate,
     user_id: str = Depends(get_current_user_id),
@@ -64,7 +102,30 @@ async def create_project(
     }
 
 
-@router.get("", response_model=List[ProjectResponse])
+@router.get(
+    "",
+    response_model=List[ProjectResponse],
+    summary="列出项目",
+    description="""
+列出当前用户的所有小说项目。
+
+**功能**：
+- 支持分页查询
+- 支持按状态过滤（draft, in_progress, completed, archived）
+- 支持关键词搜索（标题、简介）
+- 按更新时间倒序排列
+
+**查询参数**：
+- `skip`: 跳过的记录数（用于分页，默认 0）
+- `limit`: 每页记录数（默认 20，最大 100）
+- `status_filter`: 状态过滤（可选）
+- `search`: 搜索关键词（可选）
+""",
+    responses={
+        200: {"description": "项目列表获取成功"},
+        401: {"description": "未授权"},
+    }
+)
 async def list_projects(
     skip: int = 0,
     limit: int = 20,
@@ -130,7 +191,31 @@ async def list_projects(
     return response_projects
 
 
-@router.get("/{project_id}", response_model=ProjectResponse)
+@router.get(
+    "/{project_id}",
+    response_model=ProjectResponse,
+    summary="获取项目详情",
+    description="""
+获取指定项目的详细信息。
+
+**功能**：
+- 返回项目基础信息（标题、描述、类型等）
+- 返回项目统计数据（总字数、章节数）
+- 可选返回完整章节列表（含正文内容）
+
+**查询参数**：
+- `include_chapters`: 是否包含完整章节列表（默认 true）
+  - true: 返回章节列表及正文内容（适用于编辑器加载）
+  - false: 仅返回项目信息（适用于列表页预览）
+
+**注意**：如果章节数量很大，建议设置 `include_chapters=false` 以提高响应速度。
+""",
+    responses={
+        200: {"description": "项目详情获取成功"},
+        404: {"description": "项目不存在"},
+        401: {"description": "未授权"},
+    }
+)
 async def get_project(
     project_id: UUID,
     include_chapters: bool = True,  # ✅ 新增参数：是否包含章节列表

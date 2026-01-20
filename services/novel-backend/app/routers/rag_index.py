@@ -19,7 +19,7 @@ from .rag_models import (
     RebuildIndexRequest,
 )
 
-router = APIRouter(prefix="/rag", tags=["rag-index"])
+router = APIRouter(prefix="/rag", tags=["RAG - Index Management"])
 logger = logging.getLogger(__name__)
 
 

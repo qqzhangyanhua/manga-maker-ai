@@ -15,7 +15,7 @@ from ..models import NovelProject, NovelChapter
 from ..services.batch_service import BatchService
 
 
-router = APIRouter(prefix="/batch", tags=["batch"])
+router = APIRouter(prefix="/batch", tags=["Batch Operations"])
 
 
 class BatchImportRequest(BaseModel):

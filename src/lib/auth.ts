@@ -11,6 +11,8 @@ export type AuthTokenPayload = {
   name?: string | null;
   role?: string | null;
   status?: string | null;
+  exp?: number; // JWT expiration timestamp
+  iat?: number; // JWT issued at timestamp
 };
 
 const getAuthSecret = () => {

@@ -23,7 +23,7 @@ from ..schemas.search_schemas import (
 from ..services.search_service import SearchService
 
 
-router = APIRouter(prefix="/search", tags=["search"])
+router = APIRouter(prefix="/search", tags=["Search"])
 
 
 # ============================================

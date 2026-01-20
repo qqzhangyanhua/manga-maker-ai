@@ -26,7 +26,7 @@ from ..services.prompt_templates import NovelPromptTemplates
 from ..config import settings
 
 
-router = APIRouter(prefix="/world", tags=["world-extraction"])
+router = APIRouter(prefix="/world", tags=["World Building - AI Extraction"])
 logger = logging.getLogger(__name__)
 
 

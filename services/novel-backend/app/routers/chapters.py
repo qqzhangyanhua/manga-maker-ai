@@ -18,7 +18,7 @@ from ..middleware.auth import get_current_user_id
 from ..services.rag_service import NovelRAGService
 from ..services.generation_service import NovelGenerationService
 
-router = APIRouter(prefix="/chapters", tags=["chapters"])
+router = APIRouter(prefix="/chapters", tags=["Chapters - Generation & Management"])
 logger = logging.getLogger(__name__)  # ✨ 添加日志记录器
 
 
@@ -26,44 +26,75 @@ logger = logging.getLogger(__name__)  # ✨ 添加日志记录器
 
 class ChapterCreate(BaseModel):
     """创建章节请求"""
-    project_id: str
-    chapter_number: int
-    title: str = Field(..., max_length=200)
-    outline: Optional[str] = None
+    project_id: str = Field(..., description="项目 ID (UUID)")
+    chapter_number: int = Field(..., description="章节序号（从 1 开始）", ge=1)
+    title: str = Field(..., max_length=200, description="章节标题", min_length=1)
+    outline: Optional[str] = Field(None, description="章节大纲（可选）", max_length=5000)
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "project_id": "123e4567-e89b-12d3-a456-426614174000",
+                "chapter_number": 1,
+                "title": "第一章：穿越异界",
+                "outline": "主角林枫意外穿越到修仙世界，发现自己拥有金手指系统..."
+            }
+        }
 
 
 class ChapterUpdate(BaseModel):
     """更新章节请求"""
-    title: Optional[str] = Field(None, max_length=200)
-    outline: Optional[str] = None
-    content: Optional[str] = None
-    status: Optional[str] = None
-    is_key_chapter: Optional[bool] = None
+    title: Optional[str] = Field(None, max_length=200, description="章节标题", min_length=1)
+    outline: Optional[str] = Field(None, description="章节大纲", max_length=5000)
+    content: Optional[str] = Field(None, description="章节正文内容")
+    status: Optional[str] = Field(None, description="章节状态：draft | published")
+    is_key_chapter: Optional[bool] = Field(None, description="是否为关键章节")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "title": "第一章：穿越异界（修订版）",
+                "status": "published",
+                "is_key_chapter": True
+            }
+        }
 
 
 class ChapterResponse(BaseModel):
     """章节响应"""
-    id: str
-    project_id: str
-    chapter_number: int
-    title: str
-    outline: Optional[str]
-    content: Optional[str]
-    word_count: int
-    prompt_used: Optional[str]
-    model_used: Optional[str]
-    status: str
-    is_key_chapter: bool
-    created_at: datetime
-    updated_at: datetime
-    
+    id: str = Field(..., description="章节 ID (UUID)")
+    project_id: str = Field(..., description="项目 ID (UUID)")
+    chapter_number: int = Field(..., description="章节序号", ge=1)
+    title: str = Field(..., description="章节标题")
+    outline: Optional[str] = Field(None, description="章节大纲")
+    content: Optional[str] = Field(None, description="章节正文内容")
+    word_count: int = Field(0, description="字数", ge=0)
+    prompt_used: Optional[str] = Field(None, description="生成时使用的 Prompt")
+    model_used: Optional[str] = Field(None, description="生成时使用的 AI 模型")
+    status: str = Field(..., description="章节状态")
+    is_key_chapter: bool = Field(False, description="是否为关键章节")
+    created_at: datetime = Field(..., description="创建时间")
+    updated_at: datetime = Field(..., description="最后更新时间")
+
     class Config:
         from_attributes = True
         # 自动转换 UUID 为字符串
         json_encoders = {
             UUID: str
         }
-    
+        json_schema_extra = {
+            "example": {
+                "id": "550e8400-e29b-41d4-a716-446655440000",
+                "project_id": "123e4567-e89b-12d3-a456-426614174000",
+                "chapter_number": 1,
+                "title": "第一章：穿越异界",
+                "content": "天地玄黄，宇宙洪荒...",
+                "word_count": 6580,
+                "status": "published",
+                "is_key_chapter": True
+            }
+        }
+
     @classmethod
     def model_validate(cls, obj):
         """重写验证方法，自动转换 UUID 字段"""
@@ -80,16 +111,34 @@ class ChapterResponse(BaseModel):
 
 class GenerateChapterRequest(BaseModel):
     """生成章节请求"""
-    chapter_id: str
-    style_prompt: Optional[str] = None
-    temperature: float = Field(default=0.7, ge=0.0, le=2.0)
-    use_rag: bool = True  # 是否使用 RAG 增强
+    chapter_id: str = Field(..., description="章节 ID (UUID)")
+    style_prompt: Optional[str] = Field(None, description="风格提示（如：热血、悬疑等）", max_length=500)
+    temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="生成温度（0.0-2.0，越高越随机）")
+    use_rag: bool = Field(True, description="是否使用 RAG 检索相关章节作为上下文")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "chapter_id": "550e8400-e29b-41d4-a716-446655440000",
+                "style_prompt": "热血修仙",
+                "temperature": 0.8,
+                "use_rag": True
+            }
+        }
 
 
 class ReviseContentRequest(BaseModel):
     """修订内容请求"""
-    original_text: str = Field(..., min_length=1, description="原始文本")
-    instruction: str = Field(..., min_length=1, description="修改指令")
+    original_text: str = Field(..., min_length=1, description="原始文本（待修改的内容）")
+    instruction: str = Field(..., min_length=1, description="修改指令（如：增加细节描写、修改人物对话等）", max_length=1000)
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "original_text": "林枫走进了房间。",
+                "instruction": "增加环境描写和心理活动"
+            }
+        }
 
 
 # ============ API Endpoints ============

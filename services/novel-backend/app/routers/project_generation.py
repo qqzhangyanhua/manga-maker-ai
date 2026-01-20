@@ -21,7 +21,7 @@ from .project_models import (
     GenerateOutlineRequest,
 )
 
-router = APIRouter(prefix="/projects", tags=["projects-generation"])
+router = APIRouter(prefix="/projects", tags=["Projects - AI Generation"])
 logger = logging.getLogger(__name__)
 
 

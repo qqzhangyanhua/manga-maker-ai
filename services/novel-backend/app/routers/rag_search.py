@@ -15,7 +15,7 @@ from ..middleware.auth import get_current_user_id
 from ..services.vector_service import get_vector_service
 from .rag_models import RAGStatsResponse, RAGStatsData, RecentActivityData, ChapterDetailResponse
 
-router = APIRouter(prefix="/rag", tags=["rag-search"])
+router = APIRouter(prefix="/rag", tags=["RAG - Search & Query"])
 logger = logging.getLogger(__name__)
 
 

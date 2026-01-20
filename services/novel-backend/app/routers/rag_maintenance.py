@@ -21,7 +21,7 @@ from .rag_models import (
     CleanupRequest,
 )
 
-router = APIRouter(prefix="/rag", tags=["rag-maintenance"])
+router = APIRouter(prefix="/rag", tags=["RAG - Maintenance"])
 logger = logging.getLogger(__name__)
 
 

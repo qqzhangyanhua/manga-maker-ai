@@ -30,7 +30,7 @@ from ..schemas.world_schemas import (
 )
 
 
-router = APIRouter(prefix="/world", tags=["world"])
+router = APIRouter(prefix="/world", tags=["World Building - Memory Bank"])
 
 
 # ============================================

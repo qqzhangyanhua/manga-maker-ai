@@ -13,7 +13,7 @@ from ..schemas.export import ExportRequest
 from ..models import NovelProject
 
 
-router = APIRouter(prefix="/export", tags=["export"])
+router = APIRouter(prefix="/export", tags=["Export"])
 
 
 @router.post("/projects/{project_id}")

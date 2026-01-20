@@ -23,7 +23,7 @@ from ..services.canvas import (
 from ..services.canvas.character_identifier import CharacterIdentifier
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/canvas", tags=["canvas"])
+router = APIRouter(prefix="/canvas", tags=["Canvas - Novel to Comic"])
 
 
 class AnalyzeScriptRequest(BaseModel):

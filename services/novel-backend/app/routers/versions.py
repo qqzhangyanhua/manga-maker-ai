@@ -19,7 +19,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/versions", tags=["versions"])
+router = APIRouter(prefix="/versions", tags=["Version Management"])
 
 
 # ============ Pydantic Models ============

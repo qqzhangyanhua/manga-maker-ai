@@ -15,7 +15,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/inspiration", tags=["inspiration"])
+router = APIRouter(prefix="/inspiration", tags=["Inspiration"])
 
 
 # ============ Pydantic Models ============

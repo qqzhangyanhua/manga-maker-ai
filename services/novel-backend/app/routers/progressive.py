@@ -15,7 +15,7 @@ from ..middleware.auth import get_current_user_id
 from ..services.progressive_outline_service import ProgressiveOutlineService
 from ..services.outline_analyzer import OutlineAnalyzer
 
-router = APIRouter(prefix="/progressive", tags=["progressive-outline"])
+router = APIRouter(prefix="/progressive", tags=["Progressive Outline - 10-Step Generation"])
 
 
 # ============ Pydantic Models ============
