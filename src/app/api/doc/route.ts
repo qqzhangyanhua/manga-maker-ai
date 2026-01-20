@@ -173,6 +173,20 @@ import {
   AdminListTransactionsResponseSchema,
   ListUsageResponseSchema
 } from "@/lib/api-schemas/admin-system.schemas";
+import {
+  CreateTimelineRequestSchema,
+  GenerateScriptRequestSchema,
+  GenerateShotsRequestSchema,
+  UpdateShotDesignRequestSchema,
+  GenerateShotImageRequestSchema,
+  TimelineResponseSchema,
+  CreateTimelineResponseSchema,
+  ListTimelinesResponseSchema,
+  GenerateScriptResponseSchema,
+  GenerateShotsResponseSchema,
+  UpdateShotDesignResponseSchema,
+  GenerateShotImageResponseSchema
+} from "@/lib/api-schemas/canvas.schemas";
 
 // 创建 OpenAPI 注册表
 const registry = new OpenAPIRegistry();
@@ -3146,6 +3160,348 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: ListUsageResponseSchema
+        }
+      }
+    }
+  }
+});
+
+// ============ 注册 Canvas 相关的 API Paths ============
+
+registry.registerPath({
+  method: "post",
+  path: "/api/canvas/timeline",
+  tags: ["Canvas - Timeline"],
+  summary: "创建时间线",
+  description: `
+创建小说转漫画的时间线。
+
+**功能**：
+- 关联小说项目
+- 配置自动生成选项
+- 支持角色库和场景库
+- 自动检查并复用已存在的时间线
+`,
+  security: [{ cookieAuth: [] }],
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: CreateTimelineRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      description: "创建成功（或复用已存在的时间线）",
+      content: {
+        "application/json": {
+          schema: CreateTimelineResponseSchema
+        }
+      }
+    },
+    400: {
+      description: "参数错误",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/canvas/timeline",
+  tags: ["Canvas - Timeline"],
+  summary: "获取时间线列表",
+  description: `
+获取当前用户的所有时间线。
+
+**返回数据包含**：
+- 时间线基本信息
+- 关联的章节列表（按章节号排序）
+- 配置信息
+`,
+  security: [{ cookieAuth: [] }],
+  responses: {
+    200: {
+      description: "时间线列表",
+      content: {
+        "application/json": {
+          schema: ListTimelinesResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/canvas/timeline/{id}",
+  tags: ["Canvas - Timeline"],
+  summary: "获取时间线详情",
+  description: "获取指定时间线的详细信息，包括所有章节",
+  security: [{ cookieAuth: [] }],
+  request: {
+    params: z.object({
+      id: z.string().uuid().openapi({
+        description: "时间线 ID",
+      })
+    })
+  },
+  responses: {
+    200: {
+      description: "时间线详情",
+      content: {
+        "application/json": {
+          schema: CreateTimelineResponseSchema
+        }
+      }
+    },
+    404: {
+      description: "时间线不存在",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/canvas/chapter/{id}/generate-script",
+  tags: ["Canvas - Chapter"],
+  summary: "生成章节剧本",
+  description: `
+将小说章节内容分析为剧本片段。
+
+**工作流程**：
+1. 获取小说章节内容
+2. 调用 novel-backend 的剧本分析服务
+3. 创建剧本片段（ScriptSegment）
+4. 更新章节状态
+
+**剧本片段包含**：
+- 场景描述
+- 角色动作
+- 对话内容
+- 情绪基调
+- 预估时长
+`,
+  security: [{ cookieAuth: [] }],
+  request: {
+    params: z.object({
+      id: z.string().uuid().openapi({
+        description: "时间线章节 ID",
+      })
+    }),
+    body: {
+      content: {
+        "application/json": {
+          schema: GenerateScriptRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      description: "剧本生成成功",
+      content: {
+        "application/json": {
+          schema: GenerateScriptResponseSchema
+        }
+      }
+    },
+    400: {
+      description: "章节内容为空或格式错误",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    },
+    404: {
+      description: "章节不存在",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    },
+    502: {
+      description: "novel-backend 服务不可用",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/canvas/chapter/{id}/generate-shots",
+  tags: ["Canvas - Chapter"],
+  summary: "生成镜头设计",
+  description: `
+基于剧本片段生成镜头设计。
+
+**镜头设计包含**：
+- 摄像机角度（eye_level, high_angle, low_angle 等）
+- 景别（close_up, medium_shot, long_shot 等）
+- 分镜类型（standard, splash, inset 等）
+- 构图提示
+- 角色和场景关联
+- AI 生成提示词
+`,
+  security: [{ cookieAuth: [] }],
+  request: {
+    params: z.object({
+      id: z.string().uuid().openapi({
+        description: "时间线章节 ID",
+      })
+    }),
+    body: {
+      content: {
+        "application/json": {
+          schema: GenerateShotsRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      description: "镜头设计生成成功",
+      content: {
+        "application/json": {
+          schema: GenerateShotsResponseSchema
+        }
+      }
+    },
+    400: {
+      description: "需要先生成剧本",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "patch",
+  path: "/api/canvas/shot-design/{id}",
+  tags: ["Canvas - Shot Design"],
+  summary: "更新镜头设计",
+  description: `
+编辑镜头设计的各项参数。
+
+**可编辑字段**：
+- 摄像机角度
+- 景别
+- 分镜类型
+- 镜头描述
+- 构图提示
+- 关联角色
+- 关联场景
+- 角色表情和服装
+- AI 提示词
+`,
+  security: [{ cookieAuth: [] }],
+  request: {
+    params: z.object({
+      id: z.string().uuid().openapi({
+        description: "镜头设计 ID",
+      })
+    }),
+    body: {
+      content: {
+        "application/json": {
+          schema: UpdateShotDesignRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      description: "更新成功",
+      content: {
+        "application/json": {
+          schema: UpdateShotDesignResponseSchema
+        }
+      }
+    },
+    403: {
+      description: "无权操作",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    },
+    404: {
+      description: "镜头设计不存在",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/canvas/shot-design/{id}/generate-image",
+  tags: ["Canvas - Shot Design"],
+  summary: "生成镜头图片",
+  description: `
+为镜头设计生成图片。
+
+**生成过程**：
+1. 构建完整的 AI 提示词
+2. 调用图片生成服务
+3. 更新镜头的图片状态和 URL
+4. 支持风格和 LoRA 模型
+
+**可能是异步操作**，返回 task_id 用于查询进度。
+`,
+  security: [{ cookieAuth: [] }],
+  request: {
+    params: z.object({
+      id: z.string().uuid().openapi({
+        description: "镜头设计 ID",
+      })
+    }),
+    body: {
+      content: {
+        "application/json": {
+          schema: GenerateShotImageRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      description: "生成成功或已提交生成任务",
+      content: {
+        "application/json": {
+          schema: GenerateShotImageResponseSchema
+        }
+      }
+    },
+    404: {
+      description: "镜头设计不存在",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
         }
       }
     }
