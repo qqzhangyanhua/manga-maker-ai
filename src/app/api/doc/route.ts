@@ -80,6 +80,42 @@ import {
   TaskStatusResponseSchema,
   OptimizeImageResponseSchema
 } from "@/lib/api-schemas/image.schemas";
+import {
+  CreateSceneRequestSchema,
+  UpdateSceneRequestSchema,
+  ListScenesQuerySchema,
+  SceneResponseSchema,
+  ListScenesResponseSchema,
+  CreateSceneResponseSchema,
+  UpdateSceneResponseSchema,
+  DeleteSceneResponseSchema
+} from "@/lib/api-schemas/scene.schemas";
+import {
+  ListTemplatesQuerySchema,
+  CreateTemplateRequestSchema,
+  UpdateTemplateRequestSchema,
+  ApplyTemplateRequestSchema,
+  ListTemplatesResponseSchema,
+  TemplateDetailResponseSchema,
+  CreateTemplateResponseSchema,
+  UpdateTemplateResponseSchema,
+  DeleteTemplateResponseSchema,
+  ApplyTemplateResponseSchema,
+  LikeTemplateResponseSchema
+} from "@/lib/api-schemas/template.schemas";
+import {
+  GetCreditsQuerySchema,
+  GetTransactionsQuerySchema,
+  CreditsInfoResponseSchema,
+  ListTransactionsResponseSchema
+} from "@/lib/api-schemas/credits.schemas";
+import {
+  UpdateProfileRequestSchema,
+  ChangePasswordRequestSchema,
+  UpdateProfileResponseSchema,
+  ChangePasswordResponseSchema,
+  SharedContentResponseSchema
+} from "@/lib/api-schemas/profile.schemas";
 
 // 创建 OpenAPI 注册表
 const registry = new OpenAPIRegistry();
@@ -1737,6 +1773,385 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+// ============ 注册 Scene 相关的 API Paths ============
+
+registry.registerPath({
+  method: "get",
+  path: "/api/scene",
+  tags: ["Scenes"],
+  summary: "获取场景列表",
+  description: `
+获取用户的场景列表，支持筛选和排序。
+
+**筛选选项**：
+- scene_type: 按场景类型筛选
+- source_chapter_id: 按来源章节筛选
+- is_ai_generated: 筛选 AI 生成的场景
+
+**排序**：
+- 按使用次数降序
+- 按创建时间降序
+`,
+  security: [{ cookieAuth: [] }],
+  request: {
+    query: ListScenesQuerySchema
+  },
+  responses: {
+    200: {
+      description: "场景列表",
+      content: {
+        "application/json": {
+          schema: z.array(SceneResponseSchema)
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/scene",
+  tags: ["Scenes"],
+  summary: "创建场景",
+  description: "创建新的场景到场景库",
+  security: [{ cookieAuth: [] }],
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: CreateSceneRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    201: {
+      description: "场景创建成功",
+      content: {
+        "application/json": {
+          schema: SceneResponseSchema
+        }
+      }
+    },
+    400: {
+      description: "参数错误",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "patch",
+  path: "/api/scene/{id}",
+  tags: ["Scenes"],
+  summary: "更新场景",
+  description: "更新场景信息",
+  security: [{ cookieAuth: [] }],
+  request: {
+    params: z.object({
+      id: z.string().uuid().openapi({ description: "场景 ID" })
+    }),
+    body: {
+      content: {
+        "application/json": {
+          schema: UpdateSceneRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      description: "更新成功",
+      content: {
+        "application/json": {
+          schema: SceneResponseSchema
+        }
+      }
+    },
+    403: {
+      description: "无权限",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    },
+    404: {
+      description: "场景不存在",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+// ============ 注册 Template 相关的 API Paths ============
+
+registry.registerPath({
+  method: "get",
+  path: "/api/templates",
+  tags: ["Templates"],
+  summary: "获取模板列表",
+  description: `
+获取分镜模板列表，支持分页和筛选。
+
+**筛选选项**：
+- type: my（我的）, official（官方）, community（社区）
+- tags: 按标签筛选
+- panelCount: 按分镜数量范围筛选（1-3, 4-6, 7-12）
+- search: 关键词搜索（名称、描述）
+- category, difficulty, targetCharacters: 其他筛选条件
+`,
+  request: {
+    query: ListTemplatesQuerySchema
+  },
+  responses: {
+    200: {
+      description: "模板列表",
+      content: {
+        "application/json": {
+          schema: ListTemplatesResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/templates",
+  tags: ["Templates"],
+  summary: "创建模板",
+  description: "创建新的分镜模板",
+  security: [{ cookieAuth: [] }],
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: CreateTemplateRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    201: {
+      description: "模板创建成功",
+      content: {
+        "application/json": {
+          schema: CreateTemplateResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/templates/{id}/apply",
+  tags: ["Templates"],
+  summary: "应用模板",
+  description: "将模板应用到故事或章节，自动生成分镜",
+  security: [{ cookieAuth: [] }],
+  request: {
+    params: z.object({
+      id: z.string().uuid().openapi({ description: "模板 ID" })
+    }),
+    body: {
+      content: {
+        "application/json": {
+          schema: ApplyTemplateRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      description: "模板应用成功",
+      content: {
+        "application/json": {
+          schema: ApplyTemplateResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/templates/{id}/like",
+  tags: ["Templates"],
+  summary: "点赞/取消点赞模板",
+  description: "切换模板点赞状态",
+  security: [{ cookieAuth: [] }],
+  request: {
+    params: z.object({
+      id: z.string().uuid().openapi({ description: "模板 ID" })
+    })
+  },
+  responses: {
+    200: {
+      description: "操作成功",
+      content: {
+        "application/json": {
+          schema: LikeTemplateResponseSchema
+        }
+      }
+    }
+  }
+});
+
+// ============ 注册 Credits 相关的 API Paths ============
+
+registry.registerPath({
+  method: "get",
+  path: "/api/credits",
+  tags: ["Credits"],
+  summary: "获取积分信息和交易记录",
+  description: `
+获取当前用户的积分余额、累计消费和交易记录。
+
+**包含信息**：
+- 当前积分余额
+- 累计消费积分
+- 交易记录列表（支持分页和筛选）
+`,
+  security: [{ cookieAuth: [] }],
+  request: {
+    query: GetCreditsQuerySchema
+  },
+  responses: {
+    200: {
+      description: "积分信息",
+      content: {
+        "application/json": {
+          schema: CreditsInfoResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/credit-transactions",
+  tags: ["Credits"],
+  summary: "获取交易记录",
+  description: "获取用户的积分交易记录，支持分页和按类型筛选",
+  security: [{ cookieAuth: [] }],
+  request: {
+    query: GetTransactionsQuerySchema
+  },
+  responses: {
+    200: {
+      description: "交易记录",
+      content: {
+        "application/json": {
+          schema: ListTransactionsResponseSchema
+        }
+      }
+    }
+  }
+});
+
+// ============ 注册 Profile 相关的 API Paths ============
+
+registry.registerPath({
+  method: "patch",
+  path: "/api/profile",
+  tags: ["Profile"],
+  summary: "更新用户资料",
+  description: "更新用户基本信息（用户名、头像）",
+  security: [{ cookieAuth: [] }],
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: UpdateProfileRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      description: "更新成功",
+      content: {
+        "application/json": {
+          schema: UpdateProfileResponseSchema
+        }
+      }
+    },
+    400: {
+      description: "参数错误",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/profile/change-password",
+  tags: ["Profile"],
+  summary: "修改密码",
+  description: "修改用户登录密码",
+  security: [{ cookieAuth: [] }],
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: ChangePasswordRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      description: "密码修改成功",
+      content: {
+        "application/json": {
+          schema: ChangePasswordResponseSchema
+        }
+      }
+    },
+    400: {
+      description: "密码错误或参数无效",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/profile/shared",
+  tags: ["Profile"],
+  summary: "获取分享的内容",
+  description: "获取用户公开分享的故事、角色、模板等内容",
+  security: [{ cookieAuth: [] }],
+  responses: {
+    200: {
+      description: "分享内容列表",
+      content: {
+        "application/json": {
+          schema: SharedContentResponseSchema
         }
       }
     }
