@@ -147,6 +147,32 @@ import {
   WorkflowProgressResponseSchema,
   ResumeWorkflowResponseSchema
 } from "@/lib/api-schemas/workflow.schemas";
+import {
+  CreateUserRequestSchema,
+  UpdateUserRequestSchema,
+  RechargeCreditsRequestSchema,
+  AdminUserSchema,
+  ListUsersResponseSchema,
+  UserDetailResponseSchema,
+  CreateUserResponseSchema,
+  UpdateUserResponseSchema,
+  DeleteUserResponseSchema,
+  RechargeCreditsResponseSchema
+} from "@/lib/api-schemas/admin-users.schemas";
+import {
+  CreateTagRequestSchema,
+  UpdateTagRequestSchema,
+  MergeTagsRequestSchema,
+  ListTagsQuerySchema,
+  ListTransactionsQuerySchema,
+  ListUsageQuerySchema,
+  TagSchema,
+  ListTagsResponseSchema,
+  TagDetailResponseSchema,
+  MergeTagsResponseSchema,
+  AdminListTransactionsResponseSchema,
+  ListUsageResponseSchema
+} from "@/lib/api-schemas/admin-system.schemas";
 
 // 创建 OpenAPI 注册表
 const registry = new OpenAPIRegistry();
@@ -2652,6 +2678,474 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: WorkflowProgressResponseSchema
+        }
+      }
+    }
+  }
+});
+
+// ============ 注册 Admin Users 相关的 API Paths ============
+
+registry.registerPath({
+  method: "get",
+  path: "/api/admin/users",
+  tags: ["Admin - Users"],
+  summary: "获取用户列表",
+  description: "管理员查看所有用户列表（仅管理员）",
+  security: [{ cookieAuth: [] }],
+  responses: {
+    200: {
+      description: "用户列表",
+      content: {
+        "application/json": {
+          schema: ListUsersResponseSchema
+        }
+      }
+    },
+    401: {
+      description: "未登录",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    },
+    403: {
+      description: "权限不足（非管理员）",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/admin/users",
+  tags: ["Admin - Users"],
+  summary: "创建用户",
+  description: "管理员创建新用户账户（仅管理员）",
+  security: [{ cookieAuth: [] }],
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: CreateUserRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      description: "创建成功",
+      content: {
+        "application/json": {
+          schema: CreateUserResponseSchema
+        }
+      }
+    },
+    400: {
+      description: "参数错误",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    },
+    403: {
+      description: "权限不足",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "put",
+  path: "/api/admin/users/{id}",
+  tags: ["Admin - Users"],
+  summary: "更新用户信息",
+  description: `
+管理员更新用户信息（仅管理员）。
+
+**可更新字段**：
+- name - 用户名
+- role - 角色（user/admin）
+- status - 状态（active/banned）
+- verified - 邮箱验证状态
+- password - 重置密码
+`,
+  security: [{ cookieAuth: [] }],
+  request: {
+    params: z.object({
+      id: z.string().uuid().openapi({
+        description: "用户 ID",
+        example: "550e8400-e29b-41d4-a716-446655440000",
+      })
+    }),
+    body: {
+      content: {
+        "application/json": {
+          schema: UpdateUserRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      description: "更新成功",
+      content: {
+        "application/json": {
+          schema: UpdateUserResponseSchema
+        }
+      }
+    },
+    404: {
+      description: "用户不存在",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/api/admin/users/{id}",
+  tags: ["Admin - Users"],
+  summary: "删除用户",
+  description: "管理员删除用户账户（仅管理员，谨慎操作）",
+  security: [{ cookieAuth: [] }],
+  request: {
+    params: z.object({
+      id: z.string().uuid().openapi({
+        description: "用户 ID",
+      })
+    })
+  },
+  responses: {
+    200: {
+      description: "删除成功",
+      content: {
+        "application/json": {
+          schema: DeleteUserResponseSchema
+        }
+      }
+    },
+    404: {
+      description: "用户不存在",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/admin/users/{id}/recharge",
+  tags: ["Admin - Users"],
+  summary: "管理员充值",
+  description: `
+管理员为用户充值算力（仅管理员）。
+
+**充值规则**：
+- 金额必须为正整数
+- 自动记录交易历史
+- 可添加充值说明
+`,
+  security: [{ cookieAuth: [] }],
+  request: {
+    params: z.object({
+      id: z.string().uuid().openapi({
+        description: "用户 ID",
+      })
+    }),
+    body: {
+      content: {
+        "application/json": {
+          schema: RechargeCreditsRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      description: "充值成功",
+      content: {
+        "application/json": {
+          schema: RechargeCreditsResponseSchema
+        }
+      }
+    },
+    404: {
+      description: "用户不存在",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+// ============ 注册 Admin System 相关的 API Paths ============
+
+registry.registerPath({
+  method: "get",
+  path: "/api/admin/tags",
+  tags: ["Admin - System"],
+  summary: "获取标签列表",
+  description: `
+管理员获取标签列表（仅管理员）。
+
+**支持功能**：
+- 分页查询
+- 关键词搜索
+- 类型筛选（system/user）
+- 分类筛选
+- 按使用次数排序
+`,
+  security: [{ cookieAuth: [] }],
+  request: {
+    query: ListTagsQuerySchema
+  },
+  responses: {
+    200: {
+      description: "标签列表",
+      content: {
+        "application/json": {
+          schema: ListTagsResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/admin/tags",
+  tags: ["Admin - System"],
+  summary: "创建标签",
+  description: "管理员创建系统标签（仅管理员）",
+  security: [{ cookieAuth: [] }],
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: CreateTagRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      description: "创建成功",
+      content: {
+        "application/json": {
+          schema: TagDetailResponseSchema
+        }
+      }
+    },
+    400: {
+      description: "标签名称已存在",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "put",
+  path: "/api/admin/tags/{id}",
+  tags: ["Admin - System"],
+  summary: "更新标签",
+  description: "管理员更新标签信息（仅管理员）",
+  security: [{ cookieAuth: [] }],
+  request: {
+    params: z.object({
+      id: z.string().uuid().openapi({
+        description: "标签 ID",
+      })
+    }),
+    body: {
+      content: {
+        "application/json": {
+          schema: UpdateTagRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      description: "更新成功",
+      content: {
+        "application/json": {
+          schema: TagDetailResponseSchema
+        }
+      }
+    },
+    404: {
+      description: "标签不存在",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/api/admin/tags/{id}",
+  tags: ["Admin - System"],
+  summary: "删除标签",
+  description: "管理员删除标签（仅管理员，谨慎操作）",
+  security: [{ cookieAuth: [] }],
+  request: {
+    params: z.object({
+      id: z.string().uuid().openapi({
+        description: "标签 ID",
+      })
+    })
+  },
+  responses: {
+    200: {
+      description: "删除成功",
+      content: {
+        "application/json": {
+          schema: MessageResponseSchema
+        }
+      }
+    },
+    404: {
+      description: "标签不存在",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/admin/tags/merge",
+  tags: ["Admin - System"],
+  summary: "合并标签",
+  description: `
+管理员合并两个标签（仅管理员）。
+
+**合并规则**：
+- 源标签的所有关联记录会转移到目标标签
+- 源标签会被删除
+- 目标标签的使用次数会累加
+- 操作不可逆，请谨慎使用
+`,
+  security: [{ cookieAuth: [] }],
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: MergeTagsRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      description: "合并成功",
+      content: {
+        "application/json": {
+          schema: MergeTagsResponseSchema
+        }
+      }
+    },
+    400: {
+      description: "参数错误",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/admin/transactions",
+  tags: ["Admin - System"],
+  summary: "获取交易记录",
+  description: `
+管理员查看所有用户的积分交易记录（仅管理员）。
+
+**支持功能**：
+- 分页查询
+- 按用户筛选
+- 按操作类型筛选（register/consume/recharge/admin_adjust/refund）
+- 按时间倒序排列
+- 包含用户基本信息
+`,
+  security: [{ cookieAuth: [] }],
+  request: {
+    query: ListTransactionsQuerySchema
+  },
+  responses: {
+    200: {
+      description: "交易记录列表",
+      content: {
+        "application/json": {
+          schema: AdminListTransactionsResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/admin/usage",
+  tags: ["Admin - System"],
+  summary: "获取使用统计",
+  description: `
+管理员获取系统使用统计（仅管理员）。
+
+**统计维度**：
+- usageStats - 按日聚合的使用统计（次数、积分消耗）
+- generationLogs - 详细的生成日志（每次操作记录）
+
+**支持功能**：
+- 按用户筛选
+- 按操作类型筛选
+- 按状态筛选（success/failed）
+- 时间范围筛选（最近 1-30 天）
+- 自定义时间范围（from/to）
+`,
+  security: [{ cookieAuth: [] }],
+  request: {
+    query: ListUsageQuerySchema
+  },
+  responses: {
+    200: {
+      description: "使用统计数据",
+      content: {
+        "application/json": {
+          schema: ListUsageResponseSchema
         }
       }
     }
