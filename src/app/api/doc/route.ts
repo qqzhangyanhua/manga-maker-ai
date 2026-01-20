@@ -116,6 +116,37 @@ import {
   ChangePasswordResponseSchema,
   SharedContentResponseSchema
 } from "@/lib/api-schemas/profile.schemas";
+import {
+  ListComicStylesQuerySchema,
+  ComicStyleResponseSchema,
+  ListComicStylesResponseSchema
+} from "@/lib/api-schemas/comic-style.schemas";
+import {
+  CreateProviderRequestSchema,
+  UpdateProviderRequestSchema,
+  ListProvidersResponseSchema,
+  ProviderDetailResponseSchema,
+  CreateProviderResponseSchema,
+  UpdateProviderResponseSchema,
+  DeleteProviderResponseSchema,
+  ProviderTypesResponseSchema
+} from "@/lib/api-schemas/llm-provider.schemas";
+import {
+  UploadImageRequestSchema,
+  UploadBase64RequestSchema,
+  UploadSuccessResponseSchema,
+  UploadErrorResponseSchema
+} from "@/lib/api-schemas/upload.schemas";
+import {
+  ListWorkflowsQuerySchema,
+  CreateAutoGenerateWorkflowRequestSchema,
+  ResumeWorkflowRequestSchema,
+  ListWorkflowsResponseSchema,
+  WorkflowDetailResponseSchema,
+  CreateWorkflowResponseSchema,
+  WorkflowProgressResponseSchema,
+  ResumeWorkflowResponseSchema
+} from "@/lib/api-schemas/workflow.schemas";
 
 // 创建 OpenAPI 注册表
 const registry = new OpenAPIRegistry();
@@ -2152,6 +2183,475 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: SharedContentResponseSchema
+        }
+      }
+    }
+  }
+});
+
+// ============ 注册 Comic Styles 相关的 API Paths ============
+
+registry.registerPath({
+  method: "get",
+  path: "/api/comic-styles",
+  tags: ["Comic Styles"],
+  summary: "获取漫画风格列表",
+  description: `
+获取可用的漫画风格列表。
+
+**筛选**：
+- enabled: 是否只返回启用的风格（默认 true）
+
+**排序**：
+- 按 sort_order 升序
+- 按创建时间升序
+`,
+  request: {
+    query: ListComicStylesQuerySchema
+  },
+  responses: {
+    200: {
+      description: "风格列表",
+      content: {
+        "application/json": {
+          schema: ListComicStylesResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/comic-styles/{id}",
+  tags: ["Comic Styles"],
+  summary: "获取风格详情",
+  description: "获取单个漫画风格的详细信息",
+  request: {
+    params: z.object({
+      id: z.string().uuid().openapi({ description: "风格 ID" })
+    })
+  },
+  responses: {
+    200: {
+      description: "风格详情",
+      content: {
+        "application/json": {
+          schema: ComicStyleResponseSchema
+        }
+      }
+    },
+    404: {
+      description: "风格不存在",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+// ============ 注册 LLM Providers 相关的 API Paths (Admin Only) ============
+
+registry.registerPath({
+  method: "get",
+  path: "/api/llm-providers",
+  tags: ["LLM Providers (Admin)"],
+  summary: "获取 LLM 提供商列表",
+  description: `
+获取所有 LLM 提供商配置（管理员专用）。
+
+**排序**：
+- 启用状态降序
+- 优先级升序
+- ID 升序
+`,
+  security: [{ cookieAuth: [] }],
+  responses: {
+    200: {
+      description: "提供商列表",
+      content: {
+        "application/json": {
+          schema: ListProvidersResponseSchema
+        }
+      }
+    },
+    403: {
+      description: "权限不足（需要管理员）",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/llm-providers",
+  tags: ["LLM Providers (Admin)"],
+  summary: "创建 LLM 提供商",
+  description: "添加新的 LLM 提供商配置（管理员专用）",
+  security: [{ cookieAuth: [] }],
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: CreateProviderRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      description: "创建成功",
+      content: {
+        "application/json": {
+          schema: CreateProviderResponseSchema
+        }
+      }
+    },
+    400: {
+      description: "参数错误",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    },
+    403: {
+      description: "权限不足",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "patch",
+  path: "/api/llm-providers/{id}",
+  tags: ["LLM Providers (Admin)"],
+  summary: "更新 LLM 提供商",
+  description: "更新 LLM 提供商配置（管理员专用）",
+  security: [{ cookieAuth: [] }],
+  request: {
+    params: z.object({
+      id: z.string().uuid().openapi({ description: "提供商 ID" })
+    }),
+    body: {
+      content: {
+        "application/json": {
+          schema: UpdateProviderRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      description: "更新成功",
+      content: {
+        "application/json": {
+          schema: UpdateProviderResponseSchema
+        }
+      }
+    },
+    403: {
+      description: "权限不足",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    },
+    404: {
+      description: "提供商不存在",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/llm-providers/types",
+  tags: ["LLM Providers (Admin)"],
+  summary: "获取可用的提供商类型",
+  description: "获取系统支持的 LLM 提供商类型列表",
+  security: [{ cookieAuth: [] }],
+  responses: {
+    200: {
+      description: "提供商类型列表",
+      content: {
+        "application/json": {
+          schema: ProviderTypesResponseSchema
+        }
+      }
+    }
+  }
+});
+
+// ============ 注册 Upload 相关的 API Paths ============
+
+registry.registerPath({
+  method: "post",
+  path: "/api/upload",
+  tags: ["Upload"],
+  summary: "上传图片（FormData）",
+  description: `
+上传图片到 MinIO 对象存储。
+
+**请求格式**：multipart/form-data
+- file: 图片文件（必填）
+- characterId: 角色 ID（必填）
+- type: 上传类型（可选，默认 reference）
+  * base: 基础形象
+  * reference: 参考图
+  * view: 三视图
+  * expression: 表情图
+`,
+  security: [{ cookieAuth: [] }],
+  request: {
+    body: {
+      content: {
+        "multipart/form-data": {
+          schema: UploadImageRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      description: "上传成功",
+      content: {
+        "application/json": {
+          schema: UploadSuccessResponseSchema
+        }
+      }
+    },
+    400: {
+      description: "参数错误或文件无效",
+      content: {
+        "application/json": {
+          schema: UploadErrorResponseSchema
+        }
+      }
+    },
+    401: {
+      description: "未登录",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/upload/base64",
+  tags: ["Upload"],
+  summary: "上传图片（Base64）",
+  description: "使用 Base64 编码上传图片",
+  security: [{ cookieAuth: [] }],
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: UploadBase64RequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      description: "上传成功",
+      content: {
+        "application/json": {
+          schema: UploadSuccessResponseSchema
+        }
+      }
+    },
+    400: {
+      description: "参数错误",
+      content: {
+        "application/json": {
+          schema: UploadErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+// ============ 注册 Workflow 相关的 API Paths ============
+
+registry.registerPath({
+  method: "get",
+  path: "/api/workflow",
+  tags: ["Workflows"],
+  summary: "获取工作流列表",
+  description: `
+获取用户的工作流列表。
+
+**筛选**：
+- status: 按状态筛选（pending, running, completed, failed, paused）
+- limit: 返回数量限制（默认 20）
+
+**排序**：
+- 按创建时间降序
+`,
+  security: [{ cookieAuth: [] }],
+  request: {
+    query: ListWorkflowsQuerySchema
+  },
+  responses: {
+    200: {
+      description: "工作流列表",
+      content: {
+        "application/json": {
+          schema: ListWorkflowsResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/workflow/{id}/status",
+  tags: ["Workflows"],
+  summary: "获取工作流状态",
+  description: "获取指定工作流的详细状态和步骤信息",
+  security: [{ cookieAuth: [] }],
+  request: {
+    params: z.object({
+      id: z.string().uuid().openapi({ description: "工作流 ID" })
+    })
+  },
+  responses: {
+    200: {
+      description: "工作流状态",
+      content: {
+        "application/json": {
+          schema: WorkflowDetailResponseSchema
+        }
+      }
+    },
+    404: {
+      description: "工作流不存在",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/workflow/auto-generate",
+  tags: ["Workflows"],
+  summary: "创建自动生成工作流",
+  description: `
+创建自动化漫画生成工作流。
+
+**工作流步骤**：
+1. 生成章节内容
+2. 为每章生成分镜
+3. （可选）为分镜生成图片
+4. 完成通知
+`,
+  security: [{ cookieAuth: [] }],
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: CreateAutoGenerateWorkflowRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      description: "工作流创建成功",
+      content: {
+        "application/json": {
+          schema: CreateWorkflowResponseSchema
+        }
+      }
+    },
+    400: {
+      description: "参数错误",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/workflow/{id}/resume",
+  tags: ["Workflows"],
+  summary: "恢复工作流",
+  description: "恢复已暂停或失败的工作流",
+  security: [{ cookieAuth: [] }],
+  request: {
+    params: z.object({
+      id: z.string().uuid().openapi({ description: "工作流 ID" })
+    }),
+    body: {
+      content: {
+        "application/json": {
+          schema: ResumeWorkflowRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      description: "工作流已恢复",
+      content: {
+        "application/json": {
+          schema: ResumeWorkflowResponseSchema
+        }
+      }
+    },
+    404: {
+      description: "工作流不存在",
+      content: {
+        "application/json": {
+          schema: ErrorResponseSchema
+        }
+      }
+    }
+  }
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/workflow/progress",
+  tags: ["Workflows"],
+  summary: "获取工作流进度",
+  description: "获取当前正在执行的工作流进度信息",
+  security: [{ cookieAuth: [] }],
+  responses: {
+    200: {
+      description: "进度信息",
+      content: {
+        "application/json": {
+          schema: WorkflowProgressResponseSchema
         }
       }
     }
