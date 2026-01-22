@@ -10,6 +10,7 @@ import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { logInfo, logError } from "@/lib/api-logger";
+import { UpdateTimelineConfigRequestSchema } from "@/lib/api-schemas/canvas.schemas";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -179,7 +180,20 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
   try {
     const body = await req.json();
-    const { title, config, status } = body;
+
+    // Validate request body with Zod schema
+    const validation = UpdateTimelineConfigRequestSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        {
+          error: "请求参数验证失败",
+          details: validation.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
+    }
+
+    const { title, config, status } = validation.data;
 
     logInfo("更新时间线配置", {
       endpoint: "/api/canvas/timeline/[id]",
@@ -189,6 +203,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       hasTitle: !!title,
     });
 
+    // Verify user owns this timeline
     const timeline = await prisma.canvasTimeline.findFirst({
       where: { id, user_id: payload.userId },
     });
@@ -197,11 +212,34 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "时间线不存在" }, { status: 404 });
     }
 
+    // If updating comic style, verify it exists
+    if (config?.default_comic_style_id !== undefined) {
+      if (config.default_comic_style_id !== null) {
+        const styleExists = await prisma.comicStyle.findFirst({
+          where: {
+            id: config.default_comic_style_id,
+            enabled: true,
+          },
+        });
+
+        if (!styleExists) {
+          return NextResponse.json(
+            { error: "指定的漫画风格不存在或已禁用" },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
+    // Merge config with existing config (partial update)
+    const existingConfig = timeline.config as Record<string, unknown> || {};
+    const updatedConfig = config ? { ...existingConfig, ...config } : undefined;
+
     const updated = await prisma.canvasTimeline.update({
       where: { id },
       data: {
         ...(title && { title }),
-        ...(config && { config }),
+        ...(updatedConfig && { config: updatedConfig }),
         ...(status && { status }),
         updated_at: new Date(),
       },

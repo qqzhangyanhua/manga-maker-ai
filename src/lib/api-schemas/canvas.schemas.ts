@@ -128,6 +128,55 @@ export const GenerateShotImageRequestSchema = z.object({
   }),
 });
 
+export const UpdateTimelineConfigRequestSchema = z.object({
+  title: z.string().min(1).max(200).optional().openapi({
+    description: "时间线标题",
+    example: "第一季剧本",
+  }),
+  status: z.enum(["draft", "generating", "completed", "error"]).optional().openapi({
+    description: "时间线状态",
+    example: "draft",
+  }),
+  config: z.object({
+    auto_generate: z.boolean().optional().openapi({
+      description: "是否自动生成",
+      example: true,
+    }),
+    use_character_library: z.boolean().optional().openapi({
+      description: "是否使用角色库",
+      example: true,
+    }),
+    use_scene_library: z.boolean().optional().openapi({
+      description: "是否使用场景库",
+      example: true,
+    }),
+    default_comic_style_id: z.string().uuid().nullable().optional().openapi({
+      description: "默认漫画风格 ID（null 表示未设置）",
+      example: "550e8400-e29b-41d4-a716-446655440000",
+    }),
+    ai_model: z.enum(["gpt-4", "gpt-3.5-turbo"]).optional().openapi({
+      description: "AI 模型选择",
+      example: "gpt-4",
+    }),
+    shot_density: z.enum(["sparse", "medium", "dense"]).optional().openapi({
+      description: "镜头密度",
+      example: "medium",
+    }),
+    visual_style: z.enum(["manga", "realistic", "anime"]).optional().openapi({
+      description: "视觉风格",
+      example: "manga",
+    }),
+    language: z.enum(["zh-CN", "en-US"]).optional().openapi({
+      description: "语言设置",
+      example: "zh-CN",
+    }),
+  }).partial().optional().openapi({
+    description: "时间线配置（部分更新）",
+  }),
+}).strict().openapi({
+  description: "更新时间线配置请求",
+});
+
 // ============================================================================
 // Response Schemas
 // ============================================================================
@@ -296,6 +345,7 @@ export type ShotSize = z.infer<typeof ShotSizeSchema>;
 export type PanelType = z.infer<typeof PanelTypeSchema>;
 
 export type CreateTimelineRequest = z.infer<typeof CreateTimelineRequestSchema>;
+export type UpdateTimelineConfigRequest = z.infer<typeof UpdateTimelineConfigRequestSchema>;
 export type GenerateScriptRequest = z.infer<typeof GenerateScriptRequestSchema>;
 export type GenerateShotsRequest = z.infer<typeof GenerateShotsRequestSchema>;
 export type UpdateShotDesignRequest = z.infer<typeof UpdateShotDesignRequestSchema>;
