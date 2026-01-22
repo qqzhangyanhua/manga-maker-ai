@@ -44,6 +44,7 @@ export const RELATIONSHIP_TYPES = [
 
 /**
  * 确保 character 对象所有字段都正确初始化
+ * 保留所有原始字段（如 generatedImageUrl 等），仅补充缺失的必需字段
  */
 export function ensureCharacterFields(character: Partial<Character> & { role?: string }): Character {
   // ✅ 角色定位映射：中文 -> 英文
@@ -58,13 +59,14 @@ export function ensureCharacterFields(character: Partial<Character> & { role?: s
   const role = (roleMapping[normalizedRole] || character.role || "supporting") as "protagonist" | "antagonist" | "supporting" | "minor";
 
   return {
+    // ✅ 保留所有原始字段（包括 generatedImageUrl, assetCharacterId, lastGeneratedAt 等）
+    ...character,
+    // 补充必需字段的默认值
     id: character.id ?? `char_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     name: character.name ?? "",
     role,
     description: character.description ?? "",
     traits: Array.isArray(character.traits) ? character.traits : [],
-    appearance: character.appearance,
-    background: character.background,
     relationships: Array.isArray(character.relationships) ? character.relationships : [],
   };
 }

@@ -21,19 +21,13 @@ interface CharacterCardProps {
 }
 
 export function CharacterCard({ character, onEdit, onDelete, onGenerateImage }: CharacterCardProps) {
-  // 类型安全：将 Character 类型扩展以支持图片字段
-  const characterWithImage = character as Character & {
-    generatedImageUrl?: string;
-    assetCharacterId?: string;
-  };
-
   return (
     <Card className={`hover:shadow-lg transition-shadow ${novelTheme.card.base}`}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex items-center gap-3">
           <Avatar className="h-12 w-12">
-            {characterWithImage.generatedImageUrl ? (
-              <AvatarImage src={characterWithImage.generatedImageUrl} alt={character.name} />
+            {character.generatedImageUrl ? (
+              <AvatarImage src={character.generatedImageUrl} alt={character.name} />
             ) : null}
             <AvatarFallback className={getRoleColor(character.role)}>
               {character.name.charAt(0) || "?"}
@@ -51,11 +45,11 @@ export function CharacterCard({ character, onEdit, onDelete, onGenerateImage }: 
             variant="ghost"
             size="sm"
             onClick={() => onGenerateImage(character)}
-            title={characterWithImage.generatedImageUrl ? "重新生成图片" : "生成图片"}
+            title={character.generatedImageUrl ? "重新生成图片" : "生成图片"}
           >
             <Sparkles className={cn(
               "h-4 w-4",
-              characterWithImage.generatedImageUrl && "text-amber-400"
+              character.generatedImageUrl && "text-amber-400"
             )} />
           </Button>
           <Button
@@ -98,7 +92,7 @@ export function CharacterCard({ character, onEdit, onDelete, onGenerateImage }: 
             <span>{(character.relationships || []).length} 个关系</span>
           </div>
         )}
-        {characterWithImage.generatedImageUrl && (
+        {character.generatedImageUrl && (
           <div className="flex items-center gap-1 text-xs text-green-600">
             <CheckCircle2 className="h-3 w-3" />
             <span>已生成图片</span>

@@ -56,6 +56,7 @@ export interface ChapterOutlineBackend {
 /**
  * 角色定义
  * 修复版本：role 支持任意字符串，不仅限于枚举值
+ * 包含图片生成相关字段
  */
 export interface Character {
   id: string;
@@ -71,6 +72,11 @@ export interface Character {
   }>; // 可选：关系网络
   appearance?: string; // 可选：外貌描述
   background?: string; // 可选：背景故事
+
+  // 图片生成相关字段
+  generatedImageUrl?: string; // AI 生成的角色图片 URL
+  assetCharacterId?: string; // 关联的资产库 Character 表 ID
+  lastGeneratedAt?: string; // 最后生成图片的时间（ISO 8601 格式）
 }
 
 /**
