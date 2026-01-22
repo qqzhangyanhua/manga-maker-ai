@@ -74,9 +74,10 @@ ${basePrompt ? `初始提示词: ${basePrompt}` : ""}
 
 请生成适合 Stable Diffusion 的角色形象提示词，只返回提示词本身，不要添加其他说明。`;
 
-    // 4. 调用 LLM API
+    // 4. 调用 LLM API（支持 fallback 到 prompt_optimizer）
     const llmResponse = await callChatCompletionByType({
       providerType: "prompt_enhancement",
+      fallbackType: "prompt_optimizer",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },

@@ -79,15 +79,34 @@ export const findLlmProviderByType = async (providerType: string): Promise<LlmPr
 };
 
 /**
- * 根据 provider_type 获取已启用的模型配置，未配置时抛出明确的中文错误
+ * 根据 provider_type 获取已启用的模型配置
+ * 支持 fallback 机制：如果未找到指定类型，可尝试备选类型
+ *
+ * @param providerType - 主要模型类型
+ * @param fallbackType - 可选的备选模型类型
+ * @returns 找到的模型配置
+ * @throws 如果主要和备选类型都未找到，抛出错误
  */
-export const ensureLlmProvider = async (providerType: string): Promise<LlmProvider> => {
-  const provider = await findLlmProviderByType(providerType);
-  if (!provider) {
-    throw new Error(
-      `未找到可用的模型配置（type=${providerType}），请先在 /admin/llm-providers 新增并启用对应记录`
-    );
+export const ensureLlmProvider = async (
+  providerType: string,
+  fallbackType?: string
+): Promise<LlmProvider> => {
+  let provider = await findLlmProviderByType(providerType);
+
+  if (!provider && fallbackType) {
+    provider = await findLlmProviderByType(fallbackType);
+    if (provider) {
+      logger.info(`模型配置回退：${providerType} -> ${fallbackType}`);
+    }
   }
+
+  if (!provider) {
+    const errorMessage = fallbackType
+      ? `未找到可用的模型配置（type=${providerType} 或 ${fallbackType}），请先在 /admin/llm-providers 新增并启用对应记录`
+      : `未找到可用的模型配置（type=${providerType}），请先在 /admin/llm-providers 新增并启用对应记录`;
+    throw new Error(errorMessage);
+  }
+
   return provider;
 };
 
@@ -97,9 +116,10 @@ export const callChatCompletionByType = async (params: {
   temperature?: number;
   maxTokens?: number;
   options?: LlmCallOptions;
+  fallbackType?: string;
 }) => {
-  const { providerType, messages, temperature = 0.6, maxTokens = 1500, options } = params;
-  const provider = await ensureLlmProvider(providerType);
+  const { providerType, messages, temperature = 0.6, maxTokens = 1500, options, fallbackType } = params;
+  const provider = await ensureLlmProvider(providerType, fallbackType);
 
   // 算力检查与扣除
   const creditsCost = provider.credits_cost ?? 0;
@@ -170,9 +190,10 @@ export async function* callChatCompletionStreamByType(params: {
   temperature?: number;
   maxTokens?: number;
   options?: LlmCallOptions;
+  fallbackType?: string;
 }): AsyncGenerator<string, void, unknown> {
-  const { providerType, messages, temperature = 0.6, maxTokens = 1500, options } = params;
-  const provider = await ensureLlmProvider(providerType);
+  const { providerType, messages, temperature = 0.6, maxTokens = 1500, options, fallbackType } = params;
+  const provider = await ensureLlmProvider(providerType, fallbackType);
 
   // 算力检查与扣除（流式调用前先扣除）
   const creditsCost = provider.credits_cost ?? 0;
