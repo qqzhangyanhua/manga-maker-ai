@@ -29,6 +29,8 @@ import {
   useCloseShotGenerateDialog,
 } from '@/stores/canvas-store';
 import { GenerateShotImageDialog } from '../GenerateShotImageDialog';
+import { ImageViewerDialog } from '@/components/ui/image-viewer-dialog';
+import { useState } from 'react';
 
 /**
  * 镜头设计类型
@@ -81,9 +83,11 @@ interface GenerateShotImagePayload {
 function ShotCard({
   shot,
   onGenerate,
+  onImageClick,
 }: {
   shot: ShotDesign;
   onGenerate: (shot: ShotDesign) => void;
+  onImageClick: (shot: ShotDesign) => void;
 }) {
   const isGenerating = shot.generation_status === 'generating';
   const hasImage = !!shot.generated_image_url;
@@ -91,13 +95,25 @@ function ShotCard({
   return (
     <div className="bg-zinc-800/50 border border-zinc-700 rounded-lg overflow-hidden hover:border-zinc-600 transition-colors">
       {/* 缩略图区域 */}
-      <div className="aspect-video bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center border-b border-zinc-700 relative overflow-hidden">
+      <div className="aspect-video bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center border-b border-zinc-700 relative overflow-hidden group">
         {hasImage ? (
-          <img
-            src={shot.generated_image_url || ''}
-            alt={`镜头 ${shot.shot_order}`}
-            className="w-full h-full object-cover"
-          />
+          <>
+            <img
+              src={shot.generated_image_url || ''}
+              alt={`镜头 ${shot.shot_order}`}
+              className="w-full h-full object-cover cursor-pointer"
+              onClick={() => onImageClick(shot)}
+            />
+            <div
+              className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+              onClick={() => onImageClick(shot)}
+            >
+              <Button size="sm" variant="ghost" className="text-white pointer-events-none">
+                <Eye className="w-4 h-4 mr-1" />
+                查看大图
+              </Button>
+            </div>
+          </>
         ) : (
           <div className="text-center">
             <Camera className="w-12 h-12 text-zinc-600 mx-auto mb-2" />
@@ -174,6 +190,8 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
   const shotGenerateDialog = useShotGenerateDialog();
   const openShotGenerateDialog = useOpenShotGenerateDialog();
   const closeShotGenerateDialog = useCloseShotGenerateDialog();
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [selectedShot, setSelectedShot] = useState<ShotDesign | null>(null);
 
   // 获取镜头数据
   const { data, isLoading, error } = useQuery<ShotDetailResponse>({
@@ -312,6 +330,11 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
     });
   };
 
+  const handleImageClick = (shot: ShotDesign) => {
+    setSelectedShot(shot);
+    setViewerOpen(true);
+  };
+
   // 重新生成镜头
   const regenerateMutation = useMutation({
     mutationFn: async () => {
@@ -422,6 +445,7 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
             key={shot.id}
             shot={shot}
             onGenerate={handleOpenGenerateDialog}
+            onImageClick={handleImageClick}
           />
         ))}
       </div>
@@ -436,6 +460,15 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
         timelineId={shotGenerateDialog.timelineId}
         onConfirm={handleConfirmGenerate}
         isSubmitting={generateShotImageMutation.isPending}
+      />
+
+      {/* 图片查看器对话框 */}
+      <ImageViewerDialog
+        open={viewerOpen}
+        onOpenChange={setViewerOpen}
+        imageUrl={selectedShot?.generated_image_url || ''}
+        title={`镜头 ${selectedShot?.shot_order || ''}`}
+        description={selectedShot?.shot_description}
       />
     </div>
   );

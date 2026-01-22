@@ -13,6 +13,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Image as ImageIcon, RefreshCw, Loader2, AlertCircle, Maximize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { ImageViewerDialog } from '@/components/ui/image-viewer-dialog';
+import { useState } from 'react';
 
 interface SceneImage {
   id: string;
@@ -34,6 +36,8 @@ interface SceneDetailPanelProps {
 
 export function SceneDetailPanel({ chapterId }: SceneDetailPanelProps) {
   const queryClient = useQueryClient();
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<SceneImage | null>(null);
 
   const { data, isLoading, error } = useQuery<SceneDetailResponse>({
     queryKey: ['scene-detail', chapterId],
@@ -62,6 +66,11 @@ export function SceneDetailPanel({ chapterId }: SceneDetailPanelProps) {
       toast.error('重新生成失败', { description: error.message });
     },
   });
+
+  const handleImageClick = (scene: SceneImage) => {
+    setSelectedImage(scene);
+    setViewerOpen(true);
+  };
 
   if (isLoading) {
     return (
@@ -155,7 +164,10 @@ export function SceneDetailPanel({ chapterId }: SceneDetailPanelProps) {
                     alt="Scene"
                     className="w-full h-full object-cover"
                   />
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <div
+                    className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                    onClick={() => handleImageClick(scene)}
+                  >
                     <Button size="sm" variant="ghost" className="text-white">
                       <Maximize2 className="w-4 h-4 mr-1" />
                       查看大图
@@ -172,6 +184,15 @@ export function SceneDetailPanel({ chapterId }: SceneDetailPanelProps) {
           </div>
         ))}
       </div>
+
+      {/* 图片查看器对话框 */}
+      <ImageViewerDialog
+        open={viewerOpen}
+        onOpenChange={setViewerOpen}
+        imageUrl={selectedImage?.image_url || ''}
+        title="场景图片"
+        description={selectedImage?.prompt}
+      />
     </div>
   );
 }

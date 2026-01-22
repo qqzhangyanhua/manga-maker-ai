@@ -2,10 +2,13 @@
 
 import { useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InfiniteCanvasView } from "../../components/InfiniteCanvas";
 import { useTimelineWindow } from "@/hooks/useTimelineWindow";
+import { StyleSelector } from "@/components/StyleSelector";
+import { useUpdateTimelineStyle, getSafeConfig } from "@/hooks/useTimelineConfig";
+import { useToast } from "@/hooks/use-toast";
 import { novelTheme } from "../../theme";
 import "../../novel-theme.css";
 
@@ -13,6 +16,9 @@ export default function CanvasPage() {
   const params = useParams();
   const router = useRouter();
   const [windowCenter, setWindowCenter] = useState(1);
+  const { toast } = useToast();
+
+  const timelineId = params.id as string;
 
   const {
     timeline,
@@ -28,10 +34,36 @@ export default function CanvasPage() {
     jumpToLast,
     refresh,
   } = useTimelineWindow({
-    timelineId: params.id as string,
+    timelineId,
     initialCenter: windowCenter,
     range: 2,
   });
+
+  // 风格更新 hook
+  const updateStyle = useUpdateTimelineStyle(timelineId);
+
+  // 处理风格变更
+  const handleStyleChange = useCallback(
+    (styleId: string | null) => {
+      updateStyle.mutate(styleId, {
+        onSuccess: () => {
+          toast({
+            title: "风格设置成功",
+            description: styleId ? "默认漫画风格已更新" : "已取消设置默认风格",
+          });
+          // invalidateQueries 会自动刷新数据，不需要手动调用 refresh
+        },
+        onError: (error) => {
+          toast({
+            title: "风格设置失败",
+            description: error instanceof Error ? error.message : "未知错误",
+            variant: "destructive",
+          });
+        },
+      });
+    },
+    [updateStyle, toast]
+  );
 
   const handleNavigate = useCallback(
     (chapterNumber: number) => {
@@ -101,6 +133,7 @@ export default function CanvasPage() {
 
   return (
     <div className="h-screen bg-[#0f0f13] flex flex-col text-zinc-100 novel-theme-scope">
+      {/* Header */}
       <div className="flex items-center gap-4 p-4 border-b border-zinc-800 bg-[#0f0f13]/80 backdrop-blur-md sticky top-0 z-50">
         <Button
           variant="ghost"
@@ -111,9 +144,29 @@ export default function CanvasPage() {
           <ArrowLeft className="w-4 h-4 mr-1" />
           返回
         </Button>
+
         <div className="flex-1">
           <h1 className="text-lg font-semibold text-white">{timeline.title}</h1>
           <p className="text-xs text-zinc-500">无限画布 - 可缩放拖拽</p>
+        </div>
+
+        {/* 风格选择器 */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-sm text-zinc-400">
+            <Palette className="w-4 h-4" />
+            <span className="hidden sm:inline">默认风格:</span>
+          </div>
+          <div className="w-64">
+            <StyleSelector
+              value={getSafeConfig(timeline.config).default_comic_style_id}
+              onValueChange={handleStyleChange}
+              allowUnset={true}
+              unsetLabel="未设置"
+              placeholder="选择默认风格"
+              disabled={updateStyle.isPending}
+              className="bg-zinc-900 border-zinc-700"
+            />
+          </div>
         </div>
       </div>
 

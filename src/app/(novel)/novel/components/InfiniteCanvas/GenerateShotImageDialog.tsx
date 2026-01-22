@@ -9,6 +9,7 @@ import {
   ImageIcon,
   Sparkles,
   AlertCircle,
+  Settings,
 } from "lucide-react";
 import {
   Dialog,
@@ -22,14 +23,9 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { useTimelineConfig, getSafeConfig } from "@/hooks/useTimelineConfig";
+import { findStyleById, useComicStyles } from "@/hooks/useComicStyles";
 import type { ShotGenerateDialogShotInfo } from "@/stores/canvas-store";
 
 export interface ShotImageCharacterInput {
@@ -126,21 +122,16 @@ export function GenerateShotImageDialog({
   onConfirm,
   isSubmitting = false,
 }: GenerateShotImageDialogProps) {
-  const [selectedStyleId, setSelectedStyleId] = useState<string>("__default__");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const { data: stylesData, isLoading: stylesLoading } = useQuery({
-    queryKey: ["canvas-styles"],
-    queryFn: async () => {
-      const res = await fetch("/api/canvas/styles");
-      if (!res.ok) {
-        throw new Error("获取风格列表失败");
-      }
-      return res.json() as Promise<{ data: ComicStyle[]; total: number }>;
-    },
-    enabled: open,
-    staleTime: 5 * 60 * 1000,
-  });
+  // 获取时间线配置（包含默认风格）
+  const { data: timelineData, isLoading: timelineLoading } = useTimelineConfig(timelineId);
+  const timelineConfig = timelineData?.timeline.config;
+  const defaultStyleId = getSafeConfig(timelineConfig).default_comic_style_id;
+
+  // 获取风格列表（用于显示风格信息）
+  const { data: stylesData } = useComicStyles({ enabled: !!defaultStyleId });
+  const currentStyle = findStyleById(stylesData?.data, defaultStyleId);
 
   const {
     data: chapterCharactersData,
@@ -222,7 +213,6 @@ export function GenerateShotImageDialog({
   useEffect(() => {
     if (!open) {
       setSelectedIds(new Set());
-      setSelectedStyleId("__default__");
     }
   }, [open]);
 
@@ -231,9 +221,6 @@ export function GenerateShotImageDialog({
       setSelectedIds(new Set());
     }
   }, [open, characterSource]);
-
-  const comicStyles = stylesData?.data || [];
-  const selectedStyle = comicStyles.find((style) => style.id === selectedStyleId);
 
   const handleCheckedChange = useCallback(
     (id: string, checked: boolean | "indeterminate") => {
@@ -271,9 +258,9 @@ export function GenerateShotImageDialog({
 
     onConfirm({
       characters: selectedCharacters,
-      comicStyleId: selectedStyleId === "__default__" ? undefined : selectedStyleId,
+      comicStyleId: defaultStyleId, // 直接使用时间线默认风格
     });
-  }, [onConfirm, selectableCharacters, selectedIds, selectedStyleId]);
+  }, [onConfirm, selectableCharacters, selectedIds, defaultStyleId]);
 
   const hasCharacters = selectableCharacters.length > 0;
   const missingContext = !chapterId && !timelineId;
@@ -287,7 +274,7 @@ export function GenerateShotImageDialog({
             生成镜头图片
           </DialogTitle>
           <DialogDescription>
-            选择角色与风格后生成单镜头预览图
+            选择角色后生成单镜头预览图（使用时间线默认风格）
           </DialogDescription>
         </DialogHeader>
 
@@ -452,56 +439,71 @@ export function GenerateShotImageDialog({
             )}
           </div>
 
-          {/* 风格选择 */}
+          {/* 漫画风格信息（只读显示） */}
           <div className="space-y-3">
             <Label className="flex items-center gap-2 text-sm font-medium">
               <Palette className="w-4 h-4 text-purple-400" />
               漫画风格
             </Label>
-            <Select
-              value={selectedStyleId}
-              onValueChange={setSelectedStyleId}
-              disabled={stylesLoading}
-            >
-              <SelectTrigger className="w-full bg-zinc-900 border-zinc-700">
-                <SelectValue placeholder={stylesLoading ? "加载中..." : "选择漫画风格"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__default__">
-                  <span className="text-zinc-400">使用默认风格</span>
-                </SelectItem>
-                {comicStyles.map((style) => (
-                  <SelectItem key={style.id} value={style.id}>
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: style.tag_color }}
-                      />
-                      {style.name_zh}
-                      <span className="text-zinc-500 text-xs">
-                        ({style.name_en})
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
 
-            {selectedStyle && selectedStyle.image_url && (
-              <div className="flex items-center gap-3 p-3 bg-zinc-900/50 rounded-lg border border-zinc-800">
-                <img
-                  src={selectedStyle.image_url}
-                  alt={selectedStyle.name_zh}
-                  className="w-16 h-16 rounded-lg object-cover"
-                />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-white">
-                    {selectedStyle.name_zh}
-                  </p>
-                  <p className="text-xs text-zinc-400 mt-1 line-clamp-2">
-                    {selectedStyle.prompt_prefix || "无描述"}
-                  </p>
+            {timelineLoading ? (
+              <div className="flex items-center gap-2 p-3 bg-zinc-900/50 rounded-lg border border-zinc-800 text-zinc-400">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm">加载中...</span>
+              </div>
+            ) : !defaultStyleId ? (
+              <div className="flex flex-col gap-3 p-4 bg-amber-900/20 rounded-lg border border-amber-800/50">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-amber-300">未设置默认漫画风格</p>
+                    <p className="text-xs text-amber-400/80 mt-1">
+                      请先在画布页面顶部设置默认风格，以确保生成的镜头图片风格统一
+                    </p>
+                  </div>
                 </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onOpenChange(false)}
+                  className="w-fit border-amber-700 text-amber-300 hover:bg-amber-900/30"
+                >
+                  <Settings className="w-4 h-4 mr-2" />
+                  前往设置风格
+                </Button>
+              </div>
+            ) : currentStyle ? (
+              <div className="flex items-center gap-3 p-3 bg-zinc-900/50 rounded-lg border border-zinc-800">
+                {currentStyle.image_url && (
+                  <img
+                    src={currentStyle.image_url}
+                    alt={currentStyle.name_zh}
+                    className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                  />
+                )}
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: currentStyle.tag_color }}
+                    />
+                    <p className="text-sm font-medium text-white">
+                      {currentStyle.name_zh} ({currentStyle.name_en})
+                    </p>
+                  </div>
+                  {currentStyle.prompt_prefix && (
+                    <p className="text-xs text-zinc-400 mt-1 line-clamp-2">
+                      {currentStyle.prompt_prefix}
+                    </p>
+                  )}
+                </div>
+                <Badge variant="outline" className="text-xs text-green-300 border-green-800 bg-green-900/20">
+                  时间线默认
+                </Badge>
+              </div>
+            ) : (
+              <div className="p-3 bg-zinc-900/50 rounded-lg border border-zinc-800 text-zinc-400 text-sm">
+                使用时间线默认风格
               </div>
             )}
           </div>
@@ -521,7 +523,7 @@ export function GenerateShotImageDialog({
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={!shotInfo || isSubmitting}
+            disabled={!shotInfo || isSubmitting || !defaultStyleId}
             className="bg-purple-600 hover:bg-purple-700"
           >
             {isSubmitting ? (
