@@ -74,9 +74,8 @@ export async function POST(
     }
 
     // 调用 novel-backend 的分析接口
-    // novel-backend 的 root_path="/api/novel" + router prefix="/projects"
     const backendUrl = process.env.NOVEL_BACKEND_URL || "http://localhost:8000";
-    const url = `${backendUrl}/api/novel/projects/${projectId}/analyze-world-setting`;
+    const url = `${backendUrl}/projects/${projectId}/analyze-world-setting`;
 
     console.log(`[analyze-world-setting] 调用后端: ${url}`);
 

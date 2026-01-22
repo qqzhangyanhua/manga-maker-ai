@@ -61,7 +61,7 @@ export async function POST(
     console.log(`[optimize-description] projectId: ${projectId}, mode: ${mode}`);
 
     const backendUrl = process.env.NOVEL_BACKEND_URL || "http://localhost:8000";
-    const url = `${backendUrl}/api/novel/projects/${projectId}/optimize-description`;
+    const url = `${backendUrl}/projects/${projectId}/optimize-description`;
 
     console.log(`[optimize-description] 调用后端: ${url}`);
 

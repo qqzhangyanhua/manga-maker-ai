@@ -189,7 +189,7 @@ export const POST = withErrorHandler(
       throw new Error("NOVEL_BACKEND_URL 环境变量未配置");
     }
 
-    const url = `${backendUrl}/api/novel/projects/${projectId}/generate-outline`;
+    const url = `${backendUrl}/projects/${projectId}/generate-outline`;
 
     // 设置 120 秒超时控制（AI 生成可能耗时较长）
     const controller = new AbortController();
