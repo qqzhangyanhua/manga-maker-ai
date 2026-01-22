@@ -155,7 +155,11 @@
       "Bash(npx chrome-devtools-mcp@latest:*)",
       "Bash(claude mcp list:*)",
       "Bash(export:*)",
-      "Bash(bash:*)"
+      "Bash(bash:*)",
+      "Bash(git restore:*)",
+      "Bash(lsof:*)",
+      "Bash(git merge --no-ff feature/batch-delete -m \"$\\(cat <<''EOF''\nMerge branch ''feature/batch-delete''\n\n实现批量删除章节功能，包含：\n- 选择模式切换（不干扰单选编辑）\n- Shift+Click 范围选择\n- 软删除/硬删除双模式\n- 完整的确认流程和错误处理\n\n已修复所有 P0 问题（类型断言、双击防护、未使用变量）\nEOF\n\\)\")",
+      "Bash(git merge:*)"
     ],
     "deny": [],
     "ask": []

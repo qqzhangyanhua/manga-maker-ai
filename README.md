@@ -206,6 +206,7 @@ INFO:     🔍 RAG 向量服务已启用 - Collection: novel_chapters
 ```
 
 服务启动后访问：
+- **API 文档**：http://localhost:3000/api-docs
 - **API 文档**：http://localhost:8000/docs （Swagger UI）
 - **健康检查**：http://localhost:8000/health
 - **RAG 统计**：http://localhost:8000/api/novel/rag/stats
