@@ -28,7 +28,7 @@ import {
   useOpenShotGenerateDialog,
   useCloseShotGenerateDialog,
 } from '@/stores/canvas-store';
-import { GenerateShotImageDialog } from '@/components/InfiniteCanvas/GenerateShotImageDialog';
+import { GenerateShotImageDialog } from '../GenerateShotImageDialog';
 
 /**
  * 镜头设计类型

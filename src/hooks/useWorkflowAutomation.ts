@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCanvasStore } from '@/stores/canvas-store';
 import { toast } from 'sonner';
-import type { CanvasTimeline } from '@/components/InfiniteCanvas/types';
+import type { CanvasTimeline } from '@/app/(novel)/novel/components/InfiniteCanvas/types';
 
 /**
  * 工作流自动化 Hook

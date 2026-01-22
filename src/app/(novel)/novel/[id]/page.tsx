@@ -78,9 +78,9 @@ const ForeshadowingTab = lazy(() =>
 );
 
 // ✅ 新增：错误边界和状态组件
-import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { ErrorState } from "@/components/ErrorState";
-import { SaveIndicator } from "@/components/SaveIndicator";
+import { ErrorBoundary } from "../components/ErrorBoundary";
+import { ErrorState } from "../components/ErrorState";
+import { SaveIndicator } from "../components/SaveIndicator";
 
 // ✅ Sprint 1 Task 1.1：数据丢失保护
 import { useUnsavedChangesWarning } from "@/hooks/useUnsavedChangesWarning";

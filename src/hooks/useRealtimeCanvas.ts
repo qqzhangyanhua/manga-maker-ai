@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCanvasStore } from '@/stores/canvas-store';
-import type { CanvasTimeline } from '@/components/InfiniteCanvas/types';
+import type { CanvasTimeline } from '@/app/(novel)/novel/components/InfiniteCanvas/types';
 
 interface SSEUpdateMessage {
   type: 'status_update' | 'count_update' | 'error';

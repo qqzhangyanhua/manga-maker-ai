@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { InfiniteCanvasView } from "@/components/InfiniteCanvas";
+import { InfiniteCanvasView } from "../../components/InfiniteCanvas";
 import { useTimelineWindow } from "@/hooks/useTimelineWindow";
 import { novelTheme } from "../../theme";
 import "../../novel-theme.css";

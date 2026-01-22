@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import type { NovelProject, ChapterOutline, Character, WorldSetting, ProjectUpdatePayload } from "./types";
 import { normalizeOutline, denormalizeOutline, createNewChapter, normalizeCharacters, normalizeWorldSetting } from "./types";
-import type { SaveStatus } from "@/components/SaveIndicator";
+import type { SaveStatus } from "../components/SaveIndicator";
 
 interface UseNovelProjectResult {
   // 数据状态

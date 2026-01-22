@@ -6,7 +6,7 @@ import type {
   PaginatedTimeline,
   WindowState,
   ChapterSummary,
-} from "@/components/InfiniteCanvas/types";
+} from "@/app/(novel)/novel/components/InfiniteCanvas/types";
 
 interface UseTimelineWindowOptions {
   timelineId: string;

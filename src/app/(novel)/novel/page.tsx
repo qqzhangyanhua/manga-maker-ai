@@ -20,7 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { CreateProjectDialog } from "./components/CreateProjectDialog";
 import { InspirationModeDialog } from "./components/InspirationModeDialog";
-import { GlobalSearchBar } from "@/components/search/GlobalSearchBar";
+import { GlobalSearchBar } from "./components/GlobalSearchBar";
 import { cn } from "@/lib/utils";
 import { novelTheme } from "./theme";
 import "./novel-theme.css";
