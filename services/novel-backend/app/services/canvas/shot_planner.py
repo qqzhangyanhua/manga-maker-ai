@@ -8,6 +8,7 @@ from typing import List
 from pydantic import BaseModel
 from openai import AsyncOpenAI
 from ...config import settings
+from ...utils import extract_json_from_llm_response
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +126,7 @@ class ShotPlanner:
                 return []
 
             import json
-            data = json.loads(content)
+            data = extract_json_from_llm_response(content)
             shots = data.get("shots", data) if isinstance(data, dict) else data
 
             return [

@@ -9,6 +9,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 from openai import AsyncOpenAI
 from ...config import settings
+from ...utils import extract_json_from_llm_response
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +126,7 @@ class CharacterIdentifier:
                 logger.warning("LLM 返回空内容")
                 return self._empty_result()
 
-            result = json.loads(content)
+            result = extract_json_from_llm_response(content)
             characters_data = result.get("characters", [])
             unknown_names = result.get("unknown_names", [])
 

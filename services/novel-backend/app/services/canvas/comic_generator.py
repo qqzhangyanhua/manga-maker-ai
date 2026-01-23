@@ -8,6 +8,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 from openai import AsyncOpenAI
 from ...config import settings
+from ...utils import extract_json_from_llm_response
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +178,7 @@ class ComicGenerator:
                 return self._default_dialogue_layout(scene.dialogue)
 
             import json
-            layout = json.loads(content)
+            layout = extract_json_from_llm_response(content)
             return layout
 
         except Exception as e:
