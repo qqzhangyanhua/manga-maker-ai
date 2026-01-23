@@ -59,6 +59,7 @@ interface NovelCharacter {
   role: string;
   description: string;
   tempId: string;
+  generatedImageUrl?: string;
 }
 
 type CharacterSource = "chapter" | "novel";
@@ -205,7 +206,7 @@ export function GenerateShotImageDialog({
       name: char.name,
       role: char.role,
       description: char.description,
-      imageUrl: null,
+      imageUrl: char.generatedImageUrl || null,
       source: "novel",
     }));
   }, [characterSource, chapterCharacters, novelCharacters]);

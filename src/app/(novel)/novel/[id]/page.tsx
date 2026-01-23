@@ -8,7 +8,7 @@
 import { useState, lazy, Suspense } from "react";
 import { useParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, Settings, Globe, Users, FileText, TrendingUp, Network, GitBranch, Database, Eye } from "lucide-react";
+import { BookOpen, Settings, Globe, Users, FileText, TrendingUp, Network, GitBranch, Database, Eye, Images } from "lucide-react";
 import { toast } from "sonner";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -74,6 +74,13 @@ const WorldEntriesTab = lazy(() =>
 const ForeshadowingTab = lazy(() =>
   import("./components/world").then(mod => ({
     default: mod.ForeshadowingTab
+  }))
+);
+
+// 图片管理组件
+const ImageGalleryPanel = lazy(() =>
+  import("../components/ImageGallery").then(mod => ({
+    default: mod.ImageGalleryPanel
   }))
 );
 
@@ -216,6 +223,10 @@ function NovelProjectPageContent() {
               <Eye className="h-4 w-4 mr-2" />
               伏笔
             </TabsTrigger>
+            <TabsTrigger value="images" className={novelTheme.tabs.trigger}>
+              <Images className="h-4 w-4 mr-2" />
+              图片管理
+            </TabsTrigger>
             <TabsTrigger value="progress" className={novelTheme.tabs.trigger}>
               <TrendingUp className="h-4 w-4 mr-2" />
               创作进度
@@ -312,6 +323,14 @@ function NovelProjectPageContent() {
                   projectId={projectId}
                   currentChapter={outlines.length > 0 ? outlines.length : 1}
                 />
+              </Suspense>
+            </GlassCard>
+          </TabsContent>
+
+          <TabsContent value="images" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <GlassCard className={cn(novelTheme.card.base, "p-6")}>
+              <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
+                <ImageGalleryPanel projectId={projectId} />
               </Suspense>
             </GlassCard>
           </TabsContent>

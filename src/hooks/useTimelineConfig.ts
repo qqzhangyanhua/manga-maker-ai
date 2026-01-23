@@ -184,12 +184,22 @@ export function useUpdateTimelineStyle(timelineId: string | null | undefined) {
 
   return {
     ...updateConfig,
-    mutate: (styleId: string | null) => {
-      updateConfig.mutate({
-        config: {
-          default_comic_style_id: styleId,
+    mutate: (
+      styleId: string | null,
+      options?: {
+        onSuccess?: () => void;
+        onError?: (error: Error) => void;
+        onSettled?: () => void;
+      }
+    ) => {
+      updateConfig.mutate(
+        {
+          config: {
+            default_comic_style_id: styleId,
+          },
         },
-      });
+        options
+      );
     },
     mutateAsync: async (styleId: string | null) => {
       return updateConfig.mutateAsync({

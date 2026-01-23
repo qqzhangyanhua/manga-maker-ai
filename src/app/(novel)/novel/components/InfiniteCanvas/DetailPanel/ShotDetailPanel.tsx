@@ -6,11 +6,12 @@
  * 2. 缩略图网格展示
  * 3. 显示镜头参数 (角度、景别、面板类型)
  * 4. 支持重新生成
+ * 5. 支持九宫格选择模式（选择9个镜头生成网格图）
  */
 
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Camera,
   RefreshCw,
@@ -19,18 +20,30 @@ import {
   Eye,
   Film,
   Layout,
-  Sparkles
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
+  Sparkles,
+  Grid3X3,
+  X,
+  Check,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import {
   useShotGenerateDialog,
   useOpenShotGenerateDialog,
   useCloseShotGenerateDialog,
-} from '@/stores/canvas-store';
-import { GenerateShotImageDialog } from '../GenerateShotImageDialog';
-import { ImageViewerDialog } from '@/components/ui/image-viewer-dialog';
-import { useState } from 'react';
+  useNineGridDialog,
+  useOpenNineGridDialog,
+  useCloseNineGridDialog,
+} from "@/stores/canvas-store";
+import { GenerateShotImageDialog } from "../GenerateShotImageDialog";
+import { GenerateNineGridDialog, useNineGridTaskPolling } from "../NineGrid";
+import { ImageViewerDialog } from "@/components/ui/image-viewer-dialog";
+import { useState, useCallback, useMemo } from "react";
+import type { ShotDesignBasic, NineGridGenerateRequest } from "../NineGrid";
+import type { NineGridTaskStatus } from "../NineGrid";
 
 /**
  * 镜头设计类型
@@ -84,35 +97,90 @@ function ShotCard({
   shot,
   onGenerate,
   onImageClick,
+  isSelectMode,
+  isSelected,
+  onSelectToggle,
 }: {
   shot: ShotDesign;
   onGenerate: (shot: ShotDesign) => void;
   onImageClick: (shot: ShotDesign) => void;
+  isSelectMode: boolean;
+  isSelected: boolean;
+  onSelectToggle: (shotId: string) => void;
 }) {
-  const isGenerating = shot.generation_status === 'generating';
+  const isGenerating = shot.generation_status === "generating";
   const hasImage = !!shot.generated_image_url;
 
+  const handleCardClick = useCallback(() => {
+    if (isSelectMode) {
+      onSelectToggle(shot.id);
+    }
+  }, [isSelectMode, onSelectToggle, shot.id]);
+
   return (
-    <div className="bg-zinc-800/50 border border-zinc-700 rounded-lg overflow-hidden hover:border-zinc-600 transition-colors">
+    <div
+      className={cn(
+        "bg-zinc-800/50 border rounded-lg overflow-hidden transition-all",
+        isSelectMode && "cursor-pointer",
+        isSelected
+          ? "border-purple-500 ring-2 ring-purple-500/30"
+          : "border-zinc-700 hover:border-zinc-600"
+      )}
+      onClick={handleCardClick}
+    >
       {/* 缩略图区域 */}
       <div className="aspect-video bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center border-b border-zinc-700 relative overflow-hidden group">
+        {/* 选择模式下的复选框 */}
+        {isSelectMode && (
+          <div className="absolute top-2 left-2 z-10">
+            <div
+              className={cn(
+                "w-6 h-6 rounded-full flex items-center justify-center transition-colors",
+                isSelected
+                  ? "bg-purple-500 text-white"
+                  : "bg-zinc-900/80 border border-zinc-600 text-zinc-400"
+              )}
+            >
+              {isSelected ? (
+                <Check className="w-4 h-4" />
+              ) : (
+                <span className="text-xs font-mono">{shot.shot_order}</span>
+              )}
+            </div>
+          </div>
+        )}
+
         {hasImage ? (
           <>
             <img
-              src={shot.generated_image_url || ''}
+              src={shot.generated_image_url || ""}
               alt={`镜头 ${shot.shot_order}`}
-              className="w-full h-full object-cover cursor-pointer"
-              onClick={() => onImageClick(shot)}
+              className="w-full h-full object-cover"
+              onClick={(e) => {
+                if (!isSelectMode) {
+                  e.stopPropagation();
+                  onImageClick(shot);
+                }
+              }}
             />
-            <div
-              className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
-              onClick={() => onImageClick(shot)}
-            >
-              <Button size="sm" variant="ghost" className="text-white pointer-events-none">
-                <Eye className="w-4 h-4 mr-1" />
-                查看大图
-              </Button>
-            </div>
+            {!isSelectMode && (
+              <div
+                className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onImageClick(shot);
+                }}
+              >
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-white pointer-events-none"
+                >
+                  <Eye className="w-4 h-4 mr-1" />
+                  查看大图
+                </Button>
+              </div>
+            )}
           </>
         ) : (
           <div className="text-center">
@@ -158,25 +226,31 @@ function ShotCard({
           </div>
         )}
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onGenerate(shot)}
-          disabled={isGenerating}
-          className="w-full border-zinc-700 text-zinc-200 hover:bg-zinc-800"
-        >
-          {isGenerating ? (
-            <>
-              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-              生成中...
-            </>
-          ) : (
-            <>
-              <Sparkles className="w-3 h-3 mr-1" />
-              生成图片
-            </>
-          )}
-        </Button>
+        {/* 生成按钮（非选择模式下显示） */}
+        {!isSelectMode && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onGenerate(shot);
+            }}
+            disabled={isGenerating}
+            className="w-full border-zinc-700 text-zinc-200 hover:bg-zinc-800"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                生成中...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3 h-3 mr-1" />
+                生成图片
+              </>
+            )}
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -190,74 +264,188 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
   const shotGenerateDialog = useShotGenerateDialog();
   const openShotGenerateDialog = useOpenShotGenerateDialog();
   const closeShotGenerateDialog = useCloseShotGenerateDialog();
+  const nineGridDialog = useNineGridDialog();
+  const openNineGridDialog = useOpenNineGridDialog();
+  const closeNineGridDialog = useCloseNineGridDialog();
+
   const [viewerOpen, setViewerOpen] = useState(false);
   const [selectedShot, setSelectedShot] = useState<ShotDesign | null>(null);
 
+  // 九宫格选择模式状态
+  const [isNineGridSelectMode, setIsNineGridSelectMode] = useState(false);
+  const [selectedShotIds, setSelectedShotIds] = useState<Set<string>>(
+    new Set()
+  );
+
+  // 九宫格任务轮询状态
+  const [nineGridTaskId, setNineGridTaskId] = useState<string | null>(null);
+  const [nineGridImageUrl, setNineGridImageUrl] = useState<string | null>(null);
+  const [nineGridViewerOpen, setNineGridViewerOpen] = useState(false);
+
+  // 九宫格任务轮询
+  const { status: nineGridStatus, isPolling: isNineGridPolling } =
+    useNineGridTaskPolling({
+      taskId: nineGridTaskId,
+      enabled: !!nineGridTaskId,
+      interval: 5000, // 5秒轮询一次
+      onComplete: (result: NineGridTaskStatus) => {
+        if (result.imageUrl) {
+          setNineGridImageUrl(result.imageUrl);
+          setNineGridViewerOpen(true);
+          toast.success("九宫格图片生成完成");
+        }
+        setNineGridTaskId(null);
+      },
+      onError: (error: string) => {
+        toast.error("九宫格图片生成失败", { description: error });
+        setNineGridTaskId(null);
+      },
+    });
+
   // 获取镜头数据
   const { data, isLoading, error } = useQuery<ShotDetailResponse>({
-    queryKey: ['shot-detail', chapterId],
+    queryKey: ["shot-detail", chapterId],
     queryFn: async () => {
       const response = await fetch(`/api/canvas/chapter/${chapterId}/shot`);
       if (!response.ok) {
-        throw new Error('获取镜头详情失败');
+        throw new Error("获取镜头详情失败");
       }
       return response.json();
     },
     staleTime: 1000 * 60 * 5,
-    // Poll every 3 seconds if there are any shots in generating status
     refetchInterval: (query) => {
       const data = query.state.data as ShotDetailResponse | undefined;
+      if (!data?.shots) return false;
 
-      // Phase 1: 诊断日志
-      if (!data?.shots) {
-        console.log('[ShotDetail Poll] No data available, stopping poll');
-        return false;
-      }
-
-      // 统计每种状态的镜头数量
-      const statusCounts = data.shots.reduce((acc, shot) => {
-        const status = shot.generation_status || 'undefined';
-        acc[status] = (acc[status] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-
-      console.log('[ShotDetail Poll] Status distribution:', statusCounts);
-      console.log('[ShotDetail Poll] Total shots:', data.shots.length);
-
-      // 找出所有正在生成的镜头
       const generatingShots = data.shots.filter(
-        (shot) => shot.generation_status === 'generating'
+        (shot) => shot.generation_status === "generating"
       );
 
       if (generatingShots.length > 0) {
-        console.log('[ShotDetail Poll] 🔄 Still generating, continuing poll. Shots:',
-          generatingShots.map(s => ({
-            id: s.id.substring(0, 8),
-            order: s.shot_order,
-            status: s.generation_status
-          }))
-        );
         return 3000;
       }
-
-      console.log('[ShotDetail Poll] ✅ No generating shots found, stopping poll');
       return false;
     },
   });
 
-  const generateShotImageMutation = useMutation({
-    mutationFn: async ({ shotId, characters, comicStyleId }: GenerateShotImagePayload) => {
-      const response = await fetch(`/api/canvas/shot-design/${shotId}/generate-image`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          characters,
-          comic_style_id: comicStyleId,
-        }),
+  // 选中的镜头数据
+  const selectedShots = useMemo<ShotDesignBasic[]>(() => {
+    if (!data?.shots) return [];
+    return data.shots
+      .filter((shot) => selectedShotIds.has(shot.id))
+      .sort((a, b) => a.shot_order - b.shot_order)
+      .map((shot) => ({
+        id: shot.id,
+        shot_order: shot.shot_order,
+        camera_angle: shot.camera_angle,
+        shot_size: shot.shot_size,
+        panel_type: shot.panel_type,
+        shot_description: shot.shot_description,
+        composition_hint: shot.composition_hint,
+        prompt: shot.prompt,
+        generated_image_url: shot.generated_image_url,
+        generation_status: shot.generation_status,
+      }));
+  }, [data?.shots, selectedShotIds]);
+
+  // 切换镜头选中状态
+  const handleSelectToggle = useCallback((shotId: string) => {
+    setSelectedShotIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(shotId)) {
+        next.delete(shotId);
+      } else {
+        // 限制最多选择9个
+        if (next.size >= 9) {
+          toast.error("最多只能选择9个镜头");
+          return prev;
+        }
+        next.add(shotId);
+      }
+      return next;
+    });
+  }, []);
+
+  // 进入/退出九宫格选择模式
+  const handleToggleSelectMode = useCallback(() => {
+    if (isNineGridSelectMode) {
+      // 退出选择模式时清空选择
+      setSelectedShotIds(new Set());
+    }
+    setIsNineGridSelectMode((prev) => !prev);
+  }, [isNineGridSelectMode]);
+
+  // 打开九宫格生成对话框
+  const handleOpenNineGridDialog = useCallback(() => {
+    if (selectedShotIds.size !== 9) {
+      toast.error(`请选择恰好9个镜头（当前已选择 ${selectedShotIds.size} 个）`);
+      return;
+    }
+    if (!data?.timelineId) {
+      toast.error("缺少时间线信息");
+      return;
+    }
+    openNineGridDialog(chapterId, data.timelineId, "");
+  }, [selectedShotIds.size, data?.timelineId, openNineGridDialog, chapterId]);
+
+  // 九宫格生成 mutation
+  const nineGridMutation = useMutation({
+    mutationFn: async (payload: NineGridGenerateRequest) => {
+      const response = await fetch("/api/canvas/nine-grid/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
       if (!response.ok) {
-        const errorData = await response.json() as { error?: string };
-        throw new Error(errorData.error || '生成失败');
+        const errorData = (await response.json()) as { error?: string };
+        throw new Error(errorData.error || "生成失败");
+      }
+      return response.json() as Promise<{
+        success: boolean;
+        taskId: string;
+        status: string;
+      }>;
+    },
+    onSuccess: (result) => {
+      toast.success("九宫格图片生成任务已提交");
+      // 设置 taskId 开始轮询
+      setNineGridTaskId(result.taskId);
+      closeNineGridDialog();
+      setIsNineGridSelectMode(false);
+      setSelectedShotIds(new Set());
+    },
+    onError: (error: Error) => {
+      toast.error("生成失败", { description: error.message });
+    },
+  });
+
+  const handleNineGridConfirm = useCallback(
+    (payload: NineGridGenerateRequest) => {
+      nineGridMutation.mutate(payload);
+    },
+    [nineGridMutation]
+  );
+
+  const generateShotImageMutation = useMutation({
+    mutationFn: async ({
+      shotId,
+      characters,
+      comicStyleId,
+    }: GenerateShotImagePayload) => {
+      const response = await fetch(
+        `/api/canvas/shot-design/${shotId}/generate-image`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            characters,
+            comic_style_id: comicStyleId,
+          }),
+        }
+      );
+      if (!response.ok) {
+        const errorData = (await response.json()) as { error?: string };
+        throw new Error(errorData.error || "生成失败");
       }
       return response.json() as Promise<{
         success: boolean;
@@ -266,16 +454,19 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
       }>;
     },
     onMutate: async ({ shotId }) => {
-      const previous = queryClient.getQueryData<ShotDetailResponse>(['shot-detail', chapterId]);
+      const previous = queryClient.getQueryData<ShotDetailResponse>([
+        "shot-detail",
+        chapterId,
+      ]);
       queryClient.setQueryData<ShotDetailResponse>(
-        ['shot-detail', chapterId],
+        ["shot-detail", chapterId],
         (old) => {
           if (!old) return old;
           return {
             ...old,
             shots: old.shots.map((shot) =>
               shot.id === shotId
-                ? { ...shot, generation_status: 'generating' }
+                ? { ...shot, generation_status: "generating" }
                 : shot
             ),
           };
@@ -285,20 +476,20 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
       return { previous };
     },
     onSuccess: () => {
-      toast.success('镜头图片生成任务已提交');
-      queryClient.invalidateQueries({ queryKey: ['shot-detail', chapterId] });
+      toast.success("镜头图片生成任务已提交");
+      queryClient.invalidateQueries({ queryKey: ["shot-detail", chapterId] });
     },
     onError: (error: Error, _variables, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(['shot-detail', chapterId], context.previous);
+        queryClient.setQueryData(["shot-detail", chapterId], context.previous);
       }
-      toast.error('生成失败', { description: error.message });
+      toast.error("生成失败", { description: error.message });
     },
   });
 
   const handleOpenGenerateDialog = (shot: ShotDesign) => {
     if (!data?.timelineId) {
-      toast.error('缺少时间线信息，无法生成图片');
+      toast.error("缺少时间线信息，无法生成图片");
       return;
     }
     openShotGenerateDialog(
@@ -320,7 +511,7 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
     comicStyleId?: string;
   }) => {
     if (!shotGenerateDialog.shotId) {
-      toast.error('未找到镜头信息');
+      toast.error("未找到镜头信息");
       return;
     }
     generateShotImageMutation.mutate({
@@ -338,21 +529,24 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
   // 重新生成镜头
   const regenerateMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(`/api/canvas/chapter/${chapterId}/generate-shots`, {
-        method: 'POST',
-      });
+      const response = await fetch(
+        `/api/canvas/chapter/${chapterId}/generate-shots`,
+        {
+          method: "POST",
+        }
+      );
       if (!response.ok) {
-        throw new Error('重新生成失败');
+        throw new Error("重新生成失败");
       }
       return response.json();
     },
     onSuccess: () => {
-      toast.success('开始重新生成镜头');
-      queryClient.invalidateQueries({ queryKey: ['shot-detail', chapterId] });
-      queryClient.invalidateQueries({ queryKey: ['timeline'] });
+      toast.success("开始重新生成镜头");
+      queryClient.invalidateQueries({ queryKey: ["shot-detail", chapterId] });
+      queryClient.invalidateQueries({ queryKey: ["timeline"] });
     },
     onError: (error: Error) => {
-      toast.error('重新生成失败', { description: error.message });
+      toast.error("重新生成失败", { description: error.message });
     },
   });
 
@@ -403,6 +597,8 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
     );
   }
 
+  const canGenerateNineGrid = data.shots.length >= 9;
+
   return (
     <div className="space-y-4">
       {/* 头部统计 */}
@@ -412,31 +608,84 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
             <h3 className="text-sm font-medium text-white mb-1">
               第 {data.chapterNumber} 章镜头
             </h3>
-            <p className="text-xs text-zinc-400">
-              共 {data.totalCount} 个镜头
-            </p>
+            <p className="text-xs text-zinc-400">共 {data.totalCount} 个镜头</p>
           </div>
-          <Button
-            onClick={() => regenerateMutation.mutate()}
-            disabled={regenerateMutation.isPending}
-            variant="outline"
-            size="sm"
-            className="border-blue-800/50 text-blue-300 hover:bg-blue-900/30"
-          >
-            {regenerateMutation.isPending ? (
-              <>
-                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                生成中
-              </>
-            ) : (
-              <>
-                <RefreshCw className="w-3 h-3 mr-1" />
-                重新生成全部
-              </>
+          <div className="flex items-center gap-2">
+            {/* 九宫格选择模式按钮 */}
+            {canGenerateNineGrid && (
+              <Button
+                onClick={handleToggleSelectMode}
+                variant={isNineGridSelectMode ? "default" : "outline"}
+                size="sm"
+                className={cn(
+                  isNineGridSelectMode
+                    ? "bg-purple-600 hover:bg-purple-700"
+                    : "border-purple-800/50 text-purple-300 hover:bg-purple-900/30"
+                )}
+              >
+                {isNineGridSelectMode ? (
+                  <>
+                    <X className="w-3 h-3 mr-1" />
+                    取消选择
+                  </>
+                ) : (
+                  <>
+                    <Grid3X3 className="w-3 h-3 mr-1" />
+                    九宫格
+                  </>
+                )}
+              </Button>
             )}
-          </Button>
+            <Button
+              onClick={() => regenerateMutation.mutate()}
+              disabled={regenerateMutation.isPending}
+              variant="outline"
+              size="sm"
+              className="border-blue-800/50 text-blue-300 hover:bg-blue-900/30"
+            >
+              {regenerateMutation.isPending ? (
+                <>
+                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                  生成中
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-3 h-3 mr-1" />
+                  重新生成全部
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
+
+      {/* 九宫格选择模式提示 */}
+      {isNineGridSelectMode && (
+        <div className="bg-purple-900/20 border border-purple-800/50 rounded-lg p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Grid3X3 className="w-4 h-4 text-purple-400" />
+              <span className="text-sm text-purple-300">
+                已选择 {selectedShotIds.size}/9 个镜头
+              </span>
+              {selectedShotIds.size === 9 && (
+                <Badge className="bg-green-900/50 text-green-300 border-green-800">
+                  可以生成
+                </Badge>
+              )}
+            </div>
+            <Button
+              onClick={handleOpenNineGridDialog}
+              disabled={selectedShotIds.size !== 9}
+              size="sm"
+              className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50"
+            >
+              <Sparkles className="w-3 h-3 mr-1" />
+              生成九宫格
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* 镜头网格 */}
       <div className="grid grid-cols-2 gap-3">
@@ -446,6 +695,9 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
             shot={shot}
             onGenerate={handleOpenGenerateDialog}
             onImageClick={handleImageClick}
+            isSelectMode={isNineGridSelectMode}
+            isSelected={selectedShotIds.has(shot.id)}
+            onSelectToggle={handleSelectToggle}
           />
         ))}
       </div>
@@ -462,14 +714,52 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
         isSubmitting={generateShotImageMutation.isPending}
       />
 
+      {/* 九宫格生成对话框 */}
+      <GenerateNineGridDialog
+        open={nineGridDialog.isOpen}
+        onOpenChange={(open) => {
+          if (!open) closeNineGridDialog();
+        }}
+        selectedShots={selectedShots}
+        timelineId={nineGridDialog.timelineId}
+        chapterId={nineGridDialog.chapterId}
+        chapterSummary={nineGridDialog.chapterSummary || ""}
+        onConfirm={handleNineGridConfirm}
+        isSubmitting={nineGridMutation.isPending}
+      />
+
       {/* 图片查看器对话框 */}
       <ImageViewerDialog
         open={viewerOpen}
         onOpenChange={setViewerOpen}
-        imageUrl={selectedShot?.generated_image_url || ''}
-        title={`镜头 ${selectedShot?.shot_order || ''}`}
+        imageUrl={selectedShot?.generated_image_url || ""}
+        title={`镜头 ${selectedShot?.shot_order || ""}`}
         description={selectedShot?.shot_description}
       />
+
+      {/* 九宫格图片查看器对话框 */}
+      <ImageViewerDialog
+        open={nineGridViewerOpen}
+        onOpenChange={setNineGridViewerOpen}
+        imageUrl={nineGridImageUrl || ""}
+        title="九宫格预览图"
+        description="基于选中的9个镜头生成的3×3网格预览图"
+      />
+
+      {/* 九宫格生成中提示 */}
+      {isNineGridPolling && (
+        <div className="fixed bottom-4 right-4 bg-zinc-900 border border-purple-800/50 rounded-lg p-4 shadow-lg z-50">
+          <div className="flex items-center gap-3">
+            <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
+            <div>
+              <p className="text-sm font-medium text-white">九宫格图片生成中...</p>
+              <p className="text-xs text-zinc-400">
+                进度: {nineGridStatus?.progress || 0}%
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

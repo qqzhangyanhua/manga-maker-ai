@@ -22,6 +22,7 @@ interface NovelCharacter {
   traits?: string[];
   relationships?: Record<string, string>;
   tempId: string;
+  generatedImageUrl?: string;
 }
 
 export async function GET(req: Request, { params }: RouteParams) {
@@ -95,6 +96,10 @@ export async function GET(req: Request, { params }: RouteParams) {
               ? (c.relationships as Record<string, string>)
               : undefined,
           tempId: `novel-char-${index}`,
+          generatedImageUrl:
+            typeof c.generatedImageUrl === "string"
+              ? c.generatedImageUrl
+              : undefined,
         };
       });
     }

@@ -2,13 +2,14 @@
 
 import { useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, Palette } from "lucide-react";
+import { ArrowLeft, Loader2, Palette, Images } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InfiniteCanvasView } from "../../components/InfiniteCanvas";
 import { useTimelineWindow } from "@/hooks/useTimelineWindow";
 import { StyleSelector } from "@/components/StyleSelector";
 import { useUpdateTimelineStyle, getSafeConfig } from "@/hooks/useTimelineConfig";
 import { useToast } from "@/hooks/use-toast";
+import { ImageGalleryDialog } from "../../components/ImageGallery";
 import { novelTheme } from "../../theme";
 import "../../novel-theme.css";
 
@@ -16,6 +17,7 @@ export default function CanvasPage() {
   const params = useParams();
   const router = useRouter();
   const [windowCenter, setWindowCenter] = useState(1);
+  const [imageGalleryOpen, setImageGalleryOpen] = useState(false);
   const { toast } = useToast();
 
   const timelineId = params.id as string;
@@ -152,6 +154,17 @@ export default function CanvasPage() {
 
         {/* 风格选择器 */}
         <div className="flex items-center gap-3">
+          {/* 查看图片按钮 */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setImageGalleryOpen(true)}
+            className="border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-600"
+          >
+            <Images className="w-4 h-4 mr-1" />
+            查看图片
+          </Button>
+
           <div className="flex items-center gap-2 text-sm text-zinc-400">
             <Palette className="w-4 h-4" />
             <span className="hidden sm:inline">默认风格:</span>
@@ -184,6 +197,15 @@ export default function CanvasPage() {
           isLoading={isLoading}
         />
       </div>
+
+      {/* 图片管理弹窗 */}
+      {timeline.novel_project_id && (
+        <ImageGalleryDialog
+          projectId={timeline.novel_project_id}
+          open={imageGalleryOpen}
+          onOpenChange={setImageGalleryOpen}
+        />
+      )}
     </div>
   );
 }

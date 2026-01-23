@@ -79,6 +79,16 @@ interface ShotGenerateDialogState {
 }
 
 /**
+ * 九宫格生成弹窗状态
+ */
+interface NineGridDialogState {
+  isOpen: boolean;
+  chapterId: string | null;
+  timelineId: string | null;
+  chapterSummary: string | null;
+}
+
+/**
  * Canvas Store 接口定义
  */
 interface CanvasStore {
@@ -189,6 +199,23 @@ interface CanvasStore {
    * 关闭单镜头生成弹窗
    */
   closeShotGenerateDialog: () => void;
+
+  // ==================== 九宫格生成弹窗状态 ====================
+  nineGridDialog: NineGridDialogState;
+
+  /**
+   * 打开九宫格生成弹窗
+   */
+  openNineGridDialog: (
+    chapterId: string,
+    timelineId: string,
+    chapterSummary?: string
+  ) => void;
+
+  /**
+   * 关闭九宫格生成弹窗
+   */
+  closeNineGridDialog: () => void;
 }
 
 /**
@@ -228,6 +255,12 @@ export const useCanvasStore = create<CanvasStore>((set) => ({
     shotInfo: null,
     chapterId: null,
     timelineId: null,
+  },
+  nineGridDialog: {
+    isOpen: false,
+    chapterId: null,
+    timelineId: null,
+    chapterSummary: null,
   },
 
   // ==================== Actions ====================
@@ -352,6 +385,24 @@ export const useCanvasStore = create<CanvasStore>((set) => ({
       timelineId: null,
     },
   }),
+
+  openNineGridDialog: (chapterId: string, timelineId: string, chapterSummary?: string) => set({
+    nineGridDialog: {
+      isOpen: true,
+      chapterId,
+      timelineId,
+      chapterSummary: chapterSummary || null,
+    },
+  }),
+
+  closeNineGridDialog: () => set({
+    nineGridDialog: {
+      isOpen: false,
+      chapterId: null,
+      timelineId: null,
+      chapterSummary: null,
+    },
+  }),
 }));
 
 /**
@@ -437,3 +488,18 @@ export const useOpenShotGenerateDialog = () => useCanvasStore((state) => state.o
  * 获取关闭单镜头生成弹窗的方法
  */
 export const useCloseShotGenerateDialog = () => useCanvasStore((state) => state.closeShotGenerateDialog);
+
+/**
+ * 获取九宫格生成弹窗状态
+ */
+export const useNineGridDialog = () => useCanvasStore((state) => state.nineGridDialog);
+
+/**
+ * 获取打开九宫格生成弹窗的方法
+ */
+export const useOpenNineGridDialog = () => useCanvasStore((state) => state.openNineGridDialog);
+
+/**
+ * 获取关闭九宫格生成弹窗的方法
+ */
+export const useCloseNineGridDialog = () => useCanvasStore((state) => state.closeNineGridDialog);
