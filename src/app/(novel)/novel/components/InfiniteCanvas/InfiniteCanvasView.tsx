@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, useEffect } from 'react';
+import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import ReactFlow, {
@@ -10,9 +10,10 @@ import ReactFlow, {
   useNodesState,
   useEdgesState,
   Panel,
+  type Node,
+  type Edge,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { Wifi, WifiOff, CheckSquare, Zap, Settings, Plus, Users } from 'lucide-react';
 
 import type { PaginatedTimeline, WindowState, ChapterSummary } from './types';
 import { transformTimelineToFlow, calculateOverallProgress } from './utils/transformData';
@@ -28,7 +29,6 @@ import { useCanvasStore } from '@/stores/canvas-store';
 import { useRealtimeCanvas } from '@/hooks/useRealtimeCanvas';
 import { useWorkflowAutomation } from '@/hooks/useWorkflowAutomation';
 import { BatchToolbar } from './BatchToolbar';
-import { GlobalActions } from './GlobalActions';
 import { TimelineSettings } from './TimelineSettings';
 import { GenerationProgress } from './GenerationProgress';
 import { AddChapterDialog } from './AddChapterDialog';
@@ -38,7 +38,7 @@ import { EmptyCanvasState } from './EmptyCanvasState';
 import { ChapterNavigator } from './ChapterNavigator';
 import { WindowNavigationPanel } from './WindowNavigationPanel';
 import { CharacterPreparationDrawer } from './CharacterPreparationDrawer';
-import { Badge } from '@/components/ui/badge';
+import { TopProgressPanel } from './TopProgressPanel';
 
 interface InfiniteCanvasViewProps {
   timeline: PaginatedTimeline;
@@ -92,63 +92,66 @@ export function InfiniteCanvasView({
   // React Query client for cache management
   const queryClient = useQueryClient();
 
-  // 调试：监听状态变化
-  useEffect(() => {
-    console.log('[InfiniteCanvasView] addChapterOpen 状态变化:', addChapterOpen);
-  }, [addChapterOpen]);
-
-  // 转换数据为 React Flow 格式
-  const { nodes: initialNodes, edges: initialEdges } = useMemo(
+  // ✅ 优化1: 只 transform 一次，用 useMemo 缓存
+  const flow = useMemo(
     () => transformTimelineToFlow(timeline),
     [timeline]
   );
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState(flow.nodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(flow.edges);
 
-  // 同步 timeline 数据到 React Flow 节点
+  // 用于追踪上一次的节点数量，避免不必要的 setNodes
+  const prevNodeCountRef = useRef(flow.nodes.length);
+  const prevEdgeCountRef = useRef(flow.edges.length);
+
+  // ✅ 优化2: 增量同步节点，避免无意义的全量重置
   useEffect(() => {
-    console.log('[InfiniteCanvasView] Timeline 数据更新，同步节点', {
-      chapterCount: timeline.chapters?.length || 0,
-      timestamp: new Date().toISOString(),
-      chapters: timeline.chapters?.map(ch => ({
-        id: ch.id,
-        number: ch.chapter_number,
-        scriptStatus: ch.script_status,
-        scriptCount: ch.script_segment_count,
-        shotStatus: ch.shot_status,
-        shotCount: ch.shot_count,
-        sceneStatus: ch.scene_status,
-        sceneCount: ch.scene_image_count,
-        finalStatus: ch.final_status,
-        finalCount: ch.final_image_count,
-      })),
-    });
-    const { nodes: newNodes, edges: newEdges } = transformTimelineToFlow(timeline);
-    console.log('[InfiniteCanvasView] 生成节点', {
-      nodeCount: newNodes.length,
-      edgeCount: newEdges.length,
-      timestamp: new Date().toISOString(),
-    });
-    setNodes(newNodes);
-    setEdges(newEdges);
-  }, [timeline, setNodes, setEdges]);
+    const nodeCountChanged = flow.nodes.length !== prevNodeCountRef.current;
+    const edgeCountChanged = flow.edges.length !== prevEdgeCountRef.current;
+    
+    // 只在节点数量变化或需要更新 data 时才 setNodes
+    if (nodeCountChanged || edgeCountChanged) {
+      setNodes(flow.nodes);
+      setEdges(flow.edges);
+      prevNodeCountRef.current = flow.nodes.length;
+      prevEdgeCountRef.current = flow.edges.length;
+    } else {
+      // 节点数量相同时，只更新 data 字段（保留 position 等交互状态）
+      setNodes(prevNodes => 
+        prevNodes.map((node, index) => {
+          const newNode = flow.nodes[index];
+          if (!newNode) return node;
+          // 只有 data 变化时才更新
+          if (JSON.stringify(node.data) !== JSON.stringify(newNode.data)) {
+            return { ...node, data: newNode.data };
+          }
+          return node;
+        })
+      );
+    }
+  }, [flow.nodes, flow.edges, setNodes, setEdges]);
 
   // 计算全局进度
   const progress = useMemo(() => calculateOverallProgress(timeline), [timeline]);
 
-  // SSE 连接状态
-  const sseStatus = useCanvasStore(state => state.sseStatus);
-
-  // 批量模式相关
-  const batchMode = useCanvasStore(state => state.batchMode);
-  const toggleBatchMode = useCanvasStore(state => state.toggleBatchMode);
-  const clearSelection = useCanvasStore(state => state.clearSelection);
-  const setSelectedNodeIds = useCanvasStore(state => state.setSelectedNodeIds);
-
-  // 工作流自动化状态
-  const workflowAutomation = useCanvasStore(state => state.workflowAutomation);
-  const toggleWorkflowAutomation = useCanvasStore(state => state.toggleWorkflowAutomation);
+  // ✅ 优化3: 稳定的 nodeColor 回调，避免 MiniMap 不必要的重渲染
+  const getNodeColor = useCallback((node: Node) => {
+    if (node.type === 'chapterHeader') return '#a855f7';
+    const status = node.data?.status;
+    switch (status) {
+      case 'pending':
+        return '#52525b';
+      case 'generating':
+        return '#a855f7';
+      case 'completed':
+        return '#22c55e';
+      case 'error':
+        return '#ef4444';
+      default:
+        return '#52525b';
+    }
+  }, []);
 
   // 启用 SSE 实时更新
   useRealtimeCanvas(timeline.id);
@@ -304,133 +307,22 @@ export function InfiniteCanvasView({
           showInteractive={false}
         />
 
-        {/* 迷你地图 */}
+        {/* 迷你地图 - 使用稳定的 nodeColor 回调 */}
         <MiniMap
           className="bg-zinc-900 border-zinc-800"
-          nodeColor={(node) => {
-            if (node.type === 'chapterHeader') return '#a855f7';
-            const status = node.data.status;
-            switch (status) {
-              case 'pending':
-                return '#52525b';
-              case 'generating':
-                return '#a855f7';
-              case 'completed':
-                return '#22c55e';
-              case 'error':
-                return '#ef4444';
-              default:
-                return '#52525b';
-            }
-          }}
+          nodeColor={getNodeColor}
           maskColor="rgba(15, 15, 19, 0.8)"
         />
 
-        {/* 顶部面板 - 全局进度 */}
-        <Panel position="top-left" className="bg-zinc-900/80 backdrop-blur-sm border border-zinc-800 rounded-lg p-4 m-4 shadow-xl">
-          <div className="space-y-3 min-w-[280px]">
-            {/* 标题和连接状态 */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold text-white">整体进度</h3>
-                {/* 添加章节按钮 */}
-                <button
-                  onClick={() => setAddChapterOpen(true)}
-                  className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-purple-400 transition-colors"
-                  title="添加章节"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-                {/* 设置按钮 */}
-                <button
-                  onClick={() => setSettingsOpen(true)}
-                  className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
-                  title="时间线设置"
-                >
-                  <Settings className="w-4 h-4" />
-                </button>
-                {/* 角色准备按钮 */}
-                <button
-                  onClick={() => setCharacterDrawerOpen(true)}
-                  className="relative p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-purple-400 transition-colors"
-                  title="角色准备"
-                >
-                  <Users className="w-4 h-4" />
-                </button>
-                {/* 全局操作 */}
-                <GlobalActions timeline={timeline} />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-zinc-400">
-                  {progress.completedChapters}/{progress.totalChapters} 章节
-                </span>
-                {/* SSE 连接状态指示器 */}
-                <div className="flex items-center gap-1">
-                  {sseStatus === 'connected' ? (
-                    <Wifi className="w-3 h-3 text-green-400" />
-                  ) : sseStatus === 'reconnecting' ? (
-                    <Wifi className="w-3 h-3 text-yellow-400 animate-pulse" />
-                  ) : (
-                    <WifiOff className="w-3 h-3 text-red-400" />
-                  )}
-                  <span className="text-[10px] text-zinc-500">
-                    {sseStatus === 'connected' ? '已连接' : sseStatus === 'reconnecting' ? '重连中' : '离线'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* 进度条 */}
-            <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-500"
-                style={{ width: `${progress.percentage}%` }}
-              />
-            </div>
-
-            {/* 百分比和批量模式 */}
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-purple-400 font-medium">{progress.percentage}%</span>
-              <div className="flex items-center gap-2">
-                {progress.percentage < 100 ? (
-                  <span className="text-zinc-500">进行中</span>
-                ) : (
-                  <span className="text-green-400">✓ 全部完成</span>
-                )}
-
-                {/* 工作流自动化开关 */}
-                <button
-                  onClick={toggleWorkflowAutomation}
-                  className={`flex items-center gap-1 px-2 py-1 rounded transition-all ${
-                    workflowAutomation.enabled
-                      ? 'bg-amber-600 text-white'
-                      : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-                  }`}
-                  title={workflowAutomation.enabled ? '自动化已启用' : '自动化已禁用'}
-                >
-                  <Zap className={`w-3 h-3 ${workflowAutomation.enabled ? 'animate-pulse' : ''}`} />
-                  <span className="text-[10px] font-medium">
-                    {workflowAutomation.enabled ? '自动' : '手动'}
-                  </span>
-                </button>
-
-                {/* 批量模式切换 */}
-                <button
-                  onClick={toggleBatchMode}
-                  className={`flex items-center gap-1 px-2 py-1 rounded transition-all ${
-                    batchMode
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-                  }`}
-                >
-                  <CheckSquare className="w-3 h-3" />
-                  <span className="text-[10px] font-medium">
-                    {batchMode ? '批量模式' : '批量'}
-                  </span>
-                </button>
-              </div>
-            </div>
-          </div>
+        {/* ✅ 优化4: 顶部面板独立组件，store 订阅下沉，避免影响 ReactFlow */}
+        <Panel position="top-left">
+          <TopProgressPanel
+            timeline={timeline}
+            progress={progress}
+            onOpenSettings={() => setSettingsOpen(true)}
+            onOpenAddChapter={() => setAddChapterOpen(true)}
+            onOpenCharacterDrawer={() => setCharacterDrawerOpen(true)}
+          />
         </Panel>
 
         {/* 右侧章节导航器 */}

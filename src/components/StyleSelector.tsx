@@ -170,7 +170,7 @@ export function StyleSelector({
       </Select>
 
       {/* 风格预览卡片 */}
-      {selectedStyle && selectedStyle.image_url && (
+      {/* {selectedStyle && selectedStyle.image_url && (
         <div className="flex items-center gap-3 p-3 bg-zinc-900/50 rounded-lg border border-zinc-800">
           <img
             src={selectedStyle.image_url}
@@ -189,7 +189,7 @@ export function StyleSelector({
           </div>
           <Palette className="w-5 h-5 text-purple-400 flex-shrink-0" />
         </div>
-      )}
+      )} */}
     </div>
   );
 }
