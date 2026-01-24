@@ -53,46 +53,73 @@ export async function GET(
 
     // 查询镜头图片
     if (types.includes("shot")) {
-      const shots = await prisma.shotDesign.findMany({
+      // 通过 CanvasTimeline 查询 ShotDesign
+      // NovelProject → CanvasTimeline → TimelineChapter → ScriptSegment → ShotDesign
+      const timeline = await prisma.canvasTimeline.findFirst({
         where: {
-          chapter: {
-            novel_project_id: projectId,
-          },
-          generated_image_url: {
-            not: null,
-          },
+          novel_project_id: projectId,
         },
-        select: {
-          id: true,
-          generated_image_url: true,
-          shot_order: true,
-          description: true,
-          chapter: {
-            select: {
-              chapter_number: true,
-            },
-          },
-        },
-        orderBy: [
-          { chapter: { chapter_number: "asc" } },
-          { shot_order: "asc" },
-        ],
+        select: { id: true },
       });
 
-      result.shots = shots.map((shot) => ({
-        id: shot.id,
-        url: shot.generated_image_url,
-        chapterNumber: shot.chapter.chapter_number,
-        shotOrder: shot.shot_order,
-        description: shot.description || undefined,
-      }));
+      const timelineChapters = timeline ? await prisma.timelineChapter.findMany({
+        where: {
+          timeline_id: timeline.id,
+        },
+        select: { id: true },
+      }) : [];
+
+      if (timelineChapters.length > 0) {
+        const timelineChapterIds = timelineChapters.map(tc => tc.id);
+        
+        const shots = await prisma.shotDesign.findMany({
+          where: {
+            script_segment: {
+              timeline_chapter_id: {
+                in: timelineChapterIds,
+              },
+            },
+            generated_image_url: {
+              not: null,
+            },
+          },
+          select: {
+            id: true,
+            generated_image_url: true,
+            shot_order: true,
+            shot_description: true,
+            script_segment: {
+              select: {
+                timeline_chapter: {
+                  select: {
+                    chapter_number: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: [
+            { shot_order: "asc" },
+          ],
+          take: 100, // 限制返回数量
+        });
+
+        result.shots = shots.map((shot) => ({
+          id: shot.id,
+          url: shot.generated_image_url,
+          chapterNumber: shot.script_segment.timeline_chapter.chapter_number,
+          shotOrder: shot.shot_order,
+          description: shot.shot_description || undefined,
+        }));
+      }
     }
 
     // 查询场景图片
     if (types.includes("scene")) {
-      const scenes = await prisma.novelScene.findMany({
+      const scenes = await prisma.scene.findMany({
         where: {
-          novel_project_id: projectId,
+          user_id: payload.userId,
+          source_novel_id: projectId,
           image_url: {
             not: null,
           },
@@ -105,11 +132,12 @@ export async function GET(
         orderBy: {
           created_at: "asc",
         },
+        take: 50, // 限制返回数量
       });
 
       result.scenes = scenes.map((scene) => ({
         id: scene.id,
-        url: scene.image_url,
+        url: scene.image_url!,
         name: scene.name,
       }));
     }

@@ -32,7 +32,7 @@ export async function GET(
     const chapter = await prisma.novelChapter.findUnique({
       where: { id: chapterId },
       include: {
-        novel_project: true,
+        project: true,
       },
     });
 
@@ -41,35 +41,36 @@ export async function GET(
     }
 
     // 3. 权限检查
-    if (chapter.novel_project.user_id !== payload.userId) {
+    if (chapter.project.user_id !== payload.userId) {
       return NextResponse.json({ error: "无权限" }, { status: 403 });
     }
 
-    // 4. 查询项目关联的所有角色
-    // 注意: 目前数据库中没有章节-角色关联表,所以返回项目级别的角色
-    const characters = await prisma.novelCharacter.findMany({
+    // 4. 查询用户的所有角色（Comic Character 表）
+    // Novel 系统复用 Comic 的 Character 表
+    const characters = await prisma.character.findMany({
       where: {
-        novel_project_id: chapter.novel_project_id,
+        user_id: payload.userId,
       },
       select: {
         id: true,
         name: true,
-        role: true,
-        avatar_url: true,
-        reference_image_url: true,
+        description: true,
+        base_image_url: true,
+        reference_image: true,
       },
       orderBy: {
         created_at: "asc",
       },
+      take: 20, // 限制返回数量
     });
 
     return NextResponse.json({
       characters: characters.map((char) => ({
         id: char.id,
         name: char.name,
-        role: char.role || undefined,
-        avatar_url: char.avatar_url || undefined,
-        reference_image_url: char.reference_image_url || undefined,
+        role: char.description || undefined, // 使用 description 作为 role
+        avatar_url: char.base_image_url || undefined,
+        reference_image_url: char.reference_image || undefined,
       })),
     });
   } catch (error) {
