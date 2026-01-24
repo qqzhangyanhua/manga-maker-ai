@@ -34,8 +34,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useTimelineConfig, getSafeConfig } from "@/hooks/useTimelineConfig";
 import { findStyleById, useComicStyles } from "@/hooks/useComicStyles";
-import type { GenerateNineGridDialogProps, ShotDesignBasic } from "./types";
+import type { GenerateNineGridDialogProps, ShotDesignBasic, CharacterReference } from "./types";
 import { checkShotsConsecutive } from "./prompt-builder";
+import { CharacterReferenceSection } from "./CharacterReferenceSection";
 
 /**
  * 镜头预览卡片
@@ -78,6 +79,7 @@ export function GenerateNineGridDialog({
   isSubmitting = false,
 }: GenerateNineGridDialogProps) {
   const [plotSummary, setPlotSummary] = useState("");
+  const [characterReferences, setCharacterReferences] = useState<CharacterReference[]>([]);
 
   // 获取时间线配置（包含默认风格）
   const { data: timelineData, isLoading: timelineLoading } =
@@ -103,6 +105,7 @@ export function GenerateNineGridDialog({
   useEffect(() => {
     if (!open) {
       setPlotSummary("");
+      setCharacterReferences([]);
     }
   }, [open]);
 
@@ -113,8 +116,15 @@ export function GenerateNineGridDialog({
       shotIds: selectedShots.map((s) => s.id),
       comicStyleId: defaultStyleId,
       plotSummary: plotSummary.trim(), // 可以为空
+      // [新增] 角色参考图
+      characterReferences: characterReferences
+        .filter((char) => char.selectedReferenceImages.length > 0)
+        .map((char) => ({
+          characterId: char.id,
+          referenceImageUrls: char.selectedReferenceImages.map((img) => img.url),
+        })),
     });
-  }, [selectedShots, plotSummary, defaultStyleId, onConfirm]);
+  }, [selectedShots, plotSummary, defaultStyleId, characterReferences, onConfirm]);
 
   const isValid =
     selectedShots.length === 9 && defaultStyleId;
@@ -193,6 +203,16 @@ export function GenerateNineGridDialog({
               {plotSummary.length}/500
             </p>
           </div>
+
+          {/* 角色参考图选择 */}
+          {chapterId && timelineId && (
+            <CharacterReferenceSection
+              chapterId={chapterId}
+              projectId={timelineId}
+              characterReferences={characterReferences}
+              onUpdateCharacterReferences={setCharacterReferences}
+            />
+          )}
 
           {/* 漫画风格信息（只读显示） */}
           <div className="space-y-3">
