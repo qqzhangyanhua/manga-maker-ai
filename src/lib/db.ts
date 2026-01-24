@@ -1,4 +1,5 @@
 import { PrismaClient, Prisma } from "@prisma/client";
+import { registerPrismaMiddleware } from "./prisma-middleware";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -47,6 +48,8 @@ export const prisma =
 
 if (!globalThis.prisma) {
   globalThis.prisma = prisma;
+  // ✅ P2 修复: 注册 Prisma 中间件，自动维护项目统计
+  registerPrismaMiddleware();
 }
 
 /**
