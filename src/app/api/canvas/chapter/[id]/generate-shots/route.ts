@@ -9,6 +9,10 @@ import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getNovelBackendClient, NovelBackendError } from "@/lib/novel-backend-client";
 import { logInfo, logError } from "@/lib/api-logger";
+import {
+  resolveCharactersForTimeline,
+  formatForPlanShots,
+} from "@/lib/canvas/character-resolver";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -65,6 +69,19 @@ export async function POST(req: Request, { params }: RouteParams) {
       segmentCount: timelineChapter.script_segments.length,
     });
 
+    // 查询关联角色（从 NovelProject.characters 获取已绑定的 Character 实体）
+    const resolvedCharacters = await resolveCharactersForTimeline(
+      timelineChapter.timeline_id,
+      payload.userId
+    );
+    const availableCharacters = formatForPlanShots(resolvedCharacters);
+
+    logInfo("角色解析完成", {
+      chapterId,
+      characterCount: availableCharacters.length,
+      characterNames: availableCharacters.map((c) => c.name),
+    });
+
     await prisma.timelineChapter.update({
       where: { id: chapterId },
       data: { shot_status: "generating" },
@@ -73,7 +90,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     // 调用 novel-backend 的镜头规划服务（并行优化）
     const client = getNovelBackendClient();
     let totalShots = 0;
-    const allShots = [];
+    const allShots: Array<{ id: string; script_segment_id: string; shot_description: string }> = [];
 
     logInfo("开始并行生成镜头", {
       chapterId,
@@ -94,7 +111,7 @@ export async function POST(req: Request, { params }: RouteParams) {
             script_content: segment.content,
             scene_description: segment.scene_description,
             character_actions: segment.character_actions,
-            available_characters: [], // TODO: 从数据库获取可用角色列表
+            available_characters: availableCharacters,
           });
 
           if (!planResult.success || planResult.shots.length === 0) {
@@ -183,12 +200,63 @@ export async function POST(req: Request, { params }: RouteParams) {
       totalShots += createdShots.length;
     }
 
+    // 批量识别角色：为每个镜头识别在场角色
+    const allChapterCharacterIds = new Set<string>();
+
+    if (availableCharacters.length > 0 && allShots.length > 0) {
+      logInfo("开始批量识别角色", {
+        chapterId,
+        shotCount: allShots.length,
+        characterCount: availableCharacters.length,
+      });
+
+      try {
+        const identificationResult = await client.batchIdentifyCharacters({
+          shots: allShots.map((shot) => ({
+            shot_id: shot.id,
+            dialogue: null,
+            description: shot.shot_description || "",
+          })),
+          available_characters: availableCharacters.map((c) => ({
+            id: c.id,
+            name: c.name,
+            description: undefined,
+          })),
+        });
+
+        // 更新每个镜头的 character_ids
+        for (const [shotId, result] of Object.entries(identificationResult.results)) {
+          if (result.matched_character_ids.length > 0) {
+            await prisma.shotDesign.update({
+              where: { id: shotId },
+              data: { character_ids: result.matched_character_ids },
+            });
+
+            // 收集所有角色 ID
+            for (const charId of result.matched_character_ids) {
+              allChapterCharacterIds.add(charId);
+            }
+          }
+        }
+
+        logInfo("批量角色识别完成", {
+          chapterId,
+          totalShots: identificationResult.summary.total_shots,
+          shotsWithCharacters: identificationResult.summary.shots_with_characters,
+          uniqueCharacterCount: allChapterCharacterIds.size,
+        });
+      } catch (error) {
+        logError("批量角色识别失败，继续流程", error, { chapterId });
+      }
+    }
+
     // 更新章节状态
     await prisma.timelineChapter.update({
       where: { id: chapterId },
       data: {
         shot_status: "completed",
         shot_count: totalShots,
+        character_ids: Array.from(allChapterCharacterIds),
       },
     });
 

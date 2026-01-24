@@ -15,6 +15,10 @@ import { getNovelBackendClient, NovelBackendError, SceneImageOutput } from "@/li
 import { logInfo, logError } from "@/lib/api-logger";
 import { generateImage, waitForTaskCompletion } from "@/lib/unified-image-generation";
 import { checkRateLimit } from "@/lib/security/rate-limiter";
+import {
+  resolveCharactersForTimeline,
+  buildCharacterReferenceMap,
+} from "@/lib/canvas/character-resolver";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -169,6 +173,21 @@ export async function POST(req: Request, { params }: RouteParams) {
     const styleKey = selectedStyle?.style_key || "manga";
     const stylePromptPrefix = selectedStyle?.prompt_prefix || "";
 
+    // 查询关联角色并构建参考图映射
+    const resolvedCharacters = await resolveCharactersForTimeline(
+      timelineChapter.timeline_id,
+      payload.userId
+    );
+    const characterReferenceMap = buildCharacterReferenceMap(resolvedCharacters);
+    const hasCharacterReferences = characterReferenceMap.size > 0;
+
+    logInfo("角色参考图解析完成", {
+      chapterId,
+      characterCount: resolvedCharacters.length,
+      withReferenceImage: characterReferenceMap.size,
+      hasCharacterReferences,
+    });
+
     logInfo("场景去重完成", {
       chapterId,
       totalShots: allShots.length,
@@ -196,7 +215,7 @@ export async function POST(req: Request, { params }: RouteParams) {
         character_ids: group.representative_shot.character_ids,
       })),
       style: styleKey, // 使用用户选定的风格
-      pure_scene_mode: true, // 纯场景模式：不包含人物
+      pure_scene_mode: !hasCharacterReferences, // 有角色参考图时生成完整画面
     });
 
     if (!sceneResult.success || sceneResult.scenes.length === 0) {
@@ -231,10 +250,23 @@ export async function POST(req: Request, { params }: RouteParams) {
         continue;
       }
 
+      // 获取该镜头角色的参考图
+      const shotCharacterIds = group.representative_shot.character_ids || [];
+      const referenceImages = shotCharacterIds
+        .map((id) => characterReferenceMap.get(id))
+        .filter((url): url is string => !!url);
+
+      // 根据是否有参考图决定 negative prompt
+      const negativePrompt = referenceImages.length > 0
+        ? "blurry, low quality, distorted, deformed, ugly"
+        : "person, people, human, man, woman, boy, girl, character, figure, face, body, hands, legs, portrait, selfie, blurry, low quality, distorted, deformed, ugly";
+
       logInfo("提交图像生成任务", {
         location_key: group.location_key,
         shot_count: group.shot_ids.length,
         promptPreview: sceneData.generation_prompt.substring(0, 100),
+        referenceImageCount: referenceImages.length,
+        hasCharacters: referenceImages.length > 0,
       });
 
       const { taskId } = await generateImage(
@@ -244,13 +276,15 @@ export async function POST(req: Request, { params }: RouteParams) {
         {
           width: 800,
           height: 600,
-          negativePrompt: "person, people, human, man, woman, boy, girl, character, figure, face, body, hands, legs, portrait, selfie, blurry, low quality, distorted, deformed, ugly",
+          negativePrompt,
+          referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
           metadata: {
             location_key: group.location_key,
             shot_ids: group.shot_ids,
             chapter_id: chapterId,
             type: "canvas_scene",
-            pure_scene: true,
+            pure_scene: referenceImages.length === 0,
+            character_count: referenceImages.length,
           },
         }
       );

@@ -20,6 +20,7 @@ class ShotInput(BaseModel):
     shot_description: str
     prompt: str
     character_ids: List[str] = []
+    character_info: Optional[List[dict]] = None  # 角色详细信息 [{id, name, visual_description}]
 
 
 class SceneImageOutput(BaseModel):
@@ -125,31 +126,66 @@ class SceneComposer:
         Returns:
             优化后的提示词
         """
-        pure_scene_instruction = ""
+        # 构建角色视觉描述（仅在非纯场景模式下使用）
+        character_description = ""
+        if not pure_scene_mode and shot.character_info:
+            char_lines = []
+            for c in shot.character_info:
+                name = c.get('name', 'Unknown')
+                visual_desc = c.get('visual_description', c.get('description', ''))
+                if visual_desc:
+                    char_lines.append(f"- {name}: {visual_desc}")
+            if char_lines:
+                character_description = "\n【角色视觉描述】\n" + "\n".join(char_lines)
+
+        # 场景模式指令
         if pure_scene_mode:
-            pure_scene_instruction = """
-重要：这是纯场景/背景图，必须不包含任何人物、角色或人形生物。
-只描述环境、建筑、自然景观、室内装饰等场景元素。
-人物将在后续步骤中单独合成。"""
+            mode_instruction = """
+【纯场景模式】
+- 这是纯场景/背景图，必须不包含任何人物、角色或人形生物
+- 只描述环境、建筑、自然景观、室内装饰等场景元素
+- 人物将在后续步骤中单独合成
+- 在提示词末尾添加: no people, no characters, empty scene"""
+        else:
+            mode_instruction = f"""
+【完整画面模式】
+- 需要在场景中包含角色
+- 根据下方角色描述准确描绘人物外观
+- 确保角色与环境融合自然
+- 保持角色外观与参考图一致{character_description}"""
 
-        system_prompt = f"""你是专业的图像生成提示词工程师。
-根据镜头描述生成适合 AI 绘画的详细提示词。
+        # 风格强化指令
+        style_instruction = self._get_style_instruction(style)
 
-要求：
-1. 包含场景环境、光线、氛围、构图等元素
-2. 使用英文逗号分隔的关键词格式
-3. 突出镜头的视觉重点
-4. 适合 Stable Diffusion / DALL-E 使用{pure_scene_instruction}"""
+        system_prompt = f"""你是专业的 AI 图像生成提示词工程师，擅长为 Stable Diffusion / DALL-E 优化提示词。
 
-        style_hint = f"\n视觉风格: {style}" if style else ""
+【你的任务】
+根据镜头描述生成高质量的英文图像生成提示词。
+{mode_instruction}
+{style_instruction}
 
-        user_prompt = f"""镜头信息：
+【提示词结构要求】
+1. 主体描述 (subject): 场景/人物的核心内容
+2. 环境细节 (environment): 光线、天气、时间、氛围
+3. 构图视角 (composition): 镜头类型、角度、景深
+4. 风格质量 (quality): 渲染风格、质量标签
+5. 负面排除 (如适用): 需要避免的元素
+
+【格式要求】
+- 使用英文，逗号分隔的关键词/短语格式
+- 重要元素放在前面
+- 避免冗余和矛盾描述
+- 总长度控制在 100-200 词"""
+
+        style_hint = f"\n指定风格: {style}" if style else ""
+
+        user_prompt = f"""【镜头信息】
 - 镜头类型: {shot.shot_size}
 - 机位角度: {shot.camera_angle}
-- 描述: {shot.shot_description}
+- 场景描述: {shot.shot_description}
 - 原始提示词: {shot.prompt}{style_hint}
 
-请生成优化后的英文提示词（仅输出提示词，不要解释）："""
+请生成优化后的英文提示词（仅输出提示词本身，不要任何解释或标注）："""
 
         try:
             response = await self.client.chat.completions.create(
@@ -159,7 +195,7 @@ class SceneComposer:
                     {"role": "user", "content": user_prompt},
                 ],
                 temperature=0.7,
-                max_tokens=200,
+                max_tokens=300,
             )
 
             enhanced = response.choices[0].message.content
@@ -171,3 +207,36 @@ class SceneComposer:
         except Exception as e:
             logger.error(f"提示词优化失败: {e}")
             return f"{shot.prompt}, {shot.camera_angle}, {shot.shot_size}"
+
+    def _get_style_instruction(self, style: Optional[str]) -> str:
+        """获取风格强化指令"""
+        style_map = {
+            "manga": """
+【风格: 日式漫画】
+- 添加: manga style, black and white ink, screentone shading, dynamic lines
+- 特点: 高对比度、速度线、漫画式表情夸张""",
+            "anime": """
+【风格: 日式动画】
+- 添加: anime style, cel shading, vibrant colors, clean lines
+- 特点: 明亮色彩、平涂上色、大眼睛特征""",
+            "realistic": """
+【风格: 写实风格】
+- 添加: photorealistic, detailed, high resolution, natural lighting
+- 特点: 真实质感、自然光影、细节丰富""",
+            "watercolor": """
+【风格: 水彩插画】
+- 添加: watercolor painting, soft edges, pastel colors, artistic
+- 特点: 柔和边缘、水彩晕染、艺术感""",
+            "comic": """
+【风格: 美式漫画】
+- 添加: comic book style, bold outlines, dramatic shading, action poses
+- 特点: 粗线条、强烈阴影、动态姿势""",
+        }
+
+        if style and style.lower() in style_map:
+            return style_map[style.lower()]
+
+        return """
+【风格: 默认】
+- 使用高质量、清晰的图像风格
+- 添加: high quality, detailed, professional illustration"""

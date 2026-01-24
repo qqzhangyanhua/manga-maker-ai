@@ -57,48 +57,73 @@ class ShotPlanner:
         Returns:
             镜头设计列表
         """
+        # 构建角色信息，包含 ID 用于 LLM 匹配
         char_info = ""
+        char_id_instruction = ""
         if available_characters:
-            char_info = "\n可用角色：\n" + "\n".join(
-                f"- {c.get('name', 'Unknown')}: {c.get('description', '')}"
-                for c in available_characters
-            )
+            char_lines = []
+            for c in available_characters:
+                char_id = c.get('id', '')
+                char_name = c.get('name', 'Unknown')
+                char_desc = c.get('description', '')
+                char_ref = c.get('reference_image', '')
+                ref_hint = " [有参考图]" if char_ref else ""
+                char_lines.append(f"- ID: {char_id} | 名称: {char_name}{ref_hint} | 描述: {char_desc}")
+            char_info = "\n【可用角色列表】\n" + "\n".join(char_lines)
+            char_id_instruction = """
+【重要】角色匹配规则：
+- character_ids 字段必须填写出现在该镜头中的角色 ID（从上方角色列表复制）
+- 如果镜头中有角色出现，必须将其 ID 填入 character_ids 数组
+- 有 [有参考图] 标记的角色，在 prompt 中详细描述其外观特征
+- 确保角色描述在各镜头间保持一致"""
 
-        system_prompt = """你是专业的漫画分镜师。
+        system_prompt = f"""你是专业的漫画分镜师，擅长将剧本转化为视觉镜头。
 
 任务：为给定的剧本片段设计2-5个漫画镜头。
+{char_id_instruction}
 
-镜头参数说明：
+【镜头参数说明】
 - camera_angle: 俯视/仰视/平视/荷兰角
 - shot_size: 特写/近景/中景/全景/远景
 - panel_type: wide/medium/closeup/action/dialogue/transition
+- character_ids: 出现在镜头中的角色 ID 列表（必填，从角色列表复制 ID）
+- expression_types: 角色表情类型（如 happy, sad, angry, surprised）
 - location_key: 场景位置标识符，用于场景去重
   - 使用简洁的英文标识，格式：location_type
   - 例如：classroom, hallway, rooftop, street, cafe, bedroom
   - 同一场景的不同角度使用相同的 location_key
   - 不同地点必须使用不同的 location_key
 
-输出格式（JSON数组）：
-[
-  {
-    "shot_order": 1,
-    "camera_angle": "平视",
-    "shot_size": "中景",
-    "panel_type": "dialogue",
-    "shot_description": "镜头内容描述",
-    "composition_hint": "构图建议",
-    "location_key": "classroom",
-    "prompt": "图像生成提示词（英文）",
-    "negative_prompt": "负面提示词"
-  }
-]
+【输出格式】JSON 对象：
+{{
+  "shots": [
+    {{
+      "shot_order": 1,
+      "camera_angle": "平视",
+      "shot_size": "中景",
+      "panel_type": "dialogue",
+      "shot_description": "镜头内容描述（中文）",
+      "composition_hint": "构图建议",
+      "character_ids": ["uuid-1", "uuid-2"],
+      "expression_types": ["neutral", "happy"],
+      "location_key": "classroom",
+      "prompt": "detailed image generation prompt in English, including character appearances",
+      "negative_prompt": "blurry, low quality, distorted"
+    }}
+  ]
+}}
 
-要求：
-- 镜头之间要有节奏变化
-- 重要情节用特写强调
-- 动作场景多用动态角度
-- 提示词要具体、详细、英文
-- location_key 必须填写，同一地点的镜头使用相同的 key"""
+【提示词撰写要求】
+- 使用英文，逗号分隔的关键词格式
+- 包含：场景环境、光线氛围、角色外观、动作姿态、构图视角
+- 角色描述要具体：发色、服装、表情、姿势
+- 保持同一角色在不同镜头中的外观描述一致
+
+【分镜设计原则】
+- 镜头之间要有节奏变化（远-中-近交替）
+- 重要情节用特写强调情感
+- 动作场景多用动态角度（仰视、荷兰角）
+- 对话场景注意人物位置关系"""
 
         user_prompt = f"""剧本内容：
 {script_content}
