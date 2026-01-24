@@ -145,8 +145,27 @@ export async function POST(req: Request, { params }: RouteParams) {
     // 2. 按 location_key 分组去重
     const locationGroups = groupShotsByLocation(allShots);
 
-    // 获取风格信息
-    const selectedStyle = timelineChapter.comic_style;
+    // 获取风格信息：优先使用章节风格，fallback 到 Timeline 的默认风格
+    let selectedStyle = timelineChapter.comic_style;
+    
+    // 如果章节没有设置风格，尝试从 Timeline config 获取默认风格
+    if (!selectedStyle) {
+      const timelineConfig = timelineChapter.timeline.config as { default_comic_style_id?: string } | null;
+      const defaultStyleId = timelineConfig?.default_comic_style_id;
+      
+      if (defaultStyleId) {
+        selectedStyle = await prisma.comicStyle.findUnique({
+          where: { id: defaultStyleId },
+        });
+        
+        logInfo("使用 Timeline 默认风格", {
+          chapterId,
+          defaultStyleId,
+          styleName: selectedStyle?.name_zh,
+        });
+      }
+    }
+    
     const styleKey = selectedStyle?.style_key || "manga";
     const stylePromptPrefix = selectedStyle?.prompt_prefix || "";
 

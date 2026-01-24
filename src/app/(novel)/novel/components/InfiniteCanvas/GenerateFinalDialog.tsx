@@ -33,6 +33,7 @@ interface NovelCharacter {
   traits?: string[];
   relationships?: Record<string, string>;
   tempId: string;
+  generatedImageUrl?: string;
 }
 
 interface GenerateFinalDialogProps {
@@ -205,8 +206,16 @@ export function GenerateFinalDialog({
                 )}
 
                 <div className="flex items-start gap-2">
-                  <div className="w-10 h-10 rounded-lg bg-zinc-700 flex items-center justify-center flex-shrink-0">
-                    {getRoleIcon(char.role)}
+                  <div className="w-10 h-10 rounded-lg bg-zinc-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    {char.generatedImageUrl ? (
+                      <img
+                        src={char.generatedImageUrl}
+                        alt={char.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      getRoleIcon(char.role)
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
