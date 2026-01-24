@@ -79,7 +79,7 @@ export async function GET(
       return NextResponse.json({ error: "无权访问此项目" }, { status: 403 });
     }
 
-    const outlines = (project.outlines as OutlineItem[]) || [];
+    const outlines = (project.outlines as unknown as OutlineItem[]) || [];
 
     const response: OutlinesResponse = {
       outlines,

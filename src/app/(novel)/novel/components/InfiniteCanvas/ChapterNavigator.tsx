@@ -14,7 +14,6 @@ function getChapterStatusColor(summary: ChapterSummary): string {
   const statuses: GenerationStatus[] = [
     summary.script_status,
     summary.shot_status,
-    summary.scene_status,
     summary.final_status,
   ];
 

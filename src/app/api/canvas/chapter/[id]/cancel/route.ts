@@ -57,7 +57,6 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     const generatingStages: string[] = [];
     if (chapter.script_status === "generating") generatingStages.push("script");
     if (chapter.shot_status === "generating") generatingStages.push("shot");
-    if (chapter.scene_status === "generating") generatingStages.push("scene");
     if (chapter.final_status === "generating") generatingStages.push("final");
 
     if (generatingStages.length === 0) {

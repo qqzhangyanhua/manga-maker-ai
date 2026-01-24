@@ -42,6 +42,14 @@ export interface StoryDraft {
   }>;
 }
 
+/**
+ * 问题历史记录项（用于上一步功能）
+ */
+export interface QuestionHistoryItem {
+  question: Question;
+  answer: string;
+}
+
 export type InspirationFlowState =
   | { stage: "welcome" }
   | {
@@ -50,16 +58,19 @@ export type InspirationFlowState =
       question: Question;
       currentAnswer: string;
       answers: Record<number, string>;
+      questionsHistory: QuestionHistoryItem[]; // 问题历史，用于上一步
     }
   | {
       stage: "generating";
       sessionId: string;
-      answers: Record<number, string>; // 保留答案以便失败后重试
+      answers: Record<number, string>;
+      questionsHistory: QuestionHistoryItem[];
     }
   | {
       stage: "generate_failed";
       sessionId: string;
       answers: Record<number, string>;
+      questionsHistory: QuestionHistoryItem[];
       errorMessage: string;
     }
   | {
@@ -68,4 +79,18 @@ export type InspirationFlowState =
       draft: StoryDraft;
       selectedTitle: string;
       answers: Record<number, string>;
+      questionsHistory: QuestionHistoryItem[];
     };
+
+/**
+ * 会话恢复数据（localStorage 存储）
+ */
+export interface SavedSessionData {
+  sessionId: string;
+  stage: string;
+  questionsHistory: QuestionHistoryItem[];
+  answers: Record<number, string>;
+  currentQuestion?: Question;
+  currentAnswer?: string;
+  savedAt: number; // 时间戳
+}

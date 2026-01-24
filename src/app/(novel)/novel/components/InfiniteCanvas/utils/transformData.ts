@@ -26,12 +26,11 @@ const LAYOUT = {
  * 计算章节进度（0-100）
  */
 export function calculateChapterProgress(chapter: TimelineChapter): number {
-  // 权重分配：剧本20%，镜头30%，场景30%，漫画20%
+  // 权重分配：剧本25%，镜头35%，漫画40%
   const weights = {
-    script: 0.2,
-    shot: 0.3,
-    scene: 0.3,
-    final: 0.2,
+    script: 0.25,
+    shot: 0.35,
+    final: 0.4,
   };
 
   // 状态分数
@@ -45,7 +44,6 @@ export function calculateChapterProgress(chapter: TimelineChapter): number {
   const totalScore =
     scores[chapter.script_status] * weights.script +
     scores[chapter.shot_status] * weights.shot +
-    scores[chapter.scene_status] * weights.scene +
     scores[chapter.final_status] * weights.final;
 
   return Math.round(totalScore * 100);
@@ -141,40 +139,10 @@ export function transformTimelineToFlow(timeline: TimelineData): {
       },
     });
 
-    // 4. 场景节点
-    const sceneNodeId = `scene-${chapter.id}`;
-    const sceneX = LAYOUT.CHAPTER_WIDTH + LAYOUT.NODE_GAP +
-                   2 * (LAYOUT.NODE_WIDTH + LAYOUT.NODE_GAP);
-    nodes.push({
-      id: sceneNodeId,
-      type: 'scene',
-      position: { x: sceneX, y: laneY },
-      data: {
-        chapterId: chapter.id,
-        chapterTitle: chapter.title,
-        chapterNumber: chapter.chapter_number,
-        status: chapter.scene_status,
-        count: chapter.scene_image_count,
-        canGenerate: chapter.shot_status === 'completed',
-        timelineId: chapter.timeline_id,
-      },
-      draggable: false,
-    });
-    edges.push({
-      id: `e-${shotNodeId}-${sceneNodeId}`,
-      source: shotNodeId,
-      target: sceneNodeId,
-      animated: chapter.scene_status === 'generating',
-      style: {
-        stroke: getEdgeColor(chapter.scene_status),
-        strokeWidth: getEdgeStrokeWidth(chapter.scene_status),
-      },
-    });
-
-    // 5. 漫画节点
+    // 4. 漫画节点
     const finalNodeId = `final-${chapter.id}`;
     const finalX = LAYOUT.CHAPTER_WIDTH + LAYOUT.NODE_GAP +
-                   3 * (LAYOUT.NODE_WIDTH + LAYOUT.NODE_GAP);
+                   2 * (LAYOUT.NODE_WIDTH + LAYOUT.NODE_GAP);
     nodes.push({
       id: finalNodeId,
       type: 'final',
@@ -185,14 +153,14 @@ export function transformTimelineToFlow(timeline: TimelineData): {
         chapterNumber: chapter.chapter_number,
         status: chapter.final_status,
         count: chapter.final_image_count,
-        canGenerate: chapter.scene_status === 'completed',
+        canGenerate: chapter.shot_status === 'completed',
         timelineId: chapter.timeline_id,
       },
       draggable: false,
     });
     edges.push({
-      id: `e-${sceneNodeId}-${finalNodeId}`,
-      source: sceneNodeId,
+      id: `e-${shotNodeId}-${finalNodeId}`,
+      source: shotNodeId,
       target: finalNodeId,
       animated: chapter.final_status === 'generating',
       style: {

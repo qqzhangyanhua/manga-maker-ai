@@ -11,7 +11,6 @@ interface ChapterRowProps {
   chapterContent?: string;
   onGenerateScript: () => void;
   onGenerateShots: () => void;
-  onGenerateScenes: () => void;
   onGenerateFinals: () => void;
 }
 
@@ -115,7 +114,6 @@ export function ChapterRow({
   chapterContent,
   onGenerateScript,
   onGenerateShots,
-  onGenerateScenes,
   onGenerateFinals,
 }: ChapterRowProps) {
   const [isExpanded, setIsExpanded] = useState(true);
@@ -166,25 +164,13 @@ export function ChapterRow({
           {/* Arrow */}
           <div className="text-zinc-600">→</div>
 
-          {/* Scene Images Node */}
-          <NodeCard
-            title="场景图"
-            status={chapter.scene_status}
-            count={chapter.scene_image_count}
-            onGenerate={onGenerateScenes}
-            disabled={chapter.shot_status !== "completed"}
-          />
-
-          {/* Arrow */}
-          <div className="text-zinc-600">→</div>
-
           {/* Final Images Node */}
           <NodeCard
             title="漫画图"
             status={chapter.final_status}
             count={chapter.final_image_count}
             onGenerate={onGenerateFinals}
-            disabled={chapter.scene_status !== "completed"}
+            disabled={chapter.shot_status !== "completed"}
           />
         </div>
       )}

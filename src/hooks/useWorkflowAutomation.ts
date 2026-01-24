@@ -9,7 +9,7 @@ import type { CanvasTimeline } from '@/app/(novel)/novel/components/InfiniteCanv
  *
  * 监听章节生成完成事件，自动触发下一阶段
  *
- * 工作流: script → shot → scene → final
+ * 工作流: script → shot → final
  */
 export function useWorkflowAutomation(timelineId: string) {
   const queryClient = useQueryClient();
@@ -40,13 +40,12 @@ export function useWorkflowAutomation(timelineId: string) {
 
       // 检测状态从 generating → completed
       const stages: Array<{
-        key: 'script_status' | 'shot_status' | 'scene_status' | 'final_status';
-        nextStage: 'shot' | 'scene' | 'final' | null;
+        key: 'script_status' | 'shot_status' | 'final_status';
+        nextStage: 'shot' | 'final' | null;
         label: string;
       }> = [
         { key: 'script_status', nextStage: 'shot', label: '剧本' },
-        { key: 'shot_status', nextStage: 'scene', label: '镜头' },
-        { key: 'scene_status', nextStage: 'final', label: '场景' },
+        { key: 'shot_status', nextStage: 'final', label: '镜头' },
         { key: 'final_status', nextStage: null, label: '漫画' },
       ];
 
@@ -77,10 +76,9 @@ export function useWorkflowAutomation(timelineId: string) {
 /**
  * 触发下一阶段生成
  */
-async function triggerNextStage(chapterId: string, stage: 'shot' | 'scene' | 'final') {
+async function triggerNextStage(chapterId: string, stage: 'shot' | 'final') {
   const apiEndpoints = {
     shot: 'generate-shots',
-    scene: 'generate-scenes',
     final: 'generate-finals',
   };
 
@@ -104,10 +102,9 @@ async function triggerNextStage(chapterId: string, stage: 'shot' | 'scene' | 'fi
 /**
  * 获取阶段中文标签
  */
-function getStageLabel(stage: 'shot' | 'scene' | 'final'): string {
+function getStageLabel(stage: 'shot' | 'final'): string {
   const labels = {
     shot: '镜头',
-    scene: '场景图',
     final: '漫画',
   };
   return labels[stage];

@@ -1243,7 +1243,6 @@ model TimelineChapter {
   // 生成状态（每个阶段独立追踪）
   script_status  String   @default("pending") // pending, generating, completed, error
   shot_status    String   @default("pending")
-  scene_status   String   @default("pending")
   final_status   String   @default("pending")
 
   // 角色绑定（本章节出现的角色ID列表）
@@ -1255,7 +1254,6 @@ model TimelineChapter {
   // 统计
   script_segment_count Int @default(0)
   shot_count           Int @default(0)
-  scene_image_count    Int @default(0)
   final_image_count    Int @default(0)
 
   created_at DateTime @default(now()) @db.Timestamptz(6)
@@ -1326,9 +1324,6 @@ model ShotDesign {
   expression_types  String[] @default([])
   outfit_ids        String[] @default([])
 
-  // 共享场景图引用 (多个镜头可共享同一场景图)
-  shared_scene_id   String?  @db.Uuid
-
   // 生成提示词
   prompt            String   @db.Text
   negative_prompt   String?  @db.Text
@@ -1339,8 +1334,6 @@ model ShotDesign {
 
   // Relations
   script_segment ScriptSegment  @relation(fields: [script_segment_id], references: [id], onDelete: Cascade)
-  scene_images   SceneImage[]   @relation("ShotToSceneImages") // 1:N legacy relation
-  shared_scene   SceneImage?    @relation("SharedScene", fields: [shared_scene_id], references: [id], onDelete: SetNull)
   comic_panels   ComicPanelResult[]
 
   @@index([script_segment_id], map: "idx_shot_design_segment")
@@ -1349,47 +1342,11 @@ model ShotDesign {
 }
 
 // 场景基础图
-model SceneImage {
-  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  shot_design_id     String   @db.Uuid
-
-  // 场景位置标识 - 用于去重分组
-  location_key       String   @default("")
-
-  // 图像信息
-  image_url          String
-  width              Int      @default(1024)
-  height             Int      @default(768)
-
-  // 生成参数
-  generation_prompt  String   @db.Text
-  scene_id           String?  @db.Uuid
-
-  // AI 生成元数据
-  model_used         String   @default("")
-  seed               Int?
-  generation_params  Json     @default("{}")
-
-  status             String   @default("generating") // generating, completed, failed
-  error_message      String?  @db.Text
-
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-
-  // Relations
-  shot_design   ShotDesign         @relation("ShotToSceneImages", fields: [shot_design_id], references: [id], onDelete: Cascade)
-  shared_shots  ShotDesign[]       @relation("SharedScene") // 共享此场景的镜头列表
-  comic_panels  ComicPanelResult[]
-
-  @@index([shot_design_id], map: "idx_scene_image_shot")
-  @@index([location_key], map: "idx_scene_image_location")
-  @@map("scene_images")
-}
 
 // 最终漫画图
 model ComicPanelResult {
   id                         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   shot_design_id             String   @db.Uuid
-  scene_image_id             String   @db.Uuid
 
   // 最终图像
   image_url                  String
@@ -1417,10 +1374,8 @@ model ComicPanelResult {
 
   // Relations
   shot_design  ShotDesign @relation(fields: [shot_design_id], references: [id], onDelete: Cascade)
-  scene_image  SceneImage @relation(fields: [scene_image_id], references: [id], onDelete: Cascade)
 
   @@index([shot_design_id], map: "idx_comic_panel_shot")
-  @@index([scene_image_id], map: "idx_comic_panel_scene")
   @@map("comic_panel_results")
 }
 

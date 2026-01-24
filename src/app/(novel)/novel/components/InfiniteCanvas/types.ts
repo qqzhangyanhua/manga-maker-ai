@@ -39,11 +39,9 @@ export interface TimelineChapter {
   title: string;
   script_status: GenerationStatus;
   shot_status: GenerationStatus;
-  scene_status: GenerationStatus;
   final_status: GenerationStatus;
   script_segment_count: number;
   shot_count: number;
-  scene_image_count: number;
   final_image_count: number;
   character_ids: string[];
   created_at: string;
@@ -58,7 +56,6 @@ export interface ChapterSummary {
   chapter_number: number;
   script_status: GenerationStatus;
   shot_status: GenerationStatus;
-  scene_status: GenerationStatus;
   final_status: GenerationStatus;
 }
 

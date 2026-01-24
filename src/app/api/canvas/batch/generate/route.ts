@@ -22,14 +22,14 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { chapterIds, stage } = body as {
       chapterIds: string[];
-      stage: 'script' | 'shot' | 'scene' | 'final';
+      stage: 'script' | 'shot' | 'final';
     };
 
     if (!chapterIds || !Array.isArray(chapterIds) || chapterIds.length === 0) {
       return NextResponse.json({ error: '章节ID列表不能为空' }, { status: 400 });
     }
 
-    if (!['script', 'shot', 'scene', 'final'].includes(stage)) {
+    if (!['script', 'shot', 'final'].includes(stage)) {
       return NextResponse.json({ error: '无效的生成阶段' }, { status: 400 });
     }
 
@@ -44,7 +44,6 @@ export async function POST(request: NextRequest) {
         timeline_id: true,
         script_status: true,
         shot_status: true,
-        scene_status: true,
         final_status: true,
       },
     });
@@ -78,7 +77,6 @@ export async function POST(request: NextRequest) {
     const apiEndpoints: Record<typeof stage, string> = {
       script: 'generate-script',
       shot: 'generate-shots',
-      scene: 'generate-scenes',
       final: 'generate-finals',
     };
 

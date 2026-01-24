@@ -1,10 +1,10 @@
 /**
  * 灵感模式对话框 - AI 对话式故事构建
- * 优化版本：生成失败可重试、算力消耗提示
+ * 优化版本：上一步功能、会话恢复、生成失败可重试
  */
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -24,10 +24,11 @@ import {
   RefreshCw,
   AlertTriangle,
   Zap,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { parseErrorFromResponse, fetchWithTimeout } from "@/lib/error-utils";
-import type { InspirationFlowState, StoryDraft } from "./types";
+import type { InspirationFlowState, StoryDraft, SavedSessionData, QuestionHistoryItem } from "./types";
 import {
   WelcomeView,
   QuestionView,
@@ -36,8 +37,13 @@ import {
 } from "./inspiration";
 import { novelTheme } from "../theme";
 
-// 算力消耗估算（可从后端配置获取）
+// 算力消耗估算
 const ESTIMATED_CREDITS = 50;
+
+// localStorage 键名
+const SESSION_STORAGE_KEY = "inspiration_session";
+// 会话过期时间（毫秒）- 与后端保持一致 30 分钟
+const SESSION_EXPIRE_MS = 30 * 60 * 1000;
 
 interface InspirationModeDialogProps {
   isOpen: boolean;
@@ -52,12 +58,116 @@ export function InspirationModeDialog({
 }: InspirationModeDialogProps) {
   const [state, setState] = useState<InspirationFlowState>({ stage: "welcome" });
   const [isLoading, setIsLoading] = useState(false);
+  const [hasSavedSession, setHasSavedSession] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // 保存会话到 localStorage
+  const saveSession = useCallback(() => {
+    if (state.stage === "welcome") return;
+
+    const sessionData: SavedSessionData = {
+      sessionId: state.sessionId,
+      stage: state.stage,
+      questionsHistory: state.questionsHistory,
+      answers: state.answers,
+      currentQuestion: state.stage === "questioning" ? state.question : undefined,
+      currentAnswer: state.stage === "questioning" ? state.currentAnswer : undefined,
+      savedAt: Date.now(),
+    };
+    
+    try {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionData));
+    } catch (e) {
+      console.warn("保存会话失败:", e);
+    }
+  }, [state]);
+
+  // 检查是否有可恢复的会话
+  const checkSavedSession = useCallback(() => {
+    try {
+      const saved = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (!saved) {
+        setHasSavedSession(false);
+        return;
+      }
+      
+      const data: SavedSessionData = JSON.parse(saved);
+      // 检查是否过期
+      if (Date.now() - data.savedAt > SESSION_EXPIRE_MS) {
+        localStorage.removeItem(SESSION_STORAGE_KEY);
+        setHasSavedSession(false);
+        return;
+      }
+      
+      // 只有在问答阶段才显示恢复选项
+      if (data.stage === "questioning" && data.questionsHistory.length > 0) {
+        setHasSavedSession(true);
+      } else {
+        setHasSavedSession(false);
+      }
+    } catch (e) {
+      setHasSavedSession(false);
+    }
+  }, []);
+
+  // 恢复会话
+  const restoreSession = useCallback(() => {
+    try {
+      const saved = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (!saved) {
+        toast.error("未找到可恢复的会话");
+        return;
+      }
+      
+      const data: SavedSessionData = JSON.parse(saved);
+      
+      if (data.stage === "questioning" && data.currentQuestion) {
+        setState({
+          stage: "questioning",
+          sessionId: data.sessionId,
+          question: data.currentQuestion,
+          currentAnswer: data.currentAnswer || "",
+          answers: data.answers,
+          questionsHistory: data.questionsHistory,
+        });
+        toast.success("已恢复上次的会话");
+      } else {
+        toast.error("会话数据不完整，请重新开始");
+        localStorage.removeItem(SESSION_STORAGE_KEY);
+      }
+    } catch (e) {
+      toast.error("恢复会话失败");
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+    }
+    setHasSavedSession(false);
+  }, []);
+
+  // 清除保存的会话
+  const clearSavedSession = useCallback(() => {
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    setHasSavedSession(false);
+  }, []);
+
+  // 对话框打开时检查是否有保存的会话
+  useEffect(() => {
+    if (isOpen && state.stage === "welcome") {
+      checkSavedSession();
+    }
+  }, [isOpen, state.stage, checkSavedSession]);
+
+  // 状态变化时保存会话（防抖）
+  useEffect(() => {
+    if (state.stage === "questioning") {
+      const timer = setTimeout(saveSession, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [state, saveSession]);
 
   // 开始灵感模式
   async function handleStart() {
     setIsLoading(true);
     abortControllerRef.current = new AbortController();
+    clearSavedSession();
 
     try {
       const response = await fetchWithTimeout(
@@ -77,6 +187,7 @@ export function InspirationModeDialog({
           question: data,
           currentAnswer: "",
           answers: {},
+          questionsHistory: [], // 初始化问题历史
         });
       } else {
         const errorMessage = await parseErrorFromResponse(response, "启动失败");
@@ -114,6 +225,7 @@ export function InspirationModeDialog({
           body: JSON.stringify({
             session_id: state.sessionId,
             answer: state.currentAnswer,
+            step: state.question.step,
           }),
           signal: abortControllerRef.current.signal,
         },
@@ -122,6 +234,13 @@ export function InspirationModeDialog({
 
       if (response.ok) {
         const data = await response.json();
+
+        // 保存当前问题到历史
+        const newHistoryItem: QuestionHistoryItem = {
+          question: state.question,
+          answer: state.currentAnswer,
+        };
+        const updatedHistory = [...state.questionsHistory, newHistoryItem];
 
         // 保存答案
         const updatedAnswers = {
@@ -135,9 +254,11 @@ export function InspirationModeDialog({
             stage: "generating",
             sessionId: state.sessionId,
             answers: updatedAnswers,
+            questionsHistory: updatedHistory,
           });
           setIsLoading(false);
-          await handleGenerate(state.sessionId, updatedAnswers);
+          clearSavedSession(); // 开始生成后清除本地缓存
+          await handleGenerate(state.sessionId, updatedAnswers, updatedHistory);
         } else {
           setState({
             stage: "questioning",
@@ -145,8 +266,11 @@ export function InspirationModeDialog({
             question: data,
             currentAnswer: "",
             answers: updatedAnswers,
+            questionsHistory: updatedHistory,
           });
         }
+      } else if (response.status === 409) {
+        toast.error("页面状态已过期，请刷新页面后重试");
       } else {
         const errorMessage = await parseErrorFromResponse(response, "提交失败");
         toast.error(errorMessage);
@@ -162,17 +286,28 @@ export function InspirationModeDialog({
     }
   }
 
-  // 返回上一步
+  // 返回上一步（前端缓存实现，不依赖后端）
   function handlePrevious() {
     if (state.stage !== "questioning") return;
 
-    if (state.question.step <= 1) {
+    if (state.questionsHistory.length === 0) {
       toast.info("已经是第一个问题了");
       return;
     }
 
-    // 注意：这里需要后端支持获取上一个问题，或者前端缓存所有问题
-    toast.info("返回上一步功能需要后端支持，暂未实现");
+    // 从历史中取出最后一个问题
+    const newHistory = [...state.questionsHistory];
+    const lastItem = newHistory.pop()!;
+
+    // 恢复到上一个问题
+    setState({
+      ...state,
+      question: lastItem.question,
+      currentAnswer: lastItem.answer,
+      questionsHistory: newHistory,
+    });
+
+    toast.info("已返回上一步");
   }
 
   // 更新当前答案
@@ -183,7 +318,11 @@ export function InspirationModeDialog({
   }
 
   // 生成故事雏形
-  async function handleGenerate(sessionId: string, answers: Record<number, string>) {
+  async function handleGenerate(
+    sessionId: string,
+    answers: Record<number, string>,
+    questionsHistory: QuestionHistoryItem[]
+  ) {
     abortControllerRef.current = new AbortController();
 
     try {
@@ -195,7 +334,7 @@ export function InspirationModeDialog({
           body: JSON.stringify({ session_id: sessionId }),
           signal: abortControllerRef.current.signal,
         },
-        90000 // 90秒超时，给 AI 足够时间
+        90000
       );
 
       if (response.ok) {
@@ -206,15 +345,16 @@ export function InspirationModeDialog({
           draft: data,
           selectedTitle: data.title_suggestions[0],
           answers: answers,
+          questionsHistory: questionsHistory,
         });
         toast.success("故事雏形生成成功");
       } else {
         const errorMessage = await parseErrorFromResponse(response, "生成失败");
-        // 生成失败，保留答案，进入失败状态
         setState({
           stage: "generate_failed",
           sessionId: sessionId,
           answers: answers,
+          questionsHistory: questionsHistory,
           errorMessage: errorMessage,
         });
         toast.error(errorMessage);
@@ -223,11 +363,11 @@ export function InspirationModeDialog({
       if (error instanceof Error && error.name !== "AbortError") {
         console.error("生成故事雏形失败:", error);
         const errorMsg = error.message || "生成失败，请重试";
-        // 生成失败，保留答案，进入失败状态
         setState({
           stage: "generate_failed",
           sessionId: sessionId,
           answers: answers,
+          questionsHistory: questionsHistory,
           errorMessage: errorMsg,
         });
         toast.error(errorMsg);
@@ -245,9 +385,10 @@ export function InspirationModeDialog({
       stage: "generating",
       sessionId: state.sessionId,
       answers: state.answers,
+      questionsHistory: state.questionsHistory,
     });
 
-    await handleGenerate(state.sessionId, state.answers);
+    await handleGenerate(state.sessionId, state.answers, state.questionsHistory);
   }
 
   // 选择标题
@@ -276,8 +417,8 @@ export function InspirationModeDialog({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            session_id: state.sessionId,
             selected_title: state.selectedTitle,
-            draft: state.draft,
             genre: state.answers[1] || "",
           }),
           signal: abortControllerRef.current.signal,
@@ -288,6 +429,7 @@ export function InspirationModeDialog({
       if (response.ok) {
         const data = await response.json();
         toast.success("项目创建成功");
+        clearSavedSession();
         onProjectCreated(data.project_id);
         handleClose();
       } else {
@@ -317,12 +459,12 @@ export function InspirationModeDialog({
 
   // 重新开始
   function handleRestart() {
+    clearSavedSession();
     setState({ stage: "welcome" });
   }
 
   // 关闭对话框
   function handleClose() {
-    // 取消正在进行的请求
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -353,11 +495,34 @@ export function InspirationModeDialog({
     );
   }
 
+  // 渲染欢迎界面（含会话恢复提示）
+  function renderWelcomeContent() {
+    return (
+      <div className="space-y-4">
+        <WelcomeView onStart={handleStart} isLoading={isLoading} />
+        
+        {hasSavedSession && (
+          <div className="flex items-center justify-center gap-2 pt-2 border-t">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={restoreSession}
+              className="text-purple-600 hover:text-purple-700"
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              恢复上次未完成的会话
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // 渲染内容
   function renderContent() {
     switch (state.stage) {
       case "welcome":
-        return <WelcomeView onStart={handleStart} isLoading={isLoading} />;
+        return renderWelcomeContent();
       case "questioning":
         return (
           <QuestionView
@@ -402,7 +567,7 @@ export function InspirationModeDialog({
               <Button variant="outline" onClick={handleClose} disabled={isLoading}>
                 取消
               </Button>
-              {state.question.step > 1 && (
+              {state.questionsHistory.length > 0 && (
                 <Button
                   variant="outline"
                   onClick={handlePrevious}

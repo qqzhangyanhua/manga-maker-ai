@@ -58,18 +58,31 @@ export function AddChapterDialog({
       const generatedChapters = await chaptersResponse.json();
 
       // 合并 outline 和实际生成的章节内容
-      const mergedChapters = outlines.map((outline: ChapterOutline) => {
-        const chapterNum = outline.chapterNumber || outline.chapter_number;
-        const generatedChapter = generatedChapters.find(
-          (gc: { chapter_number: number; content: string }) => gc.chapter_number === chapterNum
-        );
+      let mergedChapters: ChapterOutline[];
+      
+      if (outlines.length > 0) {
+        // 以 outlines 为基础合并
+        mergedChapters = outlines.map((outline: ChapterOutline) => {
+          const chapterNum = outline.chapterNumber || outline.chapter_number;
+          const generatedChapter = generatedChapters.find(
+            (gc: { chapter_number: number; content: string }) => gc.chapter_number === chapterNum
+          );
 
-        return {
-          ...outline,
-          chapter_number: chapterNum,
-          content: generatedChapter?.content || outline.content || "",
-        };
-      });
+          return {
+            ...outline,
+            chapter_number: chapterNum,
+            content: generatedChapter?.content || outline.content || "",
+          };
+        });
+      } else {
+        // outlines 为空时，使用 generatedChapters
+        mergedChapters = generatedChapters.map((gc: { chapter_number: number; title: string; content: string; outline?: string }) => ({
+          chapter_number: gc.chapter_number,
+          title: gc.title,
+          content: gc.content || "",
+          outline: gc.outline,
+        }));
+      }
 
       console.log("[AddChapterDialog] 加载章节成功", {
         projectId: novelProjectId,
@@ -122,16 +135,6 @@ export function AddChapterDialog({
       toast({
         title: "错误",
         description: "未找到选中的章节",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // 检查是否有内容
-    if (!selectedChapter.content || selectedChapter.content.trim().length === 0) {
-      toast({
-        title: "章节内容为空",
-        description: "该章节还没有生成内容，请先在小说管理页面生成章节内容",
         variant: "destructive",
       });
       return;
@@ -237,26 +240,18 @@ export function AddChapterDialog({
                   chapters.map((chapter, index) => {
                     const chapterNum = chapter.chapterNumber || chapter.chapter_number || index + 1;
                     const wordCount = getWordCount(chapter.content);
-                    const hasContent = wordCount > 0;
 
                     return (
                       <SelectItem
                         key={chapterNum}
                         value={String(chapterNum)}
                         className="hover:bg-zinc-800 focus:bg-zinc-800 focus:text-purple-400"
-                        disabled={!hasContent}
                       >
                         <div className="flex items-center justify-between w-full">
-                          <span className={!hasContent ? "text-zinc-600" : ""}>
-                            第{chapterNum}章: {chapter.title}
-                          </span>
-                          {hasContent ? (
+                          <span>第{chapterNum}章: {chapter.title}</span>
+                          {wordCount > 0 && (
                             <span className="text-xs text-gray-500 ml-2">
                               ({wordCount.toLocaleString()}字)
-                            </span>
-                          ) : (
-                            <span className="text-xs text-yellow-600 ml-2">
-                              (未生成)
                             </span>
                           )}
                         </div>

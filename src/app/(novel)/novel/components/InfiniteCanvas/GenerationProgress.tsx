@@ -23,21 +23,19 @@ interface GenerationProgressProps {
 interface GeneratingChapter {
   chapterId: string;
   chapterNumber: number;
-  stage: "script" | "shot" | "scene" | "final";
+  stage: "script" | "shot" | "final";
   stageName: string;
 }
 
 const STAGE_NAMES = {
   script: "剧本分析",
   shot: "镜头规划",
-  scene: "场景生成",
   final: "漫画合成",
 } as const;
 
 const STAGE_COLORS = {
   script: "from-purple-500 to-purple-600",
   shot: "from-blue-500 to-blue-600",
-  scene: "from-green-500 to-green-600",
   final: "from-pink-500 to-pink-600",
 } as const;
 
@@ -68,14 +66,6 @@ export function GenerationProgress({
           chapterNumber: chapter.chapter_number,
           stage: "shot",
           stageName: STAGE_NAMES.shot,
-        });
-      }
-      if (chapter.scene_status === "generating") {
-        generating.push({
-          chapterId: chapter.id,
-          chapterNumber: chapter.chapter_number,
-          stage: "scene",
-          stageName: STAGE_NAMES.scene,
         });
       }
       if (chapter.final_status === "generating") {
@@ -112,7 +102,7 @@ export function GenerationProgress({
         { queryKey: ["timeline", timeline.id] },
         (old: unknown) => {
           if (!old || typeof old !== "object") return old;
-          const data = old as { chapters?: Array<{ id: string; script_status: string; shot_status: string; scene_status: string; final_status: string }> };
+          const data = old as { chapters?: Array<{ id: string; script_status: string; shot_status: string; final_status: string }> };
           if (!data.chapters) return old;
           return {
             ...data,
@@ -121,7 +111,6 @@ export function GenerationProgress({
               const updated = { ...ch };
               if (result.cancelledStages?.includes("script")) updated.script_status = "pending";
               if (result.cancelledStages?.includes("shot")) updated.shot_status = "pending";
-              if (result.cancelledStages?.includes("scene")) updated.scene_status = "pending";
               if (result.cancelledStages?.includes("final")) updated.final_status = "pending";
               return updated;
             }),

@@ -17,7 +17,7 @@ import { prisma } from "@/lib/db";
 /**
  * 图片类型枚举
  */
-type ImageType = "shot" | "scene" | "comic" | "nine_grid";
+type ImageType = "shot" | "comic" | "nine_grid";
 
 /**
  * 统一图片格式
@@ -164,59 +164,7 @@ export async function GET(
       }
     }
 
-    // 3. 查询场景图 (SceneImage)
-    if (!type || type === "all" || type === "scene") {
-      const sceneImages = await prisma.sceneImage.findMany({
-        where: {
-          shot_design: {
-            script_segment: {
-              timeline_chapter_id: chapterIdFilter
-                ? { equals: chapterIdFilter }
-                : { in: chapterIds },
-            },
-          },
-          status: "completed",
-        },
-        select: {
-          id: true,
-          image_url: true,
-          generation_prompt: true,
-          created_at: true,
-          shot_design: {
-            select: {
-              shot_order: true,
-              script_segment: {
-                select: {
-                  timeline_chapter_id: true,
-                },
-              },
-            },
-          },
-        },
-        orderBy: [{ created_at: "desc" }],
-      });
-
-      for (const scene of sceneImages) {
-        const chapter = chapterMap.get(
-          scene.shot_design.script_segment.timeline_chapter_id
-        );
-        if (chapter) {
-          allImages.push({
-            id: scene.id,
-            type: "scene",
-            imageUrl: scene.image_url,
-            chapterNumber: chapter.chapter_number,
-            shotOrder: scene.shot_design.shot_order,
-            createdAt: scene.created_at.toISOString(),
-            metadata: {
-              prompt: scene.generation_prompt || undefined,
-            },
-          });
-        }
-      }
-    }
-
-    // 4. 查询漫画图 (ComicPanelResult)
+    // 3. 查询漫画图 (ComicPanelResult)
     if (!type || type === "all" || type === "comic") {
       const comicPanels = await prisma.comicPanelResult.findMany({
         where: {
@@ -268,7 +216,7 @@ export async function GET(
       }
     }
 
-    // 5. 查询九宫格 (NineGridImage)
+    // 4. 查询九宫格 (NineGridImage)
     if (!type || type === "all" || type === "nine_grid") {
       // 获取 chapter_id 列表（注意：NineGridImage 使用的是 NovelChapter 的 ID）
       const novelChapterIds = allChapters.map((c) => c.chapter_id).filter(Boolean) as string[];
@@ -352,12 +300,12 @@ export async function GET(
       }
     }
 
-    // 6. 按时间排序
+    // 5. 按时间排序
     allImages.sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
-    // 7. 分页
+    // 6. 分页
     const total = allImages.length;
     const paginatedImages = allImages.slice(offset, offset + limit);
     const hasMore = offset + limit < total;

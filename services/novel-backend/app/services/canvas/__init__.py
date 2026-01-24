@@ -5,7 +5,6 @@ Canvas Services Package
 
 from .script_analyzer import ScriptAnalyzer, ScriptSegmentOutput
 from .shot_planner import ShotPlanner, ShotDesignOutput
-from .scene_composer import SceneComposer, SceneImageOutput, ShotInput
 from .comic_generator import ComicGenerator, ComicPanelOutput, SceneInput
 
 __all__ = [
@@ -13,9 +12,6 @@ __all__ = [
     "ScriptSegmentOutput",
     "ShotPlanner",
     "ShotDesignOutput",
-    "SceneComposer",
-    "SceneImageOutput",
-    "ShotInput",
     "ComicGenerator",
     "ComicPanelOutput",
     "SceneInput",

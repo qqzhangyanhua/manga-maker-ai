@@ -24,8 +24,6 @@ function getTypeIcon(type: ImageType) {
   switch (type) {
     case "shot":
       return Camera;
-    case "scene":
-      return Layers;
     case "comic":
       return ImageIcon;
     case "nine_grid":

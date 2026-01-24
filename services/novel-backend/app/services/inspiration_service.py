@@ -3,16 +3,44 @@
 支持 AI 动态生成问题，根据用户回答智能调整后续问题
 """
 from openai import AsyncOpenAI
-from typing import Optional, Dict, List
+from typing import Optional, Dict
 from uuid import uuid4
-from datetime import datetime
+from datetime import datetime, timedelta
 from ..config import settings
 from ..schemas.inspiration import StoryDraft
 import logging
 import json
 import re
+import threading
 
 logger = logging.getLogger(__name__)
+
+
+# ========== OpenAI Client 单例 ==========
+_openai_client: Optional[AsyncOpenAI] = None
+_client_lock = threading.Lock()
+
+
+def get_openai_client() -> AsyncOpenAI:
+    """获取 OpenAI Client 单例，避免重复初始化"""
+    global _openai_client
+    if _openai_client is None:
+        with _client_lock:
+            if _openai_client is None:
+                _openai_client = AsyncOpenAI(
+                    api_key=settings.OPENAI_API_KEY,
+                    base_url=settings.OPENAI_API_BASE,
+                )
+    return _openai_client
+
+
+# ========== Session 存储与管理 ==========
+_sessions: Dict[str, Dict] = {}
+_sessions_lock = threading.Lock()
+
+# Session 配置
+SESSION_TTL_MINUTES = 30  # Session 过期时间（分钟）
+MAX_SESSIONS = 1000  # 最大会话数
 
 
 class InspirationService:
@@ -33,15 +61,60 @@ class InspirationService:
     # 最小问题数（确保收集足够信息）
     MIN_QUESTIONS = 4
 
-    # 临时存储会话（生产环境应使用 Redis）
-    _sessions: Dict[str, Dict] = {}
-
     def __init__(self):
-        self.client = AsyncOpenAI(
-            api_key=settings.OPENAI_API_KEY,
-            base_url=settings.OPENAI_API_BASE,
-        )
+        # 使用模块级单例 client
+        self.client = get_openai_client()
         self.model = settings.OPENAI_MODEL
+
+    def _cleanup_expired_sessions(self):
+        """清理过期会话，并在超出最大数量时按最老淘汰"""
+        now = datetime.now()
+        expired_ids = []
+        
+        with _sessions_lock:
+            # 1. 清理过期会话
+            for sid, session in list(_sessions.items()):
+                expires_at = session.get("expires_at")
+                if expires_at and now > expires_at:
+                    expired_ids.append(sid)
+            
+            for sid in expired_ids:
+                del _sessions[sid]
+            
+            if expired_ids:
+                logger.info(f"清理了 {len(expired_ids)} 个过期会话")
+            
+            # 2. 超出最大数量时，按创建时间淘汰最老的
+            if len(_sessions) > MAX_SESSIONS:
+                sorted_sessions = sorted(
+                    _sessions.items(),
+                    key=lambda x: x[1].get("created_at", ""),
+                )
+                excess_count = len(_sessions) - MAX_SESSIONS
+                for sid, _ in sorted_sessions[:excess_count]:
+                    del _sessions[sid]
+                logger.info(f"淘汰了 {excess_count} 个最老会话")
+
+    def _get_session(self, session_id: str) -> Optional[Dict]:
+        """获取会话，同时检查是否过期"""
+        self._cleanup_expired_sessions()
+        
+        with _sessions_lock:
+            session = _sessions.get(session_id)
+            if session:
+                # 检查是否过期
+                expires_at = session.get("expires_at")
+                if expires_at and datetime.now() > expires_at:
+                    del _sessions[session_id]
+                    return None
+                # 续期：每次访问延长过期时间
+                session["expires_at"] = datetime.now() + timedelta(minutes=SESSION_TTL_MINUTES)
+            return session
+
+    def _set_session(self, session_id: str, session: Dict):
+        """设置会话"""
+        with _sessions_lock:
+            _sessions[session_id] = session
 
     def start_session(self, user_id: str) -> dict:
         """
@@ -50,17 +123,23 @@ class InspirationService:
         Returns:
             第一个问题的数据
         """
+        # 先清理过期会话
+        self._cleanup_expired_sessions()
+        
         session_id = str(uuid4())
+        now = datetime.now()
 
-        # 创建会话
-        self._sessions[session_id] = {
+        # 创建会话（带过期时间）
+        session = {
             "user_id": user_id,
             "current_step": 1,
             "answers": {},
             "questions_history": [self.FIRST_QUESTION],
             "is_complete": False,
-            "created_at": datetime.now().isoformat()
+            "created_at": now.isoformat(),
+            "expires_at": now + timedelta(minutes=SESSION_TTL_MINUTES),
         }
+        self._set_session(session_id, session)
 
         # 返回第一个问题
         return {
@@ -78,6 +157,8 @@ class InspirationService:
     async def submit_answer_and_next(self, session_id: str, answer: str) -> dict:
         """
         提交答案并获取 AI 生成的下一个问题
+        
+        优化：合并 LLM 调用，一次请求同时判断是否结束 + 生成下一个问题
 
         Args:
             session_id: 会话 ID
@@ -86,20 +167,18 @@ class InspirationService:
         Returns:
             NextQuestionData (is_last=False) 或 CompletedData (is_last=True)
         """
-        # 验证会话
-        if session_id not in self._sessions:
+        # 验证会话（使用带过期检查的方法）
+        session = self._get_session(session_id)
+        if session is None:
             raise ValueError("会话不存在或已过期")
 
-        session = self._sessions[session_id]
         current_step = session["current_step"]
 
         # 保存答案
         session["answers"][current_step] = answer
 
-        # 检查是否应该结束问答
-        should_complete = await self._should_complete_questioning(session)
-
-        if should_complete:
+        # 达到最大问题数，强制结束
+        if current_step >= self.MAX_QUESTIONS:
             session["is_complete"] = True
             return {
                 "step": current_step,
@@ -109,14 +188,42 @@ class InspirationService:
                 "completed_message": "信息收集完成，可以生成故事雏形了"
             }
 
-        # AI 生成下一个问题
-        next_question = await self._generate_next_question(session)
+        # 未达到最小问题数，直接生成下一个问题（不需要判断是否结束）
+        if current_step < self.MIN_QUESTIONS:
+            next_question = await self._generate_next_question_only(session)
+            session["current_step"] = current_step + 1
+            session["questions_history"].append(next_question)
+            progress = round(current_step / self.MAX_QUESTIONS, 2)
+            
+            return {
+                "step": current_step + 1,
+                "question": next_question["question"],
+                "type": next_question["type"],
+                "options": next_question.get("options"),
+                "hint": next_question["hint"],
+                "suggestions": next_question.get("suggestions", []),
+                "is_last": False,
+                "total_steps": self.MAX_QUESTIONS,
+                "progress": progress
+            }
 
-        # 更新会话状态
+        # 达到最小问题数后，合并调用：判断是否结束 + 生成下一个问题
+        result = await self._check_and_generate_next(session)
+
+        if result["should_complete"]:
+            session["is_complete"] = True
+            return {
+                "step": current_step,
+                "is_last": True,
+                "total_steps": current_step,
+                "progress": 1.0,
+                "completed_message": "信息收集完成，可以生成故事雏形了"
+            }
+
+        # 使用返回的下一个问题
+        next_question = result["next_question"]
         session["current_step"] = current_step + 1
         session["questions_history"].append(next_question)
-
-        # 计算进度
         progress = round(current_step / self.MAX_QUESTIONS, 2)
 
         return {
@@ -131,68 +238,124 @@ class InspirationService:
             "progress": progress
         }
 
-    async def _should_complete_questioning(self, session: dict) -> bool:
+    async def _check_and_generate_next(self, session: dict) -> dict:
         """
-        判断是否应该结束问答
-
-        条件：
-        1. 达到最大问题数
-        2. 已收集足够信息（至少 MIN_QUESTIONS 个问题）且 AI 判断信息充足
+        合并 LLM 调用：同时判断是否结束 + 生成下一个问题
+        
+        Returns:
+            {
+                "should_complete": bool,
+                "next_question": {...}  # 当 should_complete=False 时有效
+            }
         """
-        current_step = session["current_step"]
-
-        # 达到最大问题数，强制结束
-        if current_step >= self.MAX_QUESTIONS:
-            return True
-
-        # 未达到最小问题数，继续
-        if current_step < self.MIN_QUESTIONS:
-            return False
-
-        # 让 AI 判断是否信息充足
-        return await self._ai_check_info_sufficient(session)
-
-    async def _ai_check_info_sufficient(self, session: dict) -> bool:
-        """让 AI 判断当前收集的信息是否足够生成故事"""
         answers = session["answers"]
         questions_history = session["questions_history"]
+        current_step = session["current_step"]
 
         # 构建对话历史
         qa_pairs = []
         for i, q in enumerate(questions_history, 1):
             if i in answers:
-                qa_pairs.append(f"Q{i}: {q['question']}\nA{i}: {answers[i]}")
+                qa_pairs.append(f"问题{i}: {q['question']}\n回答{i}: {answers[i]}")
 
-        prompt = f"""你是一个故事创作助手。根据以下用户的回答，判断是否已经收集了足够的信息来生成一个完整的故事框架。
+        system_prompt = """你是一个专业的故事创作引导助手。你需要完成两个任务：
 
-已收集的信息：
+1. 判断当前收集的信息是否足够生成故事框架
+2. 如果信息不足，生成下一个问题
+
+判断信息充足的标准：
+- 是否明确了故事类型/风格
+- 是否有主角的基本设定
+- 是否有故事的核心冲突或主题
+- 是否有基本的背景设定
+
+生成问题的原则：
+- 问题要有针对性，基于用户之前的回答深入挖掘
+- 避免重复已经问过的内容
+- 优先收集：故事类型、主角设定、核心冲突、背景设定、情节走向
+- 问题要简洁明了，易于回答
+- 提供 4-6 个推荐选项
+
+**重要：必须输出纯 JSON 格式，不要包含任何其他文字。**
+
+JSON 格式：
+{
+  "should_complete": true/false,
+  "reason": "判断理由（简短）",
+  "next_question": {
+    "question": "问题内容",
+    "type": "choice" 或 "text",
+    "options": ["选项1", "选项2", ...],
+    "hint": "简短提示",
+    "suggestions": ["推荐1", "推荐2", ...]
+  }
+}
+
+说明：
+- should_complete=true 时，next_question 可以为 null
+- type="choice": 用户必须从 options 中选择
+- type="text": 用户可以自由输入，suggestions 提供快捷选项"""
+
+        user_prompt = f"""当前是第 {current_step} 个问题，最多 {self.MAX_QUESTIONS} 个。
+
+已有的对话：
 {chr(10).join(qa_pairs)}
 
-判断标准：
-1. 是否明确了故事类型/风格
-2. 是否有主角的基本设定
-3. 是否有故事的核心冲突或主题
-4. 是否有基本的背景设定
-
-请只回答 "YES" 或 "NO"：
-- YES: 信息充足，可以开始生成故事
-- NO: 还需要更多信息"""
+请判断信息是否充足，如果不充足则生成下一个问题。"""
 
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.1,
-                max_tokens=10
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.7,
+                max_tokens=500,
+                response_format={"type": "json_object"}
             )
 
-            result = response.choices[0].message.content.strip().upper()
-            return "YES" in result
+            content = response.choices[0].message.content
+            if not content:
+                raise ValueError("LLM 返回空响应")
+
+            # 清理并解析 JSON
+            content = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', content)
+            json_match = re.search(r'\{.*\}', content, re.DOTALL)
+            if json_match:
+                content = json_match.group(0)
+
+            data = json.loads(content)
+            should_complete = data.get("should_complete", False)
+
+            if should_complete:
+                return {"should_complete": True, "next_question": None}
+
+            # 解析下一个问题
+            next_q = data.get("next_question", {})
+            next_question = {
+                "question": next_q.get("question", "请继续描述你的故事想法"),
+                "type": next_q.get("type", "text"),
+                "options": next_q.get("options", []),
+                "hint": next_q.get("hint", "请根据你的想法回答"),
+                "suggestions": next_q.get("suggestions", [])
+            }
+
+            return {"should_complete": False, "next_question": next_question}
 
         except Exception as e:
-            logger.error(f"AI 判断信息充足性失败: {e}")
-            # 出错时默认继续提问
-            return False
+            logger.error(f"合并 LLM 调用失败: {e}")
+            # 降级：默认继续提问，使用备用问题
+            fallback = self._get_fallback_question(current_step + 1, answers)
+            return {"should_complete": False, "next_question": fallback}
+
+    async def _generate_next_question_only(self, session: dict) -> dict:
+        """
+        仅生成下一个问题（用于未达到 MIN_QUESTIONS 时）
+        
+        与原 _generate_next_question 逻辑相同，但不判断是否结束
+        """
+        return await self._generate_next_question(session)
 
     async def _generate_next_question(self, session: dict) -> dict:
         """
@@ -386,11 +549,11 @@ JSON 格式：
         Returns:
             StoryDraft 对象的 dict 表示
         """
-        # 验证会话
-        if session_id not in self._sessions:
+        # 验证会话（使用带过期检查的方法）
+        session = self._get_session(session_id)
+        if session is None:
             raise ValueError("会话不存在或已过期")
 
-        session = self._sessions[session_id]
         answers = session["answers"]
 
         # 构建用户输入摘要
@@ -503,7 +666,8 @@ JSON 格式如下：
             session["generated_draft"] = result
 
             logger.info(f"成功生成故事雏形，会话 ID: {session_id}")
-            logger.info(f"当前所有会话: {list(self._sessions.keys())}")
+            with _sessions_lock:
+                logger.info(f"当前所有会话数: {len(_sessions)}")
             logger.info(f"会话中是否有 generated_draft: {'generated_draft' in session}")
             return result
 
@@ -512,10 +676,11 @@ JSON 格式如下：
             raise Exception(f"生成故事雏形失败: {str(e)}")
     
     def get_session(self, session_id: str) -> Optional[dict]:
-        """获取会话信息"""
-        return self._sessions.get(session_id)
+        """获取会话信息（使用带过期检查的方法）"""
+        return self._get_session(session_id)
     
     def clear_session(self, session_id: str):
         """清除会话"""
-        if session_id in self._sessions:
-            del self._sessions[session_id]
+        with _sessions_lock:
+            if session_id in _sessions:
+                del _sessions[session_id]

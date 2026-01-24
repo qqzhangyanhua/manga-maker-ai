@@ -5,14 +5,13 @@
 /**
  * 图片类型枚举
  */
-export type ImageType = "shot" | "scene" | "comic" | "nine_grid";
+export type ImageType = "shot" | "comic" | "nine_grid";
 
 /**
  * 图片类型标签
  */
 export const IMAGE_TYPE_LABELS: Record<ImageType, string> = {
   shot: "镜头图",
-  scene: "场景图",
   comic: "漫画图",
   nine_grid: "九宫格",
 };
@@ -22,7 +21,6 @@ export const IMAGE_TYPE_LABELS: Record<ImageType, string> = {
  */
 export const IMAGE_TYPE_COLORS: Record<ImageType, string> = {
   shot: "bg-blue-900/30 text-blue-300 border-blue-800/50",
-  scene: "bg-green-900/30 text-green-300 border-green-800/50",
   comic: "bg-purple-900/30 text-purple-300 border-purple-800/50",
   nine_grid: "bg-amber-900/30 text-amber-300 border-amber-800/50",
 };

@@ -15,8 +15,6 @@ from datetime import datetime
 from ..services.canvas import (
     ScriptAnalyzer,
     ShotPlanner,
-    SceneComposer,
-    ShotInput,
     ComicGenerator,
     SceneInput,
 )
@@ -38,13 +36,6 @@ class PlanShotsRequest(BaseModel):
     scene_description: str
     character_actions: str
     available_characters: Optional[List[dict]] = None
-
-
-class GenerateScenesRequest(BaseModel):
-    """生成场景图请求"""
-    shots: List[ShotInput]
-    style: Optional[str] = None
-    pure_scene_mode: bool = True
 
 
 class GenerateFinalsRequest(BaseModel):
@@ -106,28 +97,6 @@ async def plan_shots(request: PlanShotsRequest):
         }
     except Exception as e:
         logger.error(f"镜头规划失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/generate-scenes")
-async def generate_scenes(request: GenerateScenesRequest):
-    """
-    为镜头列表生成场景图
-    """
-    try:
-        logger.info(f"接收到场景图生成请求: {len(request.shots)} 个镜头, pure_scene_mode={request.pure_scene_mode}")
-        composer = SceneComposer()
-        scenes = await composer.generate_scenes(
-            shots=request.shots,
-            style=request.style,
-            pure_scene_mode=request.pure_scene_mode,
-        )
-        return {
-            "success": True,
-            "scenes": [s.model_dump() for s in scenes],
-        }
-    except Exception as e:
-        logger.error(f"场景图生成失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

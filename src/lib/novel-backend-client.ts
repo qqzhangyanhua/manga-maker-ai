@@ -86,44 +86,6 @@ export interface PlanShotsResponse {
   shots: ShotDesignOutput[];
 }
 
-/**
- * 场景生成请求 - 镜头输入
- */
-export interface ShotInput {
-  shot_id: string;
-  camera_angle: string;
-  shot_size: string;
-  shot_description: string;
-  prompt: string;
-  character_ids?: string[];
-}
-
-/**
- * 场景图片输出
- */
-export interface SceneImageOutput {
-  shot_id: string;
-  image_url: string;
-  generation_prompt: string;
-  status: string;
-}
-
-/**
- * 场景生成请求
- */
-export interface GenerateScenesRequest {
-  shots: ShotInput[];
-  style?: string;
-  pure_scene_mode?: boolean;
-}
-
-/**
- * 场景生成响应
- */
-export interface GenerateScenesResponse {
-  success: boolean;
-  scenes: SceneImageOutput[];
-}
 
 /**
  * 漫画图生成请求 - 场景输入
@@ -146,6 +108,13 @@ export interface ComicPanelOutput {
   generation_prompt: string;
   has_dialogue: boolean;
   status: string;
+  dialogue_layout?: {
+    bubbles: Array<{
+      text: string;
+      position: string;
+      style: string;
+    }>;
+  };
 }
 
 /**
@@ -319,41 +288,6 @@ export class NovelBackendClient {
     }
   }
 
-  /**
-   * 为镜头列表生成场景图
-   */
-  async generateScenes(
-    request: GenerateScenesRequest
-  ): Promise<GenerateScenesResponse> {
-    const endpoint = "/canvas/generate-scenes";
-    const url = `${this.baseUrl}${endpoint}`;
-
-    logInfo("调用 novel-backend 场景图生成", {
-      url,
-      shotCount: request.shots.length,
-      style: request.style,
-    });
-
-    try {
-      const response = await this.fetchWithRetry<GenerateScenesResponse>(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(request),
-      });
-
-      logInfo("场景图生成成功", {
-        sceneCount: response.scenes.length,
-      });
-
-      return response;
-    } catch (error) {
-      logError("场景图生成失败", error, { url, request });
-      throw new NovelBackendError(
-        "场景图生成失败",
-        error instanceof Error ? error.message : String(error)
-      );
-    }
-  }
 
   /**
    * 为场景图列表生成最终漫画图

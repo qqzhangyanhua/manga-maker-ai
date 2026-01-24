@@ -85,7 +85,7 @@ export async function GET(
       return NextResponse.json({ error: "无权访问此项目" }, { status: 403 });
     }
 
-    const characters = (project.characters as CharacterItem[]) || [];
+    const characters = (project.characters as unknown as CharacterItem[]) || [];
 
     const response: CharactersResponse = {
       characters,

@@ -4,10 +4,9 @@ import { addSpeechBubbles } from "@/lib/comic-panel-composer";
 import { minioClient, MINIO_BUCKET, getPublicUrl } from "@/lib/minio";
 import { PERFORMANCE } from "@/lib/config/comic-constants";
 
-export interface SceneInput {
-  scene_id: string;
+export interface ShotInput {
   shot_id: string;
-  image_url: string;
+  shot_prompt: string;
   dialogue: string | null;
   character_names: string[];
   character_reference_images?: string[];
@@ -16,7 +15,6 @@ export interface SceneInput {
 interface PanelProcessResult {
   success: boolean;
   panelId?: string;
-  sceneId: string;
   shotId: string;
   error?: string;
 }
@@ -30,7 +28,6 @@ export async function fetchChapterData(chapterId: string, userId: string) {
         include: {
           shot_designs: {
             include: {
-              scene_images: true,
               script_segment: true,
             },
           },
@@ -47,12 +44,11 @@ export async function fetchChapterData(chapterId: string, userId: string) {
     throw new Error("无权操作");
   }
 
-  const allScenes = timelineChapter.script_segments.flatMap((s) =>
-    s.shot_designs.flatMap((d) => d.scene_images)
-  );
+  // 检查是否有镜头设计（不再依赖场景图）
+  const allShots = timelineChapter.script_segments.flatMap((s) => s.shot_designs);
 
-  if (allScenes.length === 0) {
-    throw new Error("请先生成场景图");
+  if (allShots.length === 0) {
+    throw new Error("请先生成镜头设计");
   }
 
   const shotCharacterIds = Array.from(
@@ -81,25 +77,23 @@ export async function fetchChapterData(chapterId: string, userId: string) {
       .map((c) => [c.id, c.base_image_url as string])
   );
 
-  return { timelineChapter, allScenes, characterMap, characterImageMap, chapterCharacterIds };
+  return { timelineChapter, allShots, characterMap, characterImageMap, chapterCharacterIds };
 }
 
 export async function processComicPanels(
   panels: Array<{
-    scene_id: string;
     shot_id: string;
     generation_prompt: string;
     dialogue_layout?: { bubbles: Array<{ text: string; position: string; style: string }> };
   }>,
-  allScenes: Array<{ id: string; image_url: string }>,
-  sceneInputs: SceneInput[],
+  shotInputs: ShotInput[],
   chapterId: string,
   userId: string
 ): Promise<PanelProcessResult[]> {
-  const sceneInputMap = new Map(sceneInputs.map((s) => [s.scene_id, s]));
+  const shotInputMap = new Map(shotInputs.map((s) => [s.shot_id, s]));
 
   const processingTasks = panels.map((panel) =>
-    processSinglePanel(panel, allScenes, sceneInputMap.get(panel.scene_id), chapterId, userId)
+    processSinglePanel(panel, shotInputMap.get(panel.shot_id), chapterId, userId)
   );
 
   const results: PanelProcessResult[] = [];
@@ -155,85 +149,75 @@ export async function updateChapterStatus(
 
 async function processSinglePanel(
   panel: {
-    scene_id: string;
     shot_id: string;
     generation_prompt: string;
     dialogue_layout?: { bubbles: Array<{ text: string; position: string; style: string }> };
   },
-  allScenes: Array<{ id: string; image_url: string }>,
-  sceneInput: SceneInput | undefined,
+  shotInput: ShotInput | undefined,
   chapterId: string,
   userId: string
 ): Promise<PanelProcessResult> {
   try {
-    const sceneImage = allScenes.find((s) => s.id === panel.scene_id);
-    if (!sceneImage) {
+    if (!shotInput) {
       return {
         success: false,
-        sceneId: panel.scene_id,
         shotId: panel.shot_id,
-        error: "场景图不存在",
+        error: "镜头数据不存在",
       };
     }
 
-    let composedImageUrl: string = sceneImage.image_url;
+    // 直接从镜头 prompt 生成漫画图
+    logInfo("开始生成漫画图", {
+      shot_id: panel.shot_id,
+      hasCharacters: shotInput.character_reference_images && shotInput.character_reference_images.length > 0,
+      characterNames: shotInput.character_names,
+    });
 
-    const characterReferenceImages = sceneInput?.character_reference_images || [];
-    if (characterReferenceImages.length > 0) {
-      logInfo("开始生成带角色的漫画图", {
-        scene_id: panel.scene_id,
-        referenceImageCount: characterReferenceImages.length,
-        characterNames: sceneInput?.character_names || [],
-      });
+    const compositionPrompt = buildCompositionPrompt(
+      panel.generation_prompt,
+      shotInput.character_names
+    );
 
-      const compositionPrompt = buildCompositionPrompt(
-        panel.generation_prompt,
-        sceneInput?.character_names || [],
-        sceneImage.image_url
-      );
+    const { generateImage, waitForTaskCompletion } = await import("@/lib/unified-image-generation");
 
-      const { generateImage, waitForTaskCompletion } = await import("@/lib/unified-image-generation");
+    const referenceImages = shotInput.character_reference_images || [];
 
-      const { taskId } = await generateImage(
-        "panel",
-        compositionPrompt,
-        userId,
-        {
-          width: 800,
-          height: 600,
-          negativePrompt: "blurry, low quality, distorted, deformed, ugly, disfigured, bad anatomy",
-          referenceImages: [sceneImage.image_url, ...characterReferenceImages],
-          metadata: {
-            scene_id: panel.scene_id,
-            shot_id: panel.shot_id,
-            chapter_id: chapterId,
-            type: "canvas_final",
-            has_characters: true,
-          },
-        }
-      );
-
-      const taskStatus = await waitForTaskCompletion(taskId, 120000);
-
-      if (taskStatus.status === "completed" && taskStatus.imageUrl) {
-        composedImageUrl = taskStatus.imageUrl;
-        logInfo("带角色的漫画图生成成功", {
-          scene_id: panel.scene_id,
-          imageUrl: composedImageUrl,
-        });
-      } else {
-        logError("带角色的漫画图生成失败，降级使用纯场景图", new Error(taskStatus.error || "Unknown"), {
-          scene_id: panel.scene_id,
-          taskStatus,
-        });
+    const { taskId } = await generateImage(
+      "panel",
+      compositionPrompt,
+      userId,
+      {
+        width: 800,
+        height: 600,
+        negativePrompt: "blurry, low quality, distorted, deformed, ugly, disfigured, bad anatomy",
+        referenceImages,
+        metadata: {
+          shot_id: panel.shot_id,
+          chapter_id: chapterId,
+          type: "canvas_final",
+          has_characters: referenceImages.length > 0,
+        },
       }
+    );
+
+    const taskStatus = await waitForTaskCompletion(taskId, 120000);
+
+    if (taskStatus.status !== "completed" || !taskStatus.imageUrl) {
+      throw new Error(taskStatus.error || "图片生成失败");
     }
+
+    const composedImageUrl = taskStatus.imageUrl;
+
+    logInfo("漫画图生成成功", {
+      shot_id: panel.shot_id,
+      imageUrl: composedImageUrl,
+    });
 
     let finalImageUrl: string = composedImageUrl;
 
     if (panel.dialogue_layout?.bubbles?.length) {
       logInfo("添加对话框", {
-        scene_id: panel.scene_id,
+        shot_id: panel.shot_id,
         bubbleCount: panel.dialogue_layout.bubbles.length,
       });
 
@@ -250,7 +234,7 @@ async function processSinglePanel(
 
       const timestamp = Date.now();
       const randomStr = Math.random().toString(36).substring(7);
-      const objectName = `users/${userId}/canvas/finals/${chapterId}/${panel.scene_id}_${timestamp}_${randomStr}.png`;
+      const objectName = `users/${userId}/canvas/finals/${chapterId}/${panel.shot_id}_${timestamp}_${randomStr}.png`;
 
       await minioClient.putObject(
         MINIO_BUCKET,
@@ -263,7 +247,7 @@ async function processSinglePanel(
       finalImageUrl = getPublicUrl(objectName);
 
       logInfo("对话框添加成功", {
-        scene_id: panel.scene_id,
+        shot_id: panel.shot_id,
         imageUrl: finalImageUrl,
       });
     }
@@ -271,7 +255,6 @@ async function processSinglePanel(
     const comicPanel = await prisma.comicPanelResult.create({
       data: {
         shot_design_id: panel.shot_id,
-        scene_image_id: panel.scene_id,
         image_url: finalImageUrl,
         generation_prompt: panel.generation_prompt,
         status: "completed",
@@ -281,19 +264,16 @@ async function processSinglePanel(
     return {
       success: true,
       panelId: comicPanel.id,
-      sceneId: panel.scene_id,
       shotId: panel.shot_id,
     };
   } catch (error) {
     logError("漫画图处理失败", error, {
-      scene_id: panel.scene_id,
       shot_id: panel.shot_id,
     });
 
     await prisma.comicPanelResult.create({
       data: {
         shot_design_id: panel.shot_id,
-        scene_image_id: panel.scene_id,
         image_url: "",
         generation_prompt: panel.generation_prompt,
         status: "error",
@@ -302,7 +282,6 @@ async function processSinglePanel(
 
     return {
       success: false,
-      sceneId: panel.scene_id,
       shotId: panel.shot_id,
       error: error instanceof Error ? error.message : "未知错误",
     };
@@ -311,14 +290,13 @@ async function processSinglePanel(
 
 function buildCompositionPrompt(
   basePrompt: string,
-  characterNames: string[],
-  sceneImageUrl: string
+  characterNames: string[]
 ): string {
   const charactersPart = characterNames.length > 0
     ? `featuring characters: ${characterNames.join(", ")}`
     : "";
 
-  return `comic panel, manga style, ${basePrompt}, ${charactersPart}, scene composition based on reference background, high quality, detailed illustration`
+  return `comic panel, manga style, ${basePrompt}, ${charactersPart}, high quality, detailed illustration`
     .trim()
     .replace(/,\s*,/g, ",");
 }

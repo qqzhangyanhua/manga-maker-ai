@@ -1,0 +1,1482 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email             String    @unique
+  name              String?
+  image             String?
+  created_at        DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime? @default(now()) @db.Timestamptz(6)
+  verified          Boolean?  @default(false) // Email verification status
+  password_hash     String?   @default("")
+  role              String?   @default("user")
+  status            String?   @default("active")
+
+  // Credits system
+  credits            Int @default(2000) // 当前算力余额
+  total_credits_used Int @default(0) // 绱娑堣€楃畻鍔?
+
+  // Phase 1 relations
+  panelTemplates     PanelTemplate[]
+  templateLikes      TemplateLike[]
+  generationTasks    GenerationTask[]
+  tags               Tag[]
+  creditTransactions CreditTransaction[]
+
+  @@map("users")
+}
+
+model EmailVerification {
+  id         Int      @id @default(autoincrement())
+  email      String
+  code_hash  String
+  expires_at DateTime @db.Timestamptz(6)
+  used       Boolean  @default(false)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([email], map: "idx_email_verifications_email")
+  @@map("email_verifications")
+}
+
+model LlmProvider {
+  id            Int      @id @default(autoincrement())
+  provider_type String
+  provider_name String   @default("openai")
+  model         String
+  base_url      String
+  api_key       String   @default("")
+  priority      Int      @default(1)
+  enabled       Boolean  @default(true)
+  desc          String? // 描述杩欎釜閰嶇疆鏄敤鏉ュ共鍢涚殑
+  credits_cost  Int      @default(0) // 姣忔璋冪敤娑堣€楃殑绠楀姏锛?=涓嶆秷鑰?
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([provider_type, enabled, priority], map: "idx_llm_providers_type_enabled")
+  @@map("llm_providers")
+}
+
+// Character Management - "Digital Actor" System
+model Character {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id           String   @db.Uuid
+  name              String
+  description       String?
+  base_prompt       String   @default("")
+  tags              String[] @default([])
+  base_image_url    String?
+  lora_model_url    String?
+  lora_trigger_word String?
+  training_status   String   @default("pending") // pending, training, ready, failed
+  training_progress Int      @default(0)
+  usage_count       Int      @default(0)
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime @default(now()) @db.Timestamptz(6)
+
+  // Phase 2: New fields for consistency
+  reference_image String? // Main reference image URL for IP-Adapter
+  style_prompt    String? @db.Text // Detailed style description for prompt
+
+  // Phase 3: Comic Style relation
+  comic_style_id String? @db.Uuid // FK to ComicStyle
+
+  // Phase 5: Character source tracking
+  source_type      String? // "manual" | "novel" | "story_ai" | "imported"
+  source_reference Json?   // { novelProjectId, chapterId, tempId }
+
+  views       CharacterView[]
+  expressions CharacterExpression[]
+  outfits     CharacterOutfit[]
+
+  // Phase 2: New relations
+  story_characters         StoryCharacter[]
+  panels                   Panel[]
+  chapter_character_states ChapterCharacterState[] // Phase 4: Character state tracking
+  suggested_characters     SuggestedCharacter[] // Phase 3: AI-suggested characters before generation
+  comic_style              ComicStyle?             @relation(fields: [comic_style_id], references: [id], onDelete: SetNull)
+
+  @@index([user_id, training_status], map: "idx_characters_user_status")
+  @@index([comic_style_id], map: "idx_characters_comic_style")
+  @@map("characters")
+}
+
+// Three-view reference images (front, side, back)
+model CharacterView {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  character_id String   @db.Uuid
+  view_type    String // front, side, back
+  image_url    String
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  character Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
+
+  @@unique([character_id, view_type], map: "unique_character_view")
+  @@map("character_views")
+}
+
+// Expression matrix for emotional consistency
+model CharacterExpression {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  character_id    String   @db.Uuid
+  expression_type String // neutral, happy, sad, angry, surprised, shy, confident, worried, determined
+  image_url       String
+  prompt_suffix   String? // Additional prompt for this expression
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  character Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
+
+  @@unique([character_id, expression_type], map: "unique_character_expression")
+  @@map("character_expressions")
+}
+
+// Wardrobe system - multiple outfits per character
+model CharacterOutfit {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  character_id    String   @db.Uuid
+  outfit_name     String
+  outfit_type     String // default, school, battle, casual, formal, sleepwear, custom
+  image_url       String?
+  prompt_modifier String   @default("") // Outfit-specific prompt additions
+  trigger_word    String? // Optional trigger word for this outfit
+  is_default      Boolean  @default(false)
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  character Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
+
+  // Phase 2: Reverse relation
+  panels Panel[]
+
+  @@index([character_id, is_default], map: "idx_outfits_character_default")
+  @@map("character_outfits")
+}
+
+// Project/Work management
+model Project {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String   @db.Uuid
+  story_id    String?  @db.Uuid // Link to Story (optional)
+  title       String
+  description String?
+  style       String?
+  status      String   @default("draft") // draft, in_progress, completed
+  cover_image String?
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  panels          Panel[]
+  script          StoryScript?
+  Story           Story?           @relation(fields: [story_id], references: [id])
+  versions        ProjectVersion[] // Phase 1: Version control
+  generationTasks GenerationTask[] // Phase 1: Batch generation
+
+  // Layout & Export Phase
+  comicPages    ComicPage[]
+  exportHistory ExportHistory[]
+
+  @@index([user_id, status], map: "idx_projects_user_status")
+  @@index([story_id], map: "idx_projects_story")
+  @@map("projects")
+}
+
+// Individual comic panels
+model Panel {
+  id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id      String  @db.Uuid
+  panel_order     Int
+  panel_type      String // wide, medium, closeup, action, dialogue, transition
+  importance      String // high, medium, low
+  description     String
+  dialogue        String?
+  character_name  String? // DEPRECATED: Use character_id instead
+  emotion         String?
+  generated_image String?
+  prompt_used     String?
+
+  // New fields for script editor
+  script_segment_id String? // Link to script segment
+  script_start      Int? // Text start position
+  script_end        Int? // Text end position
+  camera_angle      String? // 淇/浠拌/骞宠/鑽峰叞瑙?
+  shot_size         String? // 鐗瑰啓/杩戞櫙/涓櫙/鍏ㄦ櫙/杩滄櫙
+
+  // Camera movement parameters
+  camera_movement    String? // static | push_in | pull_out | pan_left | pan_right | tilt_up | tilt_down | dolly | zoom
+  movement_speed     String? // slow | medium | fast | sudden
+  movement_direction String? // 琛ュ厖描述锛堝锛歞iagonal_up_right锛?
+
+  sketch_image_url String? // Sketch preview URL
+  visual_prompt    String? // Editable visual description
+
+  // Phase 2: Asset binding fields
+  character_id    String? @db.Uuid // FK to Character
+  expression_type String? // neutral, happy, sad, angry, surprised, shy, confident, worried, determined
+  outfit_id       String? @db.Uuid // FK to CharacterOutfit
+  scene_id        String? @db.Uuid // FK to Scene
+
+  // Chapter grouping (optional, for story-based projects)
+  chapter_id String? @db.Uuid // FK to Chapter
+
+  // Phase 3: Layout grouping for multi-panel layouts (2闀?4闀?6闀?
+  // null = independent panel (1闀?
+  // "group_start_2" = start of 2-panel layout group
+  // "group_start_4" = start of 4-panel layout group
+  // "group_start_6" = start of 6-panel layout group
+  // "group_member" = belongs to previous group
+  layout_hint String?
+
+  // Gallery sharing fields
+  is_shared   Boolean   @default(false) // 鏄惁鍒嗕韩鍒扮敾寤?
+  shared_at   DateTime? @db.Timestamptz(6) // 鍒嗕韩鏃堕棿
+  view_count  Int       @default(0) // 娴忚娆℃暟
+  show_prompt Boolean   @default(true) // 鏄惁鍏紑 prompt
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  project  Project        @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  variants PanelVariant[] // Phase 1: Variant generation
+
+  // Phase 2: Asset relations
+  character Character?       @relation(fields: [character_id], references: [id], onDelete: SetNull)
+  outfit    CharacterOutfit? @relation(fields: [outfit_id], references: [id], onDelete: SetNull)
+  scene     Scene?           @relation(fields: [scene_id], references: [id], onDelete: SetNull)
+  chapter   Chapter?         @relation(fields: [chapter_id], references: [id], onDelete: SetNull)
+
+  @@index([project_id, panel_order], map: "idx_panels_project_order")
+  @@index([character_id], map: "idx_panels_character")
+  @@index([scene_id], map: "idx_panels_scene")
+  @@index([outfit_id], map: "idx_panels_outfit")
+  @@index([chapter_id], map: "idx_panels_chapter")
+  @@index([is_shared, shared_at], map: "idx_panels_shared")
+  @@map("panels")
+}
+
+// Story Script - Store original script and segmentation info for script editor
+model StoryScript {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id String   @unique @db.Uuid
+  content    String   @db.Text // Full original script text
+  segments   Json // [{ id, text, start, end, panel_id }]
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@map("story_scripts")
+}
+
+// Generated images gallery
+model GeneratedImage {
+  id                String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id           String  @db.Uuid
+  image_url         String
+  prompt            String
+  style             String?
+  source_type       String? // panel | character | pose | scene | other
+  source_id         String? @db.Uuid
+  character_id      String? @db.Uuid
+  generation_params Json? // Store model, steps, cfg, etc.
+
+  // For serialized comic/manga generation tracking
+  chapter_id String?  @db.Uuid // FK to Chapter (for multi-panel/serialized images)
+  panel_ids  String[] // Array of panel IDs (for multi-panel images)
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([user_id, created_at], map: "idx_generated_images_user_time")
+  @@index([chapter_id], map: "idx_generated_images_chapter")
+  @@map("generated_images")
+}
+
+// Character Relationship Chart - for managing character positions and relationships
+model CharacterRelationship {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String   @db.Uuid
+  character_id String   @db.Uuid
+  position_x   Float    @default(0)
+  position_y   Float    @default(0)
+  scale        Float    @default(1.0)
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([user_id, character_id], map: "unique_user_character_relationship")
+  @@index([user_id], map: "idx_relationships_user")
+  @@map("character_relationships")
+}
+
+// Comic Styles - Configurable comic style library
+model ComicStyle {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  style_key     String   @unique // manga, american, webtoon, etc.
+  name_zh       String // 鏃ュ紡婕敾
+  name_en       String // MANGA
+  image_url     String // Preview image URL
+  tag_color     String   @default("bg-primary text-background") // Tailwind classes
+  description   String? // Optional description
+  prompt_prefix String?  @default("") // AI prompt prefix for this style
+  sort_order    Int      @default(0) // Display order (lower = first)
+  enabled       Boolean  @default(true) // Soft delete flag
+  usage_count   Int      @default(0) // Usage statistics
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  // Phase 3: Reverse relation for characters using this style
+  characters Character[]
+
+  // Reverse relation for stories using this style
+  stories Story[]
+
+  // Reverse relation for timeline chapters using this style
+  timeline_chapters TimelineChapter[]
+
+  @@index([enabled, sort_order], map: "idx_comic_styles_enabled_sort")
+  @@map("comic_styles")
+}
+
+model GenerationLog {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String   @db.Uuid
+  project_id       String?  @db.Uuid
+  action           String
+  provider_type    String?
+  status           String // success | failed
+  duration_ms      Int?
+  request_payload  Json?
+  response_payload Json?
+  error_message    String?
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([user_id, action, created_at], map: "idx_generation_logs_user_action_time")
+  @@map("generation_logs")
+}
+
+model ImagePageVersion {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id       String   @db.Uuid
+  project_id    String?  @db.Uuid
+  label         String
+  source_type   String
+  status        String   @default("completed")
+  image_url     String?
+  task_id       String?
+  metadata      Json?
+  canvas_schema Json?
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([user_id, created_at], map: "idx_image_page_versions_user")
+  @@index([task_id], map: "idx_image_page_versions_task")
+  @@map("image_page_versions")
+}
+
+model UsageStat {
+  id            Int      @id @default(autoincrement())
+  user_id       String   @db.Uuid
+  action        String
+  provider_type String?
+  date          DateTime @db.Date
+  count         Int      @default(0)
+  last_used_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([user_id, action, date], map: "unique_usage_per_day")
+  @@index([user_id, action], map: "idx_usage_user_action")
+  @@map("usage_stats")
+}
+
+// Scene Library - Background/Environment assets for manga panels
+model Scene {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String   @db.Uuid
+  name            String
+  description     String?
+  scene_type      String // indoor, outdoor, urban, nature, fantasy, scifi, historical, abstract
+  image_url       String?
+  tags            String[] @default([])
+  prompt          String?  @db.Text // AI prompt used to generate/describe the scene
+  lighting_preset String? // golden_hour | harsh_midday | soft_diffused | dramatic_rim | neon_night | moonlight | studio | natural_window | none
+  usage_count     Int      @default(0)
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  // Source tracking fields (for AI-generated scenes)
+  source_chapter_id String? @db.Uuid // Source chapter ID (for novel chapter backgrounds)
+  source_novel_id   String? @db.Uuid // Source novel project ID
+  generation_params Json? // Generation parameters archive { prompt, negative_prompt, style, scene_type, model }
+  is_ai_generated   Boolean @default(false) // Whether AI generated
+  generation_cost   Int     @default(0) // Credits consumed for generation
+
+  // Phase 2: Reverse relation
+  panels           Panel[]
+  chapters         Chapter[] // 章节背景图关联
+  suggested_scenes SuggestedScene[] // AI-suggested scenes that generated this scene
+
+  @@index([user_id, scene_type], map: "idx_scenes_user_type")
+  @@index([source_chapter_id], map: "idx_scenes_source_chapter")
+  @@index([source_novel_id], map: "idx_scenes_source_novel")
+  @@index([user_id, is_ai_generated], map: "idx_scenes_user_ai_generated")
+  @@map("scenes")
+}
+
+// Story Template - Predefined story structures and templates
+model StoryTemplate {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String // Template name (e.g., "涓夊箷鍓х粨鏋?, "鑻遍泟涔嬫梾")
+  category    String // suspense/romance/adventure/scifi/daily/fantasy
+  description String?  @db.Text
+  structure   Json // Story structure: { acts: [...], plot_points: [...] }
+  prompts     Json // Prompt templates for generation
+  is_public   Boolean  @default(true)
+  user_id     String?  @db.Uuid // null = system template
+  usage_count Int      @default(0)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([category, is_public], map: "idx_story_templates_category")
+  @@map("story_templates")
+}
+
+// Story - Story outline and character setup
+model Story {
+  id                    String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id               String  @db.Uuid
+  title                 String
+  premise               String  @db.Text // Story premise/idea
+  genre                 String // Genre: suspense/romance/adventure/scifi/daily/fantasy
+  outline               Json // Story outline: { acts: [...], scenes: [...] }
+  template_id           String? @db.Uuid
+  comic_style_id        String? @db.Uuid // FK to ComicStyle for visual style
+  style_reference_image String? // Reference image URL for extracting visual style (highest priority)
+  suggested_characters  Json? // AI鍒嗘瀽鐨勫缓璁鑹插垪琛紙绗竴姝ュ垎鏋愮粨鏋滐級
+  status                String  @default("draft") // draft/completed
+  is_sample             Boolean @default(false) // Sample project for new users
+  sample_category       String? // beginner/intermediate/advanced
+
+  // 杩炶浇妯″紡鏀寔
+  is_serialized Boolean @default(true) // 鏄惁涓鸿繛杞戒綔鍝侊紙榛樿鍚敤锛?
+  serial_status String? @default("ongoing") // ongoing/completed/hiatus - 杩炶浇鐘舵€?
+
+  // 小说转漫画来源追踪
+  source_type     String? // "original" | "novel_adaptation" - 来源类型
+  source_novel_id String? @db.Uuid // 来源小说项目ID（软关联NovelProject）
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  projects Project[] // One story can generate multiple projects
+  chapters Chapter[] // Story chapters
+
+  // Phase 2: Real character relationship
+  story_characters StoryCharacter[]
+
+  // Phase 3: AI-suggested characters (replaces suggested_characters JSONB field)
+  suggested_characters_list SuggestedCharacter[]
+
+  // Comic style relationship
+  comic_style ComicStyle? @relation(fields: [comic_style_id], references: [id], onDelete: SetNull)
+
+  @@index([user_id, status], map: "idx_stories_user_status")
+  @@index([is_sample], map: "idx_stories_sample")
+  @@index([comic_style_id], map: "idx_stories_comic_style")
+  @@index([is_serialized, serial_status], map: "idx_stories_serialized")
+  @@index([source_novel_id], map: "idx_stories_source_novel")
+  @@map("stories")
+}
+
+// Chapter - Story chapters for structured storytelling
+model Chapter {
+  id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  story_id      String  @db.Uuid
+  title         String // Chapter title (e.g., "第一章：相遇")
+  summary       String? @db.Text // Chapter summary for AI panel generation
+  chapter_order Int // Display order in story
+
+  // Phase 4: Enhanced chapter content for long-form storytelling
+  content            String? @db.Text // Detailed chapter content (2000-5000 words) for context
+  is_key_chapter     Boolean @default(false) // Mark as key chapter for context loading
+  key_chapter_reason String? @db.Text // Why this chapter is key (e.g., "character death", "major plot twist")
+
+  // 连载模式支持
+  publish_status String    @default("draft") // draft/published/archived - 章节发布状态
+  published_at   DateTime? @db.Timestamptz(6) // 发布时间
+
+  // 章节背景图（方案C：混合模式）
+  scene_id             String? @db.Uuid // 关联到 Scene 库（可选，用于复用已有场景）
+  background_image_url String? // 章节独立背景图URL（快速AI生成，不入库）
+  background_prompt    String? @db.Text // 背景图AI生成提示词
+
+  // 小说来源追踪（用于从NovelChapter转换）
+  source_novel_chapter_id String? @db.Uuid // 来源小说章节ID（软关联NovelChapter）
+  source_scene_markers    Json? // 场景标记位置 [{ start: number, end: number, label: string }]
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  story            Story                   @relation(fields: [story_id], references: [id], onDelete: Cascade)
+  scene            Scene?                  @relation(fields: [scene_id], references: [id], onDelete: SetNull)
+  panels           Panel[]
+  character_states ChapterCharacterState[] // Character states at end of chapter
+  suggested_scenes SuggestedScene[] // AI-suggested scenes for background generation
+
+  @@index([story_id, chapter_order], map: "idx_chapters_story_order")
+  @@index([story_id, is_key_chapter], map: "idx_chapters_key")
+  @@index([story_id, publish_status], map: "idx_chapters_publish_status")
+  @@index([scene_id], map: "idx_chapters_scene")
+  @@index([source_novel_chapter_id], map: "idx_chapters_source_novel")
+  @@map("chapters")
+}
+
+// ============================================================
+// Phase 2: Story-Character Relationship
+// ============================================================
+
+// StoryCharacter - Many-to-many relationship between Story and Character
+model StoryCharacter {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  story_id      String   @db.Uuid
+  character_id  String   @db.Uuid
+  role          String   @default("supporting") // protagonist, antagonist, supporting, minor
+  character_arc String?  @db.Text // Character development in this story
+  display_order Int      @default(0) // Display order in UI
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  story     Story     @relation(fields: [story_id], references: [id], onDelete: Cascade)
+  character Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
+
+  @@unique([story_id, character_id], map: "unique_story_character")
+  @@index([story_id], map: "idx_story_characters_story")
+  @@index([character_id], map: "idx_story_characters_character")
+  @@map("story_characters")
+}
+
+// SuggestedCharacter - AI-suggested characters for stories (two-step generation)
+// Replaces Story.suggested_characters JSONB field with normalized table structure
+model SuggestedCharacter {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  story_id    String   @db.Uuid
+  name        String // Character name suggested by AI
+  description String   @db.Text // Chinese description (50-120 chars)
+  appearance  String   @db.Text // English appearance for AI image generation (80-160 chars)
+  role        String   @default("supporting") // protagonist, antagonist, supporting, minor
+
+  // Generation tracking
+  generated         Boolean  @default(false) // Whether image has been generated
+  character_id      String?  @db.Uuid // FK to Character after image generation
+  image_url         String? // Generated image URL (for quick preview)
+  optimized_prompt  String?  @db.Text // Optimized prompt after style processing
+  generated_at      DateTime? @db.Timestamptz(6) // When image was generated
+
+  // Metadata (migrated from JSONB wrapper)
+  display_order Int      @default(0) // Display order in UI
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  story     Story      @relation(fields: [story_id], references: [id], onDelete: Cascade)
+  character Character? @relation(fields: [character_id], references: [id], onDelete: SetNull)
+
+  @@index([story_id, generated], map: "idx_suggested_characters_story_generated")
+  @@index([character_id], map: "idx_suggested_characters_character")
+  @@map("suggested_characters")
+}
+
+// SuggestedScene - AI-suggested scenes for chapters (two-step background generation)
+// Similar to SuggestedCharacter pattern: analyze first, generate later
+model SuggestedScene {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chapter_id    String   @db.Uuid
+  name          String // Scene name (e.g., "夕阳下的操场", "图书馆内部")
+  description   String   @db.Text // Chinese description (100-200 chars)
+  scene_prompt  String   @db.Text // English scene description for AI image generation
+  scene_type    String // indoor/outdoor/urban/nature/fantasy/scifi/historical/abstract
+  atmosphere    String? // Atmosphere tags (e.g., "温馨", "紧张", "神秘")
+  lighting_hint String? // Lighting hint (e.g., "golden_hour", "moonlight")
+
+  // Generation tracking
+  generated        Boolean   @default(false) // Whether image has been generated
+  scene_id         String?   @db.Uuid // FK to Scene after generation
+  image_url        String? // Generated image URL (for quick preview)
+  optimized_prompt String?   @db.Text // LLM-optimized final prompt
+  generated_at     DateTime? @db.Timestamptz(6) // When image was generated
+  generation_cost  Int       @default(0) // Credits consumed for this scene
+
+  // Metadata
+  display_order Int      @default(0) // Display order in UI
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  chapter Chapter @relation(fields: [chapter_id], references: [id], onDelete: Cascade)
+  scene   Scene?  @relation(fields: [scene_id], references: [id], onDelete: SetNull)
+
+  @@index([chapter_id, generated], map: "idx_suggested_scenes_chapter_generated")
+  @@index([scene_id], map: "idx_suggested_scenes_scene")
+  @@map("suggested_scenes")
+}
+
+// Workflow - Automation workflow tracking
+model Workflow {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String    @db.Uuid
+  story_id     String?   @db.Uuid
+  project_id   String?   @db.Uuid
+  type         String // auto_generate/manual/batch
+  status       String // pending/running/completed/failed/cancelled
+  current_step String? // story/script/storyboard/images/export
+  progress     Int       @default(0) // 0-100
+  config       Json // Workflow configuration
+  result       Json? // Final result data
+  error        String?   @db.Text
+  started_at   DateTime?
+  completed_at DateTime?
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([user_id, status], map: "idx_workflows_user_status")
+  @@index([status, created_at], map: "idx_workflows_status_time")
+  @@map("workflows")
+}
+
+// ============================================================
+// Phase 1: New Models - Template, Batch Generation, Version Control, Tags
+// ============================================================
+
+// Panel Template - Reusable storyboard layouts
+model PanelTemplate {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id       String?  @db.Uuid // null = official template
+  name          String   @db.VarChar(100)
+  description   String?  @db.Text
+  panel_count   Int // Number of panels in this template
+  template_data Json // Template structure: { panels: [{ panel_type, camera_angle, shot_size, importance, relative_position }] }
+  tags          String[] @default([])
+  is_public     Boolean  @default(false)
+  is_official   Boolean  @default(false)
+  likes_count   Int      @default(0)
+  usage_count   Int      @default(0)
+  thumbnail_url String?
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  user  User?          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  likes TemplateLike[]
+
+  @@index([user_id], map: "idx_panel_templates_user")
+  @@index([is_public, is_official], map: "idx_panel_templates_public")
+  @@index([tags], map: "idx_panel_templates_tags")
+  @@map("panel_templates")
+}
+
+// Template Likes - Track user likes for templates
+model TemplateLike {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  template_id String   @db.Uuid
+  user_id     String   @db.Uuid
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  template PanelTemplate @relation(fields: [template_id], references: [id], onDelete: Cascade)
+  user     User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([template_id, user_id], map: "unique_template_user_like")
+  @@index([user_id], map: "idx_template_likes_user")
+  @@map("template_likes")
+}
+
+// Generation Task - Track batch generation progress
+model GenerationTask {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id             String    @db.Uuid
+  project_id          String    @db.Uuid
+  panel_ids           String[]  @db.Uuid // List of panel IDs to generate
+  task_type           String // "batch" | "variant"
+  status              String    @default("pending") // "pending" | "processing" | "completed" | "failed" | "cancelled"
+  progress            Int       @default(0) // 0-100
+  current_panel_index Int       @default(0)
+  settings            Json // Generation settings: { style, quality, failureMode }
+  error_logs          Json? // Error logs: [{ panelId, error, timestamp }]
+  created_at          DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime  @default(now()) @db.Timestamptz(6)
+  completed_at        DateTime? @db.Timestamptz(6)
+
+  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id], map: "idx_generation_tasks_user")
+  @@index([project_id], map: "idx_generation_tasks_project")
+  @@index([status], map: "idx_generation_tasks_status")
+  @@map("generation_tasks")
+}
+
+// Panel Variant - Alternative versions of a panel
+model PanelVariant {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  panel_id     String   @db.Uuid
+  image_url    String
+  prompt       String   @db.Text
+  variant_type String // "original" | "composition" | "lighting" | "angle"
+  is_selected  Boolean  @default(false)
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  panel Panel @relation(fields: [panel_id], references: [id], onDelete: Cascade)
+
+  @@index([panel_id], map: "idx_panel_variants_panel")
+  @@index([is_selected], map: "idx_panel_variants_selected")
+  @@map("panel_variants")
+}
+
+// Project Version - Version control for projects
+model ProjectVersion {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id        String   @db.Uuid
+  version_number    Int // Auto-increment version number
+  label             String?  @db.VarChar(100) // User-defined label
+  version_data      Json // Incremental snapshot: { project, panels, script }
+  change_summary    String?  @db.Text // Auto-generated change summary
+  is_auto           Boolean  @default(true) // Auto-save or manual
+  is_pinned         Boolean  @default(false) // Prevent auto-deletion
+  created_by_action String? // "batch_generate" | "apply_template" | "manual"
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+
+  project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@unique([project_id, version_number], map: "unique_project_version")
+  @@index([project_id, created_at], map: "idx_project_versions_time")
+  @@map("project_versions")
+}
+
+// Tag - Universal tagging system
+model Tag {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String   @unique @db.VarChar(50)
+  type        String   @default("user") // "system" | "user"
+  category    String?  @db.VarChar(50) // "style" | "scene_type" | "character_type"
+  created_by  String?  @db.Uuid // null = system tag
+  usage_count Int      @default(0)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  user     User?     @relation(fields: [created_by], references: [id], onDelete: SetNull)
+  taggings Tagging[]
+
+  @@index([type], map: "idx_tags_type")
+  @@index([category], map: "idx_tags_category")
+  @@map("tags")
+}
+
+// Tagging - Polymorphic tagging relationship
+model Tagging {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tag_id        String   @db.Uuid
+  taggable_type String // "Character" | "Scene" | "Project" | "Story" | "PanelTemplate"
+  taggable_id   String   @db.Uuid
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  tag Tag @relation(fields: [tag_id], references: [id], onDelete: Cascade)
+
+  @@unique([tag_id, taggable_type, taggable_id], map: "unique_tagging")
+  @@index([taggable_type, taggable_id], map: "idx_taggings_taggable")
+  @@map("taggings")
+}
+
+// ============================================================
+// Credit Transaction - 算力交易记录
+// ============================================================
+
+model CreditTransaction {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String   @db.Uuid
+  amount      Int // 正数=充值/赠送，负数=消耗
+  balance     Int // 鍙樺姩鍚庝綑棰?
+  action      String // register/consume/recharge/admin_adjust/refund
+  description String? // 描述
+  ref_type    String? // 鍏宠仈绫诲瀷: generation_log/order/admin
+  ref_id      String?  @db.Uuid // 鍏宠仈ID
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, created_at], map: "idx_credit_transactions_user_time")
+  @@index([action], map: "idx_credit_transactions_action")
+  @@map("credit_transactions")
+}
+
+// ============================================================
+// Phase 4: Chapter Character State Tracking
+// ============================================================
+
+// ChapterCharacterState - Track character state at the end of each chapter
+model ChapterCharacterState {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chapter_id           String   @db.Uuid
+  character_id         String   @db.Uuid
+  location             String?  @db.Text // Character location at chapter end
+  physical_condition   String?  @db.Text // Physical state (e.g., "injured right arm", "exhausted")
+  mental_state         String?  @db.Text // Mental/emotional state
+  key_items            String[] @default([]) // Key items character possesses
+  relationship_changes Json? // Changes in relationships: { characterId: "description" }
+  notes                String?  @db.Text // Additional notes
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime @default(now()) @db.Timestamptz(6)
+
+  chapter   Chapter   @relation(fields: [chapter_id], references: [id], onDelete: Cascade)
+  character Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
+
+  @@unique([chapter_id, character_id], map: "unique_chapter_character_state")
+  @@index([chapter_id], map: "idx_chapter_character_states_chapter")
+  @@index([character_id], map: "idx_chapter_character_states_character")
+  @@map("chapter_character_states")
+}
+
+// ============================================================
+// Comic Layout & Export Phase - 漫画排版与导出中心
+// ============================================================
+
+// 漫画页面 - 一个项目包含多个页面
+model ComicPage {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id String @db.Uuid
+  page_order Int // 页面顺序
+
+  // 页面规格
+  width       Int     @default(1080)
+  height      Int     @default(1920)
+  dpi         Int     @default(72)
+  preset_name String? // 规格名称：mobile_vertical, webtoon, manga_b5 等
+
+  // Canvas 数据 (Fabric.js JSON)
+  canvas_data   Json? // Fabric.js 序列化数据
+  thumbnail_url String? // 缩略图 URL
+
+  // 模板
+  template_id String? @db.Uuid
+
+  // 时间戳
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  project  Project         @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  template LayoutTemplate? @relation(fields: [template_id], references: [id], onDelete: SetNull)
+
+  @@index([project_id, page_order], map: "idx_comic_pages_project_order")
+  @@index([template_id], map: "idx_comic_pages_template")
+  @@map("comic_pages")
+}
+
+// 页面布局模板
+model LayoutTemplate {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String  @db.VarChar(100)
+  category    String // japanese, american, webtoon, free
+  description String? @db.Text
+
+  // 模板规格
+  width  Int @default(1080)
+  height Int @default(1920)
+
+  // 插槽定义
+  panel_slots Json // PanelSlot[] - 定义 Panel 位置
+
+  // 元数据
+  thumbnail_url String?
+  is_system     Boolean @default(false) // 系统预设
+  user_id       String? @db.Uuid // 用户创建
+  use_count     Int     @default(0)
+  recommended   Boolean @default(false)
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  pages ComicPage[]
+
+  @@index([category, is_system], map: "idx_layout_templates_category")
+  @@index([user_id], map: "idx_layout_templates_user")
+  @@map("layout_templates")
+}
+
+// 气泡样式
+model BubbleStyle {
+  id   String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name String @db.VarChar(50)
+  type String // speech, thought, shout, whisper, narration, electronic
+
+  // 样式配置 (JSON)
+  style_config Json // BubbleStyleConfig
+
+  // 元数据
+  is_system Boolean @default(false)
+  user_id   String? @db.Uuid
+  use_count Int     @default(0)
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([type, is_system], map: "idx_bubble_styles_type")
+  @@index([user_id], map: "idx_bubble_styles_user")
+  @@map("bubble_styles")
+}
+
+// 特效素材库
+model EffectAsset {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name     String @db.VarChar(100)
+  category String // speed_lines, screen_tone, emotion, environment, border
+
+  // 素材内容
+  asset_type    String // svg, png, pattern
+  asset_url     String
+  thumbnail_url String?
+
+  // 可调参数定义
+  adjustable Json? // { opacity: true, color: true, scale: true }
+
+  // 元数据
+  is_system Boolean  @default(false)
+  user_id   String?  @db.Uuid
+  tags      String[] @default([])
+  use_count Int      @default(0)
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([category, is_system], map: "idx_effect_assets_category")
+  @@index([user_id], map: "idx_effect_assets_user")
+  @@map("effect_assets")
+}
+
+// 导出历史
+model ExportHistory {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id String @db.Uuid
+  user_id    String @db.Uuid
+
+  // 导出配置
+  format String // png, jpg, pdf, zip
+  config Json // ExportConfig
+
+  // 导出结果
+  file_url   String?
+  file_size  Int? // bytes
+  page_count Int
+
+  // 状态
+  status        String  @default("pending") // pending, processing, completed, failed
+  progress      Int     @default(0) // 0-100
+  error_message String?
+
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  completed_at DateTime? @db.Timestamptz(6)
+
+  // Relations
+  project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@index([project_id], map: "idx_export_history_project")
+  @@index([user_id, created_at], map: "idx_export_history_user_time")
+  @@map("export_history")
+}
+
+// ============================================================
+// Novel Writing Module - AI 小说创作模块
+// ============================================================
+
+// 小说项目
+model NovelProject {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String  @db.Uuid
+  title       String  @db.VarChar(200)
+  description String? @db.Text
+  genre       String? @db.VarChar(50) // suspense, romance, adventure, scifi, fantasy, other
+
+  // 世界观设定（JSON 结构化存储）
+  world_setting Json? // { locations: [], factions: [], rules: [], timeline: [] }
+
+  // 角色设定（JSON 结构化存储）
+  characters Json? // [{ name, role, description, traits, relationships }]
+
+  // 章节大纲（JSON 结构化存储）
+  outlines Json? // [{ chapterNumber, title, outline, keyEvents, characters, plotLines, isKeyChapter }]
+
+  // 项目配置
+  target_words Int? // 目标字数
+  status       String  @default("draft") // draft, writing, completed, archived
+  cover_image  String? // AI生成的封面图URL
+
+  // 统计信息
+  total_words   Int @default(0)
+  chapter_count Int @default(0)
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  chapters NovelChapter[]
+  prompts  NovelPromptTemplate[]
+
+  @@index([user_id, status], map: "idx_novel_projects_user_status")
+  @@index([user_id, updated_at], map: "idx_novel_projects_user_time")
+  @@map("novel_projects")
+}
+
+// 小说章节
+model NovelChapter {
+  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id     String @db.Uuid
+  chapter_number Int // 章节序号
+  title          String @db.VarChar(200)
+
+  // 章节大纲
+  outline String? @db.Text // 章节大纲摘要（用于 RAG 检索）
+
+  // 剧情连贯性字段（Solution 2 & 3）
+  summary_preview String? @db.Text // 详细剧情预演（200-300字，用于上下文构建）
+  ending_state    Json?   @db.JsonB // 章节结束状态 {location, protagonist_status, plot_progress}
+
+  // 章节内容
+  content    String? @db.Text // 完整章节内容（2000-5000字）
+  word_count Int     @default(0)
+
+  // AI 生成相关
+  prompt_used String? @db.Text // 使用的 Prompt
+  model_used  String? @db.VarChar(100) // 使用的模型
+
+  // 状态
+  status         String  @default("draft") // draft, writing, completed
+  is_key_chapter Boolean @default(false) // 是否为关键章节（用于 RAG 优先检索）
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  project  NovelProject          @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  versions NovelChapterVersion[]
+
+  @@unique([project_id, chapter_number], map: "unique_novel_chapter_number")
+  @@index([project_id, chapter_number], map: "idx_novel_chapters_project_order")
+  @@index([project_id, is_key_chapter], map: "idx_novel_chapters_key")
+  @@map("novel_chapters")
+}
+
+// 章节版本（多版本对比）
+model NovelChapterVersion {
+  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chapter_id     String @db.Uuid
+  version_number Int // 版本号（自增）
+  content        String @db.Text
+  word_count     Int    @default(0)
+
+  // 生成参数
+  prompt_used String? @db.Text
+  model_used  String? @db.VarChar(100)
+  temperature Float?  @default(0.7)
+
+  // 版本状态
+  is_selected Boolean @default(false) // 是否为当前选中版本
+  user_rating Int? // 用户评分 1-5
+  notes       String? @db.Text // 版本备注
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  chapter       NovelChapter  @relation(fields: [chapter_id], references: [id], onDelete: Cascade)
+  quality_score QualityScore?
+
+  @@unique([chapter_id, version_number], map: "unique_chapter_version")
+  @@index([chapter_id, is_selected], map: "idx_chapter_versions_selected")
+  @@map("novel_chapter_versions")
+}
+
+// 章节质量评分（AI 评估）
+model QualityScore {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  version_id String @unique @db.Uuid
+
+  // 总体评分（1-100）
+  overall_score Int @db.SmallInt
+
+  // 多维度评分（JSON 存储）
+  // {
+  //   readability: { score: 85, details: "流畅度高，语句通顺" },
+  //   emotional_depth: { score: 75, details: "情感描写丰富" },
+  //   pacing: { score: 80, details: "节奏把控得当" },
+  //   originality: { score: 70, details: "有一定创新性" },
+  //   coherence: { score: 90, details: "逻辑连贯性强" }
+  // }
+  dimensions Json
+
+  // AI 改进建议（JSON 数组）
+  // [
+  //   { dimension: "emotional_depth", suggestion: "可以增加人物内心独白", priority: "high" },
+  //   { dimension: "pacing", suggestion: "前半部分可以加快节奏", priority: "medium" }
+  // ]
+  suggestions Json?
+
+  // 元数据
+  analyzed_at      DateTime @default(now()) @db.Timestamptz(6)
+  analyzer_version String   @default("1.0") // 评分算法版本（用于追踪模型变化）
+
+  // Relations
+  version NovelChapterVersion @relation(fields: [version_id], references: [id], onDelete: Cascade)
+
+  @@map("quality_scores")
+}
+
+// Prompt 模板库
+model NovelPromptTemplate {
+  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id String? @db.Uuid // null = 全局模板
+  user_id    String? @db.Uuid // null = 系统模板
+
+  name     String @db.VarChar(100)
+  category String @db.VarChar(50) // outline, dialogue, description, continuation, revision
+
+  // 模板内容
+  template String @db.Text // 支持 {{variable}} 变量语法
+
+  // 变量定义
+  variables Json // [{ name: "character_name", type: "string", required: true }]
+
+  // 模板配置
+  is_public Boolean @default(false)
+  is_system Boolean @default(false)
+
+  // 统计
+  usage_count Int @default(0)
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  project NovelProject? @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@index([category, is_public], map: "idx_novel_prompts_category")
+  @@index([user_id], map: "idx_novel_prompts_user")
+  @@index([project_id], map: "idx_novel_prompts_project")
+  @@map("novel_prompt_templates")
+}
+
+model MaintenanceLog {
+  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id   String  @db.Uuid
+  operation String  @db.VarChar(50)
+  status    String  @db.VarChar(20)
+  details   Json?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([user_id, created_at], map: "idx_maintenance_logs_user_time")
+  @@index([operation], map: "idx_maintenance_logs_operation")
+  @@map("maintenance_logs")
+}
+
+// 用户小说配额（成本控制）
+model NovelQuota {
+  user_id           String   @id @db.Uuid
+  daily_limit       Int      @default(50) // 每日生成次数限制
+  used_today        Int      @default(0)
+  tokens_used_total Int      @default(0)
+  reset_at          DateTime
+  custom_api_key    String?  @db.Text // 用户自定义 API Key（加密存储）
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("novel_quotas")
+}
+
+// 九宫格图片记录
+model NineGridImage {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id           String   @db.Uuid
+  chapter_id        String   @db.Uuid
+  panel_ids         String[] // 9个分镜ID
+  image_url         String   // MinIO URL
+  prompt_combined   String   @db.Text // 组合后的提示词
+  comic_style_id    String?  @db.Uuid
+  reference_image   String?
+  
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([user_id], map: "idx_nine_grid_images_user")
+  @@index([chapter_id], map: "idx_nine_grid_images_chapter")
+  @@map("nine_grid_images")
+}
+
+// ============ Infinite Canvas System ============
+
+// 无限画布时间线项目
+model CanvasTimeline {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  novel_project_id   String   @db.Uuid
+  user_id            String   @db.Uuid
+  title              String
+  status             String   @default("draft") // draft, generating, completed, error
+
+  // 配置
+  config             Json     @default("{\"auto_generate\":true,\"use_character_library\":true,\"use_scene_library\":true}")
+
+  // 统计
+  total_chapters     Int      @default(0)
+  completed_chapters Int      @default(0)
+  total_shots        Int      @default(0)
+  total_images       Int      @default(0)
+
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  chapters           TimelineChapter[]
+
+  @@index([user_id], map: "idx_canvas_timeline_user")
+  @@index([novel_project_id], map: "idx_canvas_timeline_project")
+  @@map("canvas_timelines")
+}
+
+// 时间线章节节点
+model TimelineChapter {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  timeline_id    String   @db.Uuid
+  chapter_id     String   @db.Uuid
+  chapter_number Int
+
+  // 生成状态（每个阶段独立追踪）
+  script_status  String   @default("pending") // pending, generating, completed, error
+  shot_status    String   @default("pending")
+  scene_status   String   @default("pending")
+  final_status   String   @default("pending")
+
+  // 角色绑定（本章节出现的角色ID列表）
+  character_ids  String[] @default([]) @db.Uuid
+
+  // 风格选择
+  comic_style_id String?  @db.Uuid // FK to ComicStyle
+
+  // 统计
+  script_segment_count Int @default(0)
+  shot_count           Int @default(0)
+  scene_image_count    Int @default(0)
+  final_image_count    Int @default(0)
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  timeline        CanvasTimeline    @relation(fields: [timeline_id], references: [id], onDelete: Cascade)
+  comic_style     ComicStyle?       @relation(fields: [comic_style_id], references: [id], onDelete: SetNull)
+  script_segments ScriptSegment[]
+
+  @@index([timeline_id], map: "idx_timeline_chapter_timeline")
+  @@index([chapter_id], map: "idx_timeline_chapter_chapter")
+  @@index([comic_style_id], map: "idx_timeline_chapter_style")
+  @@map("timeline_chapters")
+}
+
+// 剧本片段
+model ScriptSegment {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  timeline_chapter_id String   @db.Uuid
+  segment_order       Int
+
+  // 剧本内容
+  content             String   @db.Text
+  scene_description   String   @db.Text
+  character_actions   String   @db.Text
+  dialogue            String?  @db.Text
+
+  // 元数据
+  estimated_duration  Int      @default(0) // 秒
+  emotion_tone        String   @default("")
+
+  // 原始小说文本关联
+  source_text_start   Int      @default(0)
+  source_text_end     Int      @default(0)
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  timeline_chapter TimelineChapter @relation(fields: [timeline_chapter_id], references: [id], onDelete: Cascade)
+  shot_designs     ShotDesign[]
+
+  @@index([timeline_chapter_id], map: "idx_script_segment_chapter")
+  @@map("script_segments")
+}
+
+// 镜头设计
+model ShotDesign {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  script_segment_id String   @db.Uuid
+  shot_order        Int
+
+  // 镜头参数
+  camera_angle      String   @default("")
+  shot_size         String   @default("")
+  panel_type        String   @default("")
+
+  // 内容描述
+  shot_description  String   @db.Text
+  composition_hint  String   @db.Text
+
+  // 场景位置标识 - 用于场景去重
+  location_key      String   @default("") // e.g., "classroom", "hallway", "rooftop"
+
+  // 资产绑定
+  character_ids     String[] @default([])
+  scene_id          String?  @db.Uuid
+  expression_types  String[] @default([])
+  outfit_ids        String[] @default([])
+
+  // 共享场景图引用 (多个镜头可共享同一场景图)
+  shared_scene_id   String?  @db.Uuid
+
+  // 生成提示词
+  prompt            String   @db.Text
+  negative_prompt   String?  @db.Text
+  generated_image_url String?
+  generation_status   String   @default("pending")
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  script_segment ScriptSegment  @relation(fields: [script_segment_id], references: [id], onDelete: Cascade)
+  scene_images   SceneImage[]   @relation("ShotToSceneImages") // 1:N legacy relation
+  shared_scene   SceneImage?    @relation("SharedScene", fields: [shared_scene_id], references: [id], onDelete: SetNull)
+  comic_panels   ComicPanelResult[]
+
+  @@index([script_segment_id], map: "idx_shot_design_segment")
+  @@index([location_key], map: "idx_shot_design_location")
+  @@map("shot_designs")
+}
+
+// 场景基础图
+model SceneImage {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  shot_design_id     String   @db.Uuid
+
+  // 场景位置标识 - 用于去重分组
+  location_key       String   @default("")
+
+  // 图像信息
+  image_url          String
+  width              Int      @default(1024)
+  height             Int      @default(768)
+
+  // 生成参数
+  generation_prompt  String   @db.Text
+  scene_id           String?  @db.Uuid
+
+  // AI 生成元数据
+  model_used         String   @default("")
+  seed               Int?
+  generation_params  Json     @default("{}")
+
+  status             String   @default("generating") // generating, completed, failed
+  error_message      String?  @db.Text
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  shot_design   ShotDesign         @relation("ShotToSceneImages", fields: [shot_design_id], references: [id], onDelete: Cascade)
+  shared_shots  ShotDesign[]       @relation("SharedScene") // 共享此场景的镜头列表
+  comic_panels  ComicPanelResult[]
+
+  @@index([shot_design_id], map: "idx_scene_image_shot")
+  @@index([location_key], map: "idx_scene_image_location")
+  @@map("scene_images")
+}
+
+// 最终漫画图
+model ComicPanelResult {
+  id                         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  shot_design_id             String   @db.Uuid
+  scene_image_id             String   @db.Uuid
+
+  // 最终图像
+  image_url                  String
+  width                      Int      @default(1024)
+  height                     Int      @default(768)
+
+  // 生成参数
+  generation_prompt          String   @db.Text
+  character_reference_images String[] @default([])
+
+  // 垫图参数
+  controlnet_type            String   @default("reference")
+  controlnet_weight          Float    @default(0.7)
+
+  // AI 生成元数据
+  model_used                 String   @default("")
+  lora_models                String[] @default([])
+  generation_params          Json     @default("{}")
+
+  status                     String   @default("generating") // generating, completed, failed
+  error_message              String?  @db.Text
+  exported_to_panel_id       String?  @db.Uuid
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  shot_design  ShotDesign @relation(fields: [shot_design_id], references: [id], onDelete: Cascade)
+  scene_image  SceneImage @relation(fields: [scene_image_id], references: [id], onDelete: Cascade)
+
+  @@index([shot_design_id], map: "idx_comic_panel_shot")
+  @@index([scene_image_id], map: "idx_comic_panel_scene")
+  @@map("comic_panel_results")
+}
+
+// ============================================================
+// P1 功能增强 - 状态持久化与分析缓存
+// ============================================================
+
+// 渐进式生成会话（解决用户刷新丢失问题）
+model ProgressiveSession {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @db.Uuid
+  project_id String?  @db.Uuid // 关联的项目 ID（可选）
+
+  // 会话状态
+  step       Int      // 当前步骤 (1-10)
+  state      Json     @db.JsonB // 会话状态数据（包含所有中间结果）
+
+  // 元数据
+  session_type String @default("outline") // outline, character, world_setting
+
+  // 生命周期
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime  @default(now()) @db.Timestamptz(6)
+  expires_at DateTime  @db.Timestamptz(6) // 过期时间（24小时后）
+
+  @@index([user_id, expires_at], map: "idx_progressive_sessions_user_expires")
+  @@index([project_id], map: "idx_progressive_sessions_project")
+  @@map("progressive_sessions")
+}
+
+// 智能分析结果缓存（避免重复生成，节省 API 成本）
+model AnalysisReport {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id String   @db.Uuid
+  user_id    String   @db.Uuid
+
+  // 分析类型
+  analysis_type String @db.VarChar(50) // cool_points, pacing, opening_hook, comprehensive, character_analysis, world_setting_analysis
+
+  // 分析结果（JSON 存储）
+  result     Json     @db.JsonB // 分析结果的完整数据
+
+  // 输入内容哈希（用于检测是否需要重新生成）
+  input_hash String   @db.VarChar(64) // SHA256 hash of input content
+
+  // 元数据
+  model_used String?  @db.VarChar(100) // 使用的模型
+  tokens_used Int?    // 消耗的 tokens 数
+  cost_usd   Float?   // 成本（美元）
+
+  // 生命周期
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  expires_at DateTime @db.Timestamptz(6) // 缓存过期时间（7天后）
+
+  @@index([project_id, analysis_type], map: "idx_analysis_reports_project_type")
+  @@index([user_id, created_at], map: "idx_analysis_reports_user_time")
+  @@index([input_hash, analysis_type], map: "idx_analysis_reports_hash_type")
+  @@map("analysis_reports")
+}

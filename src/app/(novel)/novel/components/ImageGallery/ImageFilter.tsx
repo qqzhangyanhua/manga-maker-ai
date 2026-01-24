@@ -19,7 +19,6 @@ interface ImageFilterProps {
 const FILTER_OPTIONS: Array<{ value: ImageType | "all"; icon: React.ElementType }> = [
   { value: "all", icon: Filter },
   { value: "shot", icon: Camera },
-  { value: "scene", icon: Layers },
   { value: "comic", icon: ImageIcon },
   { value: "nine_grid", icon: Grid3X3 },
 ];

@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { ChapterRow } from "./ChapterRow";
 import { TimelineSettings } from "./TimelineSettings";
 import { AddChapterDialog } from "./AddChapterDialog";
-import { GenerateSceneDialog } from "./GenerateSceneDialog";
 import type { CanvasTimeline, TimelineChapter, CanvasTimelineConfig } from "./types";
 
 interface TimelineContainerProps {
@@ -21,7 +20,6 @@ export function TimelineContainer({
   const [isGenerating, setIsGenerating] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showAddChapter, setShowAddChapter] = useState(false);
-  const [sceneDialogChapter, setSceneDialogChapter] = useState<TimelineChapter | null>(null);
 
   const handleSettings = useCallback(() => {
     setShowSettings(true);
@@ -62,9 +60,6 @@ export function TimelineContainer({
         }
         if (chapter.shot_status !== "completed") {
           await generateChapterStep(chapter.id, "generate-shots");
-        }
-        if (chapter.scene_status !== "completed") {
-          await generateChapterStep(chapter.id, "generate-scenes");
         }
         if (chapter.final_status !== "completed") {
           await generateChapterStep(chapter.id, "generate-finals");
@@ -145,7 +140,6 @@ export function TimelineContainer({
                 onGenerateShots={() =>
                   generateChapterStep(chapter.id, "generate-shots")
                 }
-                onGenerateScenes={() => setSceneDialogChapter(chapter)}
                 onGenerateFinals={() =>
                   generateChapterStep(chapter.id, "generate-finals")
                 }
@@ -190,19 +184,6 @@ export function TimelineContainer({
         projectTitle={timeline.title}
         onAdded={onRefresh}
       />
-
-      {/* Generate Scene Dialog */}
-      {sceneDialogChapter && (
-        <GenerateSceneDialog
-          open={!!sceneDialogChapter}
-          onOpenChange={(open) => !open && setSceneDialogChapter(null)}
-          chapterId={sceneDialogChapter.id}
-          chapterTitle={sceneDialogChapter.title}
-          chapterNumber={sceneDialogChapter.chapter_number}
-          timelineId={timeline.id}
-          onSuccess={onRefresh}
-        />
-      )}
     </div>
   );
 }

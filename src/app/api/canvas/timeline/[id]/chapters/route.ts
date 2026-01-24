@@ -47,7 +47,6 @@ export async function GET(req: Request, { params }: RouteParams) {
             shot_designs: {
               orderBy: { shot_order: "asc" },
               include: {
-                scene_images: true,
                 comic_panels: true,
               },
             },

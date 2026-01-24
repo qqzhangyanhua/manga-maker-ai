@@ -18,7 +18,7 @@ import { getNovelBackendClient, NovelBackendError } from "@/lib/novel-backend-cl
 import { logInfo, logError } from "@/lib/api-logger";
 import { ensureBucketExists } from "@/lib/minio";
 import { checkRateLimit } from "@/lib/security/rate-limiter";
-import type { SceneInput } from "./helpers";
+import type { ShotInput } from "./helpers";
 import { fetchChapterData, processComicPanels, updateChapterStatus } from "./helpers";
 
 interface RouteParams {
@@ -68,11 +68,11 @@ export async function POST(req: Request, { params }: RouteParams) {
 
     // 1. 获取章节数据
     const chapterData = await fetchChapterData(chapterId, payload.userId);
-    const { timelineChapter, allScenes, characterMap, characterImageMap, chapterCharacterIds } = chapterData;
+    const { timelineChapter, allShots, characterMap, characterImageMap, chapterCharacterIds } = chapterData;
 
     logInfo("章节数据获取成功", {
       chapterId,
-      sceneCount: allScenes.length,
+      shotCount: allShots.length,
       characterCount: characterMap.size,
       characterImagesCount: characterImageMap.size,
       chapterCharacterCount: chapterCharacterIds.length,
@@ -161,70 +161,78 @@ export async function POST(req: Request, { params }: RouteParams) {
       }
     }
 
-    const sceneInputs: SceneInput[] = timelineChapter.script_segments.flatMap((segment) =>
-      segment.shot_designs.flatMap((shotDesign) =>
-        shotDesign.scene_images.map((sceneImage) => {
-          // 优先使用预设的角色，否则使用 LLM 识别的角色
-          let effectiveCharacterIds = shotDesign.character_ids || [];
-          if (effectiveCharacterIds.length === 0) {
-            effectiveCharacterIds = identifiedCharactersMap.get(shotDesign.id) || [];
-          }
+    // 3.3 构建镜头输入数据（直接从 ShotDesign 生成，不依赖场景图）
+    const shotInputs: ShotInput[] = timelineChapter.script_segments.flatMap((segment) =>
+      segment.shot_designs.map((shotDesign) => {
+        // 优先使用预设的角色，否则使用 LLM 识别的角色
+        let effectiveCharacterIds = shotDesign.character_ids || [];
+        if (effectiveCharacterIds.length === 0) {
+          effectiveCharacterIds = identifiedCharactersMap.get(shotDesign.id) || [];
+        }
 
-          // 镜头指定的角色名称
-          const shotCharacterNames = effectiveCharacterIds
-            .map((id) => characterMap.get(id))
-            .filter(Boolean) as string[];
+        // 镜头指定的角色名称
+        const shotCharacterNames = effectiveCharacterIds
+          .map((id) => characterMap.get(id))
+          .filter(Boolean) as string[];
 
-          // 镜头角色的参考图（优先）+ 章节角色的参考图（补充）
-          const shotCharacterImages = effectiveCharacterIds
-            .map((id) => characterImageMap.get(id))
-            .filter(Boolean) as string[];
+        // 镜头角色的参考图（优先）+ 章节角色的参考图（补充）
+        const shotCharacterImages = effectiveCharacterIds
+          .map((id) => characterImageMap.get(id))
+          .filter(Boolean) as string[];
 
-          // 合并参考图：镜头角色 + 章节角色（去重）
-          const allReferenceImages = Array.from(
-            new Set([...shotCharacterImages, ...chapterCharacterReferenceImages])
-          );
+        // 合并参考图：镜头角色 + 章节角色（去重）
+        const allReferenceImages = Array.from(
+          new Set([...shotCharacterImages, ...chapterCharacterReferenceImages])
+        );
 
-          return {
-            scene_id: sceneImage.id,
-            shot_id: shotDesign.id,
-            image_url: sceneImage.image_url,
-            dialogue: segment.dialogue,
-            character_names: shotCharacterNames,
-            character_reference_images: allReferenceImages,
-          };
-        })
-      )
+        return {
+          shot_id: shotDesign.id,
+          shot_prompt: shotDesign.prompt || shotDesign.shot_description || segment.scene_description,
+          dialogue: segment.dialogue,
+          character_names: shotCharacterNames,
+          character_reference_images: allReferenceImages,
+        };
+      })
     );
 
-    const finalsResult = await client.generateFinals({
-      scenes: sceneInputs,
+    // 4. 调用 novel-backend 分析对话框布局（基于镜头信息）
+    const dialogueLayoutResult = await client.generateFinals({
+      scenes: shotInputs.map((shot) => ({
+        scene_id: shot.shot_id,  // 复用字段，实际是 shot_id
+        shot_id: shot.shot_id,
+        image_url: "",  // 不需要场景图 URL
+        dialogue: shot.dialogue,
+        character_names: shot.character_names,
+      })),
       comic_style: "manga",
       add_speech_bubbles: true,
     });
 
-    if (!finalsResult.success || finalsResult.panels.length === 0) {
-      throw new Error("漫画图生成返回空结果");
+    if (!dialogueLayoutResult.success || dialogueLayoutResult.panels.length === 0) {
+      throw new Error("对话框布局分析返回空结果");
     }
 
     logInfo("对话框布局分析完成", {
       chapterId,
-      panelCount: finalsResult.panels.length,
+      panelCount: dialogueLayoutResult.panels.length,
     });
 
-    // 4. 确保 MinIO bucket 存在
+    // 5. 确保 MinIO bucket 存在
     await ensureBucketExists();
 
-    // 5. 并行处理漫画面板
+    // 6. 并行处理漫画面板（直接从镜头生成）
     const results = await processComicPanels(
-      finalsResult.panels,
-      allScenes,
-      sceneInputs,
+      dialogueLayoutResult.panels.map((panel) => ({
+        shot_id: panel.shot_id,
+        generation_prompt: panel.generation_prompt,
+        dialogue_layout: panel.dialogue_layout,
+      })),
+      shotInputs,
       chapterId,
       payload.userId
     );
 
-    // 6. 使用事务更新数据库
+    // 7. 使用事务更新数据库
     await updateChapterStatus(
       chapterId,
       timelineChapter.timeline_id,
