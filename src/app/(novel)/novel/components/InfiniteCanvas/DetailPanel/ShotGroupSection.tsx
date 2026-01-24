@@ -11,7 +11,7 @@ import { generatePlaceholders } from "../utils/shot-grouping";
 interface ShotGroupSectionProps {
   group: ShotGroup;
   onGenerate: (group: ShotGroup) => void;
-  onShotClick?: (shot: ShotDesign) => void;
+  onShotClick?: (shot: ShotDesign | { id: string; shot_order: number; generated_image_url?: string | null; shot_description: string; created_at: Date | string; [key: string]: unknown }) => void;
 }
 
 export function ShotGroupSection({

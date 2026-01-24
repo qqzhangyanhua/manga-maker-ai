@@ -21,15 +21,10 @@ import {
   Film,
   Layout,
   Sparkles,
-  Grid3X3,
-  X,
-  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import {
   useShotGenerateDialog,
   useOpenShotGenerateDialog,
@@ -41,9 +36,12 @@ import {
 import { GenerateShotImageDialog } from "../GenerateShotImageDialog";
 import { GenerateNineGridDialog, useNineGridTaskPolling } from "../NineGrid";
 import { ImageViewerDialog } from "@/components/ui/image-viewer-dialog";
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import type { ShotDesignBasic, NineGridGenerateRequest } from "../NineGrid";
 import type { NineGridTaskStatus } from "../NineGrid";
+import { groupShotsIntoNineGrids } from "../utils/shot-grouping";
+import { ShotGroupSection } from "./ShotGroupSection";
+import type { ShotGroup } from "./types";
 
 /**
  * 镜头设计类型
@@ -91,8 +89,9 @@ interface GenerateShotImagePayload {
 }
 
 /**
- * 镜头卡片组件
+ * 镜头卡片组件 (已弃用,保留以备后用)
  */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 function ShotCard({
   shot,
   onGenerate,
@@ -271,16 +270,38 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [selectedShot, setSelectedShot] = useState<ShotDesign | null>(null);
 
-  // 九宫格选择模式状态
-  const [isNineGridSelectMode, setIsNineGridSelectMode] = useState(false);
-  const [selectedShotIds, setSelectedShotIds] = useState<Set<string>>(
-    new Set()
-  );
+  // 分组状态
+  const [shotGroups, setShotGroups] = useState<ShotGroup[]>([]);
 
   // 九宫格任务轮询状态
   const [nineGridTaskId, setNineGridTaskId] = useState<string | null>(null);
   const [nineGridImageUrl, setNineGridImageUrl] = useState<string | null>(null);
   const [nineGridViewerOpen, setNineGridViewerOpen] = useState(false);
+
+  // 计算镜头分组
+  useEffect(() => {
+    if (data?.shots && data.shots.length > 0) {
+      const sortedShots = [...data.shots].sort((a, b) => a.shot_order - b.shot_order);
+      // 将 ShotDesign 转换为 Prisma ShotDesign 类型（添加缺失字段）
+      const prismaShots = sortedShots.map(shot => ({
+        ...shot,
+        script_segment_id: '',
+        location_key: '',
+        character_ids: [],
+        scene_id: null,
+        atmosphere: null,
+        lighting: null,
+        weather: null,
+        time_of_day: null,
+        special_effects: null,
+        created_at: new Date(shot.created_at),
+      }));
+      const groups = groupShotsIntoNineGrids(prismaShots);
+      setShotGroups(groups);
+    } else {
+      setShotGroups([]);
+    }
+  }, [data?.shots]);
 
   // 九宫格任务轮询
   const { status: nineGridStatus, isPolling: isNineGridPolling } =
@@ -328,11 +349,13 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
     },
   });
 
-  // 选中的镜头数据
+  // 当前选中的镜头数据（用于九宫格生成）
+  const [currentSelectedShotIds, setCurrentSelectedShotIds] = useState<string[]>([]);
+
   const selectedShots = useMemo<ShotDesignBasic[]>(() => {
-    if (!data?.shots) return [];
+    if (!data?.shots || currentSelectedShotIds.length === 0) return [];
     return data.shots
-      .filter((shot) => selectedShotIds.has(shot.id))
+      .filter((shot) => currentSelectedShotIds.includes(shot.id))
       .sort((a, b) => a.shot_order - b.shot_order)
       .map((shot) => ({
         id: shot.id,
@@ -346,47 +369,18 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
         generated_image_url: shot.generated_image_url,
         generation_status: shot.generation_status,
       }));
-  }, [data?.shots, selectedShotIds]);
+  }, [data?.shots, currentSelectedShotIds]);
 
-  // 切换镜头选中状态
-  const handleSelectToggle = useCallback((shotId: string) => {
-    setSelectedShotIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(shotId)) {
-        next.delete(shotId);
-      } else {
-        // 限制最多选择9个
-        if (next.size >= 9) {
-          toast.error("最多只能选择9个镜头");
-          return prev;
-        }
-        next.add(shotId);
-      }
-      return next;
-    });
-  }, []);
-
-  // 进入/退出九宫格选择模式
-  const handleToggleSelectMode = useCallback(() => {
-    if (isNineGridSelectMode) {
-      // 退出选择模式时清空选择
-      setSelectedShotIds(new Set());
-    }
-    setIsNineGridSelectMode((prev) => !prev);
-  }, [isNineGridSelectMode]);
-
-  // 打开九宫格生成对话框
-  const handleOpenNineGridDialog = useCallback(() => {
-    if (selectedShotIds.size !== 9) {
-      toast.error(`请选择恰好9个镜头（当前已选择 ${selectedShotIds.size} 个）`);
-      return;
-    }
+  // 处理分组生成按钮点击
+  const handleGenerateGroup = useCallback((group: ShotGroup) => {
     if (!data?.timelineId) {
       toast.error("缺少时间线信息");
       return;
     }
+    const shotIds = group.shots.map((shot) => shot.id);
+    setCurrentSelectedShotIds(shotIds);
     openNineGridDialog(chapterId, data.timelineId, "");
-  }, [selectedShotIds.size, data?.timelineId, openNineGridDialog, chapterId]);
+  }, [data?.timelineId, openNineGridDialog, chapterId]);
 
   // 九宫格生成 mutation
   const nineGridMutation = useMutation({
@@ -411,8 +405,7 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
       // 设置 taskId 开始轮询
       setNineGridTaskId(result.taskId);
       closeNineGridDialog();
-      setIsNineGridSelectMode(false);
-      setSelectedShotIds(new Set());
+      setCurrentSelectedShotIds([]);
     },
     onError: (error: Error) => {
       toast.error("生成失败", { description: error.message });
@@ -521,9 +514,13 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
     });
   };
 
-  const handleImageClick = (shot: ShotDesign) => {
-    setSelectedShot(shot);
-    setViewerOpen(true);
+  const handleImageClick = (shot: { id: string; shot_order: number; generated_image_url?: string | null; shot_description: string; [key: string]: unknown }) => {
+    // 从 data.shots 中找到完整的镜头数据
+    const fullShot = data?.shots.find(s => s.id === shot.id);
+    if (fullShot) {
+      setSelectedShot(fullShot);
+      setViewerOpen(true);
+    }
   };
 
   // 重新生成镜头
@@ -597,8 +594,6 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
     );
   }
 
-  const canGenerateNineGrid = data.shots.length >= 9;
-
   return (
     <div className="space-y-4">
       {/* 头部统计 */}
@@ -611,31 +606,6 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
             <p className="text-xs text-zinc-400">共 {data.totalCount} 个镜头</p>
           </div>
           <div className="flex items-center gap-2">
-            {/* 九宫格选择模式按钮 */}
-            {canGenerateNineGrid && (
-              <Button
-                onClick={handleToggleSelectMode}
-                variant={isNineGridSelectMode ? "default" : "outline"}
-                size="sm"
-                className={cn(
-                  isNineGridSelectMode
-                    ? "bg-purple-600 hover:bg-purple-700"
-                    : "border-purple-800/50 text-purple-300 hover:bg-purple-900/30"
-                )}
-              >
-                {isNineGridSelectMode ? (
-                  <>
-                    <X className="w-3 h-3 mr-1" />
-                    取消选择
-                  </>
-                ) : (
-                  <>
-                    <Grid3X3 className="w-3 h-3 mr-1" />
-                    九宫格
-                  </>
-                )}
-              </Button>
-            )}
             <Button
               onClick={() => regenerateMutation.mutate()}
               disabled={regenerateMutation.isPending}
@@ -659,47 +629,22 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
         </div>
       </div>
 
-      {/* 九宫格选择模式提示 */}
-      {isNineGridSelectMode && (
-        <div className="bg-purple-900/20 border border-purple-800/50 rounded-lg p-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Grid3X3 className="w-4 h-4 text-purple-400" />
-              <span className="text-sm text-purple-300">
-                已选择 {selectedShotIds.size}/9 个镜头
-              </span>
-              {selectedShotIds.size === 9 && (
-                <Badge className="bg-green-900/50 text-green-300 border-green-800">
-                  可以生成
-                </Badge>
-              )}
-            </div>
-            <Button
-              onClick={handleOpenNineGridDialog}
-              disabled={selectedShotIds.size !== 9}
-              size="sm"
-              className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50"
-            >
-              <Sparkles className="w-3 h-3 mr-1" />
-              生成九宫格
-            </Button>
+      {/* 分组展示 */}
+      <div className="space-y-6">
+        {shotGroups.length === 0 ? (
+          <div className="text-center text-zinc-500 py-8">
+            暂无镜头数据
           </div>
-        </div>
-      )}
-
-      {/* 镜头网格 */}
-      <div className="grid grid-cols-2 gap-3">
-        {data.shots.map((shot) => (
-          <ShotCard
-            key={shot.id}
-            shot={shot}
-            onGenerate={handleOpenGenerateDialog}
-            onImageClick={handleImageClick}
-            isSelectMode={isNineGridSelectMode}
-            isSelected={selectedShotIds.has(shot.id)}
-            onSelectToggle={handleSelectToggle}
-          />
-        ))}
+        ) : (
+          shotGroups.map((group) => (
+            <ShotGroupSection
+              key={group.groupIndex}
+              group={group}
+              onGenerate={handleGenerateGroup}
+              onShotClick={handleImageClick}
+            />
+          ))
+        )}
       </div>
 
       <GenerateShotImageDialog
