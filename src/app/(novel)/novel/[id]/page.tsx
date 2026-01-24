@@ -96,7 +96,7 @@ function NovelProjectPageContent() {
   const params = useParams();
   const projectId = params.id as string;
 
-  // ✅ 使用重构后的 Hook
+  // ✅ 使用重构后的 Hook（Phase 3: 按需加载）
   const {
     project,
     outlines,
@@ -104,6 +104,7 @@ function NovelProjectPageContent() {
     worldSetting,
     selectedChapter,
     loading,
+    loadingState,
     error,
     saveStatus,
     lastSaved,
@@ -115,7 +116,30 @@ function NovelProjectPageContent() {
     handleSaveWorldSetting,
     handleUpdateProject,
     refetch,
+    // Phase 3: 按需加载方法
+    fetchCharacters,
+    fetchWorldSetting,
   } = useNovelProject(projectId);
+
+  // ✅ Phase 3: Tab 切换时按需加载数据
+  const handleTabChange = (value: string) => {
+    switch (value) {
+      case "characters":
+      case "relationship":
+        // 角色管理和关系图谱都需要角色数据
+        fetchCharacters();
+        break;
+      case "world":
+        // 世界观 Tab 需要世界观数据
+        fetchWorldSetting();
+        break;
+      case "progress":
+        // 创作进度需要所有数据
+        fetchCharacters();
+        fetchWorldSetting();
+        break;
+    }
+  };
 
   const [isGenerateOutlineDialogOpen, setIsGenerateOutlineDialogOpen] = useState(false);
   const [isContinueOutlineDialogOpen, setIsContinueOutlineDialogOpen] = useState(false);
@@ -193,7 +217,7 @@ function NovelProjectPageContent() {
         </div>
 
         {/* 主内容区 */}
-        <Tabs defaultValue="chapters" className="space-y-6">
+        <Tabs defaultValue="chapters" className="space-y-6" onValueChange={handleTabChange}>
           <TabsList className={novelTheme.tabs.list}>
             <TabsTrigger value="chapters" className={novelTheme.tabs.trigger}>
               <BookOpen className="h-4 w-4 mr-2" />

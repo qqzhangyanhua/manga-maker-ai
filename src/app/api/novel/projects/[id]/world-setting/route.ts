@@ -1,13 +1,40 @@
 /**
  * Novel Project World Setting API
- * GET /api/novel/projects/[id]/world-setting - 获取世界观设定
- * PUT /api/novel/projects/[id]/world-setting - 更新世界观设定
+ * GET /api/novel/projects/{id}/world-setting - 获取世界观设定
+ * PUT /api/novel/projects/{id}/world-setting - 更新世界观设定
+ *
+ * 职责单一：仅处理 world_setting 数据
  */
+
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { logInfo, logError } from "@/lib/api-logger";
+
+interface WorldSetting {
+  worldName?: string;
+  background?: string;
+  era?: string;
+  geography?: string;
+  magicSystem?: string;
+  technology?: string;
+  society?: string;
+  factions?: Array<{
+    name: string;
+    description: string;
+  }>;
+  rules?: string[];
+  [key: string]: unknown;
+}
+
+interface WorldSettingResponse {
+  world_setting: WorldSetting;
+  _links: {
+    self: string;
+    project: string;
+  };
+}
 
 export async function GET(
   req: NextRequest,
@@ -19,7 +46,7 @@ export async function GET(
   try {
     const projectId = params.id;
 
-    logInfo("Request received", {
+    logInfo("World setting request received", {
       endpoint: "/api/novel/projects/[id]/world-setting",
       method: "GET",
       projectId,
@@ -40,7 +67,7 @@ export async function GET(
 
     userId = payload.userId;
 
-    // 查询项目世界观
+    // 查询项目的 world_setting 字段
     const project = await prisma.novelProject.findUnique({
       where: { id: projectId },
       select: {
@@ -54,26 +81,29 @@ export async function GET(
       return NextResponse.json({ error: "项目不存在" }, { status: 404 });
     }
 
-    // 验证权限
     if (project.user_id !== userId) {
       return NextResponse.json({ error: "无权访问此项目" }, { status: 403 });
     }
+
+    const worldSetting = (project.world_setting as WorldSetting) || {};
+
+    const response: WorldSettingResponse = {
+      world_setting: worldSetting,
+      _links: {
+        self: `/api/novel/projects/${projectId}/world-setting`,
+        project: `/api/novel/projects/${projectId}`,
+      },
+    };
 
     logInfo("World setting fetched successfully", {
       endpoint: "/api/novel/projects/[id]/world-setting",
       userId,
       projectId,
+      hasWorldSetting: Object.keys(worldSetting).length > 0,
       durationMs: Date.now() - startedAt,
     });
 
-    return NextResponse.json({
-      world_setting: project.world_setting || {
-        locations: [],
-        factions: [],
-        rules: [],
-        timeline: [],
-      },
-    });
+    return NextResponse.json(response);
   } catch (error) {
     logError("Failed to fetch world setting", error, {
       endpoint: "/api/novel/projects/[id]/world-setting",
@@ -96,7 +126,7 @@ export async function PUT(
   try {
     const projectId = params.id;
 
-    logInfo("Request received", {
+    logInfo("Update world setting request", {
       endpoint: "/api/novel/projects/[id]/world-setting",
       method: "PUT",
       projectId,
@@ -135,28 +165,11 @@ export async function PUT(
     const body = await req.json();
     const { world_setting } = body;
 
-    if (!world_setting || typeof world_setting !== "object") {
-      return NextResponse.json({ error: "world_setting 格式错误" }, { status: 400 });
+    if (typeof world_setting !== 'object' || world_setting === null) {
+      return NextResponse.json({ error: "world_setting 必须是对象" }, { status: 400 });
     }
 
-    // 验证必需字段
-    const requiredFields = ["locations", "factions", "rules", "timeline"];
-    for (const field of requiredFields) {
-      if (!Array.isArray(world_setting[field])) {
-        return NextResponse.json(
-          { error: `world_setting.${field} 必须是数组` },
-          { status: 400 }
-        );
-      }
-    }
-
-    logInfo("Updating world setting", {
-      endpoint: "/api/novel/projects/[id]/world-setting",
-      userId,
-      projectId,
-    });
-
-    // 更新世界观
+    // 更新 world_setting
     const updatedProject = await prisma.novelProject.update({
       where: { id: projectId },
       data: {
@@ -164,9 +177,7 @@ export async function PUT(
         updated_at: new Date(),
       },
       select: {
-        id: true,
         world_setting: true,
-        updated_at: true,
       },
     });
 
@@ -177,7 +188,9 @@ export async function PUT(
       durationMs: Date.now() - startedAt,
     });
 
-    return NextResponse.json(updatedProject);
+    return NextResponse.json({
+      world_setting: updatedProject.world_setting,
+    });
   } catch (error) {
     logError("Failed to update world setting", error, {
       endpoint: "/api/novel/projects/[id]/world-setting",

@@ -1,13 +1,34 @@
 /**
  * Novel Project Outlines API
- * GET /api/novel/projects/[id]/outlines - 获取大纲列表
- * PUT /api/novel/projects/[id]/outlines - 更新大纲列表
+ * GET /api/novel/projects/{id}/outlines - 获取故事大纲
+ * PUT /api/novel/projects/{id}/outlines - 更新故事大纲
+ *
+ * 职责单一：仅处理 outlines 数据
  */
+
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
-import { Prisma, prisma } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { logInfo, logError } from "@/lib/api-logger";
+
+interface OutlineItem {
+  chapter_number: number;
+  title: string;
+  outline: string;
+  word_count?: number;
+  is_key_chapter?: boolean;
+  status?: string;
+}
+
+interface OutlinesResponse {
+  outlines: OutlineItem[];
+  total_chapters: number;
+  _links: {
+    self: string;
+    project: string;
+  };
+}
 
 export async function GET(
   req: NextRequest,
@@ -19,7 +40,7 @@ export async function GET(
   try {
     const projectId = params.id;
 
-    logInfo("Request received", {
+    logInfo("Outlines request received", {
       endpoint: "/api/novel/projects/[id]/outlines",
       method: "GET",
       projectId,
@@ -40,7 +61,7 @@ export async function GET(
 
     userId = payload.userId;
 
-    // 查询项目大纲
+    // 查询项目的 outlines 字段
     const project = await prisma.novelProject.findUnique({
       where: { id: projectId },
       select: {
@@ -54,22 +75,30 @@ export async function GET(
       return NextResponse.json({ error: "项目不存在" }, { status: 404 });
     }
 
-    // 验证权限
     if (project.user_id !== userId) {
       return NextResponse.json({ error: "无权访问此项目" }, { status: 403 });
     }
+
+    const outlines = (project.outlines as OutlineItem[]) || [];
+
+    const response: OutlinesResponse = {
+      outlines,
+      total_chapters: outlines.length,
+      _links: {
+        self: `/api/novel/projects/${projectId}/outlines`,
+        project: `/api/novel/projects/${projectId}`,
+      },
+    };
 
     logInfo("Outlines fetched successfully", {
       endpoint: "/api/novel/projects/[id]/outlines",
       userId,
       projectId,
-      outlinesCount: Array.isArray(project.outlines) ? project.outlines.length : 0,
+      totalChapters: outlines.length,
       durationMs: Date.now() - startedAt,
     });
 
-    return NextResponse.json({
-      outlines: project.outlines || [],
-    });
+    return NextResponse.json(response);
   } catch (error) {
     logError("Failed to fetch outlines", error, {
       endpoint: "/api/novel/projects/[id]/outlines",
@@ -92,7 +121,7 @@ export async function PUT(
   try {
     const projectId = params.id;
 
-    logInfo("Request received", {
+    logInfo("Update outlines request", {
       endpoint: "/api/novel/projects/[id]/outlines",
       method: "PUT",
       projectId,
@@ -116,7 +145,7 @@ export async function PUT(
     // 验证项目归属
     const project = await prisma.novelProject.findUnique({
       where: { id: projectId },
-      select: { user_id: true, chapter_count: true },
+      select: { user_id: true },
     });
 
     if (!project) {
@@ -129,59 +158,22 @@ export async function PUT(
 
     // 解析请求体
     const body = await req.json();
-    const outlines = body.outlines as unknown;
+    const { outlines } = body;
 
     if (!Array.isArray(outlines)) {
       return NextResponse.json({ error: "outlines 必须是数组" }, { status: 400 });
     }
 
-    const outlineItems = outlines as Array<Record<string, unknown>>;
-
-    for (const outline of outlineItems) {
-      const chapterNumber = outline.chapter_number;
-      if (typeof chapterNumber !== "number") {
-        return NextResponse.json(
-          { error: "每个大纲必须包含有效的 chapter_number" },
-          { status: 400 }
-        );
-      }
-      const title = outline.title;
-      if (typeof title !== "string") {
-        return NextResponse.json(
-          { error: "每个大纲必须包含有效的 title" },
-          { status: 400 }
-        );
-      }
-    }
-
-    logInfo("Updating outlines", {
-      endpoint: "/api/novel/projects/[id]/outlines",
-      userId,
-      projectId,
-      outlinesCount: outlineItems.length,
-    });
-
-    // 计算总字数
-    const total_words = outlineItems.reduce((sum, chapter) => {
-      const wordCountValue = chapter.word_count ?? chapter.wordCount ?? 0;
-      return sum + (typeof wordCountValue === "number" ? wordCountValue : 0);
-    }, 0);
-
-    // 更新大纲和章节计数
+    // 更新 outlines
     const updatedProject = await prisma.novelProject.update({
       where: { id: projectId },
       data: {
-        outlines: outlineItems as Prisma.InputJsonValue,
-        chapter_count: outlineItems.length,
-        total_words,
+        outlines,
+        chapter_count: outlines.length,
         updated_at: new Date(),
       },
       select: {
-        id: true,
         outlines: true,
-        chapter_count: true,
-        total_words: true,
-        updated_at: true,
       },
     });
 
@@ -189,10 +181,14 @@ export async function PUT(
       endpoint: "/api/novel/projects/[id]/outlines",
       userId,
       projectId,
+      totalChapters: outlines.length,
       durationMs: Date.now() - startedAt,
     });
 
-    return NextResponse.json(updatedProject);
+    return NextResponse.json({
+      outlines: updatedProject.outlines,
+      total_chapters: outlines.length,
+    });
   } catch (error) {
     logError("Failed to update outlines", error, {
       endpoint: "/api/novel/projects/[id]/outlines",

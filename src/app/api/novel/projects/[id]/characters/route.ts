@@ -1,13 +1,40 @@
 /**
  * Novel Project Characters API
- * GET /api/novel/projects/[id]/characters - 获取角色列表
- * PUT /api/novel/projects/[id]/characters - 更新角色列表
+ * GET /api/novel/projects/{id}/characters - 获取角色列表
+ * PUT /api/novel/projects/{id}/characters - 更新角色列表
+ *
+ * 职责单一：仅处理 characters 数据
  */
+
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { logInfo, logError } from "@/lib/api-logger";
+
+interface CharacterItem {
+  id?: string;
+  name: string;
+  role?: string;
+  description?: string;
+  personality?: string;
+  background?: string;
+  appearance?: string;
+  relationships?: Array<{
+    targetId: string;
+    type: string;
+    description?: string;
+  }>;
+}
+
+interface CharactersResponse {
+  characters: CharacterItem[];
+  total_characters: number;
+  _links: {
+    self: string;
+    project: string;
+  };
+}
 
 export async function GET(
   req: NextRequest,
@@ -19,7 +46,7 @@ export async function GET(
   try {
     const projectId = params.id;
 
-    logInfo("Request received", {
+    logInfo("Characters request received", {
       endpoint: "/api/novel/projects/[id]/characters",
       method: "GET",
       projectId,
@@ -40,7 +67,7 @@ export async function GET(
 
     userId = payload.userId;
 
-    // 查询项目角色
+    // 查询项目的 characters 字段
     const project = await prisma.novelProject.findUnique({
       where: { id: projectId },
       select: {
@@ -54,21 +81,30 @@ export async function GET(
       return NextResponse.json({ error: "项目不存在" }, { status: 404 });
     }
 
-    // 验证权限
     if (project.user_id !== userId) {
       return NextResponse.json({ error: "无权访问此项目" }, { status: 403 });
     }
+
+    const characters = (project.characters as CharacterItem[]) || [];
+
+    const response: CharactersResponse = {
+      characters,
+      total_characters: characters.length,
+      _links: {
+        self: `/api/novel/projects/${projectId}/characters`,
+        project: `/api/novel/projects/${projectId}`,
+      },
+    };
 
     logInfo("Characters fetched successfully", {
       endpoint: "/api/novel/projects/[id]/characters",
       userId,
       projectId,
+      totalCharacters: characters.length,
       durationMs: Date.now() - startedAt,
     });
 
-    return NextResponse.json({
-      characters: project.characters || [],
-    });
+    return NextResponse.json(response);
   } catch (error) {
     logError("Failed to fetch characters", error, {
       endpoint: "/api/novel/projects/[id]/characters",
@@ -91,7 +127,7 @@ export async function PUT(
   try {
     const projectId = params.id;
 
-    logInfo("Request received", {
+    logInfo("Update characters request", {
       endpoint: "/api/novel/projects/[id]/characters",
       method: "PUT",
       projectId,
@@ -134,14 +170,7 @@ export async function PUT(
       return NextResponse.json({ error: "characters 必须是数组" }, { status: 400 });
     }
 
-    logInfo("Updating characters", {
-      endpoint: "/api/novel/projects/[id]/characters",
-      userId,
-      projectId,
-      charactersCount: characters.length,
-    });
-
-    // 更新角色
+    // 更新 characters
     const updatedProject = await prisma.novelProject.update({
       where: { id: projectId },
       data: {
@@ -149,9 +178,7 @@ export async function PUT(
         updated_at: new Date(),
       },
       select: {
-        id: true,
         characters: true,
-        updated_at: true,
       },
     });
 
@@ -159,10 +186,14 @@ export async function PUT(
       endpoint: "/api/novel/projects/[id]/characters",
       userId,
       projectId,
+      totalCharacters: characters.length,
       durationMs: Date.now() - startedAt,
     });
 
-    return NextResponse.json(updatedProject);
+    return NextResponse.json({
+      characters: updatedProject.characters,
+      total_characters: characters.length,
+    });
   } catch (error) {
     logError("Failed to update characters", error, {
       endpoint: "/api/novel/projects/[id]/characters",
