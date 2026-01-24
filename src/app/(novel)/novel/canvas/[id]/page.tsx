@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, Palette, Images } from "lucide-react";
+import { ArrowLeft, Palette, Images } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InfiniteCanvasView } from "../../components/InfiniteCanvas";
 import { useTimelineWindow } from "@/hooks/useTimelineWindow";
@@ -10,18 +10,20 @@ import { StyleSelector } from "@/components/StyleSelector";
 import { useUpdateTimelineStyle, getSafeConfig } from "@/hooks/useTimelineConfig";
 import { useToast } from "@/hooks/use-toast";
 import { ImageGalleryDialog } from "../../components/ImageGallery";
+import { CanvasSkeleton } from "./components/CanvasSkeleton";
+import { ErrorState } from "./components/ErrorState";
 import { novelTheme } from "../../theme";
 import "../../novel-theme.css";
 
 export default function CanvasPage() {
   const params = useParams();
   const router = useRouter();
-  const [windowCenter, setWindowCenter] = useState(1);
   const [imageGalleryOpen, setImageGalleryOpen] = useState(false);
   const { toast } = useToast();
 
   const timelineId = params.id as string;
 
+  // ✅ 移除 windowCenter 冗余状态，Hook 内部管理
   const {
     timeline,
     isLoading,
@@ -35,9 +37,11 @@ export default function CanvasPage() {
     jumpToFirst,
     jumpToLast,
     refresh,
+    canNavigatePrev,
+    canNavigateNext,
   } = useTimelineWindow({
     timelineId,
-    initialCenter: windowCenter,
+    initialCenter: 1,
     range: 2,
   });
 
@@ -67,69 +71,29 @@ export default function CanvasPage() {
     [updateStyle, toast]
   );
 
-  const handleNavigate = useCallback(
-    (chapterNumber: number) => {
-      setWindowCenter(chapterNumber);
-      navigateTo(chapterNumber);
-    },
-    [navigateTo]
-  );
+  // ✅ 删除所有包装函数，直接使用 Hook 提供的方法
 
-  const handlePrev = useCallback(() => {
-    if (windowState && windowState.center > 1) {
-      setWindowCenter(windowState.center - 1);
-      navigatePrev();
-    }
-  }, [windowState, navigatePrev]);
-
-  const handleNext = useCallback(() => {
-    if (windowState && windowState.center < windowState.total) {
-      setWindowCenter(windowState.center + 1);
-      navigateNext();
-    }
-  }, [windowState, navigateNext]);
-
-  const handleJumpFirst = useCallback(() => {
-    setWindowCenter(1);
-    jumpToFirst();
-  }, [jumpToFirst]);
-
-  const handleJumpLast = useCallback(() => {
-    if (windowState) {
-      setWindowCenter(windowState.total);
-      jumpToLast();
-    }
-  }, [windowState, jumpToLast]);
-
+  // ✅ 使用骨架屏替代全屏 Loading，避免布局抖动
   if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen bg-[#0f0f13] novel-theme-scope">
-        <div className="relative">
-          <Loader2 className={`w-12 h-12 ${novelTheme.loading.spinner}`} />
-          <div className={`absolute top-0 left-0 w-12 h-12 rounded-full border-4 ${novelTheme.loading.border}`}></div>
-        </div>
-        <p className="mt-4 text-zinc-400 text-sm animate-pulse">加载时间线中...</p>
-      </div>
-    );
+    return <CanvasSkeleton />;
   }
 
+  // ✅ 增强错误处理：添加重试按钮，区分错误类型
   if (isError || !timeline) {
+    const isNotFound = error?.message?.includes("不存在") || !timeline;
+
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-[#0f0f13] text-white space-y-4 novel-theme-scope">
-        <div className="w-16 h-16 rounded-full bg-red-900/20 flex items-center justify-center border border-red-900/50">
-          <span className="text-3xl">!</span>
-        </div>
-        <div className="text-center">
-          <h2 className="text-xl font-semibold text-white mb-2">出错了</h2>
-          <p className="text-red-400 text-sm">{error?.message || "时间线不存在"}</p>
-        </div>
-        <Button
-          onClick={() => router.back()}
-          className="bg-zinc-800 hover:bg-zinc-700 text-white border-zinc-700"
-        >
-          返回上一页
-        </Button>
-      </div>
+      <ErrorState
+        title={isNotFound ? "时间线不存在" : "加载失败"}
+        message={
+          isNotFound
+            ? "该时间线可能已被删除或您没有访问权限"
+            : error?.message || "网络连接异常，请检查网络后重试"
+        }
+        onRetry={isNotFound ? undefined : refresh}
+        onGoBack={() => router.back()}
+        showRetry={!isNotFound}
+      />
     );
   }
 
@@ -189,11 +153,11 @@ export default function CanvasPage() {
           windowState={windowState}
           chapterSummaries={chapterSummaries}
           onRefresh={refresh}
-          onNavigate={handleNavigate}
-          onPrev={handlePrev}
-          onNext={handleNext}
-          onJumpFirst={handleJumpFirst}
-          onJumpLast={handleJumpLast}
+          onNavigate={navigateTo}
+          onPrev={navigatePrev}
+          onNext={navigateNext}
+          onJumpFirst={jumpToFirst}
+          onJumpLast={jumpToLast}
           isLoading={isLoading}
         />
       </div>

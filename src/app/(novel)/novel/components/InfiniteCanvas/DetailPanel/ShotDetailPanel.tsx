@@ -26,6 +26,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import {
   useShotGenerateDialog,
   useOpenShotGenerateDialog,
@@ -380,6 +381,14 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
 
   // 处理分组生成按钮点击
   const handleGenerateGroup = useCallback((group: ShotGroup) => {
+    // 🔍 调试日志 - 追踪九宫格对话框打开
+    console.log("[ShotDetailPanel] 打开九宫格对话框:", {
+      chapterId,
+      timelineId: data?.timelineId,
+      groupIndex: group.groupIndex,
+      shotCount: group.shots.length,
+    });
+
     if (!data?.timelineId) {
       toast.error("缺少时间线信息");
       return;

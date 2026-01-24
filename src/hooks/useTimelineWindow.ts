@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   PaginatedTimeline,
@@ -27,6 +27,8 @@ interface UseTimelineWindowReturn {
   jumpToFirst: () => void;
   jumpToLast: () => void;
   refresh: () => void;
+  canNavigatePrev: boolean;
+  canNavigateNext: boolean;
 }
 
 const DEFAULT_RANGE = 2;
@@ -38,16 +40,19 @@ export function useTimelineWindow({
 }: UseTimelineWindowOptions): UseTimelineWindowReturn {
   const queryClient = useQueryClient();
 
+  // ✅ Hook 内部管理 center 状态（唯一数据源）
+  const [center, setCenter] = useState(initialCenter);
+
   const queryKey = useMemo(
-    () => ["timeline", timelineId, { center: initialCenter, range }],
-    [timelineId, initialCenter, range]
+    () => ["timeline", timelineId, { center, range }],
+    [timelineId, center, range]
   );
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey,
     queryFn: async (): Promise<PaginatedTimeline> => {
       const params = new URLSearchParams({
-        center: String(initialCenter),
+        center: String(center),
         range: String(range),
       });
 
@@ -68,59 +73,43 @@ export function useTimelineWindow({
     refetchOnWindowFocus: false,
   });
 
+  // ✅ 派生状态：计算导航边界
+  const canNavigatePrev = useMemo(() => {
+    return data?.window ? data.window.center > 1 : false;
+  }, [data?.window]);
+
+  const canNavigateNext = useMemo(() => {
+    return data?.window ? data.window.center < data.window.total : false;
+  }, [data?.window]);
+
+  // ✅ 导航方法：更新 center 状态即可触发数据重新获取
   const navigateTo = useCallback(
     (chapterNumber: number) => {
-      const newQueryKey = ["timeline", timelineId, { center: chapterNumber, range }];
-      queryClient.prefetchQuery({
-        queryKey: newQueryKey,
-        queryFn: async (): Promise<PaginatedTimeline> => {
-          const params = new URLSearchParams({
-            center: String(chapterNumber),
-            range: String(range),
-          });
-
-          const response = await fetch(
-            `/api/canvas/timeline/${timelineId}?${params}`
-          );
-
-          if (!response.ok) {
-            throw new Error("获取时间线失败");
-          }
-
-          const result = await response.json();
-          return result.timeline;
-        },
-      });
+      setCenter(chapterNumber);
     },
-    [timelineId, range, queryClient]
+    []
   );
 
   const navigatePrev = useCallback(() => {
-    if (!data?.window) return;
-    const { center, start } = data.window;
-    if (start <= 1) return;
-
-    const newCenter = Math.max(1, center - 1);
-    navigateTo(newCenter);
-  }, [data?.window, navigateTo]);
+    if (!canNavigatePrev || !data?.window) return;
+    const newCenter = Math.max(1, data.window.center - 1);
+    setCenter(newCenter);
+  }, [canNavigatePrev, data?.window]);
 
   const navigateNext = useCallback(() => {
-    if (!data?.window) return;
-    const { center, end, total } = data.window;
-    if (end >= total) return;
-
-    const newCenter = Math.min(total, center + 1);
-    navigateTo(newCenter);
-  }, [data?.window, navigateTo]);
+    if (!canNavigateNext || !data?.window) return;
+    const newCenter = Math.min(data.window.total, data.window.center + 1);
+    setCenter(newCenter);
+  }, [canNavigateNext, data?.window]);
 
   const jumpToFirst = useCallback(() => {
-    navigateTo(1);
-  }, [navigateTo]);
+    setCenter(1);
+  }, []);
 
   const jumpToLast = useCallback(() => {
     if (!data?.window?.total) return;
-    navigateTo(data.window.total);
-  }, [data?.window?.total, navigateTo]);
+    setCenter(data.window.total);
+  }, [data?.window?.total]);
 
   const refresh = useCallback(() => {
     refetch();
@@ -139,5 +128,7 @@ export function useTimelineWindow({
     jumpToFirst,
     jumpToLast,
     refresh,
+    canNavigatePrev,
+    canNavigateNext,
   };
 }

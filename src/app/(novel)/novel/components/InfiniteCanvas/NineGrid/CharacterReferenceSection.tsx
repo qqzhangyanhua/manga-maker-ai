@@ -83,6 +83,17 @@ export function CharacterReferenceSection({
     onUpdateCharacterReferences(updated);
   };
 
+  // 🔍 调试日志 - 帮助追踪数据流
+  console.log("[CharacterReferenceSection] 状态:", {
+    chapterId,
+    projectId,
+    isLoading,
+    hasData: !!data,
+    characterCount: data?.characters?.length || 0,
+    characterReferencesCount: characterReferences.length,
+  });
+
+  // 1️⃣ 优先处理加载状态 - 显示骨架屏
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -91,10 +102,28 @@ export function CharacterReferenceSection({
           <Skeleton className="h-24 w-full" />
           <Skeleton className="h-24 w-full" />
         </div>
+        <p className="text-xs text-muted-foreground">正在加载角色数据...</p>
       </div>
     );
   }
 
+  // 2️⃣ 处理缺少必要参数的情况
+  if (!chapterId) {
+    return (
+      <div className="space-y-2">
+        <h3 className="text-sm font-medium">角色参考图（可选）</h3>
+        <div className="flex items-start gap-2 text-xs bg-amber-900/20 border border-amber-800/50 p-3 rounded-md">
+          <AlertCircle className="h-4 w-4 text-amber-400 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium text-amber-300">缺少章节信息</p>
+            <p className="text-amber-400/80 mt-1">无法加载角色数据,请刷新页面后重试</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 3️⃣ 处理数据为空的情况 - 只有在确认加载完成且数据为空时才显示
   if (!data?.characters || data.characters.length === 0) {
     return (
       <div className="space-y-2">

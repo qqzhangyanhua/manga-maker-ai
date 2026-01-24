@@ -78,6 +78,15 @@ export function GenerateNineGridDialog({
   onConfirm,
   isSubmitting = false,
 }: GenerateNineGridDialogProps) {
+  // 🔍 调试日志 - 追踪 props 变化
+  console.log("[GenerateNineGridDialog] Props:", {
+    open,
+    timelineId,
+    chapterId,
+    chapterSummary,
+    selectedShotsCount: selectedShots.length,
+  });
+
   const [plotSummary, setPlotSummary] = useState("");
   const [characterReferences, setCharacterReferences] = useState<CharacterReference[]>([]);
 
@@ -204,15 +213,13 @@ export function GenerateNineGridDialog({
             </p>
           </div>
 
-          {/* 角色参考图选择 */}
-          {chapterId && timelineId && (
-            <CharacterReferenceSection
-              chapterId={chapterId}
-              projectId={timelineId}
-              characterReferences={characterReferences}
-              onUpdateCharacterReferences={setCharacterReferences}
-            />
-          )}
+          {/* 角色参考图选择 - 始终渲染,在组件内部处理缺失情况 */}
+          <CharacterReferenceSection
+            chapterId={chapterId || ""}
+            projectId={timelineId || ""}
+            characterReferences={characterReferences}
+            onUpdateCharacterReferences={setCharacterReferences}
+          />
 
           {/* 漫画风格信息（只读显示） */}
           <div className="space-y-3">

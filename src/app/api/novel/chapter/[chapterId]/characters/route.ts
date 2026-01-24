@@ -28,7 +28,8 @@ export async function GET(
 
     const { chapterId } = params;
 
-    // 2. 查询章节信息
+    // 2. 尝试查询章节信息（支持 NovelChapter 系统）
+    // 注意：Timeline 系统的章节可能不在 NovelChapter 表中
     const chapter = await prisma.novelChapter.findUnique({
       where: { id: chapterId },
       include: {
@@ -36,17 +37,15 @@ export async function GET(
       },
     });
 
-    if (!chapter) {
-      return NextResponse.json({ error: "章节不存在" }, { status: 404 });
-    }
-
     // 3. 权限检查
-    if (chapter.project.user_id !== payload.userId) {
+    // 如果找到章节，验证所属项目的用户权限
+    if (chapter && chapter.project.user_id !== payload.userId) {
       return NextResponse.json({ error: "无权限" }, { status: 403 });
     }
 
     // 4. 查询用户的所有角色（Comic Character 表）
     // Novel 系统复用 Comic 的 Character 表
+    // Timeline 系统调用时直接返回用户角色（章节验证已在前端完成）
     const characters = await prisma.character.findMany({
       where: {
         user_id: payload.userId,

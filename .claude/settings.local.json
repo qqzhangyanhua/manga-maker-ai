@@ -163,7 +163,9 @@
       "Bash(robocopy:*)",
       "Bash(xcopy:*)",
       "Bash(npm run lint:*)",
-      "Skill(superpowers:systematic-debugging)"
+      "Skill(superpowers:systematic-debugging)",
+      "mcp__spec-workflow-mcp__specs-workflow",
+      "mcp__augment-context-engine__codebase-retrieval"
     ],
     "deny": [],
     "ask": []

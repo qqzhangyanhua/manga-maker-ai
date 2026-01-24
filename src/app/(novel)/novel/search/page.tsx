@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { Search, ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -18,7 +18,7 @@ interface SearchResult {
   created_at: string;
 }
 
-export default function SearchResultsPage() {
+function SearchResultsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const query = searchParams.get("q");
@@ -33,6 +33,7 @@ export default function SearchResultsPage() {
     }
 
     fetchResults();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
   async function fetchResults() {
@@ -176,5 +177,19 @@ export default function SearchResultsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function SearchResultsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-black p-6">
+        <div className="flex justify-center items-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+        </div>
+      </div>
+    }>
+      <SearchResultsContent />
+    </Suspense>
   );
 }
