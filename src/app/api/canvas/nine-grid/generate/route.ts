@@ -16,6 +16,11 @@ interface NineGridGenerateRequestBody {
   shotIds: string[];
   comicStyleId?: string;
   plotSummary: string;
+  // [新增] 角色参考图
+  characterReferences?: {
+    characterId: string;
+    referenceImageUrls: string[];
+  }[];
 }
 
 /**
@@ -46,7 +51,8 @@ function truncateText(text: string, maxLength: number = 80): string {
 function buildNineGridPrompt(
   shots: ShotData[],
   stylePrefix: string,
-  plotSummary: string
+  plotSummary: string,
+  characterReferences?: { characterId: string; referenceImageUrls: string[] }[]
 ): string {
   // 按 shot_order 排序
   const sortedShots = [...shots].sort((a, b) => a.shot_order - b.shot_order);
@@ -82,7 +88,18 @@ function buildNineGridPrompt(
   // 3. 镜头描述
   parts.push(shotLines);
 
-  // 4. 结尾说明
+  // 4. 角色参考图信息（如果有）
+  if (characterReferences && characterReferences.length > 0) {
+    const charRefText = characterReferences
+      .map((ref, index) => {
+        const urls = ref.referenceImageUrls.join(", ");
+        return `角色${index + 1}参考图: ${urls}`;
+      })
+      .join("\n");
+    parts.push(`角色一致性参考:\n${charRefText}`);
+  }
+
+  // 5. 结尾说明
   parts.push(
     "最后加上图1是什么角色，图2是什么角色或者场景。生成的一定是九宫格，且每个格子比例都是16：9"
   );
@@ -111,7 +128,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "请求体格式错误" }, { status: 400 });
   }
 
-  const { shotIds, comicStyleId, plotSummary } = body;
+  const { shotIds, comicStyleId, plotSummary, characterReferences } = body;
 
   // 验证必填字段
   if (!Array.isArray(shotIds) || shotIds.length !== 9) {
@@ -125,6 +142,9 @@ export async function POST(req: Request) {
   const finalPlotSummary = (plotSummary && typeof plotSummary === "string")
     ? plotSummary.trim()
     : "";
+
+  // characterReferences 是可选的
+  const finalCharacterReferences = characterReferences || [];
 
   try {
     // 查询所有镜头数据
@@ -218,7 +238,8 @@ export async function POST(req: Request) {
     const finalPrompt = buildNineGridPrompt(
       shotData,
       stylePromptPrefix,
-      finalPlotSummary
+      finalPlotSummary,
+      finalCharacterReferences
     );
 
     console.log("[NineGrid] Generated prompt:", finalPrompt.substring(0, 200) + "...");
