@@ -65,9 +65,10 @@ export function ShotGroupSection({
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center bg-muted text-muted-foreground">
-                <span className="text-xs">镜头 {shot.shot_order}</span>
-                <span className="text-[10px] mt-1">未生成</span>
+              <div className="w-full h-full flex flex-col items-center justify-center bg-muted text-muted-foreground p-2">
+                <span className="text-[10px] text-center line-clamp-3">
+                  {shot.shot_description || '无描述'}
+                </span>
               </div>
             )}
             <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs px-2 py-1">

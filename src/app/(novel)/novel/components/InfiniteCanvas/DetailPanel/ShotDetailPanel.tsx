@@ -279,52 +279,7 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
   const [nineGridImageUrl, setNineGridImageUrl] = useState<string | null>(null);
   const [nineGridViewerOpen, setNineGridViewerOpen] = useState(false);
 
-  // 计算镜头分组
-  useEffect(() => {
-    if (data?.shots && data.shots.length > 0) {
-      const sortedShots = [...data.shots].sort((a, b) => a.shot_order - b.shot_order);
-      // 将 ShotDesign 转换为 Prisma ShotDesign 类型（添加缺失字段）
-      const prismaShots = sortedShots.map(shot => ({
-        ...shot,
-        script_segment_id: '',
-        location_key: '',
-        character_ids: [],
-        scene_id: null,
-        atmosphere: null,
-        lighting: null,
-        weather: null,
-        time_of_day: null,
-        special_effects: null,
-        created_at: new Date(shot.created_at),
-      }));
-      const groups = groupShotsIntoNineGrids(prismaShots);
-      setShotGroups(groups);
-    } else {
-      setShotGroups([]);
-    }
-  }, [data?.shots]);
-
-  // 九宫格任务轮询
-  const { status: nineGridStatus, isPolling: isNineGridPolling } =
-    useNineGridTaskPolling({
-      taskId: nineGridTaskId,
-      enabled: !!nineGridTaskId,
-      interval: 5000, // 5秒轮询一次
-      onComplete: (result: NineGridTaskStatus) => {
-        if (result.imageUrl) {
-          setNineGridImageUrl(result.imageUrl);
-          setNineGridViewerOpen(true);
-          toast.success("九宫格图片生成完成");
-        }
-        setNineGridTaskId(null);
-      },
-      onError: (error: string) => {
-        toast.error("九宫格图片生成失败", { description: error });
-        setNineGridTaskId(null);
-      },
-    });
-
-  // 获取镜头数据
+  // 获取镜头数据（必须在 useEffect 之前定义）
   const { data, isLoading, error } = useQuery<ShotDetailResponse>({
     queryKey: ["shot-detail", chapterId],
     queryFn: async () => {
@@ -349,6 +304,57 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
       return false;
     },
   });
+
+  // 九宫格任务轮询
+  const { status: nineGridStatus, isPolling: isNineGridPolling } =
+    useNineGridTaskPolling({
+      taskId: nineGridTaskId,
+      enabled: !!nineGridTaskId,
+      interval: 5000, // 5秒轮询一次
+      onComplete: (result: NineGridTaskStatus) => {
+        if (result.imageUrl) {
+          setNineGridImageUrl(result.imageUrl);
+          setNineGridViewerOpen(true);
+          toast.success("九宫格图片生成完成");
+        }
+        setNineGridTaskId(null);
+      },
+      onError: (error: string) => {
+        toast.error("九宫格图片生成失败", { description: error });
+        setNineGridTaskId(null);
+      },
+    });
+
+  // 计算镜头分组（依赖 data，必须在 useQuery 之后）
+  useEffect(() => {
+    if (data?.shots && data.shots.length > 0) {
+      const sortedShots = [...data.shots].sort((a, b) => a.shot_order - b.shot_order);
+      // 将 ShotDesign 转换为 Prisma ShotDesign 类型（添加缺失字段）
+      const prismaShots = sortedShots.map(shot => ({
+        ...shot,
+        script_segment_id: '',
+        location_key: '',
+        character_ids: [] as string[],
+        scene_id: null as string | null,
+        atmosphere: null as string | null,
+        lighting: null as string | null,
+        weather: null as string | null,
+        time_of_day: null as string | null,
+        special_effects: null as string | null,
+        expression_types: [] as string[],
+        outfit_ids: [] as string[],
+        shared_scene_id: null as string | null,
+        negative_prompt: null as string | null,
+        generated_image_url: shot.generated_image_url ?? '',
+        generation_status: shot.generation_status ?? 'pending',
+        created_at: new Date(shot.created_at),
+      }));
+      const groups = groupShotsIntoNineGrids(prismaShots);
+      setShotGroups(groups);
+    } else {
+      setShotGroups([]);
+    }
+  }, [data?.shots]);
 
   // 当前选中的镜头数据（用于九宫格生成）
   const [currentSelectedShotIds, setCurrentSelectedShotIds] = useState<string[]>([]);
