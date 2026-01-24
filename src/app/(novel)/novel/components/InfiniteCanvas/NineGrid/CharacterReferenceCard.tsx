@@ -4,25 +4,24 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { ImagePlus, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import type { CharacterReference, ReferenceImage } from "./types";
 
 interface CharacterReferenceCardProps {
   character: CharacterReference;
   selectedImages: ReferenceImage[];
-  onSelectImages: () => void;
+  onAddAvatarAsReference: () => void;
   onRemoveImage: (imageId: string) => void;
-  maxImages?: number;
 }
 
 export function CharacterReferenceCard({
   character,
   selectedImages,
-  onSelectImages,
+  onAddAvatarAsReference,
   onRemoveImage,
-  maxImages = 5,
 }: CharacterReferenceCardProps) {
-  const canAddMore = selectedImages.length < maxImages;
+  const hasAvatar = !!character.avatar_url;
+  const isSelected = selectedImages.length > 0;
 
   return (
     <Card className="p-4">
@@ -42,23 +41,24 @@ export function CharacterReferenceCard({
           </div>
         </div>
 
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={onSelectImages}
-          disabled={!canAddMore}
-          className="gap-2"
-        >
-          <ImagePlus className="h-4 w-4" />
-          选择参考图
-        </Button>
+        {hasAvatar && (
+          <Button
+            size="sm"
+            variant={isSelected ? "default" : "outline"}
+            onClick={onAddAvatarAsReference}
+            className="gap-2"
+          >
+            <Check className="h-4 w-4" />
+            {isSelected ? "已选用" : "选用头像"}
+          </Button>
+        )}
       </div>
 
       {/* 已选参考图 */}
       {selectedImages.length > 0 ? (
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">
-            已选参考图 ({selectedImages.length}/{maxImages})
+            已选参考图 ({selectedImages.length})
           </p>
           <div className="flex gap-2 overflow-x-auto pb-2">
             {selectedImages.map((image) => (
@@ -85,7 +85,7 @@ export function CharacterReferenceCard({
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">
-          未选择参考图（可选）
+          {hasAvatar ? "点击「选用头像」添加参考图" : "该角色暂无头像图片"}
         </p>
       )}
     </Card>

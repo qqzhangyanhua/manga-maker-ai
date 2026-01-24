@@ -77,8 +77,8 @@ export async function GET(
   const offset = (page - 1) * limit;
 
   try {
-    // 1. 获取项目的时间线
-    const timeline = await prisma.canvasTimeline.findFirst({
+    // 1. 获取项目的所有时间线（一个项目可能有多个时间线）
+    const timelines = await prisma.canvasTimeline.findMany({
       where: {
         novel_project_id: projectId,
         user_id: payload.userId,
@@ -96,7 +96,7 @@ export async function GET(
       },
     });
 
-    if (!timeline) {
+    if (timelines.length === 0) {
       return NextResponse.json({
         images: [],
         total: 0,
@@ -106,10 +106,12 @@ export async function GET(
       } satisfies ProjectImagesResponse);
     }
 
+    // 合并所有时间线的章节
+    const allChapters = timelines.flatMap(t => t.chapters);
     const chapterMap = new Map(
-      timeline.chapters.map((c) => [c.id, c])
+      allChapters.map((c) => [c.id, c])
     );
-    const chapterIds = timeline.chapters.map((c) => c.id);
+    const chapterIds = allChapters.map((c) => c.id);
 
     // 收集所有图片
     const allImages: ProjectImage[] = [];
@@ -269,7 +271,24 @@ export async function GET(
     // 5. 查询九宫格 (NineGridImage)
     if (!type || type === "all" || type === "nine_grid") {
       // 获取 chapter_id 列表（注意：NineGridImage 使用的是 NovelChapter 的 ID）
-      const novelChapterIds = timeline.chapters.map((c) => c.chapter_id);
+      const novelChapterIds = allChapters.map((c) => c.chapter_id).filter(Boolean) as string[];
+
+      // 🔍 调试日志
+      console.log("\n" + "=".repeat(60));
+      console.log("[ProjectImages] 九宫格查询调试信息");
+      console.log("=".repeat(60));
+      console.log("项目ID (projectId):", projectId);
+      console.log("时间线数量:", timelines.length);
+      console.log("时间线IDs:", timelines.map(t => t.id));
+      console.log("用户ID:", payload.userId);
+      console.log("所有时间线章节总数:", allChapters.length);
+      console.log("时间线章节详情:", allChapters.map(c => ({
+        timelineChapterId: c.id,
+        novelChapterId: c.chapter_id || "NULL ⚠️",
+        chapterNumber: c.chapter_number,
+      })));
+      console.log("用于查询的 novelChapterIds:", novelChapterIds);
+      console.log("过滤条件 chapterIdFilter:", chapterIdFilter || "无");
 
       const nineGridImages = await prisma.nineGridImage.findMany({
         where: {
@@ -288,9 +307,32 @@ export async function GET(
         orderBy: [{ created_at: "desc" }],
       });
 
+      console.log("查询到的九宫格图片数量:", nineGridImages.length);
+      if (nineGridImages.length > 0) {
+        console.log("九宫格图片详情:", nineGridImages.map(g => ({
+          id: g.id,
+          chapter_id: g.chapter_id,
+          created_at: g.created_at,
+        })));
+      }
+
+      // 额外查询：不带 chapter_id 过滤，看看数据库里到底有多少九宫格图片
+      const allUserNineGrids = await prisma.nineGridImage.findMany({
+        where: { user_id: payload.userId },
+        select: { id: true, chapter_id: true, created_at: true },
+        orderBy: [{ created_at: "desc" }],
+        take: 10,
+      });
+      console.log("该用户所有九宫格图片(最近10条):", allUserNineGrids.map(g => ({
+        id: g.id,
+        chapter_id: g.chapter_id || "NULL ⚠️",
+        created_at: g.created_at.toISOString(),
+      })));
+      console.log("=".repeat(60) + "\n");
+
       // 创建 chapter_id → chapter_number 映射
       const novelChapterMap = new Map(
-        timeline.chapters.map((c) => [c.chapter_id, c.chapter_number])
+        allChapters.map((c) => [c.chapter_id, c.chapter_number])
       );
 
       for (const grid of nineGridImages) {

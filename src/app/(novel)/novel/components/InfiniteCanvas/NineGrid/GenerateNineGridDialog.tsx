@@ -90,11 +90,13 @@ export function GenerateNineGridDialog({
   const [plotSummary, setPlotSummary] = useState("");
   const [characterReferences, setCharacterReferences] = useState<CharacterReference[]>([]);
 
-  // 获取时间线配置（包含默认风格）
+  // 获取时间线配置（包含默认风格和 novel_project_id）
   const { data: timelineData, isLoading: timelineLoading } =
     useTimelineConfig(timelineId);
   const timelineConfig = timelineData?.timeline.config;
   const defaultStyleId = getSafeConfig(timelineConfig).default_comic_style_id;
+  // 从时间线数据中获取正确的 novel_project_id
+  const novelProjectId = timelineData?.timeline.novel_project_id;
 
   // 获取风格列表（用于显示风格信息）
   const { data: stylesData } = useComicStyles({ enabled: !!defaultStyleId });
@@ -215,8 +217,7 @@ export function GenerateNineGridDialog({
 
           {/* 角色参考图选择 - 始终渲染,在组件内部处理缺失情况 */}
           <CharacterReferenceSection
-            chapterId={chapterId || ""}
-            projectId={timelineId || ""}
+            projectId={novelProjectId || ""}
             characterReferences={characterReferences}
             onUpdateCharacterReferences={setCharacterReferences}
           />

@@ -126,7 +126,8 @@ export interface ProjectReferenceImagesResponse {
 }
 
 /**
- * 章节角色响应
+ * 章节角色响应 (已废弃，使用 ProjectCharactersResponse)
+ * @deprecated 使用 ProjectCharactersResponse 代替
  */
 export interface ChapterCharactersResponse {
   characters: {
@@ -136,4 +137,31 @@ export interface ChapterCharactersResponse {
     avatar_url?: string;
     reference_image_url?: string;
   }[];
+}
+
+/**
+ * 项目角色响应
+ * 来自 /api/novel/projects/{id}/characters
+ */
+export interface ProjectCharactersResponse {
+  characters: {
+    id?: string;
+    name: string;
+    role?: string;
+    description?: string;
+    personality?: string;
+    background?: string;
+    appearance?: string;
+    generatedImageUrl?: string;  // 角色生成的图片URL
+    relationships?: Array<{
+      targetId: string;
+      type: string;
+      description?: string;
+    }>;
+  }[];
+  total_characters: number;
+  _links?: {
+    self: string;
+    project: string;
+  };
 }

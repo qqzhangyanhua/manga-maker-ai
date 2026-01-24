@@ -212,6 +212,19 @@ export async function POST(req: Request) {
 
     const novelChapterId = timelineChapter.chapter_id;
 
+    // ⚠️ 检查 chapter_id 是否为空
+    if (!novelChapterId) {
+      console.error("[NineGrid] ❌ TimelineChapter.chapter_id 为空!");
+      console.error("[NineGrid] timelineChapterId:", timelineChapterId);
+      console.error("[NineGrid] 这会导致九宫格图片无法关联到 NovelChapter，查询时会找不到");
+      // 继续执行，但记录警告
+    }
+
+    console.log("[NineGrid] 章节ID映射:", {
+      timelineChapterId,
+      novelChapterId: novelChapterId || "NULL (将无法通过 novel/[id]/images 接口查询)",
+    });
+
     // 获取漫画风格
     let stylePromptPrefix = "";
     if (comicStyleId) {
@@ -242,7 +255,59 @@ export async function POST(req: Request) {
       finalCharacterReferences
     );
 
-    console.log("[NineGrid] Generated prompt:", finalPrompt.substring(0, 200) + "...");
+    // ========== 详细日志输出（便于排查问题）==========
+    console.log("\n" + "=".repeat(80));
+    console.log("[NineGrid] 九宫格生成请求详情");
+    console.log("=".repeat(80));
+
+    // 1. 基础信息
+    console.log("\n📌 基础信息:");
+    console.log(`  - 用户ID: ${payload.userId}`);
+    console.log(`  - 时间线ID: ${timelineId}`);
+    console.log(`  - 章节ID: ${novelChapterId}`);
+    console.log(`  - 漫画风格ID: ${comicStyleId || "未设置"}`);
+    console.log(`  - 风格前缀: ${stylePromptPrefix ? stylePromptPrefix.substring(0, 50) + "..." : "无"}`);
+
+    // 2. 镜头信息
+    console.log("\n📷 镜头信息:");
+    console.log(`  - 镜头数量: ${shotIds.length}`);
+    console.log(`  - 镜头IDs: ${shotIds.join(", ")}`);
+
+    // 3. 角色参考图信息
+    console.log("\n👤 角色参考图:");
+    if (finalCharacterReferences.length > 0) {
+      console.log(`  - 角色数量: ${finalCharacterReferences.length}`);
+      finalCharacterReferences.forEach((ref, index) => {
+        console.log(`  - 角色${index + 1} (ID: ${ref.characterId}):`);
+        console.log(`    - 参考图数量: ${ref.referenceImageUrls.length}`);
+        ref.referenceImageUrls.forEach((url, urlIndex) => {
+          // 检查图片URL是否经过压缩（通常压缩后的URL会包含特定参数或路径）
+          const isCompressed = url.includes("thumbnail") ||
+                               url.includes("resize") ||
+                               url.includes("compress") ||
+                               url.includes("w=") ||
+                               url.includes("quality=");
+          console.log(`    - 图片${urlIndex + 1}: ${url}`);
+          console.log(`      是否压缩: ${isCompressed ? "是" : "否（原图）"}`);
+        });
+      });
+    } else {
+      console.log("  - 无角色参考图");
+    }
+
+    // 4. 剧情概述
+    console.log("\n📝 剧情概述:");
+    console.log(`  - 长度: ${finalPlotSummary.length} 字符`);
+    console.log(`  - 内容: ${finalPlotSummary || "(空)"}`);
+
+    // 5. 完整提示词
+    console.log("\n📜 完整提示词:");
+    console.log("-".repeat(60));
+    console.log(finalPrompt);
+    console.log("-".repeat(60));
+    console.log(`  - 提示词总长度: ${finalPrompt.length} 字符`);
+
+    console.log("\n" + "=".repeat(80) + "\n");
 
     // 调用图片生成
     // 九宫格图片尺寸：3x3网格，每格16:9
