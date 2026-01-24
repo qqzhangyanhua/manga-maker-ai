@@ -9,7 +9,7 @@ export function useChapterCharacters(chapterId: string | undefined) {
         throw new Error("章节ID不能为空");
       }
 
-      const response = await fetch(`/api/canvas/chapter/${chapterId}/characters`);
+      const response = await fetch(`/api/novel/chapter/${chapterId}/characters`);
       
       if (!response.ok) {
         const error = await response.json();
