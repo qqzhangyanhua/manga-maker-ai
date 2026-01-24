@@ -21,6 +21,7 @@ import {
   Film,
   Layout,
   Sparkles,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -91,7 +92,7 @@ interface GenerateShotImagePayload {
 /**
  * 镜头卡片组件 (已弃用,保留以备后用)
  */
-/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable */
 function ShotCard({
   shot,
   onGenerate,
