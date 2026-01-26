@@ -88,6 +88,20 @@ export const GenerateShotsRequestSchema = z.object({
   }),
 });
 
+export const ShotWorkflowStatusSchema = z
+  .enum(["pending", "generating", "completed", "error"])
+  .openapi({
+    description: "分镜工作流状态",
+    example: "pending",
+  });
+
+export const SelectionStatusSchema = z
+  .enum(["pending", "selected", "refined"])
+  .openapi({
+    description: "图片选择状态",
+    example: "pending",
+  });
+
 export const UpdateShotDesignRequestSchema = z.object({
   camera_angle: CameraAngleSchema.optional(),
   shot_size: ShotSizeSchema.optional(),
@@ -115,6 +129,22 @@ export const UpdateShotDesignRequestSchema = z.object({
   }),
   negative_prompt: z.string().max(1000).optional().openapi({
     description: "负面提示词",
+  }),
+  // 新增：角色身份证相关字段
+  character_prompt_template_ids: z.array(z.string().uuid()).optional().openapi({
+    description: "角色 Prompt 模板 ID 列表",
+  }),
+  character_prompt_status: ShotWorkflowStatusSchema.optional().openapi({
+    description: "角色 Prompt 状态",
+  }),
+  final_prompt_status: ShotWorkflowStatusSchema.optional().openapi({
+    description: "最终 Prompt 合成状态",
+  }),
+  nine_grid_status: ShotWorkflowStatusSchema.optional().openapi({
+    description: "九宫格生成状态",
+  }),
+  selection_status: SelectionStatusSchema.optional().openapi({
+    description: "图片选择状态",
   }),
 });
 
@@ -335,6 +365,118 @@ export const GenerateShotImageResponseSchema = z.object({
 });
 
 // ============================================================================
+// Character Prompt Template Schemas (角色身份证)
+// ============================================================================
+
+export const CharacterPromptVersionSchema = z
+  .enum(["base", "variant"])
+  .openapi({
+    description: "角色 Prompt 版本类型",
+    example: "base",
+  });
+
+export const CharacterPositionHintSchema = z
+  .enum(["left", "center", "right", "foreground", "background"])
+  .openapi({
+    description: "角色位置提示",
+    example: "center",
+  });
+
+export const GenerateCharacterPromptRequestSchema = z.object({
+  character_id: z.string().uuid().openapi({
+    description: "角色 ID（关联 NovelCharacter 或 Character）",
+  }),
+  version: CharacterPromptVersionSchema.openapi({
+    description: "版本类型: base = 基础版, variant = 变体版",
+  }),
+  variant_name: z.string().min(1).max(100).optional().openapi({
+    description: "变体名称（仅 variant 版本需要）",
+    example: "战斗装",
+  }),
+  user_guidance: z.string().max(500).optional().openapi({
+    description: "用户补充的指导信息（可选）",
+    example: "这个角色是一个魔法师，喜欢穿紫色的长袍",
+  }),
+}).refine(
+  (data) => data.version === "base" || (data.version === "variant" && data.variant_name),
+  { message: "变体版本必须提供 variant_name", path: ["variant_name"] }
+);
+
+export const UpdateCharacterPromptRequestSchema = z.object({
+  appearance_prompt: z.string().max(2000).optional().openapi({
+    description: "外貌描述（发型、脸型、身高、体型、肤色等）",
+    example: "long silver hair, blue eyes, slender build, 170cm tall",
+  }),
+  clothing_prompt: z.string().max(2000).optional().openapi({
+    description: "服装描述（款式、颜色、配饰等）",
+    example: "white school uniform, blue tie, black skirt",
+  }),
+  style_prompt: z.string().max(500).optional().openapi({
+    description: "画风描述",
+    example: "manga style, black and white",
+  }),
+  characteristic_prompt: z.string().max(1000).optional().openapi({
+    description: "特征标识（疤痕、纹身、特殊配饰等）",
+    example: "scar on left cheek, silver earring",
+  }),
+  negative_prompt: z.string().max(1000).optional().openapi({
+    description: "负面提示词",
+    example: "blurry, low quality, deformed",
+  }),
+  reference_image_url: z.string().url().optional().openapi({
+    description: "参考图 URL",
+  }),
+  is_active: z.boolean().optional().openapi({
+    description: "是否启用",
+  }),
+});
+
+export const CharacterPromptTemplateSchema = z.object({
+  id: z.string().uuid(),
+  character_id: z.string().uuid(),
+  user_id: z.string().uuid(),
+  version: CharacterPromptVersionSchema,
+  variant_name: z.string().nullable(),
+  appearance_prompt: z.string(),
+  clothing_prompt: z.string(),
+  style_prompt: z.string(),
+  characteristic_prompt: z.string().nullable(),
+  full_prompt: z.string(),
+  negative_prompt: z.string(),
+  reference_image_url: z.string().url().nullable(),
+  is_active: z.boolean(),
+  usage_count: z.number().int(),
+  created_at: z.string().datetime(),
+  updated_at: z.string().datetime(),
+});
+
+export const GenerateCharacterPromptResponseSchema = z.object({
+  success: z.boolean(),
+  template: CharacterPromptTemplateSchema,
+});
+
+export const ListCharacterPromptsResponseSchema = z.object({
+  success: z.boolean(),
+  prompts: z.array(CharacterPromptTemplateSchema),
+  character: z.object({
+    id: z.string().uuid(),
+    name: z.string(),
+    description: z.string().nullable(),
+    image_url: z.string().url().nullable(),
+  }).optional(),
+});
+
+export const UpdateCharacterPromptResponseSchema = z.object({
+  success: z.boolean(),
+  template: CharacterPromptTemplateSchema,
+});
+
+export const DeleteCharacterPromptResponseSchema = z.object({
+  success: z.boolean(),
+  message: z.string(),
+});
+
+// ============================================================================
 // Type Exports
 // ============================================================================
 
@@ -361,3 +503,64 @@ export type ShotDesign = z.infer<typeof ShotDesignSchema>;
 export type GenerateShotsResponse = z.infer<typeof GenerateShotsResponseSchema>;
 export type UpdateShotDesignResponse = z.infer<typeof UpdateShotDesignResponseSchema>;
 export type GenerateShotImageResponse = z.infer<typeof GenerateShotImageResponseSchema>;
+
+// Character Prompt Types
+export type CharacterPromptVersion = z.infer<typeof CharacterPromptVersionSchema>;
+export type CharacterPositionHint = z.infer<typeof CharacterPositionHintSchema>;
+export type GenerateCharacterPromptRequest = z.infer<typeof GenerateCharacterPromptRequestSchema>;
+export type UpdateCharacterPromptRequest = z.infer<typeof UpdateCharacterPromptRequestSchema>;
+export type CharacterPromptTemplate = z.infer<typeof CharacterPromptTemplateSchema>;
+export type GenerateCharacterPromptResponse = z.infer<typeof GenerateCharacterPromptResponseSchema>;
+export type ListCharacterPromptsResponse = z.infer<typeof ListCharacterPromptsResponseSchema>;
+export type UpdateCharacterPromptResponse = z.infer<typeof UpdateCharacterPromptResponseSchema>;
+export type DeleteCharacterPromptResponse = z.infer<typeof DeleteCharacterPromptResponseSchema>;
+
+// Shot Prompt Composition Types
+export type ShotWorkflowStatus = z.infer<typeof ShotWorkflowStatusSchema>;
+export type SelectionStatus = z.infer<typeof SelectionStatusSchema>;
+
+// Compose Prompt Schemas
+export const ComposePromptRequestSchema = z.object({
+  character_template_ids: z.array(z.string().uuid()).openapi({
+    description: "该分镜使用的角色 Prompt 模板 ID 列表",
+  }),
+  character_positions: z.record(
+    CharacterPositionHintSchema
+  ).optional().openapi({
+    description: "角色位置提示 (key: character_id, value: position)",
+  }),
+  manual_adjustments: z.string().max(1000).optional().openapi({
+    description: "用户手动补充的内容",
+  }),
+});
+
+export const CharacterPromptRefSchema = z.object({
+  character_id: z.string().uuid(),
+  template_id: z.string().uuid(),
+  position_hint: CharacterPositionHintSchema.optional(),
+});
+
+export const ShotPromptCompositionSchema = z.object({
+  id: z.string().uuid(),
+  shot_design_id: z.string().uuid(),
+  user_id: z.string().uuid(),
+  character_prompts: z.array(CharacterPromptRefSchema),
+  scene_prompt: z.string(),
+  action_prompt: z.string(),
+  atmosphere_prompt: z.string(),
+  camera_prompt: z.string(),
+  final_prompt: z.string(),
+  final_negative_prompt: z.string(),
+  created_at: z.string().datetime(),
+  updated_at: z.string().datetime(),
+});
+
+export const ComposePromptResponseSchema = z.object({
+  success: z.boolean(),
+  composition: ShotPromptCompositionSchema,
+});
+
+export type ComposePromptRequest = z.infer<typeof ComposePromptRequestSchema>;
+export type CharacterPromptRef = z.infer<typeof CharacterPromptRefSchema>;
+export type ShotPromptComposition = z.infer<typeof ShotPromptCompositionSchema>;
+export type ComposePromptResponse = z.infer<typeof ComposePromptResponseSchema>;

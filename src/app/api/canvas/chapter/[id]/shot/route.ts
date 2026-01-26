@@ -29,7 +29,7 @@ export async function GET(
 
     const { id: chapterId } = await params;
 
-    // 查询章节信息
+    // 查询章节信息（包含时间线和项目 ID）
     const timelineChapter = await prisma.timelineChapter.findUnique({
       where: { id: chapterId },
       select: {
@@ -38,6 +38,11 @@ export async function GET(
         shot_status: true,
         shot_count: true,
         timeline_id: true,
+        timeline: {
+          select: {
+            novel_project_id: true,
+          },
+        },
       },
     });
 
@@ -64,6 +69,13 @@ export async function GET(
         generated_image_url: true,
         generation_status: true,
         created_at: true,
+        // 新增：角色身份证相关字段
+        character_prompt_template_ids: true,
+        prompt_composition_id: true,
+        character_prompt_status: true,
+        final_prompt_status: true,
+        nine_grid_status: true,
+        selection_status: true,
       },
       orderBy: {
         shot_order: 'asc',
@@ -74,6 +86,7 @@ export async function GET(
       chapterId: timelineChapter.id,
       chapterNumber: timelineChapter.chapter_number,
       timelineId: timelineChapter.timeline_id,
+      novelProjectId: timelineChapter.timeline?.novel_project_id || null,
       status: timelineChapter.shot_status,
       shots,
       totalCount: shots.length,

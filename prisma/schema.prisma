@@ -8,16 +8,16 @@ datasource db {
 }
 
 model User {
-  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email             String    @unique
-  name              String?
-  image             String?
-  created_at        DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime? @default(now()) @db.Timestamptz(6)
-  verified          Boolean?  @default(false) // Email verification status
-  password_hash     String?   @default("")
-  role              String?   @default("user")
-  status            String?   @default("active")
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email         String    @unique
+  name          String?
+  image         String?
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  verified      Boolean?  @default(false) // Email verification status
+  password_hash String?   @default("")
+  role          String?   @default("user")
+  status        String?   @default("active")
 
   // Credits system
   credits            Int @default(2000) // 当前算力余额
@@ -89,7 +89,7 @@ model Character {
 
   // Phase 5: Character source tracking
   source_type      String? // "manual" | "novel" | "story_ai" | "imported"
-  source_reference Json?   // { novelProjectId, chapterId, tempId }
+  source_reference Json? // { novelProjectId, chapterId, tempId }
 
   views       CharacterView[]
   expressions CharacterExpression[]
@@ -558,19 +558,19 @@ model StoryCharacter {
 // SuggestedCharacter - AI-suggested characters for stories (two-step generation)
 // Replaces Story.suggested_characters JSONB field with normalized table structure
 model SuggestedCharacter {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  story_id    String   @db.Uuid
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  story_id    String @db.Uuid
   name        String // Character name suggested by AI
-  description String   @db.Text // Chinese description (50-120 chars)
-  appearance  String   @db.Text // English appearance for AI image generation (80-160 chars)
-  role        String   @default("supporting") // protagonist, antagonist, supporting, minor
+  description String @db.Text // Chinese description (50-120 chars)
+  appearance  String @db.Text // English appearance for AI image generation (80-160 chars)
+  role        String @default("supporting") // protagonist, antagonist, supporting, minor
 
   // Generation tracking
-  generated         Boolean  @default(false) // Whether image has been generated
-  character_id      String?  @db.Uuid // FK to Character after image generation
-  image_url         String? // Generated image URL (for quick preview)
-  optimized_prompt  String?  @db.Text // Optimized prompt after style processing
-  generated_at      DateTime? @db.Timestamptz(6) // When image was generated
+  generated        Boolean   @default(false) // Whether image has been generated
+  character_id     String?   @db.Uuid // FK to Character after image generation
+  image_url        String? // Generated image URL (for quick preview)
+  optimized_prompt String?   @db.Text // Optimized prompt after style processing
+  generated_at     DateTime? @db.Timestamptz(6) // When image was generated
 
   // Metadata (migrated from JSONB wrapper)
   display_order Int      @default(0) // Display order in UI
@@ -588,11 +588,11 @@ model SuggestedCharacter {
 // SuggestedScene - AI-suggested scenes for chapters (two-step background generation)
 // Similar to SuggestedCharacter pattern: analyze first, generate later
 model SuggestedScene {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  chapter_id    String   @db.Uuid
+  id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chapter_id    String  @db.Uuid
   name          String // Scene name (e.g., "夕阳下的操场", "图书馆内部")
-  description   String   @db.Text // Chinese description (100-200 chars)
-  scene_prompt  String   @db.Text // English scene description for AI image generation
+  description   String  @db.Text // Chinese description (100-200 chars)
+  scene_prompt  String  @db.Text // English scene description for AI image generation
   scene_type    String // indoor/outdoor/urban/nature/fantasy/scifi/historical/abstract
   atmosphere    String? // Atmosphere tags (e.g., "温馨", "紧张", "神秘")
   lighting_hint String? // Lighting hint (e.g., "golden_hour", "moonlight")
@@ -1157,11 +1157,11 @@ model NovelPromptTemplate {
 }
 
 model MaintenanceLog {
-  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id   String  @db.Uuid
-  operation String  @db.VarChar(50)
-  status    String  @db.VarChar(20)
-  details   Json?
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @db.Uuid
+  operation  String   @db.VarChar(50)
+  status     String   @db.VarChar(20)
+  details    Json?
   created_at DateTime @default(now()) @db.Timestamptz(6)
 
   @@index([user_id, created_at], map: "idx_maintenance_logs_user_time")
@@ -1186,15 +1186,15 @@ model NovelQuota {
 
 // 九宫格图片记录
 model NineGridImage {
-  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id           String   @db.Uuid
-  chapter_id        String   @db.Uuid
-  panel_ids         String[] // 9个分镜ID
-  image_url         String   // MinIO URL
-  prompt_combined   String   @db.Text // 组合后的提示词
-  comic_style_id    String?  @db.Uuid
-  reference_image   String?
-  
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String   @db.Uuid
+  chapter_id      String   @db.Uuid
+  panel_ids       String[] // 9个分镜ID
+  image_url       String // MinIO URL
+  prompt_combined String   @db.Text // 组合后的提示词
+  comic_style_id  String?  @db.Uuid
+  reference_image String?
+
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
 
@@ -1207,26 +1207,26 @@ model NineGridImage {
 
 // 无限画布时间线项目
 model CanvasTimeline {
-  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  novel_project_id   String   @db.Uuid
-  user_id            String   @db.Uuid
-  title              String
-  status             String   @default("draft") // draft, generating, completed, error
+  id               String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  novel_project_id String @db.Uuid
+  user_id          String @db.Uuid
+  title            String
+  status           String @default("draft") // draft, generating, completed, error
 
   // 配置
-  config             Json     @default("{\"auto_generate\":true,\"use_character_library\":true,\"use_scene_library\":true}")
+  config Json @default("{\"auto_generate\":true,\"use_character_library\":true,\"use_scene_library\":true}")
 
   // 统计
-  total_chapters     Int      @default(0)
-  completed_chapters Int      @default(0)
-  total_shots        Int      @default(0)
-  total_images       Int      @default(0)
+  total_chapters     Int @default(0)
+  completed_chapters Int @default(0)
+  total_shots        Int @default(0)
+  total_images       Int @default(0)
 
-  created_at         DateTime @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime @default(now()) @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
 
   // Relations
-  chapters           TimelineChapter[]
+  chapters TimelineChapter[]
 
   @@index([user_id], map: "idx_canvas_timeline_user")
   @@index([novel_project_id], map: "idx_canvas_timeline_project")
@@ -1235,21 +1235,21 @@ model CanvasTimeline {
 
 // 时间线章节节点
 model TimelineChapter {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  timeline_id    String   @db.Uuid
-  chapter_id     String   @db.Uuid
+  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  timeline_id    String @db.Uuid
+  chapter_id     String @db.Uuid
   chapter_number Int
 
   // 生成状态（每个阶段独立追踪）
-  script_status  String   @default("pending") // pending, generating, completed, error
-  shot_status    String   @default("pending")
-  final_status   String   @default("pending")
+  script_status String @default("pending") // pending, generating, completed, error
+  shot_status   String @default("pending")
+  final_status  String @default("pending")
 
   // 角色绑定（本章节出现的角色ID列表）
-  character_ids  String[] @default([]) @db.Uuid
+  character_ids String[] @default([]) @db.Uuid
 
   // 风格选择
-  comic_style_id String?  @db.Uuid // FK to ComicStyle
+  comic_style_id String? @db.Uuid // FK to ComicStyle
 
   // 统计
   script_segment_count Int @default(0)
@@ -1260,8 +1260,8 @@ model TimelineChapter {
   updated_at DateTime @default(now()) @db.Timestamptz(6)
 
   // Relations
-  timeline        CanvasTimeline    @relation(fields: [timeline_id], references: [id], onDelete: Cascade)
-  comic_style     ComicStyle?       @relation(fields: [comic_style_id], references: [id], onDelete: SetNull)
+  timeline        CanvasTimeline  @relation(fields: [timeline_id], references: [id], onDelete: Cascade)
+  comic_style     ComicStyle?     @relation(fields: [comic_style_id], references: [id], onDelete: SetNull)
   script_segments ScriptSegment[]
 
   @@index([timeline_id], map: "idx_timeline_chapter_timeline")
@@ -1272,23 +1272,23 @@ model TimelineChapter {
 
 // 剧本片段
 model ScriptSegment {
-  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  timeline_chapter_id String   @db.Uuid
+  id                  String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  timeline_chapter_id String @db.Uuid
   segment_order       Int
 
   // 剧本内容
-  content             String   @db.Text
-  scene_description   String   @db.Text
-  character_actions   String   @db.Text
-  dialogue            String?  @db.Text
+  content           String  @db.Text
+  scene_description String  @db.Text
+  character_actions String  @db.Text
+  dialogue          String? @db.Text
 
   // 元数据
-  estimated_duration  Int      @default(0) // 秒
-  emotion_tone        String   @default("")
+  estimated_duration Int    @default(0) // 秒
+  emotion_tone       String @default("")
 
   // 原始小说文本关联
-  source_text_start   Int      @default(0)
-  source_text_end     Int      @default(0)
+  source_text_start Int @default(0)
+  source_text_end   Int @default(0)
 
   created_at DateTime @default(now()) @db.Timestamptz(6)
 
@@ -1302,42 +1302,62 @@ model ScriptSegment {
 
 // 镜头设计
 model ShotDesign {
-  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  script_segment_id String   @db.Uuid
+  id                String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  script_segment_id String @db.Uuid
   shot_order        Int
 
   // 镜头参数
-  camera_angle      String   @default("")
-  shot_size         String   @default("")
-  panel_type        String   @default("")
+  camera_angle String @default("")
+  shot_size    String @default("")
+  panel_type   String @default("")
 
   // 内容描述
-  shot_description  String   @db.Text
-  composition_hint  String   @db.Text
+  shot_description String @db.Text
+  composition_hint String @db.Text
 
   // 场景位置标识 - 用于场景去重
-  location_key      String   @default("") // e.g., "classroom", "hallway", "rooftop"
+  location_key String @default("") // e.g., "classroom", "hallway", "rooftop"
 
   // 资产绑定
-  character_ids     String[] @default([])
-  scene_id          String?  @db.Uuid
-  expression_types  String[] @default([])
-  outfit_ids        String[] @default([])
+  character_ids    String[] @default([])
+  scene_id         String?  @db.Uuid
+  expression_types String[] @default([])
+  outfit_ids       String[] @default([])
 
   // 生成提示词
-  prompt            String   @db.Text
-  negative_prompt   String?  @db.Text
+  prompt              String  @db.Text
+  negative_prompt     String? @db.Text
   generated_image_url String?
-  generation_status   String   @default("pending")
+  generation_status   String  @default("pending")
+
+  // ============ 新增字段: 角色身份证与九宫格工作流 ============
+  // 角色 Prompt 模板引用
+  character_prompt_template_ids String[] @default([]) @db.Uuid
+
+  // 关联的 Prompt 合成记录
+  prompt_composition_id String? @db.Uuid
+
+  // 关联的九宫格生成记录
+  nine_grid_generation_id String? @db.Uuid
+
+  // 生成状态细化（各阶段独立追踪）
+  character_prompt_status String @default("pending") // pending | generating | completed | error
+  final_prompt_status     String @default("pending") // pending | generating | completed | error
+  nine_grid_status        String @default("pending") // pending | generating | completed | error
+  selection_status        String @default("pending") // pending | selected | refined
 
   created_at DateTime @default(now()) @db.Timestamptz(6)
 
   // Relations
-  script_segment ScriptSegment  @relation(fields: [script_segment_id], references: [id], onDelete: Cascade)
-  comic_panels   ComicPanelResult[]
+  script_segment     ScriptSegment          @relation(fields: [script_segment_id], references: [id], onDelete: Cascade)
+  comic_panels       ComicPanelResult[]
+  prompt_composition ShotPromptComposition? @relation(fields: [prompt_composition_id], references: [id], onDelete: SetNull)
+  nine_grid          NineGridGeneration?    @relation(fields: [nine_grid_generation_id], references: [id], onDelete: SetNull)
 
   @@index([script_segment_id], map: "idx_shot_design_segment")
   @@index([location_key], map: "idx_shot_design_location")
+  @@index([prompt_composition_id], map: "idx_shot_design_prompt_composition")
+  @@index([nine_grid_generation_id], map: "idx_shot_design_nine_grid")
   @@map("shot_designs")
 }
 
@@ -1345,35 +1365,35 @@ model ShotDesign {
 
 // 最终漫画图
 model ComicPanelResult {
-  id                         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  shot_design_id             String   @db.Uuid
+  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  shot_design_id String @db.Uuid
 
   // 最终图像
-  image_url                  String
-  width                      Int      @default(1024)
-  height                     Int      @default(768)
+  image_url String
+  width     Int    @default(1024)
+  height    Int    @default(768)
 
   // 生成参数
   generation_prompt          String   @db.Text
   character_reference_images String[] @default([])
 
   // 垫图参数
-  controlnet_type            String   @default("reference")
-  controlnet_weight          Float    @default(0.7)
+  controlnet_type   String @default("reference")
+  controlnet_weight Float  @default(0.7)
 
   // AI 生成元数据
-  model_used                 String   @default("")
-  lora_models                String[] @default([])
-  generation_params          Json     @default("{}")
+  model_used        String   @default("")
+  lora_models       String[] @default([])
+  generation_params Json     @default("{}")
 
-  status                     String   @default("generating") // generating, completed, failed
-  error_message              String?  @db.Text
-  exported_to_panel_id       String?  @db.Uuid
+  status               String  @default("generating") // generating, completed, failed
+  error_message        String? @db.Text
+  exported_to_panel_id String? @db.Uuid
 
   created_at DateTime @default(now()) @db.Timestamptz(6)
 
   // Relations
-  shot_design  ShotDesign @relation(fields: [shot_design_id], references: [id], onDelete: Cascade)
+  shot_design ShotDesign @relation(fields: [shot_design_id], references: [id], onDelete: Cascade)
 
   @@index([shot_design_id], map: "idx_comic_panel_shot")
   @@map("comic_panel_results")
@@ -1385,21 +1405,21 @@ model ComicPanelResult {
 
 // 渐进式生成会话（解决用户刷新丢失问题）
 model ProgressiveSession {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id    String   @db.Uuid
-  project_id String?  @db.Uuid // 关联的项目 ID（可选）
+  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String  @db.Uuid
+  project_id String? @db.Uuid // 关联的项目 ID（可选）
 
   // 会话状态
-  step       Int      // 当前步骤 (1-10)
-  state      Json     @db.JsonB // 会话状态数据（包含所有中间结果）
+  step  Int // 当前步骤 (1-10)
+  state Json @db.JsonB // 会话状态数据（包含所有中间结果）
 
   // 元数据
   session_type String @default("outline") // outline, character, world_setting
 
   // 生命周期
-  created_at DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at DateTime  @default(now()) @db.Timestamptz(6)
-  expires_at DateTime  @db.Timestamptz(6) // 过期时间（24小时后）
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  expires_at DateTime @db.Timestamptz(6) // 过期时间（24小时后）
 
   @@index([user_id, expires_at], map: "idx_progressive_sessions_user_expires")
   @@index([project_id], map: "idx_progressive_sessions_project")
@@ -1408,23 +1428,23 @@ model ProgressiveSession {
 
 // 智能分析结果缓存（避免重复生成，节省 API 成本）
 model AnalysisReport {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  project_id String   @db.Uuid
-  user_id    String   @db.Uuid
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id String @db.Uuid
+  user_id    String @db.Uuid
 
   // 分析类型
   analysis_type String @db.VarChar(50) // cool_points, pacing, opening_hook, comprehensive, character_analysis, world_setting_analysis
 
   // 分析结果（JSON 存储）
-  result     Json     @db.JsonB // 分析结果的完整数据
+  result Json @db.JsonB // 分析结果的完整数据
 
   // 输入内容哈希（用于检测是否需要重新生成）
-  input_hash String   @db.VarChar(64) // SHA256 hash of input content
+  input_hash String @db.VarChar(64) // SHA256 hash of input content
 
   // 元数据
-  model_used String?  @db.VarChar(100) // 使用的模型
-  tokens_used Int?    // 消耗的 tokens 数
-  cost_usd   Float?   // 成本（美元）
+  model_used  String? @db.VarChar(100) // 使用的模型
+  tokens_used Int? // 消耗的 tokens 数
+  cost_usd    Float? // 成本（美元）
 
   // 生命周期
   created_at DateTime @default(now()) @db.Timestamptz(6)
@@ -1434,4 +1454,108 @@ model AnalysisReport {
   @@index([user_id, created_at], map: "idx_analysis_reports_user_time")
   @@index([input_hash, analysis_type], map: "idx_analysis_reports_hash_type")
   @@map("analysis_reports")
+}
+
+// ============================================================
+// 角色身份证与九宫格工作流系统
+// ============================================================
+
+// 角色身份证 Prompt 模板（全局唯一，可跨项目复用）
+model CharacterPromptTemplate {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  character_id String @db.Uuid // 关联到 NovelCharacter 或 Character（软关联）
+  user_id      String @db.Uuid
+
+  // 版本管理
+  version      String  @default("base") @db.VarChar(20) // "base" | "variant"
+  variant_name String? @db.VarChar(100) // 变体名称（如 "战斗装", "正装", "休闲装"）
+
+  // Prompt 组成部分（分字段存储，便于单独编辑）
+  appearance_prompt     String  @db.Text // 外貌（发型、脸型、身高、体型、肤色）
+  clothing_prompt       String  @db.Text // 服装（款式、颜色、配饰）
+  style_prompt          String  @db.Text // 画风（manga/anime/realistic）
+  characteristic_prompt String? @db.Text // 特征标识（疤痕、纹身、特殊配饰）
+
+  // 合成后的完整 Prompt
+  full_prompt     String @db.Text // 自动拼接的完整提示词
+  negative_prompt String @default("") @db.Text // 负面提示词
+
+  // 元数据
+  reference_image_url String? // 参考图（可选，用于 ControlNet）
+  is_active           Boolean @default(true) // 是否启用
+  usage_count         Int     @default(0) // 使用次数统计
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([character_id, version, variant_name], map: "unique_character_prompt_version")
+  @@index([character_id], map: "idx_character_prompt_templates_character")
+  @@index([user_id], map: "idx_character_prompt_templates_user")
+  @@index([is_active], map: "idx_character_prompt_templates_active")
+  @@map("character_prompt_templates")
+}
+
+// 分镜 Prompt 合成记录
+model ShotPromptComposition {
+  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  shot_design_id String @unique @db.Uuid // 一对一关联到 ShotDesign
+  user_id        String @db.Uuid
+
+  // 角色 Prompt 引用（JSON 数组）
+  // 格式: [{"character_id": "uuid", "template_id": "uuid", "position_hint": "left"}]
+  character_prompts Json @default("[]") @db.JsonB
+
+  // Prompt 组成部分
+  scene_prompt      String @db.Text // 场景/背景描述
+  action_prompt     String @db.Text // 动作描述
+  atmosphere_prompt String @db.Text // 氛围描述（lighting, mood, weather）
+  camera_prompt     String @db.Text // 相机参数（angle, shot_size）
+
+  // 最终合成的 Prompt
+  final_prompt          String @db.Text // 组合后的完整提示词
+  final_negative_prompt String @default("") @db.Text
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  shot_designs ShotDesign[]
+
+  @@index([user_id], map: "idx_shot_prompt_compositions_user")
+  @@map("shot_prompt_compositions")
+}
+
+// 九宫格生成记录（为单个分镜生成 9 张候选图）
+model NineGridGeneration {
+  id                    String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  shot_design_id        String @db.Uuid // 关联到 ShotDesign（可能有多次生成）
+  prompt_composition_id String @db.Uuid // 关联到使用的 Prompt 合成记录
+  user_id               String @db.Uuid
+
+  // 生成参数
+  generation_params Json @db.JsonB // { width, height, steps, cfg_scale, seed }
+
+  // 九宫格图片（JSON 数组）
+  // 格式: [{"grid_position": 1, "image_url": "https://...", "seed": 12345, "metadata": {}}]
+  images Json @default("[]") @db.JsonB
+
+  // 用户选择
+  selected_grid_position Int? // 用户选择的位置（1-9）
+  selected_image_url     String? // 选中的图片 URL
+
+  // 状态
+  status        String  @default("pending") // pending | generating | completed | error
+  error_message String? @db.Text
+
+  // 时间戳
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  completed_at DateTime? @db.Timestamptz(6)
+
+  // Relations
+  shot_designs ShotDesign[]
+
+  @@index([shot_design_id], map: "idx_nine_grid_generations_shot")
+  @@index([user_id], map: "idx_nine_grid_generations_user")
+  @@index([status], map: "idx_nine_grid_generations_status")
+  @@map("nine_grid_generations")
 }

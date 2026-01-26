@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Palette } from "lucide-react";
+import { ArrowLeft, Palette, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InfiniteCanvasView } from "../../components/InfiniteCanvas";
 import { useTimelineWindow } from "@/hooks/useTimelineWindow";
@@ -11,6 +11,7 @@ import { useUpdateTimelineStyle, getSafeConfig } from "@/hooks/useTimelineConfig
 import { useToast } from "@/hooks/use-toast";
 import { CanvasSkeleton } from "./components/CanvasSkeleton";
 import { ErrorState } from "./components/ErrorState";
+import { CharacterLibraryDrawer } from "../../components/InfiniteCanvas/CharacterLibraryDrawer";
 import { novelTheme } from "../../theme";
 import "../../novel-theme.css";
 
@@ -20,6 +21,9 @@ export default function CanvasPage() {
   const { toast } = useToast();
 
   const timelineId = params.id as string;
+
+  // 角色库抽屉状态
+  const [characterLibraryOpen, setCharacterLibraryOpen] = useState(false);
 
   // ✅ 移除 windowCenter 冗余状态，Hook 内部管理
   const {
@@ -114,6 +118,17 @@ export default function CanvasPage() {
           <p className="text-xs text-zinc-500">无限画布 - 可缩放拖拽</p>
         </div>
 
+        {/* 角色库按钮 */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setCharacterLibraryOpen(true)}
+          className="border-zinc-700 hover:bg-zinc-800 hover:border-zinc-600"
+        >
+          <Users className="w-4 h-4 mr-1.5" />
+          角色库
+        </Button>
+
         {/* 风格选择器 */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 text-sm text-zinc-400">
@@ -149,6 +164,13 @@ export default function CanvasPage() {
         />
       </div>
 
+      {/* 角色库抽屉 */}
+      <CharacterLibraryDrawer
+        open={characterLibraryOpen}
+        onOpenChange={setCharacterLibraryOpen}
+        novelProjectId={timeline.novel_project_id}
+        timelineId={timelineId}
+      />
     </div>
   );
 }

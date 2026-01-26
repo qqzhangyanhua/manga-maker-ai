@@ -1,25 +1,70 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Grid3x3, AlertCircle } from "lucide-react";
+import { Grid3x3, AlertCircle, Users, CheckCircle, Sparkles, Image } from "lucide-react";
 import type { ShotGroup } from "./types";
 import type { ShotDesign } from "@prisma/client";
 import { generatePlaceholders } from "../utils/shot-grouping";
+import { ShotCharacterBindingPanel } from "../ShotCharacterBindingPanel";
+import { ShotNineGridDialog } from "../ShotNineGridDialog";
 
 interface ShotGroupSectionProps {
   group: ShotGroup;
   onGenerate: (group: ShotGroup) => void;
   onShotClick?: (shot: ShotDesign | { id: string; shot_order: number; generated_image_url?: string | null; shot_description: string; created_at: Date | string; [key: string]: unknown }) => void;
+  novelProjectId?: string;
 }
 
 export function ShotGroupSection({
   group,
   onGenerate,
   onShotClick,
+  novelProjectId,
 }: ShotGroupSectionProps) {
   const { groupIndex, startOrder, endOrder, shots, isComplete, placeholderCount } = group;
+
+  // 角色绑定面板状态
+  const [bindingPanelOpen, setBindingPanelOpen] = useState(false);
+  const [selectedShotForBinding, setSelectedShotForBinding] = useState<ShotDesign | null>(null);
+
+  // 九宫格生成对话框状态
+  const [nineGridDialogOpen, setNineGridDialogOpen] = useState(false);
+  const [selectedShotForNineGrid, setSelectedShotForNineGrid] = useState<ShotDesign | null>(null);
+
+  // 检查分镜是否已绑定角色 Prompt
+  const hasBoundCharacters = (shot: ShotDesign) => {
+    return shot.character_prompt_template_ids && shot.character_prompt_template_ids.length > 0;
+  };
+
+  // 检查分镜是否已合成 Prompt
+  const hasComposedPrompt = (shot: ShotDesign) => {
+    return shot.final_prompt_status === "completed";
+  };
+
+  // 检查分镜是否有九宫格候选图
+  const hasNineGridGeneration = (shot: ShotDesign) => {
+    return shot.nine_grid_status === "completed";
+  };
+
+  // 检查分镜是否已选择图片
+  const hasSelectedImage = (shot: ShotDesign) => {
+    return shot.selection_status === "selected" || shot.selection_status === "refined";
+  };
+
+  // 处理角色绑定点击
+  const handleBindCharacter = (shot: ShotDesign) => {
+    setSelectedShotForBinding(shot);
+    setBindingPanelOpen(true);
+  };
+
+  // 处理九宫格生成点击
+  const handleOpenNineGridDialog = (shot: ShotDesign) => {
+    setSelectedShotForNineGrid(shot);
+    setNineGridDialogOpen(true);
+  };
 
   return (
     <div className="space-y-4">
@@ -55,7 +100,7 @@ export function ShotGroupSection({
         {shots.map((shot) => (
           <Card
             key={shot.id}
-            className="relative aspect-square cursor-pointer overflow-hidden hover:ring-2 hover:ring-primary transition-all"
+            className="relative aspect-square cursor-pointer overflow-hidden hover:ring-2 hover:ring-primary transition-all group"
             onClick={() => onShotClick?.(shot)}
           >
             {shot.generated_image_url ? (
@@ -71,6 +116,82 @@ export function ShotGroupSection({
                 </span>
               </div>
             )}
+            
+            {/* 状态标识 */}
+            <div className="absolute top-1 right-1 flex gap-1">
+              {/* 角色绑定状态 */}
+              {hasBoundCharacters(shot) && (
+                <Badge
+                  variant="secondary"
+                  className={`text-[10px] px-1 py-0 ${
+                    hasComposedPrompt(shot)
+                      ? "bg-green-600/80 text-white"
+                      : "bg-purple-600/80 text-white"
+                  }`}
+                >
+                  {hasComposedPrompt(shot) ? (
+                    <CheckCircle className="w-2.5 h-2.5 mr-0.5" />
+                  ) : (
+                    <Users className="w-2.5 h-2.5 mr-0.5" />
+                  )}
+                  {shot.character_prompt_template_ids?.length || 0}
+                </Badge>
+              )}
+              {/* 九宫格/选择状态 */}
+              {hasSelectedImage(shot) && (
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] px-1 py-0 bg-blue-600/80 text-white"
+                >
+                  <Image className="w-2.5 h-2.5 mr-0.5" />
+                  已选
+                </Badge>
+              )}
+              {hasNineGridGeneration(shot) && !hasSelectedImage(shot) && (
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] px-1 py-0 bg-orange-600/80 text-white"
+                >
+                  <Grid3x3 className="w-2.5 h-2.5 mr-0.5" />
+                  待选
+                </Badge>
+              )}
+            </div>
+            
+            {/* 操作按钮（hover 时显示） */}
+            {novelProjectId && (
+              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                {/* 绑定角色按钮 */}
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="text-xs w-24"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleBindCharacter(shot);
+                  }}
+                >
+                  <Users className="w-3 h-3 mr-1" />
+                  {hasBoundCharacters(shot) ? "编辑角色" : "绑定角色"}
+                </Button>
+                {/* 九宫格生成按钮（需要先合成 Prompt） */}
+                {(hasComposedPrompt(shot) || shot.prompt) && (
+                  <Button
+                    size="sm"
+                    variant={hasNineGridGeneration(shot) ? "outline" : "default"}
+                    className="text-xs w-24"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenNineGridDialog(shot);
+                    }}
+                  >
+                    <Sparkles className="w-3 h-3 mr-1" />
+                    {hasNineGridGeneration(shot) ? "查看候选" : "生成候选"}
+                  </Button>
+                )}
+              </div>
+            )}
+            
             <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs px-2 py-1">
               #{shot.shot_order}
             </div>
@@ -102,6 +223,41 @@ export function ShotGroupSection({
             该组镜头不足9个,无法生成九宫格。请先创建更多镜头或等待其他分组完成。
           </p>
         </div>
+      )}
+
+      {/* 角色绑定面板 */}
+      {novelProjectId && selectedShotForBinding && (
+        <ShotCharacterBindingPanel
+          open={bindingPanelOpen}
+          onOpenChange={setBindingPanelOpen}
+          shotId={selectedShotForBinding.id}
+          shotDescription={selectedShotForBinding.shot_description}
+          novelProjectId={novelProjectId}
+          existingBindings={
+            selectedShotForBinding.character_prompt_template_ids?.map((id) => ({
+              templateId: id,
+            })) || []
+          }
+          onSuccess={() => {
+            setBindingPanelOpen(false);
+            setSelectedShotForBinding(null);
+          }}
+        />
+      )}
+
+      {/* 九宫格生成对话框 */}
+      {selectedShotForNineGrid && (
+        <ShotNineGridDialog
+          open={nineGridDialogOpen}
+          onOpenChange={setNineGridDialogOpen}
+          shotId={selectedShotForNineGrid.id}
+          shotDescription={selectedShotForNineGrid.shot_description}
+          promptCompositionId={selectedShotForNineGrid.prompt_composition_id || undefined}
+          onSuccess={() => {
+            setNineGridDialogOpen(false);
+            setSelectedShotForNineGrid(null);
+          }}
+        />
       )}
     </div>
   );

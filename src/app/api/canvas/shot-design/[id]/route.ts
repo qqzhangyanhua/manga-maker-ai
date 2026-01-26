@@ -64,6 +64,12 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       outfit_ids,
       prompt,
       negative_prompt,
+      // 新增：角色身份证相关字段
+      character_prompt_template_ids,
+      character_prompt_status,
+      final_prompt_status,
+      nine_grid_status,
+      selection_status,
     } = body;
 
     const updated = await prisma.shotDesign.update({
@@ -80,6 +86,12 @@ export async function PATCH(req: Request, { params }: RouteParams) {
         ...(outfit_ids && { outfit_ids }),
         ...(prompt && { prompt }),
         ...(negative_prompt !== undefined && { negative_prompt }),
+        // 新增：角色身份证相关字段
+        ...(character_prompt_template_ids && { character_prompt_template_ids }),
+        ...(character_prompt_status && { character_prompt_status }),
+        ...(final_prompt_status && { final_prompt_status }),
+        ...(nine_grid_status && { nine_grid_status }),
+        ...(selection_status && { selection_status }),
       },
     });
 

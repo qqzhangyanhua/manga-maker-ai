@@ -60,6 +60,13 @@ interface ShotDesign {
   generated_image_url?: string | null;
   generation_status?: string;
   created_at: string;
+  // 角色身份证相关字段
+  character_prompt_template_ids?: string[];
+  prompt_composition_id?: string | null;
+  character_prompt_status?: string;
+  final_prompt_status?: string;
+  nine_grid_status?: string;
+  selection_status?: string;
 }
 
 /**
@@ -69,6 +76,7 @@ interface ShotDetailResponse {
   chapterId: string;
   chapterNumber: number;
   timelineId: string;
+  novelProjectId?: string | null;
   shots: ShotDesign[];
   totalCount: number;
 }
@@ -349,6 +357,14 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
         generated_image_url: shot.generated_image_url ?? '',
         generation_status: shot.generation_status ?? 'pending',
         created_at: new Date(shot.created_at),
+        // 新增: 角色身份证与九宫格工作流字段
+        character_prompt_template_ids: [] as string[],
+        prompt_composition_id: null as string | null,
+        nine_grid_generation_id: null as string | null,
+        character_prompt_status: 'pending',
+        final_prompt_status: 'pending',
+        nine_grid_status: 'pending',
+        selection_status: 'pending',
       }));
       const groups = groupShotsIntoNineGrids(prismaShots);
       setShotGroups(groups);
@@ -658,6 +674,7 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
               group={group}
               onGenerate={handleGenerateGroup}
               onShotClick={handleImageClick}
+              novelProjectId={data?.novelProjectId || undefined}
             />
           ))
         )}
