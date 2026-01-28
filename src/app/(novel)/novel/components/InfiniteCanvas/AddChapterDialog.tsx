@@ -54,24 +54,28 @@ export function AddChapterDialog({
       if (outlines.length > 0) {
         // 以 outlines 为基础合并
         mergedChapters = outlines.map((outline: ChapterOutline) => {
-          const chapterNum = outline.chapterNumber || outline.chapter_number;
+          const chapterNum = outline.chapterNumber;
           const generatedChapter = generatedChapters.find(
             (gc: { chapter_number: number; content: string }) => gc.chapter_number === chapterNum
           );
 
           return {
             ...outline,
-            chapter_number: chapterNum,
+            chapterNumber: chapterNum,
             content: generatedChapter?.content || outline.content || "",
           };
         });
       } else {
         // outlines 为空时，使用 generatedChapters
         mergedChapters = generatedChapters.map((gc: { chapter_number: number; title: string; content: string; outline?: string }) => ({
-          chapter_number: gc.chapter_number,
+          chapterNumber: gc.chapter_number,
           title: gc.title,
           content: gc.content || "",
-          outline: gc.outline,
+          outline: gc.outline || "",
+          keyEvents: [],
+          characters: [],
+          plotLines: [],
+          isKeyChapter: false,
         }));
       }
 
@@ -80,7 +84,7 @@ export function AddChapterDialog({
         outlinesCount: outlines.length,
         generatedChaptersCount: generatedChapters.length,
         mergedChapters: mergedChapters.map((o: ChapterOutline) => ({
-          chapterNumber: o.chapterNumber || o.chapter_number,
+          chapterNumber: o.chapterNumber,
           title: o.title,
           hasContent: !!o.content,
           contentLength: o.content?.length || 0,
@@ -119,7 +123,7 @@ export function AddChapterDialog({
     }
 
     const selectedChapter = chapters.find(
-      (c) => (c.chapterNumber || c.chapter_number) === selectedChapterNumber
+      (c) => c.chapterNumber === selectedChapterNumber
     );
 
     if (!selectedChapter) {
@@ -229,7 +233,7 @@ export function AddChapterDialog({
               >
                 {chapters.length > 0 ? (
                   chapters.map((chapter, index) => {
-                    const chapterNum = chapter.chapterNumber || chapter.chapter_number || index + 1;
+                    const chapterNum = chapter.chapterNumber || index + 1;
                     const wordCount = getWordCount(chapter.content);
 
                     return (

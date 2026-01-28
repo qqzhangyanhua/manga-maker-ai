@@ -115,7 +115,7 @@ export function ForeshadowingTab({ projectId, currentChapter = 1 }: Foreshadowin
 
             <div className="grid grid-cols-3 gap-4 pt-2">
               <div className="text-center">
-                <div className="flex items-center justify-center gap-1 text-yellow-600">
+                <div className="flex items-center justify-center gap-1 text-purple-500">
                   <Clock className="h-4 w-4" />
                   <span className="text-lg font-semibold">{statsData.planted}</span>
                 </div>
@@ -197,7 +197,7 @@ export function ForeshadowingTab({ projectId, currentChapter = 1 }: Foreshadowin
       {planted.length > 0 && (
         <div>
           <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
-            <Clock className="h-4 w-4 text-yellow-600" />
+            <Clock className="h-4 w-4 text-purple-500" />
             已埋设的伏笔
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -311,7 +311,7 @@ export function ForeshadowingTab({ projectId, currentChapter = 1 }: Foreshadowin
                 <SelectContent>
                   <SelectItem value="planted">
                     <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-yellow-600" />
+                      <Clock className="h-4 w-4 text-purple-500" />
                       已埋设
                     </div>
                   </SelectItem>

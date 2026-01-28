@@ -79,7 +79,7 @@ export const TopProgressPanel = memo(function TopProgressPanel({
               {sseStatus === 'connected' ? (
                 <Wifi className="w-3 h-3 text-green-400" />
               ) : sseStatus === 'reconnecting' ? (
-                <Wifi className="w-3 h-3 text-yellow-400 animate-pulse" />
+                <Wifi className="w-3 h-3 text-purple-400 animate-pulse" />
               ) : (
                 <WifiOff className="w-3 h-3 text-red-400" />
               )}
@@ -113,7 +113,7 @@ export const TopProgressPanel = memo(function TopProgressPanel({
               onClick={toggleWorkflowAutomation}
               className={`flex items-center gap-1 px-2 py-1 rounded transition-all ${
                 workflowAutomation.enabled
-                  ? 'bg-amber-600 text-white'
+                  ? 'bg-purple-600 text-white'
                   : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
               }`}
               title={workflowAutomation.enabled ? '自动化已启用' : '自动化已禁用'}

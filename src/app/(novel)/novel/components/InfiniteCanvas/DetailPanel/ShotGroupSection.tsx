@@ -10,6 +10,8 @@ import type { ShotDesign } from "@prisma/client";
 import { generatePlaceholders } from "../utils/shot-grouping";
 import { ShotCharacterBindingPanel } from "../ShotCharacterBindingPanel";
 import { ShotNineGridDialog } from "../ShotNineGridDialog";
+import { novelTheme } from "../../../theme";
+import { cn } from "@/lib/utils";
 
 type ShotLike = ShotDesign | { 
   id: string; 
@@ -83,11 +85,11 @@ export function ShotGroupSection({
           <h3 className="text-sm font-medium">
             第 {groupIndex + 1} 组
           </h3>
-          <Badge variant="outline" className="text-xs">
+          <Badge variant="outline" className={cn("text-xs", novelTheme.badge.purple)}>
             镜头 {startOrder}-{endOrder}
           </Badge>
           {!isComplete && (
-            <Badge variant="secondary" className="text-xs">
+            <Badge variant="secondary" className={cn("text-xs", novelTheme.alert.warning)}>
               不足9个 (缺{placeholderCount}个)
             </Badge>
           )}
@@ -97,7 +99,7 @@ export function ShotGroupSection({
           size="sm"
           disabled={!isComplete}
           onClick={() => onGenerate(group)}
-          className="gap-2"
+          className={cn("gap-2", novelTheme.button.primary)}
         >
           <Grid3x3 className="h-4 w-4" />
           生成九宫格
@@ -109,7 +111,11 @@ export function ShotGroupSection({
         {shots.map((shot) => (
           <Card
             key={shot.id}
-            className="relative aspect-square cursor-pointer overflow-hidden hover:ring-2 hover:ring-primary transition-all group"
+            className={cn(
+              "relative aspect-square cursor-pointer overflow-hidden transition-all group",
+              novelTheme.card.base,
+              novelTheme.interaction.cardHover
+            )}
             onClick={() => onShotClick?.(shot)}
           >
             {shot.generated_image_url ? (
@@ -132,11 +138,12 @@ export function ShotGroupSection({
               {hasBoundCharacters(shot) && (
                 <Badge
                   variant="secondary"
-                  className={`text-[10px] px-1 py-0 ${
+                  className={cn(
+                    "text-[10px] px-1 py-0",
                     hasComposedPrompt(shot)
                       ? "bg-green-600/80 text-white"
                       : "bg-purple-600/80 text-white"
-                  }`}
+                  )}
                 >
                   {hasComposedPrompt(shot) ? (
                     <CheckCircle className="w-2.5 h-2.5 mr-0.5" />
@@ -150,16 +157,16 @@ export function ShotGroupSection({
               {hasSelectedImage(shot) && (
                 <Badge
                   variant="secondary"
-                  className="text-[10px] px-1 py-0 bg-blue-600/80 text-white"
+                  className="text-[10px] px-1 py-0 bg-purple-600/80 text-white"
                 >
-                  <Image className="w-2.5 h-2.5 mr-0.5" />
+                  <Image className="w-2.5 h-2.5 mr-0.5" aria-label="已选图标" />
                   已选
                 </Badge>
               )}
               {hasNineGridGeneration(shot) && !hasSelectedImage(shot) && (
                 <Badge
                   variant="secondary"
-                  className="text-[10px] px-1 py-0 bg-orange-600/80 text-white"
+                  className="text-[10px] px-1 py-0 bg-fuchsia-600/80 text-white"
                 >
                   <Grid3x3 className="w-2.5 h-2.5 mr-0.5" />
                   待选
@@ -174,7 +181,7 @@ export function ShotGroupSection({
                 <Button
                   size="sm"
                   variant="secondary"
-                  className="text-xs w-24"
+                  className={cn("text-xs w-24", novelTheme.button.secondary)}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleBindCharacter(shot);
@@ -188,7 +195,10 @@ export function ShotGroupSection({
                   <Button
                     size="sm"
                     variant={hasNineGridGeneration(shot) ? "outline" : "default"}
-                    className="text-xs w-24"
+                    className={cn(
+                      "text-xs w-24",
+                      hasNineGridGeneration(shot) ? novelTheme.button.outline : novelTheme.button.primary
+                    )}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleOpenNineGridDialog(shot);
@@ -213,7 +223,10 @@ export function ShotGroupSection({
             (order) => (
               <Card
                 key={`placeholder-${order}`}
-                className="relative aspect-square overflow-hidden border-dashed"
+                className={cn(
+                  "relative aspect-square overflow-hidden border-dashed",
+                  novelTheme.card.skeleton
+                )}
               >
                 <div className="w-full h-full flex flex-col items-center justify-center bg-muted/50 text-muted-foreground">
                   <span className="text-xs">镜头 {order}</span>
@@ -226,8 +239,11 @@ export function ShotGroupSection({
 
       {/* 不完整分组提示 */}
       {!isComplete && (
-        <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/50 p-3 rounded-md">
-          <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+        <div className={cn(
+          "flex items-start gap-2 text-xs p-3 rounded-md",
+          novelTheme.alert.warning
+        )}>
+          <AlertCircle className={cn("h-4 w-4 mt-0.5 flex-shrink-0", novelTheme.alertIcon.warning)} />
           <p>
             该组镜头不足9个,无法生成九宫格。请先创建更多镜头或等待其他分组完成。
           </p>

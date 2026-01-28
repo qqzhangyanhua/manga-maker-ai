@@ -22,7 +22,7 @@ export const IMAGE_TYPE_LABELS: Record<ImageType, string> = {
 export const IMAGE_TYPE_COLORS: Record<ImageType, string> = {
   shot: "bg-blue-900/30 text-blue-300 border-blue-800/50",
   comic: "bg-purple-900/30 text-purple-300 border-purple-800/50",
-  nine_grid: "bg-amber-900/30 text-amber-300 border-amber-800/50",
+  nine_grid: "bg-fuchsia-900/30 text-fuchsia-300 border-fuchsia-800/50",
 };
 
 /**

@@ -138,7 +138,7 @@ export function ShotCharacterBindingPanel({
     enabled: open && characters.length > 0,
   });
 
-  const charactersWithPrompts = useMemo<CharacterWithPrompts[]>(
+  const charactersWithPrompts = useMemo<CharacterWithPromptsFull[]>(
     () => characterPromptsData || [],
     [characterPromptsData]
   );
@@ -359,7 +359,7 @@ export function ShotCharacterBindingPanel({
 
 // 角色选择项
 interface CharacterSelectionItemProps {
-  character: CharacterWithPrompts;
+  character: CharacterWithPromptsFull;
   expanded: boolean;
   onToggleExpand: () => void;
   selectedTemplates: Map<string, string | undefined>;

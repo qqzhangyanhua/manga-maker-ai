@@ -271,6 +271,68 @@ export const novelTheme = {
     /** 紫色图标（深色） */
     purpleDark: "text-purple-600",
   },
+
+  /**
+   * 警告/提示框样式
+   */
+  alert: {
+    /** 信息提示框 - 紫色 */
+    info: "bg-purple-900/20 border-purple-800/50 text-purple-300",
+
+    /** 警告提示框 - 橙紫色渐变 */
+    warning: "bg-gradient-to-br from-purple-900/30 to-orange-900/20 border-purple-800/50 text-purple-300",
+
+    /** 成功提示框 - 绿色 */
+    success: "bg-green-900/20 border-green-800/50 text-green-300",
+
+    /** 错误提示框 - 红色 */
+    error: "bg-red-900/20 border-red-800/50 text-red-300",
+  },
+
+  /**
+   * 警告图标颜色
+   */
+  alertIcon: {
+    /** 信息图标 */
+    info: "text-purple-400",
+
+    /** 警告图标 */
+    warning: "text-purple-400",
+
+    /** 成功图标 */
+    success: "text-green-400",
+
+    /** 错误图标 */
+    error: "text-red-400",
+  },
+
+  /**
+   * 状态指示器
+   */
+  status: {
+    /** 连接/同步状态 */
+    syncing: "text-purple-400 animate-pulse",
+
+    /** 进行中状态 */
+    progress: "bg-purple-500",
+
+    /** 完成状态 */
+    completed: "bg-green-500",
+
+    /** 等待状态 */
+    pending: "bg-zinc-500",
+  },
+
+  /**
+   * 特殊徽章
+   */
+  specialBadge: {
+    /** VIP/皇冠徽章 */
+    crown: "text-purple-400",
+
+    /** 对话/评论徽章 */
+    message: "text-purple-400",
+  },
 } as const;
 
 /**

@@ -103,11 +103,11 @@ export function CharacterReferenceSection({
     return (
       <div className="space-y-2">
         <h3 className="text-sm font-medium">角色参考图（可选）</h3>
-        <div className="flex items-start gap-2 text-xs bg-amber-900/20 border border-amber-800/50 p-3 rounded-md">
-          <AlertCircle className="h-4 w-4 text-amber-400 flex-shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2 text-xs bg-gradient-to-br from-purple-900/30 to-orange-900/20 border border-purple-800/50 p-3 rounded-md">
+          <AlertCircle className="h-4 w-4 text-purple-400 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="font-medium text-amber-300">缺少项目信息</p>
-            <p className="text-amber-400/80 mt-1">无法加载角色数据,请刷新页面后重试</p>
+            <p className="font-medium text-purple-300">缺少项目信息</p>
+            <p className="text-purple-400/80 mt-1">无法加载角色数据,请刷新页面后重试</p>
           </div>
         </div>
       </div>

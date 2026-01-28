@@ -230,7 +230,7 @@ export const ENTRY_TYPE_CONFIG: Record<EntryType, {
   event: {
     label: "事件",
     icon: "calendar",
-    color: "bg-yellow-100 text-yellow-800",
+    color: "bg-purple-100 text-purple-800",
     properties: {
       time_period: { label: "发生时间", type: "string" },
       scale: { label: "规模", type: "string" },
@@ -272,7 +272,7 @@ export const ENTRY_TYPE_CONFIG: Record<EntryType, {
  * 伏笔状态显示配置
  */
 export const FORESHADOW_STATUS_CONFIG: Record<ForeshadowStatus, { label: string; color: string }> = {
-  planted: { label: "已埋设", color: "bg-yellow-100 text-yellow-800" },
+  planted: { label: "已埋设", color: "bg-purple-100 text-purple-800" },
   brewing: { label: "酝酿中", color: "bg-blue-100 text-blue-800" },
   revealed: { label: "已揭示", color: "bg-green-100 text-green-800" },
 };

@@ -329,3 +329,17 @@ export interface PanelEstimation {
   densityMode: DensityMode;     // 当前密度模式
   warnings: string[];           // 警告信息（如章节过长/过短）
 }
+
+/**
+ * 章节搜索结果
+ */
+export interface SearchResult {
+  chapterId: string;
+  chapterNumber: number;
+  title: string;
+  matchedText: string;
+  matchType: "title" | "outline" | "content";
+  highlights: string[];
+  status: "draft" | "completed";
+  wordCount: number;
+}

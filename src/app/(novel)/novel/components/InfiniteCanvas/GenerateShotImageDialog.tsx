@@ -59,7 +59,7 @@ interface GenerateShotImageDialogProps {
 function getRoleBadgeColor(role: string) {
   switch (role) {
     case "protagonist":
-      return "bg-yellow-900/50 text-yellow-300 border-yellow-800";
+      return "bg-purple-900/50 text-purple-300 border-purple-800";
     case "antagonist":
       return "bg-red-900/50 text-red-300 border-red-800";
     case "supporting":
@@ -225,6 +225,7 @@ export function GenerateShotImageDialog({
         role: char.role,
         description: char.description,
         reference_image_url: char.imageUrl || undefined,
+        tempId: char.id, // 使用角色 ID 作为 tempId
       }));
 
     onConfirm({
@@ -423,12 +424,12 @@ export function GenerateShotImageDialog({
                 <span className="text-sm">加载中...</span>
               </div>
             ) : !defaultStyleId ? (
-              <div className="flex flex-col gap-3 p-4 bg-amber-900/20 rounded-lg border border-amber-800/50">
+              <div className="flex flex-col gap-3 p-4 bg-gradient-to-br from-purple-900/30 to-orange-900/20 rounded-lg border border-purple-800/50">
                 <div className="flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <AlertCircle className="w-5 h-5 text-purple-400 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-amber-300">未设置默认漫画风格</p>
-                    <p className="text-xs text-amber-400/80 mt-1">
+                    <p className="text-sm font-medium text-purple-300">未设置默认漫画风格</p>
+                    <p className="text-xs text-purple-400/80 mt-1">
                       请先在画布页面顶部设置默认风格，以确保生成的镜头图片风格统一
                     </p>
                   </div>
@@ -437,7 +438,7 @@ export function GenerateShotImageDialog({
                   variant="outline"
                   size="sm"
                   onClick={() => onOpenChange(false)}
-                  className="w-fit border-amber-700 text-amber-300 hover:bg-amber-900/30"
+                  className="w-fit border-purple-700 text-purple-300 hover:bg-purple-900/30"
                 >
                   <Settings className="w-4 h-4 mr-2" />
                   前往设置风格

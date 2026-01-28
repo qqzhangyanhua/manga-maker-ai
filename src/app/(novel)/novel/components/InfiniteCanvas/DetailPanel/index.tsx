@@ -14,6 +14,8 @@ import { Drawer } from 'vaul';
 import { X, Loader2 } from 'lucide-react';
 import { useDetailPanel, useCloseDetail } from '@/stores/canvas-store';
 import { Button } from '@/components/ui/button';
+import { novelTheme } from '../../../theme';
+import { cn } from '@/lib/utils';
 
 import { ScriptDetailPanel } from './ScriptDetailPanel';
 import { ShotDetailPanel } from './ShotDetailPanel';
@@ -56,21 +58,28 @@ export function DetailDrawer() {
 
         {/* 抽屉内容 */}
         <Drawer.Content
-          className="fixed right-0 top-0 bottom-0 w-full max-w-[700px] bg-zinc-900 border-l border-zinc-800 z-50 flex flex-col focus:outline-none"
+          className={cn(
+            "fixed right-0 top-0 bottom-0 w-full max-w-[700px] z-50 flex flex-col focus:outline-none",
+            novelTheme.card.highlight,
+            "border-l border-purple-500/10"
+          )}
           aria-describedby={undefined}
         >
           {/* 拖动手柄 (移动端) */}
-          <div className="flex items-center justify-center py-3 border-b border-zinc-800">
-            <div className="w-12 h-1.5 bg-zinc-700 rounded-full" />
+          <div className="flex items-center justify-center py-3 border-b border-purple-500/10">
+            <div className="w-12 h-1.5 bg-purple-700 rounded-full" />
           </div>
 
           {/* 头部 */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-zinc-900/80 backdrop-blur-sm">
+          <div className={cn(
+            "flex items-center justify-between px-6 py-4 border-b border-purple-500/10",
+            "bg-zinc-900/80 backdrop-blur-sm"
+          )}>
             <div>
               <Drawer.Title className="text-lg font-semibold text-white">
                 {nodeType ? NODE_TYPE_TITLES[nodeType] : '详情'}
               </Drawer.Title>
-              <p className="text-xs text-zinc-500 mt-1">
+              <p className="text-xs text-purple-300/60 mt-1">
                 查看和编辑生成内容
               </p>
             </div>
@@ -80,7 +89,7 @@ export function DetailDrawer() {
               variant="ghost"
               size="sm"
               onClick={closeDetail}
-              className="text-zinc-400 hover:text-white hover:bg-zinc-800"
+              className={novelTheme.button.ghost}
             >
               <X className="w-4 h-4" />
             </Button>
@@ -90,8 +99,8 @@ export function DetailDrawer() {
           <div className="flex-1 overflow-y-auto overscroll-contain">
             {!chapterId || !nodeType ? (
               // 加载占位
-              <div className="flex flex-col items-center justify-center h-full text-zinc-500">
-                <Loader2 className="w-8 h-8 animate-spin mb-3" />
+              <div className="flex flex-col items-center justify-center h-full text-purple-300/60">
+                <Loader2 className={cn("w-8 h-8 animate-spin mb-3", novelTheme.loading.spinner)} />
                 <p className="text-sm">加载中...</p>
               </div>
             ) : (
@@ -114,16 +123,16 @@ export function DetailDrawer() {
           </div>
 
           {/* 底部操作栏 (可选) */}
-          <div className="border-t border-zinc-800 px-6 py-4 bg-zinc-900/80 backdrop-blur-sm">
+          <div className="border-t border-purple-500/10 px-6 py-4 bg-zinc-900/80 backdrop-blur-sm">
             <div className="flex items-center justify-between">
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-purple-300/60">
                 ESC 键或向右滑动关闭
               </p>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={closeDetail}
-                className="text-zinc-400 hover:text-white"
+                className={novelTheme.button.ghost}
               >
                 关闭
               </Button>

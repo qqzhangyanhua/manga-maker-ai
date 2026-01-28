@@ -62,7 +62,7 @@ export function ExtractedEntryCard({
     entry.confidence >= 0.8
       ? "text-green-600"
       : entry.confidence >= 0.6
-        ? "text-yellow-600"
+        ? "text-purple-500"
         : "text-red-600";
 
   const confidenceLabel =

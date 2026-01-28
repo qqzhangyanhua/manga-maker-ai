@@ -67,7 +67,7 @@ export function GenerateSceneDialog({
     queryFn: async () => {
       const res = await fetch("/api/canvas/styles");
       if (!res.ok) throw new Error("获取风格列表失败");
-      return res.json() as Promise<{ data: ComicStyle[]; total: number }>;
+      return res.json() as Promise<{ data: ComicStyleFull[]; total: number }>;
     },
     enabled: open,
     staleTime: 5 * 60 * 1000,
@@ -81,7 +81,7 @@ export function GenerateSceneDialog({
       if (!res.ok) throw new Error("获取当前风格失败");
       return res.json() as Promise<{
         comic_style_id: string | null;
-        comic_style: ComicStyle | null;
+        comic_style: ComicStyleFull | null;
       }>;
     },
     enabled: open,
@@ -98,7 +98,7 @@ export function GenerateSceneDialog({
       const res = await fetch(`/api/canvas/chapter/${chapterId}/characters`);
       if (!res.ok) throw new Error("获取角色列表失败");
       return res.json() as Promise<{
-        data: ChapterCharacter[];
+        data: ChapterCharacterFull[];
         total: number;
         summary: {
           total_characters: number;
@@ -411,7 +411,7 @@ export function GenerateSceneDialog({
                       "flex items-center gap-3 p-3 rounded-lg border transition-colors",
                       char.asset_status.ready_for_generation
                         ? "bg-zinc-900/50 border-zinc-800"
-                        : "bg-yellow-900/10 border-yellow-800/30"
+                        : "bg-purple-900/10 border-purple-800/30"
                     )}
                   >
                     {/* 角色头像 */}
@@ -433,7 +433,7 @@ export function GenerateSceneDialog({
                           "absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-zinc-900 flex items-center justify-center",
                           char.asset_status.ready_for_generation
                             ? "bg-green-500"
-                            : "bg-yellow-500"
+                            : "bg-purple-500"
                         )}
                       >
                         {char.asset_status.ready_for_generation ? (
@@ -464,7 +464,7 @@ export function GenerateSceneDialog({
                               onClick={() =>
                                 generateCharacterAssets(char.id, ["base_image"])
                               }
-                              className="text-xs text-yellow-400 hover:text-yellow-300 underline"
+                              className="text-xs text-purple-400 hover:text-purple-300 underline"
                             >
                               生成参考图
                             </button>

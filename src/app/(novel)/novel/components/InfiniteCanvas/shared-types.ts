@@ -22,6 +22,8 @@ export interface ChapterCharacter {
   description?: string;
   role?: string;
   image_url?: string;
+  base_image_url?: string | null;
+  reference_image?: string | null;
 }
 
 /**
@@ -74,6 +76,7 @@ export interface ShotImageCharacterInput {
   role: string;
   description: string;
   tempId: string;
+  reference_image_url?: string;
 }
 
 /**

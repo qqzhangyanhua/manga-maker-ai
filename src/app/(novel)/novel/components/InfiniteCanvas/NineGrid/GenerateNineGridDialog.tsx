@@ -164,7 +164,7 @@ export function GenerateNineGridDialog({
               {!consecutiveCheck.consecutive && (
                 <Badge
                   variant="outline"
-                  className="text-xs text-amber-300 border-amber-800 bg-amber-900/20"
+                  className="text-xs text-purple-300 border-purple-800 bg-purple-900/20"
                 >
                   非连续选择
                 </Badge>
@@ -235,13 +235,13 @@ export function GenerateNineGridDialog({
                 <span className="text-sm">加载中...</span>
               </div>
             ) : !defaultStyleId ? (
-              <div className="flex items-start gap-3 p-4 bg-amber-900/20 rounded-lg border border-amber-800/50">
-                <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+              <div className="flex items-start gap-3 p-4 bg-gradient-to-br from-purple-900/30 to-orange-900/20 rounded-lg border border-purple-800/50">
+                <AlertCircle className="w-5 h-5 text-purple-400 flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-amber-300">
+                  <p className="text-sm font-medium text-purple-300">
                     未设置默认漫画风格
                   </p>
-                  <p className="text-xs text-amber-400/80 mt-1">
+                  <p className="text-xs text-purple-400/80 mt-1">
                     请先在画布页面顶部设置默认风格
                   </p>
                 </div>

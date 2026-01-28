@@ -27,7 +27,7 @@ function getChapterStatusColor(summary: ChapterSummary): string {
     return "bg-red-500";
   }
   if (statuses.some((s) => s === "completed")) {
-    return "bg-yellow-500";
+    return "bg-purple-500";
   }
   return "bg-zinc-600";
 }
@@ -93,7 +93,7 @@ export const ChapterNavigator = memo(function ChapterNavigator({
           <span>生成中</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-full bg-yellow-500" />
+          <div className="w-2 h-2 rounded-full bg-purple-500" />
           <span>部分</span>
         </div>
         <div className="flex items-center gap-1">

@@ -313,7 +313,7 @@ export function GenerateCharacterImageDialog({
             <div className="text-xs text-muted-foreground space-y-1">
               <p>基础信息: {character.name} - {character.description}</p>
               {selectedStyle && (
-                <p className="text-amber-600">
+                <p className="text-purple-400">
                   将应用风格: {selectedStyle.name_zh}
                 </p>
               )}

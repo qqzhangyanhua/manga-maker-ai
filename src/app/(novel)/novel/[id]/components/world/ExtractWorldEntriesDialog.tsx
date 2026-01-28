@@ -304,7 +304,7 @@ export function ExtractWorldEntriesDialog({
           <DialogDescription>
             从章节中自动提取地点、人物、事件、物品、规则和伏笔
             <br />
-            <span className="text-xs text-amber-600 dark:text-amber-500">
+            <span className="text-xs text-purple-400">
               💡 提示：建议选择已完成章节（有正文内容）以获得更好的提取效果
             </span>
           </DialogDescription>

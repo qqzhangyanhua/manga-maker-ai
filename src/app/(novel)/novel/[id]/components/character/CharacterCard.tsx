@@ -49,7 +49,7 @@ export function CharacterCard({ character, onEdit, onDelete, onGenerateImage }: 
           >
             <Sparkles className={cn(
               "h-4 w-4",
-              character.generatedImageUrl && "text-amber-400"
+              character.generatedImageUrl && "text-purple-400"
             )} />
           </Button>
           <Button

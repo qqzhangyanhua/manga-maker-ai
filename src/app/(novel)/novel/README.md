@@ -90,7 +90,7 @@ src/app/(novel)/novel/
 | **草稿** | 灰色 | `bg-zinc-800 text-zinc-400` | 未开始创作 |
 | **创作中** | 紫色 | `bg-purple-500/10 text-purple-400` | 正在创作 |
 | **已完成** | 绿色 | `bg-green-500/10 text-green-400` | 创作完成 |
-| **关键章节** | 黄色 | `border-yellow-500/50` | 重要章节标识 |
+| **关键章节** | 紫色 | `border-purple-500/50` | 重要章节标识 |
 
 ### 交互状态
 

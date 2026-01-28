@@ -3,7 +3,7 @@
  */
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   MapPin,
   User,
@@ -92,13 +92,7 @@ export function EntryDetail({
   const [relationDescription, setRelationDescription] = useState("");
 
   // 加载可用条目
-  useEffect(() => {
-    if (isAddRelationOpen) {
-      loadAvailableEntries();
-    }
-  }, [isAddRelationOpen]);
-
-  const loadAvailableEntries = async () => {
+  const loadAvailableEntries = useCallback(async () => {
     try {
       const response: EntryListResponse = await worldService.listEntries(projectId, {
         limit: 100,
@@ -108,7 +102,13 @@ export function EntryDetail({
     } catch (err) {
       toast.error("加载条目列表失败");
     }
-  };
+  }, [projectId, entry.id]);
+
+  useEffect(() => {
+    if (isAddRelationOpen) {
+      loadAvailableEntries();
+    }
+  }, [isAddRelationOpen, loadAvailableEntries]);
 
   // 创建关系
   const handleCreateRelation = async () => {

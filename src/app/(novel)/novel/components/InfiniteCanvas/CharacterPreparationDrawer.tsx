@@ -161,7 +161,7 @@ export function CharacterPreparationDrawer({
                     章节角色 ({chapterCharacters.length})
                   </h3>
                   {missingImageCount > 0 && (
-                    <span className="text-xs text-amber-600">
+                    <span className="text-xs text-purple-400">
                       {missingImageCount} 个缺失图片
                     </span>
                   )}

@@ -26,7 +26,7 @@ Text Muted: #A1A1AA (zinc-400 - 弱化文本)
 Draft: Zinc-800 (灰色 - 草稿)
 Writing: Purple-600 (紫色 - 创作中)
 Completed: Green-600 (绿色 - 已完成)
-Key Chapter: Yellow-500/50 (黄色 - 关键章节标识)
+Key Chapter: Purple-500/50 (紫色 - 关键章节标识)
 
 /* 交互状态 */
 Hover Border: #9333EA/30 (purple-500/30)

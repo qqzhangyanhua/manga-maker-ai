@@ -67,7 +67,7 @@ export function CharacterStatusCard({
           </div>
         ) : (
           <div className="flex flex-col items-end gap-2">
-            <div className="flex items-center gap-1 text-amber-600">
+            <div className="flex items-center gap-1 text-purple-400">
               <AlertTriangle className="h-5 w-5" />
               <span className="text-xs font-medium">缺失图片</span>
             </div>

@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Palette, Users } from "lucide-react";
+import { ArrowLeft, Palette, Users, Images } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InfiniteCanvasView } from "../../components/InfiniteCanvas";
 import { useTimelineWindow } from "@/hooks/useTimelineWindow";
@@ -12,7 +12,9 @@ import { useToast } from "@/hooks/use-toast";
 import { CanvasSkeleton } from "./components/CanvasSkeleton";
 import { ErrorState } from "./components/ErrorState";
 import { CharacterLibraryDrawer } from "../../components/InfiniteCanvas/CharacterLibraryDrawer";
+import { ImageGalleryDialog } from "../../components/ImageGallery/ImageGalleryDialog";
 import { novelTheme } from "../../theme";
+import { cn } from "@/lib/utils";
 import "../../novel-theme.css";
 
 export default function CanvasPage() {
@@ -24,6 +26,8 @@ export default function CanvasPage() {
 
   // 角色库抽屉状态
   const [characterLibraryOpen, setCharacterLibraryOpen] = useState(false);
+  // 图片库弹窗状态
+  const [imageGalleryOpen, setImageGalleryOpen] = useState(false);
 
   // ✅ 移除 windowCenter 冗余状态，Hook 内部管理
   const {
@@ -102,12 +106,12 @@ export default function CanvasPage() {
   return (
     <div className="h-screen bg-[#0f0f13] flex flex-col text-zinc-100 novel-theme-scope">
       {/* Header */}
-      <div className="flex items-center gap-4 p-4 border-b border-zinc-800 bg-[#0f0f13]/80 backdrop-blur-md sticky top-0 z-50">
+      <div className="flex items-center gap-4 p-4 border-b border-purple-500/10 bg-[#0f0f13]/80 backdrop-blur-md sticky top-0 z-50">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => router.back()}
-          className="text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors duration-200"
+          className={cn(novelTheme.button.ghost, "transition-colors duration-200")}
         >
           <ArrowLeft className="w-4 h-4 mr-1" />
           返回
@@ -115,15 +119,26 @@ export default function CanvasPage() {
 
         <div className="flex-1">
           <h1 className="text-lg font-semibold text-white">{timeline.title}</h1>
-          <p className="text-xs text-zinc-500">无限画布 - 可缩放拖拽</p>
+          <p className="text-xs text-purple-300/60">无限画布 - 可缩放拖拽</p>
         </div>
+
+        {/* 图片库按钮 */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setImageGalleryOpen(true)}
+          className={novelTheme.button.outline}
+        >
+          <Images className="w-4 h-4 mr-1.5" />
+          图片库
+        </Button>
 
         {/* 角色库按钮 */}
         <Button
           variant="outline"
           size="sm"
           onClick={() => setCharacterLibraryOpen(true)}
-          className="border-zinc-700 hover:bg-zinc-800 hover:border-zinc-600"
+          className={novelTheme.button.outline}
         >
           <Users className="w-4 h-4 mr-1.5" />
           角色库
@@ -131,8 +146,8 @@ export default function CanvasPage() {
 
         {/* 风格选择器 */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-sm text-zinc-400">
-            <Palette className="w-4 h-4" />
+          <div className="flex items-center gap-2 text-sm text-purple-300/70">
+            <Palette className={cn("w-4 h-4", novelTheme.icon.purpleLight)} />
             <span className="hidden sm:inline">默认风格:</span>
           </div>
           <div className="w-64">
@@ -143,7 +158,7 @@ export default function CanvasPage() {
               unsetLabel="未设置"
               placeholder="选择默认风格"
               disabled={updateStyle.isPending}
-              className="bg-zinc-900 border-zinc-700"
+              className={cn(novelTheme.select.trigger)}
             />
           </div>
         </div>
@@ -170,6 +185,13 @@ export default function CanvasPage() {
         onOpenChange={setCharacterLibraryOpen}
         novelProjectId={timeline.novel_project_id}
         timelineId={timelineId}
+      />
+
+      {/* 图片库弹窗 */}
+      <ImageGalleryDialog
+        projectId={timeline.novel_project_id}
+        open={imageGalleryOpen}
+        onOpenChange={setImageGalleryOpen}
       />
     </div>
   );

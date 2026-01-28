@@ -46,7 +46,7 @@ interface GenerateFinalDialogProps {
 function getRoleIcon(role: string) {
   switch (role) {
     case "protagonist":
-      return <Crown className="w-3 h-3 text-yellow-400" />;
+      return <Crown className="w-3 h-3 text-purple-400" />;
     case "antagonist":
       return <Skull className="w-3 h-3 text-red-400" />;
     default:
@@ -57,7 +57,7 @@ function getRoleIcon(role: string) {
 function getRoleBadgeColor(role: string) {
   switch (role) {
     case "protagonist":
-      return "bg-yellow-900/50 text-yellow-300 border-yellow-800";
+      return "bg-purple-900/50 text-purple-300 border-purple-800";
     case "antagonist":
       return "bg-red-900/50 text-red-300 border-red-800";
     case "supporting":
@@ -311,7 +311,7 @@ export function GenerateFinalDialog({
               {renderCharacterGroup(
                 "主角",
                 protagonists,
-                <Crown className="w-3 h-3 text-yellow-400" />
+                <Crown className="w-3 h-3 text-purple-400" />
               )}
               {renderCharacterGroup(
                 "反派",

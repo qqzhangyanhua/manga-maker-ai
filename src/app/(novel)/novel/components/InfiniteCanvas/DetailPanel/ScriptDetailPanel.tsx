@@ -109,7 +109,7 @@ function SegmentCard({ segment }: { segment: ScriptSegment }) {
           {segment.dialogue && (
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <MessageSquare className="w-3.5 h-3.5 text-yellow-400" />
+                <MessageSquare className="w-3.5 h-3.5 text-purple-400" />
                 <span className="text-xs font-medium text-zinc-400">对话</span>
               </div>
               <div className="text-sm text-zinc-300 bg-zinc-900/50 rounded p-3 italic">
