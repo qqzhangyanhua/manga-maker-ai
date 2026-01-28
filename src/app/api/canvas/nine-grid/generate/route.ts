@@ -309,6 +309,11 @@ export async function POST(req: Request) {
 
     console.log("\n" + "=".repeat(80) + "\n");
 
+    // 提取所有角色参考图URL
+    const allReferenceImageUrls = finalCharacterReferences.flatMap(
+      ref => ref.referenceImageUrls
+    );
+
     // 调用图片生成
     // 九宫格图片尺寸：3x3网格，每格16:9
     // 使用 2048x1152 作为整图尺寸（约 16:9）
@@ -321,6 +326,7 @@ export async function POST(req: Request) {
         timeline_id: timelineId,
         chapter_id: timelineChapterId,
       },
+      referenceImages: allReferenceImageUrls,
     });
 
     console.log("[NineGrid] Task created:", taskId);
