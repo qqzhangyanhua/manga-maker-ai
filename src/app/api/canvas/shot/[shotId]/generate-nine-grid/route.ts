@@ -31,6 +31,7 @@ interface RouteParams {
 // 请求参数类型
 interface GenerateNineGridRequest {
   prompt_composition_id?: string; // 可选，如果没有则使用 shot 的 prompt
+  generate_count?: number; // 生成数量，1-9，默认 9
   generation_params?: {
     width?: number;
     height?: number;
@@ -67,7 +68,10 @@ export async function POST(req: Request, { params }: RouteParams) {
 
   try {
     const body = (await req.json()) as GenerateNineGridRequest;
-    const { prompt_composition_id, generation_params } = body;
+    const { prompt_composition_id, generate_count = 9, generation_params } = body;
+
+    // 验证生成数量范围
+    const validCount = Math.max(1, Math.min(9, generate_count));
 
     // 合并生成参数
     const finalParams = { ...DEFAULT_PARAMS, ...generation_params };
@@ -173,14 +177,14 @@ export async function POST(req: Request, { params }: RouteParams) {
         }[] = [];
 
         try {
-          // 串行生成 9 张图片
-          for (let i = 1; i <= 9; i++) {
+          // 串行生成指定数量的图片
+          for (let i = 1; i <= validCount; i++) {
             const seed = baseSeed + i;
 
             // 发送进度事件
             sendEvent("progress", {
               current: i,
-              total: 9,
+              total: validCount,
               status: "generating",
             });
 

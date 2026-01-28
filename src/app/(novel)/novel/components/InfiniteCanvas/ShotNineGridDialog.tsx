@@ -1,9 +1,10 @@
 "use client";
 
 /**
- * 分镜九宫格生成对话框
+ * 分镜候选图生成对话框
  * 
- * 为单个分镜生成 9 张候选图片，用户选择最佳一张
+ * 为单个分镜生成 1-9 张候选图片，用户选择最佳一张
+ * 支持自定义生成数量，提供 2/3/4 张快捷选项
  */
 
 import { useState, useCallback, useEffect, useRef } from "react";
@@ -20,6 +21,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Loader2,
   Check,
@@ -53,6 +61,22 @@ interface ShotNineGridDialogProps {
 // 稳定的空数组引用，避免默认参数每次渲染创建新对象导致无限循环
 const EMPTY_IMAGES: NineGridImage[] = [];
 
+// 默认生成数量
+const DEFAULT_GENERATE_COUNT = 3;
+
+// 快捷数量选项
+const QUICK_COUNT_OPTIONS = [2, 3, 4];
+
+/**
+ * 根据生成数量计算网格布局类
+ */
+function getGridClass(count: number): string {
+  if (count === 1) return "grid-cols-1 max-w-md mx-auto";
+  if (count === 2) return "grid-cols-2 max-w-2xl mx-auto";
+  if (count <= 4) return "grid-cols-2";
+  return "grid-cols-3";
+}
+
 export function ShotNineGridDialog({
   open,
   onOpenChange,
@@ -64,6 +88,10 @@ export function ShotNineGridDialog({
   onSuccess,
 }: ShotNineGridDialogProps) {
   const queryClient = useQueryClient();
+
+  // 生成数量状态
+  const [generateCount, setGenerateCount] = useState(DEFAULT_GENERATE_COUNT);
+  const [totalToGenerate, setTotalToGenerate] = useState(DEFAULT_GENERATE_COUNT);
 
   // 生成状态
   const [isGenerating, setIsGenerating] = useState(false);
@@ -88,6 +116,14 @@ export function ShotNineGridDialog({
       setError(null);
       setProgress(0);
       setIsGenerating(false);
+      // 如果有现有图片，使用现有数量；否则使用默认值
+      if (existingImages.length > 0) {
+        setTotalToGenerate(existingImages.length);
+        setGenerateCount(existingImages.length);
+      } else {
+        setGenerateCount(DEFAULT_GENERATE_COUNT);
+        setTotalToGenerate(DEFAULT_GENERATE_COUNT);
+      }
     }
   }, [open, existingImages, selectedPosition]);
 
@@ -97,6 +133,7 @@ export function ShotNineGridDialog({
     setProgress(0);
     setImages([]);
     setError(null);
+    setTotalToGenerate(generateCount);
 
     abortControllerRef.current = new AbortController();
 
@@ -106,6 +143,7 @@ export function ShotNineGridDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt_composition_id: promptCompositionId,
+          generate_count: generateCount,
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -152,7 +190,7 @@ export function ShotNineGridDialog({
                   const completedData = data as CompletedEvent;
                   setNineGridId(completedData.nine_grid_generation_id);
                   setIsGenerating(false);
-                  toast.success("九宫格生成完成", {
+                  toast.success("候选图生成完成", {
                     description: `成功生成 ${completedData.total_generated} 张候选图`,
                   });
                   break;
@@ -173,7 +211,7 @@ export function ShotNineGridDialog({
       }
       setIsGenerating(false);
     }
-  }, [shotId, promptCompositionId]);
+  }, [shotId, promptCompositionId, generateCount]);
 
   // 取消生成
   const handleCancelGeneration = useCallback(() => {
@@ -244,10 +282,56 @@ export function ShotNineGridDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden bg-zinc-950 border-zinc-800">
         <DialogHeader>
-          <DialogTitle className="text-white">九宫格候选图</DialogTitle>
+          <DialogTitle className="text-white">生成候选图</DialogTitle>
           <DialogDescription className="text-zinc-400">
-            {shotDescription || "生成 9 张候选图，选择最佳一张"}
+            {shotDescription || "生成候选图，选择最佳一张"}
           </DialogDescription>
+          
+          {/* 数量选择器 - 仅在未生成时显示 */}
+          {!isGenerating && images.length === 0 && (
+            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-zinc-800">
+              <span className="text-sm text-zinc-400">生成数量:</span>
+              <div className="flex items-center gap-2">
+                {/* 快捷选项 */}
+                {QUICK_COUNT_OPTIONS.map((count) => (
+                  <Button
+                    key={count}
+                    size="sm"
+                    variant={generateCount === count ? "default" : "outline"}
+                    className={cn(
+                      "min-w-[50px]",
+                      generateCount === count 
+                        ? "bg-purple-600 hover:bg-purple-700" 
+                        : "border-zinc-700 hover:bg-zinc-800"
+                    )}
+                    onClick={() => setGenerateCount(count)}
+                  >
+                    {count}张
+                  </Button>
+                ))}
+                
+                {/* 自定义数量选择器 */}
+                <Select
+                  value={String(generateCount)}
+                  onValueChange={(v) => setGenerateCount(Number(v))}
+                >
+                  <SelectTrigger className="w-[80px] border-zinc-700 bg-zinc-900">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-700">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+                      <SelectItem key={n} value={String(n)} className="hover:bg-zinc-800">
+                        {n}张
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Badge variant="outline" className="text-xs text-zinc-500 border-zinc-700">
+                最少1张，最多9张
+              </Badge>
+            </div>
+          )}
         </DialogHeader>
 
         <div className="py-4">
@@ -261,7 +345,7 @@ export function ShotNineGridDialog({
               <Progress value={progress} className="h-2" />
               <div className="flex items-center justify-center gap-2 text-sm text-zinc-500">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                正在生成第 {images.length + 1} / 9 张...
+                正在生成第 {images.length + 1} / {totalToGenerate} 张...
               </div>
             </div>
           )}
@@ -274,11 +358,11 @@ export function ShotNineGridDialog({
             </div>
           )}
 
-          {/* 九宫格展示 */}
+          {/* 候选图网格展示 */}
           {images.length > 0 ? (
             <ScrollArea className="h-[500px]">
-              <div className="grid grid-cols-3 gap-3">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((position) => {
+              <div className={cn("grid gap-3", getGridClass(totalToGenerate))}>
+                {Array.from({ length: totalToGenerate }, (_, i) => i + 1).map((position) => {
                   const image = images.find((img) => img.grid_position === position);
                   const isSelected = selected === position;
 
@@ -337,9 +421,9 @@ export function ShotNineGridDialog({
           ) : !isGenerating ? (
             <div className="flex flex-col items-center justify-center h-[400px] text-zinc-500">
               <Sparkles className="w-12 h-12 mb-4 text-purple-400" />
-              <p className="text-lg font-medium text-white mb-2">生成九宫格候选图</p>
+              <p className="text-lg font-medium text-white mb-2">生成候选图</p>
               <p className="text-sm text-center max-w-md">
-                AI 将为此分镜生成 9 张不同的候选图片，您可以从中选择最满意的一张。
+                AI 将为此分镜生成 {generateCount} 张不同的候选图片，您可以从中选择最满意的一张。
               </p>
             </div>
           ) : null}
