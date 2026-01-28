@@ -11,10 +11,19 @@ import { generatePlaceholders } from "../utils/shot-grouping";
 import { ShotCharacterBindingPanel } from "../ShotCharacterBindingPanel";
 import { ShotNineGridDialog } from "../ShotNineGridDialog";
 
+type ShotLike = ShotDesign | { 
+  id: string; 
+  shot_order: number; 
+  generated_image_url?: string | null; 
+  shot_description: string; 
+  created_at: Date | string; 
+  [key: string]: unknown;
+};
+
 interface ShotGroupSectionProps {
   group: ShotGroup;
   onGenerate: (group: ShotGroup) => void;
-  onShotClick?: (shot: ShotDesign | { id: string; shot_order: number; generated_image_url?: string | null; shot_description: string; created_at: Date | string; [key: string]: unknown }) => void;
+  onShotClick?: (shot: ShotLike) => void;
   novelProjectId?: string;
 }
 

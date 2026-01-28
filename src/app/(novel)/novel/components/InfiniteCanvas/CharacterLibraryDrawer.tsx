@@ -37,17 +37,7 @@ import {
 import { toast } from "sonner";
 import type { CharacterPromptTemplate } from "@/types/character-prompt";
 import { CharacterPromptEditorDialog } from "./CharacterPromptEditorDialog";
-
-// 角色信息接口（从 NovelProject.characters JSON 字段获取）
-interface NovelCharacter {
-  id: string;
-  name: string;
-  description?: string;
-  appearance?: string;
-  personality?: string;
-  role?: string;
-  image_url?: string;
-}
+import type { NovelCharacter } from "./shared-types";
 
 interface CharacterLibraryDrawerProps {
   open: boolean;

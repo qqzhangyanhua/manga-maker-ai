@@ -32,32 +32,12 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { PromptRefineDialog } from "./PromptRefineDialog";
-
-// 九宫格图片类型
-interface NineGridImage {
-  grid_position: number;
-  image_url: string;
-  seed: number;
-}
-
-// SSE 事件类型
-interface ProgressEvent {
-  current: number;
-  total: number;
-  status: string;
-}
-
-interface ImageEvent {
-  grid_position: number;
-  image_url: string;
-  seed: number;
-}
-
-interface CompletedEvent {
-  nine_grid_generation_id: string;
-  images: NineGridImage[];
-  total_generated: number;
-}
+import type {
+  NineGridImage,
+  ProgressEvent,
+  ImageEvent,
+  CompletedEvent,
+} from "./shared-types";
 
 interface ShotNineGridDialogProps {
   open: boolean;

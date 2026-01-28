@@ -20,7 +20,7 @@ interface GenerationProgressProps {
   timeline: CanvasTimeline | PaginatedTimeline;
 }
 
-interface GeneratingChapter {
+interface GeneratingChapterLocal {
   chapterId: string;
   chapterNumber: number;
   stage: "script" | "shot" | "final";
@@ -46,10 +46,10 @@ export function GenerationProgress({
   const queryClient = useQueryClient();
 
   // 找出所有正在生成的章节和阶段
-  const generatingChapters = useMemo((): GeneratingChapter[] => {
+  const generatingChapters = useMemo((): GeneratingChapterLocal[] => {
     if (!timeline.chapters) return [];
 
-    const generating: GeneratingChapter[] = [];
+    const generating: GeneratingChapterLocal[] = [];
 
     timeline.chapters.forEach((chapter) => {
       if (chapter.script_status === "generating") {
