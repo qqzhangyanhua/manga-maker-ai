@@ -37,12 +37,15 @@ const nextConfig = {
       },
     ],
   },
-  webpack: (config) => {
-    config.resolve = config.resolve || {};
-    config.resolve.alias = {
-      ...(config.resolve.alias || {}),
-      canvas: false,
-    };
+  webpack: (config, { isServer }) => {
+    // 仅在服务器端打包 canvas 包
+    if (!isServer) {
+      config.resolve = config.resolve || {};
+      config.resolve.alias = {
+        ...(config.resolve.alias || {}),
+        canvas: false,
+      };
+    }
     return config;
   },
 };

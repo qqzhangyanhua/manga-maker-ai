@@ -10,7 +10,7 @@
  * - 统一日志 (使用 api-logger)
  */
 
-import { createCanvas, loadImage, Image, CanvasRenderingContext2D, Canvas } from 'canvas';
+import type { Image, CanvasRenderingContext2D, Canvas } from 'canvas';
 import { validateImageUrl, UrlValidationError } from '@/lib/security/url-validator';
 import { sanitizeDialogueText, estimateTextLines } from '@/lib/security/text-sanitizer';
 import {
@@ -64,6 +64,9 @@ export async function addSpeechBubbles(
   let canvas: Canvas | null = null;
 
   try {
+    // 动态导入 canvas 包（仅在运行时加载，避免构建时错误）
+    const { createCanvas, loadImage } = await import('canvas');
+
     // 1. 验证 URL 安全性 (SSRF 防护)
     logInfo('开始验证图像 URL', { url: baseImageUrl.substring(0, 100) });
     validateImageUrl(baseImageUrl);
@@ -82,7 +85,7 @@ export async function addSpeechBubbles(
 
     // 3. 加载基础图片 (带超时)
     logInfo('开始加载基础图片', { url: baseImageUrl.substring(0, 100) });
-    baseImage = await loadImageWithTimeout(baseImageUrl, CANVAS_LIMITS.DOWNLOAD_TIMEOUT);
+    baseImage = await loadImageWithTimeout(baseImageUrl, CANVAS_LIMITS.DOWNLOAD_TIMEOUT, loadImage);
 
     // 4. 验证图片尺寸
     if (baseImage.width > CANVAS_LIMITS.MAX_WIDTH || baseImage.height > CANVAS_LIMITS.MAX_HEIGHT) {
@@ -154,7 +157,11 @@ export async function addSpeechBubbles(
 /**
  * 带超时的图片加载
  */
-async function loadImageWithTimeout(url: string, timeout: number): Promise<Image> {
+async function loadImageWithTimeout(
+  url: string, 
+  timeout: number, 
+  loadImage: (url: string) => Promise<Image>
+): Promise<Image> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       reject(new Error(`图片加载超时 (${timeout}ms): ${url}`));

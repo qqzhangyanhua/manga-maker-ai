@@ -7,6 +7,9 @@ import { prisma } from "@/lib/db";
 import { withAuth } from "@/lib/api-helpers";
 import { transformLayoutTemplates } from "@/lib/layout/transform";
 
+// 强制动态渲染
+export const dynamic = 'force-dynamic';
+
 // GET /api/templates/layout - 获取布局模板列表
 export async function GET(req: Request) {
   return withAuth(async ({ userId }) => {
