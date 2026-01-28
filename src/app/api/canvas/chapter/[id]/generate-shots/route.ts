@@ -136,13 +136,25 @@ export async function POST(req: Request, { params }: RouteParams) {
       })
     );
 
-    // 批量创建镜头记录
+    /**
+     * P3-3: 批量创建镜头记录
+     * 
+     * 提示词数据源优先级（从高到低）：
+     * 1. 用户手动编辑的 prompt（通过 refine-prompt API 修改）
+     * 2. 前端合成的 prompt（通过 compose-prompt API 生成）
+     * 3. Python 后端生成的 prompt（当前阶段）
+     * 4. 默认 fallback（camera_angle + shot_size）
+     * 
+     * 此阶段仅创建初始 prompt，后续可被覆盖
+     */
     for (const { segment, shots } of shotResults) {
       if (shots.length === 0) continue;
 
       const createdShots = await Promise.all(
         shots.map((shot) => {
           const shotData = shot as unknown as Record<string, unknown>;
+          
+          // P3-3: 描述字段优先级
           const shotDescription =
             (typeof shotData.shot_description === "string" ? shotData.shot_description : undefined) ||
             (typeof shotData.action_description === "string" ? shotData.action_description : undefined) ||
@@ -151,12 +163,12 @@ export async function POST(req: Request, { params }: RouteParams) {
 
           const locationKey = typeof shotData.location_key === "string" ? shotData.location_key : "";
           const descriptionSource = typeof shotData.shot_description === "string"
-            ? "shot_description"
+            ? "llm_shot_description"
             : typeof shotData.action_description === "string"
-              ? "action_description"
+              ? "llm_action_description"
               : segment.scene_description
-                ? "scene_description"
-                : "default";
+                ? "segment_scene_description"
+                : "default_fallback";
 
           const shotOrder = typeof shotData.shot_order === "number" ? shotData.shot_order : 0;
           const cameraAngle = typeof shotData.camera_angle === "string" ? shotData.camera_angle : "";
@@ -166,16 +178,23 @@ export async function POST(req: Request, { params }: RouteParams) {
             : typeof shotData.visual_notes === "string"
               ? shotData.visual_notes
               : "";
-          const prompt = typeof shotData.prompt === "string" ? shotData.prompt : `${cameraAngle}, ${shotSize}`.trim();
-          const negativePrompt = typeof shotData.negative_prompt === "string" ? shotData.negative_prompt : "blurry, low quality, distorted";
+          
+          // P3-3: 初始 prompt 来自 LLM 生成（优先级 3）
+          const prompt = typeof shotData.prompt === "string" 
+            ? shotData.prompt 
+            : `${cameraAngle}, ${shotSize}`.trim();
+          const negativePrompt = typeof shotData.negative_prompt === "string" 
+            ? shotData.negative_prompt 
+            : "blurry, low quality, distorted, text, watermark";
           const characterFocus = typeof shotData.character_focus === "string" ? shotData.character_focus : null;
 
-          logInfo("创建镜头记录", {
+          logInfo("P3-3: 创建镜头记录", {
             segmentId: segment.id,
             shotOrder,
             hasDescription: !!shotDescription,
             locationKey,
-            descriptionSource,
+            descriptionSource, // 记录数据来源便于调试
+            promptSource: typeof shotData.prompt === "string" ? "llm_generated" : "default_fallback",
           });
 
           return prisma.shotDesign.create({

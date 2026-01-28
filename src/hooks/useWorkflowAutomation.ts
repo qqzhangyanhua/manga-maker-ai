@@ -1,42 +1,64 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCanvasStore } from '@/stores/canvas-store';
 import { toast } from 'sonner';
-import type { CanvasTimeline } from '@/app/(novel)/novel/components/InfiniteCanvas/types';
+import type { PaginatedTimeline, TimelineChapter } from '@/app/(novel)/novel/components/InfiniteCanvas/types';
 
 /**
- * 工作流自动化 Hook
+ * 章节状态快照
+ */
+interface ChapterStatusSnapshot {
+  id: string;
+  script_status: string;
+  shot_status: string;
+  final_status: string;
+}
+
+/**
+ * P1-3: 工作流自动化 Hook（重构版）
  *
- * 监听章节生成完成事件，自动触发下一阶段
+ * 使用 QueryClient 的 subscribe 机制监听数据变化，
+ * 而不是依赖 useEffect 的重新渲染
  *
  * 工作流: script → shot → final
  */
 export function useWorkflowAutomation(timelineId: string) {
   const queryClient = useQueryClient();
   const workflowAutomation = useCanvasStore(state => state.workflowAutomation);
-  const prevTimelineRef = useRef<CanvasTimeline | null>(null);
+  
+  // 使用 Map 存储每个章节的上一次状态
+  const prevStatusMapRef = useRef<Map<string, ChapterStatusSnapshot>>(new Map());
+  
+  // 触发中的章节 ID（防止重复触发）
+  const pendingTriggersRef = useRef<Set<string>>(new Set());
 
-  useEffect(() => {
+  // P1-3: 检查状态变化并触发下一阶段
+  const checkAndTrigger = useCallback((chapters: TimelineChapter[]) => {
     if (!workflowAutomation.enabled || !workflowAutomation.autoNextStage) {
       return;
     }
 
-    // 获取当前时间轴数据
-    const currentTimeline = queryClient.getQueryData<CanvasTimeline>(['timeline', timelineId]);
-    if (!currentTimeline) return;
+    const prevStatusMap = prevStatusMapRef.current;
 
-    const prevTimeline = prevTimelineRef.current;
+    chapters.forEach((chapter) => {
+      const prevStatus = prevStatusMap.get(chapter.id);
+      
+      // 首次看到这个章节，只记录状态
+      if (!prevStatus) {
+        prevStatusMap.set(chapter.id, {
+          id: chapter.id,
+          script_status: chapter.script_status,
+          shot_status: chapter.shot_status,
+          final_status: chapter.final_status,
+        });
+        return;
+      }
 
-    // 如果没有之前的数据，存储当前状态
-    if (!prevTimeline) {
-      prevTimelineRef.current = currentTimeline;
-      return;
-    }
-
-    // 检查每个章节的状态变化
-    currentTimeline.chapters.forEach((currentChapter) => {
-      const prevChapter = prevTimeline.chapters.find(ch => ch.id === currentChapter.id);
-      if (!prevChapter) return;
+      // 检查是否已在触发中
+      const triggerId = chapter.id;
+      if (pendingTriggersRef.current.has(triggerId)) {
+        return;
+      }
 
       // 检测状态从 generating → completed
       const stages: Array<{
@@ -49,34 +71,79 @@ export function useWorkflowAutomation(timelineId: string) {
         { key: 'final_status', nextStage: null, label: '漫画' },
       ];
 
-      stages.forEach(({ key, nextStage, label }) => {
-        const wasGenerating = prevChapter[key] === 'generating';
-        const isCompleted = currentChapter[key] === 'completed';
+      for (const { key, nextStage, label } of stages) {
+        const wasGenerating = prevStatus[key] === 'generating';
+        const isCompleted = chapter[key] === 'completed';
 
         // 生成完成且有下一阶段
         if (wasGenerating && isCompleted && nextStage) {
-          console.log(`[Workflow Automation] ${label} completed, triggering ${nextStage}...`);
+          console.log(`[Workflow Automation] ${label} completed for chapter ${chapter.id}, triggering ${nextStage}...`);
+
+          // 标记为触发中
+          pendingTriggersRef.current.add(`${triggerId}-${nextStage}`);
 
           // 触发下一阶段生成
-          triggerNextStage(currentChapter.id, nextStage);
+          triggerNextStage(chapter.id, nextStage).finally(() => {
+            // 触发完成后移除标记
+            pendingTriggersRef.current.delete(`${triggerId}-${nextStage}`);
+          });
 
           // 显示提示
           toast.success(`${label}生成完成`, {
             description: `自动开始生成${getStageLabel(nextStage)}...`,
           });
+
+          // 每个章节只触发一个阶段
+          break;
         }
+      }
+
+      // 更新状态快照
+      prevStatusMap.set(chapter.id, {
+        id: chapter.id,
+        script_status: chapter.script_status,
+        shot_status: chapter.shot_status,
+        final_status: chapter.final_status,
       });
     });
+  }, [workflowAutomation.enabled, workflowAutomation.autoNextStage]);
 
-    // 更新引用
-    prevTimelineRef.current = currentTimeline;
-  }, [queryClient, timelineId, workflowAutomation.enabled, workflowAutomation.autoNextStage]);
+  // P1-3: 使用 QueryClient 的 cache 订阅机制
+  useEffect(() => {
+    if (!workflowAutomation.enabled) {
+      return;
+    }
+
+    // 订阅 timeline 查询的缓存变化
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      // 只关心 timeline 相关的查询更新
+      if (event.type !== 'updated') return;
+      
+      const queryKey = event.query.queryKey;
+      if (!Array.isArray(queryKey) || queryKey[0] !== 'timeline' || queryKey[1] !== timelineId) {
+        return;
+      }
+
+      // 获取更新后的数据
+      const data = event.query.state.data as PaginatedTimeline | undefined;
+      if (!data?.chapters) return;
+
+      // 检查并触发
+      checkAndTrigger(data.chapters);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [queryClient, timelineId, workflowAutomation.enabled, checkAndTrigger]);
 }
 
 /**
  * 触发下一阶段生成
+ * 
+ * P1-3: 返回 Promise 用于状态追踪
  */
-async function triggerNextStage(chapterId: string, stage: 'shot' | 'final') {
+async function triggerNextStage(chapterId: string, stage: 'shot' | 'final'): Promise<void> {
   const apiEndpoints = {
     shot: 'generate-shots',
     final: 'generate-finals',
@@ -91,6 +158,8 @@ async function triggerNextStage(chapterId: string, stage: 'shot' | 'final') {
       const error = await response.json();
       throw new Error(error.error || '自动生成失败');
     }
+    
+    console.log(`[Workflow Automation] Successfully triggered ${stage} for chapter ${chapterId}`);
   } catch (error) {
     console.error(`[Workflow Automation] Failed to trigger ${stage}:`, error);
     toast.error(`自动生成${getStageLabel(stage)}失败`, {

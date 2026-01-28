@@ -3,6 +3,32 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCanvasStore } from '@/stores/canvas-store';
 import type { CanvasTimeline } from '@/app/(novel)/novel/components/InfiniteCanvas/types';
 
+// P3-2: 日志级别控制
+const IS_DEV = process.env.NODE_ENV === 'development';
+
+/**
+ * P3-2: SSE 日志工具函数
+ * 开发环境输出 debug 级别日志，生产环境只输出 warn 级别
+ */
+const sseLogger = {
+  debug: (...args: unknown[]) => {
+    if (IS_DEV) {
+      console.log('[SSE]', ...args);
+    }
+  },
+  info: (...args: unknown[]) => {
+    if (IS_DEV) {
+      console.info('[SSE]', ...args);
+    }
+  },
+  warn: (...args: unknown[]) => {
+    console.warn('[SSE]', ...args);
+  },
+  error: (...args: unknown[]) => {
+    console.error('[SSE]', ...args);
+  },
+};
+
 interface SSEUpdateMessage {
   type: 'status_update' | 'count_update' | 'error';
   chapterId: string;
@@ -31,7 +57,7 @@ export function useRealtimeCanvas(timelineId: string) {
         eventSourceRef.current = eventSource;
 
         eventSource.onopen = () => {
-          console.log('[SSE] Connected to timeline updates');
+          sseLogger.info('Connected to timeline updates');
           setSseStatus('connected');
           reconnectAttemptsRef.current = 0;
         };
@@ -69,35 +95,35 @@ export function useRealtimeCanvas(timelineId: string) {
               }
             );
 
-            console.log('[SSE] Update received:', update);
+            sseLogger.debug('Update received:', update);
           } catch (error) {
-            console.error('[SSE] Failed to parse message:', error);
+            sseLogger.error('Failed to parse message:', error);
           }
         };
 
         eventSource.onerror = (error) => {
-          console.error('[SSE] Connection error:', error);
-          console.error('[SSE] EventSource readyState:', eventSource.readyState);
-          console.error('[SSE] EventSource url:', eventSource.url);
+          sseLogger.warn('Connection error:', error);
+          sseLogger.debug('EventSource readyState:', eventSource.readyState);
+          sseLogger.debug('EventSource url:', eventSource.url);
 
           setSseStatus('reconnecting');
           eventSource.close();
 
           if (reconnectAttemptsRef.current < maxReconnectAttempts) {
             const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
-            console.log(`[SSE] Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current + 1}/${maxReconnectAttempts})`);
+            sseLogger.debug(`Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current + 1}/${maxReconnectAttempts})`);
 
             reconnectTimeoutRef.current = setTimeout(() => {
               reconnectAttemptsRef.current += 1;
               connect();
             }, delay);
           } else {
-            console.error('[SSE] Max reconnection attempts reached');
+            sseLogger.warn('Max reconnection attempts reached');
             setSseStatus('disconnected');
           }
         };
       } catch (error) {
-        console.error('[SSE] Failed to create connection:', error);
+        sseLogger.error('Failed to create connection:', error);
         setSseStatus('disconnected');
       }
     };
@@ -106,7 +132,7 @@ export function useRealtimeCanvas(timelineId: string) {
 
     return () => {
       if (eventSourceRef.current) {
-        console.log('[SSE] Disconnecting');
+        sseLogger.debug('Disconnecting');
         eventSourceRef.current.close();
         eventSourceRef.current = null;
       }

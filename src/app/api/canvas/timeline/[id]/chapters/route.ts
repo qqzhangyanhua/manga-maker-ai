@@ -216,6 +216,21 @@ export async function POST(req: Request, { params }: RouteParams) {
       );
     }
 
+    // P0-1: 强制校验 chapter_id 非空，防止数据不一致
+    if (!novelChapter.id) {
+      console.error("[TimelineChapter] NovelChapter.id 为空，无法创建时间线章节", {
+        novel_project_id,
+        chapter_number,
+      });
+      return NextResponse.json(
+        {
+          error: "章节数据异常",
+          suggestion: "NovelChapter ID 为空，请联系管理员",
+        },
+        { status: 500 }
+      );
+    }
+
     const chapter = await prisma.timelineChapter.create({
       data: {
         timeline_id: timelineId,
@@ -223,6 +238,14 @@ export async function POST(req: Request, { params }: RouteParams) {
         chapter_number: chapter_number,
       },
     });
+
+    // 校验创建结果
+    if (!chapter.chapter_id) {
+      console.error("[TimelineChapter] 创建后 chapter_id 仍为空", {
+        timelineChapterId: chapter.id,
+        novelChapterId: novelChapter.id,
+      });
+    }
 
     // 更新时间线的章节计数
     await prisma.canvasTimeline.update({

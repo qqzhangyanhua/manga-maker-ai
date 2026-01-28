@@ -3,6 +3,8 @@
  *
  * 从 NovelProject.characters (Json) 中解析角色，
  * 并关联到 Character 表获取 reference_image
+ * 
+ * P1-2: 支持未绑定资产的角色 fallback 处理
  */
 
 import { prisma } from "@/lib/db";
@@ -24,10 +26,11 @@ interface NovelProjectCharacter {
  * 解析后的角色（带参考图）
  */
 export interface ResolvedCharacter {
-  id: string; // Character 表 ID
+  id: string; // Character 表 ID 或临时 ID
   name: string;
   description: string | null;
   referenceImage: string | null;
+  isBound: boolean; // P1-2: 是否已绑定资产
 }
 
 /**
@@ -36,15 +39,18 @@ export interface ResolvedCharacter {
 export interface AvailableCharacter {
   id: string;
   name: string;
+  description?: string; // P1-2: 添加描述字段用于 fallback
   reference_image?: string;
 }
 
 /**
  * 从 Timeline 获取关联的 NovelProject，并解析角色
+ * 
+ * P1-2: 支持未绑定资产的角色，使用名称+描述作为 fallback
  *
  * @param timelineId - CanvasTimeline ID
  * @param userId - 用户 ID（用于权限验证）
- * @returns 解析后的角色列表
+ * @returns 解析后的角色列表（包含已绑定和未绑定的角色）
  */
 export async function resolveCharactersForTimeline(
   timelineId: string,
@@ -101,48 +107,71 @@ export async function resolveCharactersForTimeline(
       return [];
     }
 
-    // 4. 提取已绑定的 assetCharacterId
-    const assetCharacterIds = novelCharacters
+    // P1-2: 分离已绑定和未绑定的角色
+    const boundCharacterIds = novelCharacters
       .map((c) => c.assetCharacterId)
       .filter((id): id is string => !!id);
 
-    if (assetCharacterIds.length === 0) {
-      logInfo("NovelProject 角色未绑定资产", {
-        timelineId,
-        novelProjectId: timeline.novel_project_id,
-        novelCharacterCount: novelCharacters.length,
+    const unboundCharacters = novelCharacters.filter((c) => !c.assetCharacterId);
+
+    // 4. 查询已绑定的 Character 表获取详细信息
+    const boundCharacters = boundCharacterIds.length > 0
+      ? await prisma.character.findMany({
+          where: {
+            id: { in: boundCharacterIds },
+            user_id: userId,
+          },
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            reference_image: true,
+            base_image_url: true,
+          },
+        })
+      : [];
+
+    // 5. 构建结果
+    const resolvedCharacters: ResolvedCharacter[] = [];
+
+    // 5.1 添加已绑定的角色
+    for (const c of boundCharacters) {
+      resolvedCharacters.push({
+        id: c.id,
+        name: c.name,
+        description: c.description,
+        referenceImage: c.reference_image || c.base_image_url || null,
+        isBound: true,
       });
-      return [];
     }
 
-    // 5. 查询 Character 表获取详细信息
-    const characters = await prisma.character.findMany({
-      where: {
-        id: { in: assetCharacterIds },
-        user_id: userId,
-      },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        reference_image: true,
-        base_image_url: true, // fallback
-      },
-    });
+    // P1-2: 5.2 添加未绑定的角色（使用临时 ID 和描述作为 fallback）
+    for (const nc of unboundCharacters) {
+      // 生成临时 ID（基于名称的哈希，确保一致性）
+      const tempId = `unbound-${nc.id || nc.name.toLowerCase().replace(/\s+/g, "-")}`;
+      
+      // 组合描述信息
+      const descParts: string[] = [];
+      if (nc.description) descParts.push(nc.description);
+      if (nc.role) descParts.push(`角色定位: ${nc.role}`);
+      if (nc.traits && nc.traits.length > 0) descParts.push(`特征: ${nc.traits.join(", ")}`);
+      
+      resolvedCharacters.push({
+        id: tempId,
+        name: nc.name,
+        description: descParts.join("; ") || null,
+        referenceImage: null, // 未绑定角色无参考图
+        isBound: false,
+      });
+    }
 
-    // 6. 构建结果，优先使用 reference_image，fallback 到 base_image_url
-    const resolvedCharacters: ResolvedCharacter[] = characters.map((c) => ({
-      id: c.id,
-      name: c.name,
-      description: c.description,
-      referenceImage: c.reference_image || c.base_image_url || null,
-    }));
-
-    logInfo("角色查询完成", {
+    logInfo("P1-2: 角色查询完成（含未绑定角色）", {
       timelineId,
       novelProjectId: timeline.novel_project_id,
-      characterCount: resolvedCharacters.length,
-      characterNames: resolvedCharacters.map((c) => c.name),
+      totalCount: resolvedCharacters.length,
+      boundCount: boundCharacters.length,
+      unboundCount: unboundCharacters.length,
+      characterNames: resolvedCharacters.map((c) => `${c.name}${c.isBound ? "" : "(未绑定)"}`),
       withReferenceImage: resolvedCharacters.filter((c) => c.referenceImage).length,
     });
 
@@ -155,6 +184,8 @@ export async function resolveCharactersForTimeline(
 
 /**
  * 格式化为 planShots 需要的 available_characters 格式
+ * 
+ * P1-2: 添加描述字段，用于未绑定角色的 LLM 识别
  */
 export function formatForPlanShots(
   characters: ResolvedCharacter[]
@@ -162,6 +193,7 @@ export function formatForPlanShots(
   return characters.map((c) => ({
     id: c.id,
     name: c.name,
+    description: c.description || undefined, // P1-2: 添加描述用于 LLM 识别
     reference_image: c.referenceImage || undefined,
   }));
 }

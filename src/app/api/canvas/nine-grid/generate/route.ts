@@ -78,9 +78,9 @@ function buildNineGridPrompt(
     parts.push(stylePrefix.trim());
   }
 
-  // 2. 九宫格模板核心（如果有剧情概述则使用，否则使用通用描述）
+  // P2-2: 增加 plotSummary 截断限制到 400 字符，保留更多剧情信息
   const plotText = plotSummary
-    ? truncateText(plotSummary, 200)
+    ? truncateText(plotSummary, 400)
     : "连续的故事场景";
   const templateCore = `根据[${plotText}],生成一张具有凝聚力的[3×3]网格图像，包含在同一环境中的[9]个不同摄像机镜头，严格保持人物/物体、服装和光线的一致性，[8K]分辨率，[16：9]画幅。`;
   parts.push(templateCore);
@@ -88,20 +88,16 @@ function buildNineGridPrompt(
   // 3. 镜头描述
   parts.push(shotLines);
 
-  // 4. 角色参考图信息（如果有）
+  // P2-4: 移除提示词中的角色参考图 URL，改为仅通过 API 参数 referenceImages 传递
+  // 这样可以：1) 减少提示词长度 2) 避免 URL 被模型误解为文本内容
+  // 角色一致性说明（不包含具体 URL）
   if (characterReferences && characterReferences.length > 0) {
-    const charRefText = characterReferences
-      .map((ref, index) => {
-        const urls = ref.referenceImageUrls.join(", ");
-        return `角色${index + 1}参考图: ${urls}`;
-      })
-      .join("\n");
-    parts.push(`角色一致性参考:\n${charRefText}`);
+    parts.push(`角色一致性要求：共${characterReferences.length}个角色，请根据参考图保持外观一致性。`);
   }
 
-  // 5. 结尾说明
+  // P1-1: 优化结尾指令，移除文字标注要求，使用纯视觉指令
   parts.push(
-    "最后加上图1是什么角色，图2是什么角色或者场景。生成的一定是九宫格，且每个格子比例都是16：9"
+    "输出要求：纯视觉内容，无文字标注，无水印。严格3×3网格布局，每格16:9比例。"
   );
 
   return parts.join("\n\n");
@@ -212,17 +208,25 @@ export async function POST(req: Request) {
 
     const novelChapterId = timelineChapter.chapter_id;
 
-    // ⚠️ 检查 chapter_id 是否为空
+    // P0-1: chapter_id 为空时返回错误，不再继续执行
     if (!novelChapterId) {
-      console.error("[NineGrid] ❌ TimelineChapter.chapter_id 为空!");
-      console.error("[NineGrid] timelineChapterId:", timelineChapterId);
-      console.error("[NineGrid] 这会导致九宫格图片无法关联到 NovelChapter，查询时会找不到");
-      // 继续执行，但记录警告
+      console.error("[NineGrid] ❌ TimelineChapter.chapter_id 为空!", {
+        timelineChapterId,
+        suggestion: "请运行数据修复脚本或重新添加章节到时间线",
+      });
+      return NextResponse.json(
+        {
+          error: "章节数据异常",
+          detail: "TimelineChapter.chapter_id 为空，无法关联九宫格图片",
+          suggestion: "请尝试删除并重新添加该章节到时间线",
+        },
+        { status: 400 }
+      );
     }
 
     console.log("[NineGrid] 章节ID映射:", {
       timelineChapterId,
-      novelChapterId: novelChapterId || "NULL (将无法通过 novel/[id]/images 接口查询)",
+      novelChapterId,
     });
 
     // 获取漫画风格
