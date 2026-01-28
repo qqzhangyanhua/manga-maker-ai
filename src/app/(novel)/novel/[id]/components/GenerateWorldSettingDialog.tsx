@@ -26,7 +26,7 @@ import type {
   Rule,
   TimelineEvent
 } from "./world-setting";
-import type { ChapterOutline } from "./types";
+import type { ChapterOutline } from "../types";
 import { novelTheme } from "../../theme";
 
 interface GeneratedWorldSetting {

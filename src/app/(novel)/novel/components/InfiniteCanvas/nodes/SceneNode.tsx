@@ -5,17 +5,7 @@ import { Handle, Position } from 'reactflow';
 import { Image as ImageIcon, Play, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useOpenDetail, useCanvasStore, useOpenSceneDialog } from '@/stores/canvas-store';
-import type { GenerationStatus } from '../types';
-
-interface SceneNodeData {
-  chapterId: string;
-  chapterTitle: string;
-  chapterNumber: number;
-  status: GenerationStatus;
-  count: number;
-  canGenerate: boolean;
-  timelineId: string;
-}
+import type { SceneNodeData } from '../nodes-types';
 
 interface SceneNodeProps {
   data: SceneNodeData;

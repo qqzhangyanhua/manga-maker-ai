@@ -17,11 +17,9 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, CheckCircle2 } from "lucide-react";
 
-interface NovelCharacter {
-  name: string;
-  role: string;
-  description: string;
-  tempId: string;
+import type { NovelCharacterInput } from "./shared-types";
+
+interface NovelCharacter extends NovelCharacterInput {
   traits?: string[];
   relationships?: Record<string, string>;
 }

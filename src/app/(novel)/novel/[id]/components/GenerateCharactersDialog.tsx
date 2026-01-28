@@ -19,7 +19,8 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sparkles, Loader2, User } from "lucide-react";
 import { toast } from "sonner";
-import type { Character, ChapterOutline } from "./character";
+import type { Character } from "./character";
+import type { ChapterOutline } from "../types";
 import { novelTheme } from "../../theme";
 
 interface GeneratedCharacter {

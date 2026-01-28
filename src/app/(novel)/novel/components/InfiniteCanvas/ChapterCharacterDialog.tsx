@@ -10,14 +10,12 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import type { ChapterCharacterFull } from "./shared-types";
 
-interface Character {
-  id: string;
-  name: string;
-  description: string | null;
-  base_image_url: string | null;
+// Character 类型是 ChapterCharacterFull 的简化版
+type Character = Pick<ChapterCharacterFull, "id" | "name" | "description" | "base_image_url"> & {
   tags: string[];
-}
+};
 
 interface ChapterCharacterDialogProps {
   open: boolean;

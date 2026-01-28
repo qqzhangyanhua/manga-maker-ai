@@ -40,6 +40,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import type { PromptInfoDetailed, GenerationParams } from "./shared-types";
 
 interface PromptRefineDialogProps {
   open: boolean;
@@ -47,27 +48,6 @@ interface PromptRefineDialogProps {
   shotId: string;
   originalImageUrl?: string;
   onSuccess?: () => void;
-}
-
-interface PromptInfo {
-  current_prompt: string;
-  negative_prompt: string;
-  shot_description: string;
-  current_image_url: string | null;
-  selected_nine_grid_image: {
-    grid_position: number;
-    image_url: string;
-    seed: number;
-  } | null;
-  composition_id: string | null;
-}
-
-interface GenerationParams {
-  width: number;
-  height: number;
-  steps: number;
-  cfg_scale: number;
-  seed?: number;
 }
 
 export function PromptRefineDialog({
@@ -102,7 +82,7 @@ export function PromptRefineDialog({
         throw new Error(data.error || "获取 Prompt 信息失败");
       }
       const data = await res.json();
-      return data.prompt_info as PromptInfo;
+      return data.prompt_info as PromptInfoDetailed;
     },
     enabled: open,
   });

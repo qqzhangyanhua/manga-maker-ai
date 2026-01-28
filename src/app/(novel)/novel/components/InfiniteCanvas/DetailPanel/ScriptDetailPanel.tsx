@@ -24,35 +24,13 @@ import {
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-
-/**
- * 剧本分段类型
- */
-interface ScriptSegment {
-  id: string;
-  segment_order: number;
-  content: string;
-  scene_description: string;
-  character_actions: string;
-  dialogue: string | null;
-  emotion_tone: string;
-  estimated_duration: number;
-  created_at: string;
-}
-
-/**
- * API 响应类型
- */
-interface ScriptDetailResponse {
-  chapterId: string;
-  chapterNumber: number;
-  segments: ScriptSegment[];
-  totalCount: number;
-}
+import type { ScriptDetailListResponse } from '../detail-panel-types';
 
 interface ScriptDetailPanelProps {
   chapterId: string;
 }
+
+type ScriptSegment = ScriptDetailListResponse['segments'][number];
 
 /**
  * 单个分段卡片组件
@@ -164,7 +142,7 @@ export function ScriptDetailPanel({ chapterId }: ScriptDetailPanelProps) {
   const queryClient = useQueryClient();
 
   // 获取剧本分段数据
-  const { data, isLoading, error } = useQuery<ScriptDetailResponse>({
+  const { data, isLoading, error } = useQuery<ScriptDetailListResponse>({
     queryKey: ['script-detail', chapterId],
     queryFn: async () => {
       const response = await fetch(`/api/canvas/chapter/${chapterId}/script`);

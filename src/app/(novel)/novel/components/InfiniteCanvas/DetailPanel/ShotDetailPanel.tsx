@@ -44,58 +44,11 @@ import type { NineGridTaskStatus } from "../NineGrid";
 import { groupShotsIntoNineGrids } from "../utils/shot-grouping";
 import { ShotGroupSection } from "./ShotGroupSection";
 import type { ShotGroup } from "./types";
-
-/**
- * 镜头设计类型
- */
-interface ShotDesign {
-  id: string;
-  shot_order: number;
-  camera_angle: string;
-  shot_size: string;
-  panel_type: string;
-  shot_description: string;
-  composition_hint: string;
-  prompt: string;
-  generated_image_url?: string | null;
-  generation_status?: string;
-  created_at: string;
-  // 角色身份证相关字段
-  character_prompt_template_ids?: string[];
-  prompt_composition_id?: string | null;
-  character_prompt_status?: string;
-  final_prompt_status?: string;
-  nine_grid_status?: string;
-  selection_status?: string;
-}
-
-/**
- * API 响应类型
- */
-interface ShotDetailResponse {
-  chapterId: string;
-  chapterNumber: number;
-  timelineId: string;
-  novelProjectId?: string | null;
-  shots: ShotDesign[];
-  totalCount: number;
-}
+import type { ShotDesign } from "@prisma/client";
+import type { ShotDetailListResponse, GenerateShotImagePayloadLocal } from "../detail-panel-types";
 
 interface ShotDetailPanelProps {
   chapterId: string;
-}
-
-interface ShotImageCharacterInput {
-  name: string;
-  role: string;
-  description: string;
-  reference_image_url?: string;
-}
-
-interface GenerateShotImagePayload {
-  shotId: string;
-  characters: ShotImageCharacterInput[];
-  comicStyleId?: string;
 }
 
 /**
@@ -289,7 +242,7 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
   const [nineGridViewerOpen, setNineGridViewerOpen] = useState(false);
 
   // 获取镜头数据（必须在 useEffect 之前定义）
-  const { data, isLoading, error } = useQuery<ShotDetailResponse>({
+  const { data, isLoading, error } = useQuery<ShotDetailListResponse>({
     queryKey: ["shot-detail", chapterId],
     queryFn: async () => {
       const response = await fetch(`/api/canvas/chapter/${chapterId}/shot`);
@@ -300,7 +253,7 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
     },
     staleTime: 1000 * 60 * 5,
     refetchInterval: (query) => {
-      const data = query.state.data as ShotDetailResponse | undefined;
+      const data = query.state.data as ShotDetailListResponse | undefined;
       if (!data?.shots) return false;
 
       const generatingShots = data.shots.filter(
@@ -456,7 +409,7 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
       shotId,
       characters,
       comicStyleId,
-    }: GenerateShotImagePayload) => {
+    }: GenerateShotImagePayloadLocal) => {
       const response = await fetch(
         `/api/canvas/shot-design/${shotId}/generate-image`,
         {
@@ -479,11 +432,11 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
       }>;
     },
     onMutate: async ({ shotId }) => {
-      const previous = queryClient.getQueryData<ShotDetailResponse>([
+      const previous = queryClient.getQueryData<ShotDetailListResponse>([
         "shot-detail",
         chapterId,
       ]);
-      queryClient.setQueryData<ShotDetailResponse>(
+      queryClient.setQueryData<ShotDetailListResponse>(
         ["shot-detail", chapterId],
         (old) => {
           if (!old) return old;
@@ -532,7 +485,12 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
   };
 
   const handleConfirmGenerate = (payload: {
-    characters: ShotImageCharacterInput[];
+    characters: Array<{
+      name: string;
+      role: string;
+      description: string;
+      reference_image_url?: string;
+    }>;
     comicStyleId?: string;
   }) => {
     if (!shotGenerateDialog.shotId) {

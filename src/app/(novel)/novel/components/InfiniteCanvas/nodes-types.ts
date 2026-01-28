@@ -5,9 +5,20 @@
 import type { GenerationStatus } from "./types";
 
 /**
- * 章节标题节点数据
+ * 章节标题节点数据（章节级别）
  */
 export interface ChapterHeaderNodeData {
+  chapterId: string;
+  chapterNumber: number;
+  progress: number;
+  timelineId: string;
+  characterCount?: number;
+}
+
+/**
+ * 章节标题节点数据（完整版，包含所有状态）
+ */
+export interface ChapterHeaderNodeDataFull {
   chapterId: string;
   chapterNumber: number;
   title: string;
@@ -22,9 +33,19 @@ export interface ChapterHeaderNodeData {
 }
 
 /**
- * 剧本节点数据
+ * 剧本节点数据（章节级别）
  */
 export interface ScriptNodeData {
+  chapterId: string;
+  status: GenerationStatus;
+  count: number;
+  timelineId: string;
+}
+
+/**
+ * 剧本节点数据（单个分段）
+ */
+export interface ScriptSegmentNodeData {
   scriptId: string;
   chapterId: string;
   segmentOrder: number;
@@ -35,9 +56,20 @@ export interface ScriptNodeData {
 }
 
 /**
- * 分镜节点数据
+ * 分镜节点数据（章节级别）
  */
 export interface ShotNodeData {
+  chapterId: string;
+  status: GenerationStatus;
+  count: number;
+  canGenerate: boolean;
+  timelineId: string;
+}
+
+/**
+ * 分镜节点数据（单个分镜）
+ */
+export interface ShotItemNodeData {
   shotId: string;
   chapterId: string;
   shotOrder: number;
@@ -51,9 +83,22 @@ export interface ShotNodeData {
 }
 
 /**
- * 场景节点数据
+ * 场景节点数据（章节级别）
  */
 export interface SceneNodeData {
+  chapterId: string;
+  chapterTitle: string;
+  chapterNumber: number;
+  status: GenerationStatus;
+  count: number;
+  canGenerate: boolean;
+  timelineId: string;
+}
+
+/**
+ * 场景节点数据（单个场景）
+ */
+export interface SceneItemNodeData {
   sceneId: string;
   chapterId: string;
   sceneOrder: number;
@@ -63,9 +108,22 @@ export interface SceneNodeData {
 }
 
 /**
- * 最终漫画节点数据
+ * 最终漫画节点数据（章节级别）
  */
 export interface FinalNodeData {
+  chapterId: string;
+  chapterTitle: string;
+  chapterNumber: number;
+  status: GenerationStatus;
+  count: number;
+  canGenerate: boolean;
+  timelineId: string;
+}
+
+/**
+ * 最终漫画节点数据（单个面板）
+ */
+export interface FinalItemNodeData {
   finalId: string;
   chapterId: string;
   panelOrder: number;

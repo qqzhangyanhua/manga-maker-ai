@@ -129,13 +129,29 @@ export interface CharacterWithPrompts {
 }
 
 /**
- * Prompt 信息
+ * Prompt 信息（基础版）
  */
 export interface PromptInfo {
   id: string;
   full_prompt: string;
   visual_elements?: string;
   style_tags?: string;
+}
+
+/**
+ * Prompt 信息（详细版，用于 PromptRefineDialog）
+ */
+export interface PromptInfoDetailed {
+  current_prompt: string;
+  negative_prompt: string;
+  shot_description: string;
+  current_image_url: string | null;
+  selected_nine_grid_image: {
+    grid_position: number;
+    image_url: string;
+    seed: number;
+  } | null;
+  composition_id: string | null;
 }
 
 /**
@@ -147,6 +163,68 @@ export interface GenerationParams {
   steps: number;
   cfg_scale: number;
   seed?: number;
+}
+
+/**
+ * 漫画风格（完整版，包含 API 返回的所有字段）
+ */
+export interface ComicStyleFull {
+  id: string;
+  style_key: string;
+  name_zh: string;
+  name_en: string;
+  image_url: string | null;
+  tag_color: string;
+  prompt_prefix: string | null;
+}
+
+/**
+ * 章节角色（完整版，包含 API 返回的所有字段）
+ */
+export interface ChapterCharacterFull {
+  id: string;
+  name: string;
+  description: string | null;
+  base_image_url: string | null;
+  reference_image: string | null;
+  shot_count?: number;
+  asset_status?: CharacterAssetStatusFull;
+}
+
+/**
+ * 角色资产状态（完整版）
+ */
+export interface CharacterAssetStatusFull {
+  has_reference: boolean;
+  has_base_image: boolean;
+  has_views: boolean;
+  has_expressions: boolean;
+  has_outfits: boolean;
+  ready_for_generation: boolean;
+  missing_assets: string[];
+}
+
+/**
+ * 小说角色（用于对话框输入）
+ */
+export interface NovelCharacterInput {
+  name: string;
+  role: string;
+  description: string;
+  tempId: string;
+  generatedImageUrl?: string;
+}
+
+/**
+ * 可选角色（用于对话框选择）
+ */
+export interface SelectableCharacterInput {
+  id: string;
+  name: string;
+  role: string;
+  description: string;
+  imageUrl: string | null;
+  source: CharacterSource;
 }
 
 /**

@@ -27,51 +27,16 @@ import { cn } from "@/lib/utils";
 import { useTimelineConfig, getSafeConfig } from "@/hooks/useTimelineConfig";
 import { findStyleById, useComicStyles } from "@/hooks/useComicStyles";
 import type { ShotGenerateDialogShotInfo } from "@/stores/canvas-store";
+import type {
+  ShotImageCharacterInput,
+  ComicStyleFull,
+  ChapterCharacterFull,
+  NovelCharacterInput,
+  SelectableCharacterInput,
+} from "./shared-types";
 
-export interface ShotImageCharacterInput {
-  name: string;
-  role: string;
-  description: string;
-  reference_image_url?: string;
-}
-
-interface ComicStyle {
-  id: string;
-  style_key: string;
-  name_zh: string;
-  name_en: string;
-  image_url: string | null;
-  tag_color: string;
-  prompt_prefix: string | null;
-}
-
-interface ChapterCharacter {
-  id: string;
-  name: string;
-  description: string | null;
-  base_image_url: string | null;
-  reference_image: string | null;
-  shot_count: number;
-}
-
-interface NovelCharacter {
-  name: string;
-  role: string;
-  description: string;
-  tempId: string;
-  generatedImageUrl?: string;
-}
-
-type CharacterSource = "chapter" | "novel";
-
-interface SelectableCharacter {
-  id: string;
-  name: string;
-  role: string;
-  description: string;
-  imageUrl: string | null;
-  source: CharacterSource;
-}
+// 重新导出以供其他组件使用
+export type { ShotImageCharacterInput };
 
 interface GenerateShotImageDialogProps {
   open: boolean;
@@ -80,7 +45,12 @@ interface GenerateShotImageDialogProps {
   chapterId: string | null;
   timelineId: string | null;
   onConfirm: (payload: {
-    characters: ShotImageCharacterInput[];
+    characters: Array<{
+      name: string;
+      role: string;
+      description: string;
+      reference_image_url?: string;
+    }>;
     comicStyleId?: string;
   }) => void;
   isSubmitting?: boolean;
@@ -148,7 +118,7 @@ export function GenerateShotImageDialog({
         throw new Error(error.error || "获取角色列表失败");
       }
       return res.json() as Promise<{
-        data: ChapterCharacter[];
+        data: ChapterCharacterFull[];
         total: number;
       }>;
     },
@@ -173,7 +143,7 @@ export function GenerateShotImageDialog({
       }
       return res.json() as Promise<{
         success: boolean;
-        characters: NovelCharacter[];
+        characters: NovelCharacterInput[];
       }>;
     },
     enabled: open && !!timelineId,
@@ -185,12 +155,12 @@ export function GenerateShotImageDialog({
   const isWaitingForChapter = open && !!chapterId && chapterLoading && !chapterError;
   const shouldFallbackToNovel =
     !isWaitingForChapter && (chapterError || chapterCharacters.length === 0);
-  const characterSource: CharacterSource = shouldFallbackToNovel ? "novel" : "chapter";
+  const characterSource: "novel" | "chapter" = shouldFallbackToNovel ? "novel" : "chapter";
   const isCharactersLoading =
     isWaitingForChapter || (shouldFallbackToNovel && novelLoading);
   const charactersError = shouldFallbackToNovel ? novelError : chapterError;
 
-  const selectableCharacters = useMemo<SelectableCharacter[]>(() => {
+  const selectableCharacters = useMemo<SelectableCharacterInput[]>(() => {
     if (characterSource === "chapter") {
       return chapterCharacters.map((char) => ({
         id: char.id,

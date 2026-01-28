@@ -7,17 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Search, FileText, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { novelTheme } from "../../theme";
-
-interface SearchResult {
-  chapterId: string
-  chapterNumber: number
-  title: string
-  matchedText: string
-  matchType: "title" | "outline" | "content"
-  highlights: string[]
-  status: "draft" | "completed"
-  wordCount: number
-}
+import type { SearchResult } from "../types";
 
 interface SearchDialogProps {
   projectId: string

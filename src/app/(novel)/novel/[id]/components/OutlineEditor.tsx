@@ -37,17 +37,8 @@ import {
 import { toast } from "sonner";
 import { novelTheme } from "../../theme";
 import { cn } from "@/lib/utils";
-
-interface ChapterOutline {
-  _tempId?: string; // 临时 ID，用于前端列表渲染
-  chapterNumber: number;
-  title: string;
-  outline: string;
-  keyEvents: string[];
-  characters: string[];
-  plotLines: string[]; // 情节线索
-  isKeyChapter: boolean;
-}
+import type { ChapterOutline } from "../types";
+import { normalizeOutline } from "../types";
 
 /**
  * 生成临时唯一ID
@@ -60,18 +51,10 @@ function generateTempId(): string {
  * 确保 outline 对象所有字段都正确初始化
  */
 function ensureOutlineFields(outline: ChapterOutline): ChapterOutline {
-  return {
+  return normalizeOutline({
+    ...outline,
     _tempId: outline._tempId || generateTempId(),
-    chapterNumber: outline.chapterNumber ?? (outline as unknown as { chapter_number?: number }).chapter_number ?? 0,
-    title: outline.title ?? "",
-    outline: outline.outline ?? "",
-    keyEvents: Array.isArray(outline.keyEvents) ? outline.keyEvents :
-      Array.isArray((outline as unknown as { key_events?: string[] }).key_events) ? (outline as unknown as { key_events: string[] }).key_events : [],
-    characters: Array.isArray(outline.characters) ? outline.characters : [],
-    plotLines: Array.isArray(outline.plotLines) ? outline.plotLines :
-      Array.isArray((outline as unknown as { plot_lines?: string[] }).plot_lines) ? (outline as unknown as { plot_lines: string[] }).plot_lines : [],
-    isKeyChapter: outline.isKeyChapter ?? (outline as unknown as { is_key_chapter?: boolean }).is_key_chapter ?? false,
-  };
+  });
 }
 
 interface OutlineEditorProps {

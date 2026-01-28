@@ -13,29 +13,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { BookImage, RefreshCw, Loader2, AlertCircle, Download, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-
-interface ComicPanel {
-  id: string;
-  image_url: string;
-  panel_order: number;
-  created_at: string;
-}
-
-interface FinalDetailResponse {
-  chapterId: string;
-  chapterNumber: number;
-  panels: ComicPanel[];
-  totalCount: number;
-}
+import type { FinalDetailListResponse } from '../detail-panel-types';
 
 interface FinalDetailPanelProps {
   chapterId: string;
 }
 
+type ComicPanel = FinalDetailListResponse['panels'][number];
+
 export function FinalDetailPanel({ chapterId }: FinalDetailPanelProps) {
   const queryClient = useQueryClient();
 
-  const { data, isLoading, error } = useQuery<FinalDetailResponse>({
+  const { data, isLoading, error } = useQuery<FinalDetailListResponse>({
     queryKey: ['final-detail', chapterId],
     queryFn: async () => {
       const response = await fetch(`/api/canvas/chapter/${chapterId}/final`);

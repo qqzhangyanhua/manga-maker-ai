@@ -25,16 +25,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import type { NovelCharacterInput } from "./shared-types";
 
-interface NovelCharacter {
-  name: string;
-  role: string;
-  description: string;
+// 扩展 NovelCharacterInput 以包含额外字段
+type NovelCharacter = NovelCharacterInput & {
   traits?: string[];
   relationships?: Record<string, string>;
-  tempId: string;
-  generatedImageUrl?: string;
-}
+};
 
 interface GenerateFinalDialogProps {
   open: boolean;

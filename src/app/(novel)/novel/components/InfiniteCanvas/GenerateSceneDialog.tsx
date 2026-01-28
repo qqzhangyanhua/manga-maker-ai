@@ -32,36 +32,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-
-interface ComicStyle {
-  id: string;
-  style_key: string;
-  name_zh: string;
-  name_en: string;
-  image_url: string | null;
-  tag_color: string;
-  prompt_prefix: string;
-}
-
-interface CharacterAssetStatus {
-  has_reference: boolean;
-  has_base_image: boolean;
-  has_views: boolean;
-  has_expressions: boolean;
-  has_outfits: boolean;
-  ready_for_generation: boolean;
-  missing_assets: string[];
-}
-
-interface ChapterCharacter {
-  id: string;
-  name: string;
-  description: string | null;
-  base_image_url: string | null;
-  reference_image: string | null;
-  asset_status: CharacterAssetStatus;
-  shot_count: number;
-}
+import type {
+  ComicStyleFull,
+  CharacterAssetStatusFull,
+  ChapterCharacterFull,
+} from "./shared-types";
 
 interface GenerateSceneDialogProps {
   open: boolean;

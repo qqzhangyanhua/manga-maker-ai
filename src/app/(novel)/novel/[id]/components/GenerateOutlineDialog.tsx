@@ -25,22 +25,13 @@ import {
 import { Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { novelTheme } from "../../theme";
+import type { ChapterOutline } from "../types";
 
 interface GenerateOutlineDialogProps {
   isOpen: boolean;
   onClose: () => void;
   projectId: string;
   onGenerated: (outlines: ChapterOutline[]) => void;
-}
-
-interface ChapterOutline {
-  chapterNumber: number;
-  title: string;
-  outline: string;
-  keyEvents: string[];
-  characters: string[];
-  plotLines: string[];
-  isKeyChapter: boolean;
 }
 
 export function GenerateOutlineDialog({

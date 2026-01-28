@@ -4,14 +4,7 @@ import { memo, useState } from 'react';
 import { Handle, Position } from 'reactflow';
 import { BookOpen, Users } from 'lucide-react';
 import { ChapterCharacterDialog } from '../ChapterCharacterDialog';
-
-interface ChapterHeaderNodeData {
-  chapterId: string;
-  chapterNumber: number;
-  progress: number;
-  timelineId: string;
-  characterCount?: number;
-}
+import type { ChapterHeaderNodeData } from '../nodes-types';
 
 interface ChapterHeaderNodeProps {
   data: ChapterHeaderNodeData;

@@ -15,31 +15,20 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { ImageViewerDialog } from '@/components/ui/image-viewer-dialog';
 import { useState } from 'react';
-
-interface SceneImage {
-  id: string;
-  image_url: string;
-  prompt: string;
-  created_at: string;
-}
-
-interface SceneDetailResponse {
-  chapterId: string;
-  chapterNumber: number;
-  scenes: SceneImage[];
-  totalCount: number;
-}
+import type { SceneDetailListResponse } from '../detail-panel-types';
 
 interface SceneDetailPanelProps {
   chapterId: string;
 }
+
+type SceneImage = SceneDetailListResponse['scenes'][number];
 
 export function SceneDetailPanel({ chapterId }: SceneDetailPanelProps) {
   const queryClient = useQueryClient();
   const [viewerOpen, setViewerOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<SceneImage | null>(null);
 
-  const { data, isLoading, error } = useQuery<SceneDetailResponse>({
+  const { data, isLoading, error } = useQuery<SceneDetailListResponse>({
     queryKey: ['scene-detail', chapterId],
     queryFn: async () => {
       const response = await fetch(`/api/canvas/chapter/${chapterId}/scene`);

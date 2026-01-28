@@ -6,16 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
-
-interface ChapterOutline {
-  chapterNumber?: number;
-  chapter_number?: number;
-  title: string;
-  outline?: string;
-  content?: string;
-  keyEvents?: string[];
-  isKeyChapter?: boolean;
-}
+import type { ChapterOutline } from "../../type";
 
 interface AddChapterDialogProps {
   open: boolean;

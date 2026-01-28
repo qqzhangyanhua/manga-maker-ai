@@ -6,7 +6,7 @@ import type { ShotDesign } from "@prisma/client";
 import type { ShotImageCharacterInput } from "./shared-types";
 
 /**
- * 分镜详情 API 响应
+ * 分镜详情 API 响应（单个）
  */
 export interface ShotDetailResponse {
   shot: ShotDesign;
@@ -17,6 +17,18 @@ export interface ShotDetailResponse {
 }
 
 /**
+ * 分镜详情列表 API 响应
+ */
+export interface ShotDetailListResponse {
+  chapterId: string;
+  chapterNumber: number;
+  timelineId: string;
+  novelProjectId?: string | null;
+  shots: ShotDesign[];
+  totalCount: number;
+}
+
+/**
  * 分镜图片生成载荷
  */
 export interface GenerateShotImagePayload {
@@ -24,6 +36,20 @@ export interface GenerateShotImagePayload {
   characters: ShotImageCharacterInput[];
   comic_style_id?: string;
   regenerate?: boolean;
+}
+
+/**
+ * 分镜图片生成载荷（组件内部使用）
+ */
+export interface GenerateShotImagePayloadLocal {
+  shotId: string;
+  characters: Array<{
+    name: string;
+    role: string;
+    description: string;
+    reference_image_url?: string;
+  }>;
+  comicStyleId?: string;
 }
 
 /**
@@ -39,7 +65,7 @@ export interface SceneImage {
 }
 
 /**
- * 场景详情 API 响应
+ * 场景详情 API 响应（单个）
  */
 export interface SceneDetailResponse {
   scene: SceneImage;
@@ -47,6 +73,21 @@ export interface SceneDetailResponse {
     chapter_title?: string;
     chapter_number?: number;
   };
+}
+
+/**
+ * 场景详情列表 API 响应
+ */
+export interface SceneDetailListResponse {
+  chapterId: string;
+  chapterNumber: number;
+  scenes: Array<{
+    id: string;
+    image_url: string;
+    prompt: string;
+    created_at: string;
+  }>;
+  totalCount: number;
 }
 
 /**
@@ -62,7 +103,7 @@ export interface ScriptSegment {
 }
 
 /**
- * 剧本详情 API 响应
+ * 剧本详情 API 响应（单个）
  */
 export interface ScriptDetailResponse {
   script: ScriptSegment;
@@ -70,6 +111,26 @@ export interface ScriptDetailResponse {
     chapter_title?: string;
     chapter_number?: number;
   };
+}
+
+/**
+ * 剧本详情列表 API 响应
+ */
+export interface ScriptDetailListResponse {
+  chapterId: string;
+  chapterNumber: number;
+  segments: Array<{
+    id: string;
+    segment_order: number;
+    content: string;
+    scene_description: string;
+    character_actions: string;
+    dialogue: string | null;
+    emotion_tone: string;
+    estimated_duration: number;
+    created_at: string;
+  }>;
+  totalCount: number;
 }
 
 /**
@@ -89,7 +150,7 @@ export interface ComicPanel {
 }
 
 /**
- * 最终漫画详情 API 响应
+ * 最终漫画详情 API 响应（单个）
  */
 export interface FinalDetailResponse {
   panel: ComicPanel;
@@ -97,4 +158,19 @@ export interface FinalDetailResponse {
     chapter_title?: string;
     chapter_number?: number;
   };
+}
+
+/**
+ * 最终漫画详情列表 API 响应
+ */
+export interface FinalDetailListResponse {
+  chapterId: string;
+  chapterNumber: number;
+  panels: Array<{
+    id: string;
+    image_url: string;
+    panel_order: number;
+    created_at: string;
+  }>;
+  totalCount: number;
 }

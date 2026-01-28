@@ -17,17 +17,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createChapterVersion, analyzeVersionQuality } from "../services/versionService";
 import { versionQueryKeys } from "../hooks/useChapterVersions";
 import type { ChapterVersion } from "../types/version";
+import type { NovelChapter } from "../types";
 import { novelTheme } from "../../theme";
 import { cn } from "@/lib/utils";
-
-interface NovelChapter {
-  id: string;
-  chapter_number: number;
-  title: string;
-  content: string | null;
-  word_count: number;
-  status: string;
-}
 
 interface QuickChapterEditorProps {
   chapter: NovelChapter;

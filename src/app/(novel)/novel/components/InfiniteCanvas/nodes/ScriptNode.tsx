@@ -7,14 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useOpenDetail, useCanvasStore } from '@/stores/canvas-store';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import type { GenerationStatus } from '../types';
-
-interface ScriptNodeData {
-  chapterId: string;
-  status: GenerationStatus;
-  count: number;
-  timelineId: string;
-}
+import type { ScriptNodeData } from '../nodes-types';
 
 interface ScriptNodeProps {
   data: ScriptNodeData;

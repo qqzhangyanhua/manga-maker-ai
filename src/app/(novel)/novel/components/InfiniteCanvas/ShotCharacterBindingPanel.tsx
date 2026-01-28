@@ -56,8 +56,8 @@ const POSITION_OPTIONS = [
   { value: "background", label: "背景" },
 ];
 
-// 角色信息（从角色库获取）
-interface CharacterWithPrompts {
+// 角色信息（从角色库获取，带完整的 Prompt 模板）
+interface CharacterWithPromptsFull {
   id: string;
   name: string;
   description?: string;

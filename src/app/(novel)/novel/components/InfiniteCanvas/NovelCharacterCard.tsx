@@ -6,11 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowUpCircle, Loader2 } from "lucide-react";
 
-interface NovelCharacter {
-  name: string;
-  role: string; // "protagonist" | "antagonist" | "supporting" | "minor"
-  description: string;
-  tempId: string;
+import type { NovelCharacterInput } from "./shared-types";
+
+interface NovelCharacter extends NovelCharacterInput {
   traits?: string[];
   relationships?: Record<string, string>;
 }

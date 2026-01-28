@@ -19,7 +19,7 @@ import {
   ensureWorldSettingFields,
 } from "./world-setting";
 import { GenerateWorldSettingDialog } from "./GenerateWorldSettingDialog";
-import type { ChapterOutline } from "./types";
+import type { ChapterOutline } from "../types";
 
 interface WorldSettingEditorProps {
   projectId: string;

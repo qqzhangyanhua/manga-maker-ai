@@ -6,12 +6,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, AlertTriangle, RefreshCw } from "lucide-react";
+import type { ChapterCharacterFull } from "./shared-types";
 
-interface ChapterCharacter {
-  id: string;
-  name: string;
-  description: string | null;
-  base_image_url: string | null;
+interface ChapterCharacter extends Pick<ChapterCharacterFull, "id" | "name" | "description" | "base_image_url"> {
   source_type: "manual" | "novel" | "story_ai" | "imported" | null;
 }
 

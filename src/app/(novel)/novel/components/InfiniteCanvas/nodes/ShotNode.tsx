@@ -7,15 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useOpenDetail, useCanvasStore } from '@/stores/canvas-store';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import type { GenerationStatus } from '../types';
-
-interface ShotNodeData {
-  chapterId: string;
-  status: GenerationStatus;
-  count: number;
-  canGenerate: boolean;
-  timelineId: string;
-}
+import type { ShotNodeData } from '../nodes-types';
 
 interface ShotNodeProps {
   data: ShotNodeData;

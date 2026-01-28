@@ -18,20 +18,7 @@ import { WordCountDisplay } from "../../components/WordCountDisplay";
 import { textToTiptapJSON, tiptapJSONToText } from "@/lib/novel/content-serializer";
 import type { Editor } from "@tiptap/react";
 import { novelTheme } from "../../theme";
-
-interface ChapterOutline {
-  id?: string;
-  chapterNumber: number;
-  title: string;
-  outline: string;
-  keyEvents: string[];
-  characters: string[];
-  plotLines: string[];
-  isKeyChapter: boolean;
-  content?: string;
-  wordCount?: number;
-  status?: "draft" | "completed";
-}
+import type { ChapterOutline } from "../types";
 
 interface ChapterEditorProps {
   chapter: ChapterOutline;

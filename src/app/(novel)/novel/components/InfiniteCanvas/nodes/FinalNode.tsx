@@ -5,17 +5,7 @@ import { Handle, Position } from 'reactflow';
 import { BookImage, Play, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useOpenDetail, useCanvasStore, useOpenFinalDialog } from '@/stores/canvas-store';
-import type { GenerationStatus } from '../types';
-
-interface FinalNodeData {
-  chapterId: string;
-  chapterTitle: string;
-  chapterNumber: number;
-  status: GenerationStatus;
-  count: number;
-  canGenerate: boolean;
-  timelineId: string;
-}
+import type { FinalNodeData } from '../nodes-types';
 
 interface FinalNodeProps {
   data: FinalNodeData;

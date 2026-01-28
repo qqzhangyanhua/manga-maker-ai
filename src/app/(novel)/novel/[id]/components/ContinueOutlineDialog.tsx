@@ -19,16 +19,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { PenLine, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { novelTheme } from "../../theme";
-
-interface ChapterOutline {
-  chapterNumber: number;
-  title: string;
-  outline: string;
-  keyEvents: string[];
-  characters: string[];
-  plotLines: string[];
-  isKeyChapter: boolean;
-}
+import type { ChapterOutline } from "../types";
 
 interface ContinueOutlineDialogProps {
   isOpen: boolean;
