@@ -44,6 +44,7 @@ export const prisma =
         url: datasourceUrl,
       },
     },
+    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
 
 if (!globalThis.prisma) {

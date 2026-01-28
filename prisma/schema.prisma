@@ -1242,6 +1242,7 @@ model TimelineChapter {
 
   // 生成状态（每个阶段独立追踪）
   script_status String @default("pending") // pending, generating, completed, error
+  scene_status  String @default("pending")
   shot_status   String @default("pending")
   final_status  String @default("pending")
 
