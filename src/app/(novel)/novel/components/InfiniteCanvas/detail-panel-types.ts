@@ -6,6 +6,54 @@ import type { ShotDesign } from "@prisma/client";
 import type { ShotImageCharacterInput } from "./shared-types";
 
 /**
+ * P2-3: 有效的情感基调类型
+ */
+export type EmotionTone = 
+  | "紧张"
+  | "温馨"
+  | "激烈"
+  | "悲伤"
+  | "幽默"
+  | "平静"
+  | "神秘"
+  | "浪漫"
+  | "恐怖"
+  | "欢快";
+
+/**
+ * P2-3: 情感基调配置（用于 UI 展示）
+ */
+export const EMOTION_TONE_CONFIG: Record<EmotionTone, { label: string; color: string; bgColor: string }> = {
+  "紧张": { label: "紧张", color: "text-orange-400", bgColor: "bg-orange-900/30" },
+  "温馨": { label: "温馨", color: "text-pink-400", bgColor: "bg-pink-900/30" },
+  "激烈": { label: "激烈", color: "text-red-400", bgColor: "bg-red-900/30" },
+  "悲伤": { label: "悲伤", color: "text-blue-400", bgColor: "bg-blue-900/30" },
+  "幽默": { label: "幽默", color: "text-yellow-400", bgColor: "bg-yellow-900/30" },
+  "平静": { label: "平静", color: "text-green-400", bgColor: "bg-green-900/30" },
+  "神秘": { label: "神秘", color: "text-purple-400", bgColor: "bg-purple-900/30" },
+  "浪漫": { label: "浪漫", color: "text-rose-400", bgColor: "bg-rose-900/30" },
+  "恐怖": { label: "恐怖", color: "text-gray-400", bgColor: "bg-gray-900/30" },
+  "欢快": { label: "欢快", color: "text-amber-400", bgColor: "bg-amber-900/30" },
+};
+
+/**
+ * P2-3: 检查是否为有效的情感基调
+ */
+export function isValidEmotionTone(tone: string): tone is EmotionTone {
+  return tone in EMOTION_TONE_CONFIG;
+}
+
+/**
+ * P2-3: 获取情感基调配置（带 fallback）
+ */
+export function getEmotionToneConfig(tone: string) {
+  if (isValidEmotionTone(tone)) {
+    return EMOTION_TONE_CONFIG[tone];
+  }
+  return EMOTION_TONE_CONFIG["平静"]; // 默认返回平静
+}
+
+/**
  * 分镜详情 API 响应（单个）
  */
 export interface ShotDetailResponse {

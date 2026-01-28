@@ -4,8 +4,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Grid3x3, AlertCircle, Users, CheckCircle, Sparkles, Image } from "lucide-react";
-import type { ShotGroup } from "./types";
+import { Grid3x3, AlertCircle, Users, CheckCircle, Sparkles, Image, MapPin } from "lucide-react";
+import type { ShotGroup, LocationGroup } from "./types";
 import type { ShotDesign } from "@prisma/client";
 import { generatePlaceholders } from "../utils/shot-grouping";
 import { ShotCharacterBindingPanel } from "../ShotCharacterBindingPanel";
@@ -35,7 +35,7 @@ export function ShotGroupSection({
   onShotClick,
   novelProjectId,
 }: ShotGroupSectionProps) {
-  const { groupIndex, startOrder, endOrder, shots, isComplete, placeholderCount } = group;
+  const { groupIndex, startOrder, endOrder, shots, isComplete, placeholderCount, locationStats } = group;
 
   // 角色绑定面板状态
   const [bindingPanelOpen, setBindingPanelOpen] = useState(false);
@@ -105,6 +105,30 @@ export function ShotGroupSection({
           生成九宫格
         </Button>
       </div>
+
+      {/* P3-1: 场景分组统计 */}
+      {locationStats && locationStats.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-2">
+          <span className="text-xs text-muted-foreground flex items-center gap-1">
+            <MapPin className="w-3 h-3" />
+            场景分布:
+          </span>
+          {locationStats.map((loc) => (
+            <Badge
+              key={loc.locationKey}
+              variant="outline"
+              className={cn(
+                "text-xs",
+                loc.locationKey === "unknown"
+                  ? "border-zinc-600 text-zinc-400"
+                  : "border-purple-500/50 text-purple-300"
+              )}
+            >
+              {loc.label} ({loc.count})
+            </Badge>
+          ))}
+        </div>
+      )}
 
       {/* 镜头网格 */}
       <div className="grid grid-cols-3 gap-3">

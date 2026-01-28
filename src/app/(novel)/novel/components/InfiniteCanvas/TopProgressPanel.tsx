@@ -1,10 +1,10 @@
 "use client";
 
-import { memo } from 'react';
-import { Wifi, WifiOff, CheckSquare, Zap, Settings, Plus, Users } from 'lucide-react';
+import { memo, useMemo } from 'react';
+import { Wifi, WifiOff, CheckSquare, Zap, Settings, Plus, Users, FileText, Camera, Image } from 'lucide-react';
 import { useCanvasStore } from '@/stores/canvas-store';
 import { GlobalActions } from './GlobalActions';
-import type { PaginatedTimeline } from './types';
+import type { PaginatedTimeline, GenerationStatus } from './types';
 
 interface TopProgressPanelProps {
   timeline: PaginatedTimeline;
@@ -16,6 +16,40 @@ interface TopProgressPanelProps {
   onOpenSettings: () => void;
   onOpenAddChapter: () => void;
   onOpenCharacterDrawer: () => void;
+}
+
+/**
+ * P3-4: 计算各阶段的进度统计
+ */
+interface StageProgress {
+  completed: number;
+  generating: number;
+  pending: number;
+  error: number;
+  total: number;
+}
+
+function calculateStageProgress(
+  chapters: PaginatedTimeline['chapters'],
+  statusKey: 'script_status' | 'shot_status' | 'final_status'
+): StageProgress {
+  const result: StageProgress = {
+    completed: 0,
+    generating: 0,
+    pending: 0,
+    error: 0,
+    total: chapters.length,
+  };
+  
+  for (const chapter of chapters) {
+    const status = chapter[statusKey] as GenerationStatus;
+    if (status === 'completed') result.completed++;
+    else if (status === 'generating') result.generating++;
+    else if (status === 'error') result.error++;
+    else result.pending++;
+  }
+  
+  return result;
 }
 
 /**
@@ -35,6 +69,25 @@ export const TopProgressPanel = memo(function TopProgressPanel({
   const toggleBatchMode = useCanvasStore(state => state.toggleBatchMode);
   const workflowAutomation = useCanvasStore(state => state.workflowAutomation);
   const toggleWorkflowAutomation = useCanvasStore(state => state.toggleWorkflowAutomation);
+
+  // P3-4: 计算各阶段进度
+  const stageProgress = useMemo(() => {
+    if (!timeline.chapters || timeline.chapters.length === 0) {
+      return null;
+    }
+    return {
+      script: calculateStageProgress(timeline.chapters, 'script_status'),
+      shot: calculateStageProgress(timeline.chapters, 'shot_status'),
+      final: calculateStageProgress(timeline.chapters, 'final_status'),
+    };
+  }, [timeline.chapters]);
+
+  // P3-4: 是否有任务正在生成
+  const hasGenerating = stageProgress && (
+    stageProgress.script.generating > 0 ||
+    stageProgress.shot.generating > 0 ||
+    stageProgress.final.generating > 0
+  );
 
   return (
     <div className="bg-zinc-900/80 backdrop-blur-sm border border-zinc-800 rounded-lg p-4 m-4 shadow-xl">
@@ -97,6 +150,65 @@ export const TopProgressPanel = memo(function TopProgressPanel({
             style={{ width: `${progress.percentage}%` }}
           />
         </div>
+
+        {/* P3-4: 各阶段进度详情 */}
+        {stageProgress && (
+          <div className="flex items-center gap-4 text-[10px]">
+            {/* 剧本阶段 */}
+            <div className="flex items-center gap-1.5">
+              <FileText className={`w-3 h-3 ${
+                stageProgress.script.generating > 0 ? 'text-purple-400 animate-pulse' :
+                stageProgress.script.completed === stageProgress.script.total ? 'text-green-400' : 'text-zinc-500'
+              }`} />
+              <span className="text-zinc-400">剧本</span>
+              <span className={
+                stageProgress.script.generating > 0 ? 'text-purple-400' :
+                stageProgress.script.completed === stageProgress.script.total ? 'text-green-400' : 'text-zinc-500'
+              }>
+                {stageProgress.script.completed}/{stageProgress.script.total}
+              </span>
+              {stageProgress.script.generating > 0 && (
+                <span className="text-purple-400">({stageProgress.script.generating} 生成中)</span>
+              )}
+            </div>
+            
+            {/* 镜头阶段 */}
+            <div className="flex items-center gap-1.5">
+              <Camera className={`w-3 h-3 ${
+                stageProgress.shot.generating > 0 ? 'text-purple-400 animate-pulse' :
+                stageProgress.shot.completed === stageProgress.shot.total ? 'text-green-400' : 'text-zinc-500'
+              }`} />
+              <span className="text-zinc-400">镜头</span>
+              <span className={
+                stageProgress.shot.generating > 0 ? 'text-purple-400' :
+                stageProgress.shot.completed === stageProgress.shot.total ? 'text-green-400' : 'text-zinc-500'
+              }>
+                {stageProgress.shot.completed}/{stageProgress.shot.total}
+              </span>
+              {stageProgress.shot.generating > 0 && (
+                <span className="text-purple-400">({stageProgress.shot.generating} 生成中)</span>
+              )}
+            </div>
+            
+            {/* 漫画阶段 */}
+            <div className="flex items-center gap-1.5">
+              <Image className={`w-3 h-3 ${
+                stageProgress.final.generating > 0 ? 'text-purple-400 animate-pulse' :
+                stageProgress.final.completed === stageProgress.final.total ? 'text-green-400' : 'text-zinc-500'
+              }`} />
+              <span className="text-zinc-400">漫画</span>
+              <span className={
+                stageProgress.final.generating > 0 ? 'text-purple-400' :
+                stageProgress.final.completed === stageProgress.final.total ? 'text-green-400' : 'text-zinc-500'
+              }>
+                {stageProgress.final.completed}/{stageProgress.final.total}
+              </span>
+              {stageProgress.final.generating > 0 && (
+                <span className="text-purple-400">({stageProgress.final.generating} 生成中)</span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* 百分比和批量模式 */}
         <div className="flex items-center justify-between text-xs">

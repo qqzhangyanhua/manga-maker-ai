@@ -101,36 +101,60 @@ export function InfiniteCanvasView({
   const [nodes, setNodes, onNodesChange] = useNodesState(flow.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(flow.edges);
 
-  // 用于追踪上一次的节点数量，避免不必要的 setNodes
-  const prevNodeCountRef = useRef(flow.nodes.length);
-  const prevEdgeCountRef = useRef(flow.edges.length);
+  // P2-1: 用于追踪上一次的节点 ID 集合
+  const prevNodeIdsRef = useRef<Set<string>>(new Set(flow.nodes.map(n => n.id)));
+  const prevEdgeIdsRef = useRef<Set<string>>(new Set(flow.edges.map(e => e.id)));
 
-  // ✅ 优化2: 增量同步节点，避免无意义的全量重置
-  useEffect(() => {
-    const nodeCountChanged = flow.nodes.length !== prevNodeCountRef.current;
-    const edgeCountChanged = flow.edges.length !== prevEdgeCountRef.current;
+  // P2-1: 浅比较 node.data 的关键字段（避免 JSON.stringify 性能问题）
+  const isDataChanged = useCallback((oldData: Record<string, unknown> | undefined, newData: Record<string, unknown> | undefined): boolean => {
+    if (!oldData || !newData) return oldData !== newData;
     
-    // 只在节点数量变化或需要更新 data 时才 setNodes
-    if (nodeCountChanged || edgeCountChanged) {
+    // 只比较会影响渲染的关键字段
+    const keysToCompare = ['status', 'count', 'progress', 'chapterId', 'chapterNumber', 'canGenerate'];
+    for (const key of keysToCompare) {
+      if (oldData[key] !== newData[key]) return true;
+    }
+    return false;
+  }, []);
+
+  // P2-1: 优化节点同步，使用 Map 按 ID 匹配
+  useEffect(() => {
+    const newNodeIds = new Set(flow.nodes.map(n => n.id));
+    const newEdgeIds = new Set(flow.edges.map(e => e.id));
+    
+    // 检查节点 ID 集合是否变化
+    const nodeIdsChanged = 
+      newNodeIds.size !== prevNodeIdsRef.current.size ||
+      [...newNodeIds].some(id => !prevNodeIdsRef.current.has(id));
+    
+    const edgeIdsChanged = 
+      newEdgeIds.size !== prevEdgeIdsRef.current.size ||
+      [...newEdgeIds].some(id => !prevEdgeIdsRef.current.has(id));
+    
+    if (nodeIdsChanged || edgeIdsChanged) {
+      // 节点集合变化，全量更新
       setNodes(flow.nodes);
       setEdges(flow.edges);
-      prevNodeCountRef.current = flow.nodes.length;
-      prevEdgeCountRef.current = flow.edges.length;
+      prevNodeIdsRef.current = newNodeIds;
+      prevEdgeIdsRef.current = newEdgeIds;
     } else {
-      // 节点数量相同时，只更新 data 字段（保留 position 等交互状态）
+      // P2-1: 使用 Map 按 ID 匹配，避免索引错位问题
+      const newNodeMap = new Map(flow.nodes.map(n => [n.id, n]));
+      
       setNodes(prevNodes => 
-        prevNodes.map((node, index) => {
-          const newNode = flow.nodes[index];
+        prevNodes.map(node => {
+          const newNode = newNodeMap.get(node.id);
           if (!newNode) return node;
-          // 只有 data 变化时才更新
-          if (JSON.stringify(node.data) !== JSON.stringify(newNode.data)) {
+          
+          // P2-1: 使用浅比较替代 JSON.stringify
+          if (isDataChanged(node.data, newNode.data)) {
             return { ...node, data: newNode.data };
           }
           return node;
         })
       );
     }
-  }, [flow.nodes, flow.edges, setNodes, setEdges]);
+  }, [flow.nodes, flow.edges, setNodes, setEdges, isDataChanged]);
 
   // 计算全局进度
   const progress = useMemo(() => calculateOverallProgress(timeline), [timeline]);

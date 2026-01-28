@@ -69,15 +69,15 @@ export function buildNineGridPrompt(
     parts.push(stylePrefix.trim());
   }
 
-  // 2. 九宫格模板核心内容
-  const templateCore = `根据[${truncateText(plotSummary, 200)}],生成一张具有凝聚力的[3×3]网格图像，包含在同一环境中的[9]个不同摄像机镜头，严格保持人物/物体、服装和光线的一致性，[8K]分辨率，[16：9]画幅。`;
+  // P2-2: 增加 plotSummary 截断限制到 400 字符，保留更多剧情信息
+  const templateCore = `根据[${truncateText(plotSummary, 400)}],生成一张具有凝聚力的[3×3]网格图像，包含在同一环境中的[9]个不同摄像机镜头，严格保持人物/物体、服装和光线的一致性，[8K]分辨率，[16：9]画幅。`;
   parts.push(templateCore);
 
   // 3. 镜头描述
   parts.push(shotLines);
 
-  // 4. 结尾说明
-  parts.push('最后加上图1是什么角色，图2是什么角色或者场景。生成的一定是九宫格，且每个格子比例都是16：9');
+  // P1-1: 优化结尾指令，移除文字标注要求，使用纯视觉指令
+  parts.push('输出要求：纯视觉内容，无文字标注，无水印。严格3×3网格布局，每格16:9比例。');
 
   return parts.join('\n\n');
 }
