@@ -70,13 +70,16 @@ interface ShotNineGridDialogProps {
   onSuccess?: () => void;
 }
 
+// 稳定的空数组引用，避免默认参数每次渲染创建新对象导致无限循环
+const EMPTY_IMAGES: NineGridImage[] = [];
+
 export function ShotNineGridDialog({
   open,
   onOpenChange,
   shotId,
   shotDescription,
   promptCompositionId,
-  existingImages = [],
+  existingImages = EMPTY_IMAGES,
   selectedPosition = null,
   onSuccess,
 }: ShotNineGridDialogProps) {
@@ -257,6 +260,7 @@ export function ShotNineGridDialog({
   }, [queryClient, onSuccess, onOpenChange]);
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden bg-zinc-950 border-zinc-800">
         <DialogHeader>
@@ -417,15 +421,16 @@ export function ShotNineGridDialog({
           )}
         </DialogFooter>
       </DialogContent>
-
-      {/* Prompt 微调对话框 */}
-      <PromptRefineDialog
-        open={refineDialogOpen}
-        onOpenChange={setRefineDialogOpen}
-        shotId={shotId}
-        originalImageUrl={refineImageUrl}
-        onSuccess={handleRefineSuccess}
-      />
     </Dialog>
+
+    {/* Prompt 微调对话框 - 必须在外层 Dialog 之外，避免嵌套导致无限循环 */}
+    <PromptRefineDialog
+      open={refineDialogOpen}
+      onOpenChange={setRefineDialogOpen}
+      shotId={shotId}
+      originalImageUrl={refineImageUrl}
+      onSuccess={handleRefineSuccess}
+    />
+    </>
   );
 }
