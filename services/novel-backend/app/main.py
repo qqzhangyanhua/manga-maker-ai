@@ -18,6 +18,8 @@ from .routers import (
     canvas,
     world,
     world_extraction,
+    templates,
+    workflow,
 )
 # RAG 路由模块（已拆分为 3 个独立模块 + 1 个模型文件）
 from .routers import rag_index, rag_search, rag_maintenance
@@ -39,6 +41,20 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 Novel Backend Service 启动")
     logger.info(f"📊 数据库: {settings.DATABASE_URL.split('@')[-1]}")
     logger.info(f"🤖 AI 模型: {settings.OPENAI_MODEL}")
+
+    # 预热数据库连接池（减少首次请求延迟）
+    from .database import AsyncSessionLocal
+    from sqlalchemy import text
+    import time
+    
+    try:
+        start_time = time.time()
+        async with AsyncSessionLocal() as session:
+            await session.execute(text("SELECT 1"))
+        warmup_time = (time.time() - start_time) * 1000
+        logger.info(f"🔌 数据库连接池预热完成 ({warmup_time:.0f}ms)")
+    except Exception as e:
+        logger.warning(f"⚠️ 数据库连接池预热失败: {e}")
 
     # 初始化向量服务
     from .services.vector_service import get_vector_service
@@ -199,6 +215,10 @@ app.include_router(rag_maintenance.router)  # 维护与一致性（检查、导�
 app.include_router(canvas.router)  # 无限画布生成服务
 app.include_router(world.router)  # 世界观记忆库与伏笔管理
 app.include_router(world_extraction.router)  # 世界观 AI 提取
+
+# 专业创作工作流系统
+app.include_router(templates.router)  # 写作提示词模板管理
+app.include_router(workflow.router)  # 专业创作工作流
 
 
 @app.get("/health")

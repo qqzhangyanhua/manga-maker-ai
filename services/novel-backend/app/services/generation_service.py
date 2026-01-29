@@ -113,6 +113,60 @@ class NovelGenerationService:
             logger.error(f"章节生成失败: {str(e)}", exc_info=True)
             yield f"[生成失败: {str(e)}]"
     
+    async def generate_with_prompt(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        output_schema: Optional[dict] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+    ) -> dict:
+        """
+        使用自定义提示词生成内容（非流式）
+        
+        Args:
+            system_prompt: 系统提示词（包含角色定义和思维链）
+            user_prompt: 用户提示词
+            output_schema: 可选的输出 JSON Schema（用于结构化输出）
+            temperature: 温度参数
+            max_tokens: 最大 token 数
+            
+        Returns:
+            包含生成内容的字典 {"content": str}
+        """
+        try:
+            logger.info(
+                f"🤖 generate_with_prompt - "
+                f"system_prompt 长度: {len(system_prompt)} 字符, "
+                f"user_prompt 长度: {len(user_prompt)} 字符, "
+                f"max_tokens: {max_tokens}, "
+                f"temperature: {temperature}"
+            )
+            
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ]
+            
+            # 调用 OpenAI API（非流式）
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                stream=False,
+            )
+            
+            content = response.choices[0].message.content if response.choices else ""
+            
+            logger.info(f"✅ 生成完成 - 输出长度: {len(content)} 字符")
+            
+            return {"content": content}
+            
+        except Exception as e:
+            logger.error(f"generate_with_prompt 失败: {str(e)}", exc_info=True)
+            raise Exception(f"AI 生成失败: {str(e)}")
+    
     async def generate_outline(
         self,
         premise: str,

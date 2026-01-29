@@ -1560,3 +1560,89 @@ model NineGridGeneration {
   @@index([status], map: "idx_nine_grid_generations_status")
   @@map("nine_grid_generations")
 }
+
+// ============================================================
+// 专业小说创作工作流系统 - Writing Workflow System
+// ============================================================
+
+// 写作提示词模板（从 study 目录的 md 文件解析入库）
+model WritingPromptTemplate {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String  @unique @db.VarChar(100) // 如 "010-创意阶段-灵感收集整理"
+  name        String  @db.VarChar(200) // 显示名称
+  description String? @db.Text // 简介
+
+  // 分类体系
+  phase    String  @db.VarChar(50) // 阶段: creative, setting, framework, writing, advanced, analysis, commercial, auxiliary
+  category String  @db.VarChar(50) // 子分类: inspiration, character, outline 等
+  genre    String? @db.VarChar(50) // 专题: 玄幻, 多子多福, 替身文 等，null=通用
+
+  // 核心内容
+  system_role      String @db.Text // 系统角色定义
+  chain_of_thought Json   @db.JsonB // 思维链指令（结构化存储）
+  output_schema    Json?  @db.JsonB // JSON Schema 输出格式
+
+  // 元数据
+  sort_order  Int     @default(0) // 排序
+  is_active   Boolean @default(true)
+  usage_count Int     @default(0)
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  slots TemplateSlot[]
+
+  @@index([phase, category], map: "idx_writing_templates_phase_category")
+  @@index([genre], map: "idx_writing_templates_genre")
+  @@index([is_active, sort_order], map: "idx_writing_templates_active_sort")
+  @@map("writing_prompt_templates")
+}
+
+// 模板插槽（输入/输出变量定义）
+model TemplateSlot {
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  template_id String @db.Uuid
+
+  name         String  @db.VarChar(100) // 变量名如 "inspiration_input"
+  display_name String  @db.VarChar(200) // 显示名称
+  description  String? @db.Text // 说明
+  slot_type    String  @db.VarChar(20) // input | output
+  data_type    String  @db.VarChar(20) // text | json | choice
+  required     Boolean @default(false)
+  default_value String? @db.Text
+  options      Json?   @db.JsonB // 选项（用于 choice 类型）
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  template WritingPromptTemplate @relation(fields: [template_id], references: [id], onDelete: Cascade)
+
+  @@index([template_id, slot_type], map: "idx_template_slots_template_type")
+  @@map("template_slots")
+}
+
+// 工作流会话（用户创作工作流状态）
+model WorkflowSession {
+  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String  @db.Uuid
+  project_id String? @db.Uuid // 关联的项目（可选，完成后创建）
+
+  // 工作流状态
+  current_phase    String @db.VarChar(50) // 当前阶段
+  completed_phases Json   @default("[]") @db.JsonB // 已完成的阶段列表
+
+  // 各阶段数据
+  phase_data Json @default("{}") @db.JsonB // 各阶段的输入输出数据
+
+  // 元数据
+  status String @default("active") @db.VarChar(20) // active, completed, abandoned
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  expires_at DateTime @db.Timestamptz(6) // 24小时后过期
+
+  @@index([user_id, status], map: "idx_workflow_sessions_user_status")
+  @@index([expires_at], map: "idx_workflow_sessions_expires")
+  @@map("workflow_sessions")
+}
