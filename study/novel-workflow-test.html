@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>玄幻小说创作流程验证器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">玄幻小说创作流程验证器</h1>
+            <p class="text-gray-600">测试提示词 + LLM 的完整创作流程</p>
+        </div>
+
+        <!-- API Configuration -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">API 配置</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Base URL</label>
+                    <input type="text" id="baseUrl"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           value="https://cn.happyapi.org">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Model</label>
+                    <input type="text" id="model"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           value="gpt-3.5-turbo-1106"
+                           placeholder="例如: claude-sonnet-4-20250514 或 gpt-4">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">API Key</label>
+                    <input type="password" id="apiKey"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           value="sk-UFHncPW9FFEc0HLRMQwcTOpBYJxNyiUKZBkJQ5mSA3uN4kxS"
+                           placeholder="sk-...">
+                </div>
+            </div>
+        </div>
+
+        <!-- Workflow Steps -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Step 1: Creative Phase -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">步骤1: 创意阶段 - 灵感收集</h3>
+                    <span class="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full">创意</span>
+                </div>
+
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">作品长度 *</label>
+                        <select id="workLength" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            <option value="长篇">长篇</option>
+                            <option value="短篇">短篇</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">核心主题 (可选)</label>
+                        <input type="text" id="coreTheme"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                               placeholder="例如: 复仇、成长、征服">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">灵感来源 (可选)</label>
+                        <input type="text" id="inspirationSources"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                               placeholder="例如: 山海经、西游记">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">目标读者 (可选)</label>
+                        <input type="text" id="targetAudience"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                               placeholder="例如: 18-25岁男性">
+                    </div>
+                </div>
+
+                <button onclick="runStep1()"
+                        class="mt-4 w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition">
+                    生成创意灵感
+                </button>
+
+                <div id="step1Result" class="mt-4 hidden">
+                    <div class="flex items-center justify-between mb-2">
+                        <h4 class="font-bold text-gray-700">输出结果:</h4>
+                        <button onclick="copyResult('step1Result')"
+                                class="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300 transition">
+                            复制
+                        </button>
+                    </div>
+                    <pre class="bg-gray-50 p-3 rounded-md text-sm overflow-x-auto max-h-96 overflow-y-auto"></pre>
+                </div>
+            </div>
+
+            <!-- Step 2: Setting Phase -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">步骤2: 设定阶段 - 人物设定</h3>
+                    <span class="px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full">设定</span>
+                </div>
+
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">世界观设定 *</label>
+                        <textarea id="worldSetting" rows="3"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                  placeholder="从步骤1的结果中复制或手动输入世界观"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">主角类型 *</label>
+                        <select id="protagonistType" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            <option value="白纸型">白纸型 (废柴崛起)</option>
+                            <option value="强者型">强者型 (高手重生)</option>
+                            <option value="特殊背景型">特殊背景型 (天选之人)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">核心冲突</label>
+                        <input type="text" id="coreConflict"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                               placeholder="例如: 宗门覆灭,寻求复仇">
+                    </div>
+                </div>
+
+                <button onclick="runStep2()"
+                        class="mt-4 w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition">
+                    生成人物设定
+                </button>
+
+                <div id="step2Result" class="mt-4 hidden">
+                    <div class="flex items-center justify-between mb-2">
+                        <h4 class="font-bold text-gray-700">输出结果:</h4>
+                        <button onclick="copyResult('step2Result')"
+                                class="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300 transition">
+                            复制
+                        </button>
+                    </div>
+                    <pre class="bg-gray-50 p-3 rounded-md text-sm overflow-x-auto max-h-96 overflow-y-auto"></pre>
+                </div>
+            </div>
+
+            <!-- Step 3: Framework Phase -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">步骤3: 框架阶段 - 大纲制作</h3>
+                    <span class="px-3 py-1 bg-purple-100 text-purple-800 text-sm rounded-full">框架</span>
+                </div>
+
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">人物设定 *</label>
+                        <textarea id="characterSetting" rows="3"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                  placeholder="从步骤2的结果中复制"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">目标章节数</label>
+                        <input type="number" id="chapterCount"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                               value="100"
+                               placeholder="例如: 100">
+                    </div>
+                </div>
+
+                <button onclick="runStep3()"
+                        class="mt-4 w-full bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 transition">
+                    生成大纲
+                </button>
+
+                <div id="step3Result" class="mt-4 hidden">
+                    <div class="flex items-center justify-between mb-2">
+                        <h4 class="font-bold text-gray-700">输出结果:</h4>
+                        <button onclick="copyResult('step3Result')"
+                                class="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300 transition">
+                            复制
+                        </button>
+                    </div>
+                    <pre class="bg-gray-50 p-3 rounded-md text-sm overflow-x-auto max-h-96 overflow-y-auto"></pre>
+                </div>
+            </div>
+
+            <!-- Step 4: Writing Phase -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">步骤4: 创作阶段 - 章节创作</h3>
+                    <span class="px-3 py-1 bg-orange-100 text-orange-800 text-sm rounded-full">创作</span>
+                </div>
+
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">大纲内容 *</label>
+                        <textarea id="outlineContent" rows="3"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                  placeholder="从步骤3的结果中复制第一章大纲"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">章节序号</label>
+                        <input type="number" id="chapterNumber"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                               value="1">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">目标字数</label>
+                        <input type="number" id="targetWords"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                               value="3000">
+                    </div>
+                </div>
+
+                <button onclick="runStep4()"
+                        class="mt-4 w-full bg-orange-600 text-white py-2 px-4 rounded-md hover:bg-orange-700 transition">
+                    生成章节内容
+                </button>
+
+                <div id="step4Result" class="mt-4 hidden">
+                    <div class="flex items-center justify-between mb-2">
+                        <h4 class="font-bold text-gray-700">输出结果:</h4>
+                        <button onclick="copyResult('step4Result')"
+                                class="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300 transition">
+                            复制
+                        </button>
+                    </div>
+                    <pre class="bg-gray-50 p-3 rounded-md text-sm overflow-x-auto max-h-96 overflow-y-auto"></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div id="statusBar" class="mt-6 bg-white rounded-lg shadow-md p-4 hidden">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                    <span class="text-gray-700" id="statusText">正在调用 API...</span>
+                </div>
+                <div class="text-sm text-gray-500" id="tokenUsage"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 提示词模板
+        const PROMPTS = {
+            step1: `# 玄幻小说-创意阶段-灵感收集
+
+## 系统角色
+你是一位专业的玄幻小说创意顾问,擅长帮助作者收集、整理和激发适合玄幻小说的创意灵感。你熟悉玄幻小说的核心特点：独特的世界观、清晰的升级体系、多样化的主角类型、引人入胜的情节、鲜明的角色塑造、生动的战斗场景和强烈的情感表达。
+
+## 任务
+根据以下输入生成玄幻小说的创意灵感：
+- 作品长度: {{work_length}}
+- 核心主题: {{core_theme}}
+- 灵感来源: {{inspiration_sources}}
+- 目标读者: {{target_audience}}
+
+## 输出要求
+请按照以下JSON格式输出完整的创意灵感方案，包括但不限于：
+1. 多样化的灵感来源（神话传说、文学作品、游戏动漫、历史事件、科学理论、现实生活）
+2. 世界观建设创意（世界规则、世界背景、核心矛盾、独特概念）
+3. 主角设计创意（主角类型、金手指创意、成长轨迹）
+4. 情节构思创意（主线情节、支线情节、悬念伏笔）
+5. 情感线设计创意
+6. 市场分析（趋势契合度、独特卖点、目标读者契合度）
+
+确保输出的创意既符合玄幻小说的创作规律，又具有独特性和市场吸引力。`,
+
+            step2: `# 玄幻小说-设定阶段-人物设定
+
+## 系统角色
+你是一位专业的玄幻小说人物设定大师,擅长为玄幻小说设计鲜明、立体、符合世界观的人物形象。
+
+## 任务
+根据以下输入生成完整的人物设定：
+- 作品长度: {{work_length}}
+- 世界观设定: {{world_setting}}
+- 主角类型: {{protagonist_type}}
+- 核心冲突: {{core_conflict}}
+
+## 输出要求
+请输出包含以下内容的详细人物设定方案（JSON格式）：
+1. 主角设定（姓名、年龄、外貌、性格、背景、金手指、成长轨迹）
+2. 主要配角设定（导师、同伴、爱人、反派等，每个角色包含基本信息、性格特点、与主角的关系）
+3. 次要角色设定
+4. 人物关系网络图
+5. 角色成长弧线
+6. 力量体系与等级划分
+7. 人物冲突与矛盾点
+
+确保人物设定符合世界观，人物性格鲜明，关系网络合理。`,
+
+            step3: `# 玄幻小说-框架阶段-大纲制作
+
+## 系统角色
+你是一位专业的玄幻小说大纲设计师,擅长构建结构合理、节奏紧凑、情节引人入胜的故事大纲。
+
+## 任务
+根据以下输入生成完整的小说大纲：
+- 作品长度: {{work_length}}
+- 世界观设定: {{world_setting}}
+- 人物设定: {{character_setting}}
+- 目标章节数: {{chapter_count}}
+
+## 输出要求
+请输出包含以下内容的详细大纲方案（JSON格式）：
+1. 故事总体框架（开端、发展、高潮、结局）
+2. 主线情节大纲（详细到每个章节的核心事件）
+3. 支线情节大纲
+4. 重要转折点和高潮设计
+5. 伏笔与悬念布局
+6. 爽点分布（每10章至少一个爽点）
+7. 情感线发展节奏
+8. 战斗场景分布
+9. 章节字数规划
+
+确保大纲结构完整，节奏合理，冲突层层递进。`,
+
+            step4: `# 玄幻小说-创作阶段-章节创作
+
+## 系统角色
+你是一位专业的玄幻小说作家,擅长将大纲转化为生动、引人入胜的章节内容。你的写作风格细腻、节奏紧凑、对话自然、战斗场面精彩。
+
+## 任务
+根据以下输入创作章节内容：
+- 大纲内容: {{outline_content}}
+- 章节序号: {{chapter_number}}
+- 目标字数: {{target_words}}
+- 人物设定: {{character_setting}}
+
+## 输出要求
+请输出完整的章节内容，包含：
+1. 章节标题
+2. 正文内容（符合目标字数，约{{target_words}}字）
+3. 场景描写（环境、氛围、细节）
+4. 人物对话（自然、有潜台词、符合人物性格）
+5. 动作描写（流畅、有画面感）
+6. 心理描写（细腻、真实）
+7. 战斗场面（如有，需要精彩、有策略性）
+8. 伏笔埋设（为后续情节做铺垫）
+9. 本章爽点（至少一个）
+
+注意事项：
+- 避免AI痕迹（不要用"宛如"、"仿佛"等老套词汇）
+- 多用短句，少用长句
+- 对话要有潜台词，不要直白说教
+- 战斗场面要有策略和智慧，不要无脑硬刚
+- 情感描写要细腻真实，不要浮夸矫情`
+        };
+
+        // 复制结果函数
+        function copyResult(elementId) {
+            const resultDiv = document.getElementById(elementId);
+            const preElement = resultDiv.querySelector('pre');
+            const text = preElement.textContent;
+
+            navigator.clipboard.writeText(text).then(() => {
+                // 显示复制成功提示
+                const button = resultDiv.querySelector('button');
+                const originalText = button.textContent;
+                button.textContent = '已复制!';
+                button.classList.add('bg-green-500', 'text-white');
+                button.classList.remove('bg-gray-200', 'text-gray-700');
+
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('bg-green-500', 'text-white');
+                    button.classList.add('bg-gray-200', 'text-gray-700');
+                }, 2000);
+            }).catch(err => {
+                alert('复制失败: ' + err);
+            });
+        }
+
+        // API 调用函数
+        async function callAPI(systemPrompt, userInput) {
+            const baseUrl = document.getElementById('baseUrl').value.trim();
+            const model = document.getElementById('model').value;
+            const apiKey = document.getElementById('apiKey').value.trim();
+
+            if (!apiKey) {
+                alert('请输入 API Key');
+                return null;
+            }
+
+            const statusBar = document.getElementById('statusBar');
+            const statusText = document.getElementById('statusText');
+            statusBar.classList.remove('hidden');
+            statusText.textContent = '正在调用 API...';
+
+            try {
+                // 默认使用 OpenAI 格式 API
+                const response = await fetch(`${baseUrl}/v1/chat/completions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: model,
+                        messages: [
+                            { role: 'system', content: systemPrompt },
+                            { role: 'user', content: userInput }
+                        ],
+                        max_tokens: 4096
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error?.message || 'API 调用失败');
+                }
+
+                const data = await response.json();
+
+                const tokenUsage = document.getElementById('tokenUsage');
+                if (data.usage) {
+                    tokenUsage.textContent = `Tokens: ${data.usage.prompt_tokens || 0} in / ${data.usage.completion_tokens || 0} out`;
+                }
+
+                statusBar.classList.add('hidden');
+                return data.choices[0].message.content;
+            } catch (error) {
+                statusBar.classList.add('hidden');
+                alert('API 调用错误: ' + error.message);
+                console.error(error);
+                return null;
+            }
+        }
+
+        // 步骤1: 创意阶段
+        async function runStep1() {
+            const workLength = document.getElementById('workLength').value;
+            const coreTheme = document.getElementById('coreTheme').value || '未指定';
+            const inspirationSources = document.getElementById('inspirationSources').value || '未指定';
+            const targetAudience = document.getElementById('targetAudience').value || '未指定';
+
+            const prompt = PROMPTS.step1
+                .replace('{{work_length}}', workLength)
+                .replace('{{core_theme}}', coreTheme)
+                .replace('{{inspiration_sources}}', inspirationSources)
+                .replace('{{target_audience}}', targetAudience);
+
+            const userInput = `请根据系统提示生成完整的创意灵感方案。`;
+
+            const result = await callAPI(prompt, userInput);
+            if (result) {
+                const resultDiv = document.getElementById('step1Result');
+                resultDiv.classList.remove('hidden');
+                resultDiv.querySelector('pre').textContent = result;
+            }
+        }
+
+        // 步骤2: 设定阶段
+        async function runStep2() {
+            const workLength = document.getElementById('workLength').value;
+            const worldSetting = document.getElementById('worldSetting').value;
+            const protagonistType = document.getElementById('protagonistType').value;
+            const coreConflict = document.getElementById('coreConflict').value || '未指定';
+
+            if (!worldSetting) {
+                alert('请输入世界观设定（可以从步骤1的结果中复制）');
+                return;
+            }
+
+            const prompt = PROMPTS.step2
+                .replace('{{work_length}}', workLength)
+                .replace('{{world_setting}}', worldSetting)
+                .replace('{{protagonist_type}}', protagonistType)
+                .replace('{{core_conflict}}', coreConflict);
+
+            const userInput = `请根据系统提示生成完整的人物设定方案。`;
+
+            const result = await callAPI(prompt, userInput);
+            if (result) {
+                const resultDiv = document.getElementById('step2Result');
+                resultDiv.classList.remove('hidden');
+                resultDiv.querySelector('pre').textContent = result;
+            }
+        }
+
+        // 步骤3: 框架阶段
+        async function runStep3() {
+            const workLength = document.getElementById('workLength').value;
+            const worldSetting = document.getElementById('worldSetting').value;
+            const characterSetting = document.getElementById('characterSetting').value;
+            const chapterCount = document.getElementById('chapterCount').value;
+
+            if (!characterSetting) {
+                alert('请输入人物设定（从步骤2的结果中复制）');
+                return;
+            }
+
+            const prompt = PROMPTS.step3
+                .replace('{{work_length}}', workLength)
+                .replace('{{world_setting}}', worldSetting)
+                .replace('{{character_setting}}', characterSetting)
+                .replace('{{chapter_count}}', chapterCount);
+
+            const userInput = `请根据系统提示生成完整的小说大纲。`;
+
+            const result = await callAPI(prompt, userInput);
+            if (result) {
+                const resultDiv = document.getElementById('step3Result');
+                resultDiv.classList.remove('hidden');
+                resultDiv.querySelector('pre').textContent = result;
+            }
+        }
+
+        // 步骤4: 创作阶段
+        async function runStep4() {
+            const outlineContent = document.getElementById('outlineContent').value;
+            const chapterNumber = document.getElementById('chapterNumber').value;
+            const targetWords = document.getElementById('targetWords').value;
+            const characterSetting = document.getElementById('characterSetting').value;
+
+            if (!outlineContent) {
+                alert('请输入大纲内容（从步骤3的结果中复制第一章大纲）');
+                return;
+            }
+
+            const prompt = PROMPTS.step4
+                .replace('{{outline_content}}', outlineContent)
+                .replace('{{chapter_number}}', chapterNumber)
+                .replace(/\{\{target_words\}\}/g, targetWords)
+                .replace('{{character_setting}}', characterSetting || '参照大纲内容');
+
+            const userInput = `请根据系统提示创作第${chapterNumber}章的完整内容。`;
+
+            const result = await callAPI(prompt, userInput);
+            if (result) {
+                const resultDiv = document.getElementById('step4Result');
+                resultDiv.classList.remove('hidden');
+                resultDiv.querySelector('pre').textContent = result;
+            }
+        }
+
+        // 初始化提示
+        console.log('玄幻小说创作流程验证器已加载');
+        console.log('提示: 请按照步骤1→2→3→4的顺序依次执行，每个步骤的输出可以作为下一步的输入');
+    </script>
+</body>
+</html>
