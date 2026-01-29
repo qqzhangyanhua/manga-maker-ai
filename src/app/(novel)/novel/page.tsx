@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, BookOpen, Clock, FileText, Sparkles, ImageIcon, Wand2, Trash2, Loader2, Layers } from "lucide-react";
+import { Plus, BookOpen, Clock, FileText, Sparkles, ImageIcon, Wand2, Trash2, Loader2, Layers, PenTool } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { CreateProjectDialog } from "./components/CreateProjectDialog";
 import { InspirationModeDialog } from "./components/InspirationModeDialog";
+import { ProfessionalModeDialog } from "./components/ProfessionalModeDialog";
 
 import { cn } from "@/lib/utils";
 import { novelTheme } from "./theme";
@@ -46,6 +47,7 @@ export default function NovelDashboard() {
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [inspirationDialogOpen, setInspirationDialogOpen] = useState(false);
+  const [professionalModeOpen, setProfessionalModeOpen] = useState(false);
   const [generatingCover, setGeneratingCover] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<NovelProject | null>(null);
@@ -271,6 +273,15 @@ export default function NovelDashboard() {
                   灵感模式
                 </Button>
                 <Button
+                  onClick={() => setProfessionalModeOpen(true)}
+                  size="lg"
+                  variant="outline"
+                  className={novelTheme.button.secondary}
+                >
+                  <PenTool className="mr-2 h-4 w-4" />
+                  专业创作
+                </Button>
+                <Button
                   onClick={() => setCreateDialogOpen(true)}
                   size="lg"
                   className={novelTheme.button.primary}
@@ -438,6 +449,14 @@ export default function NovelDashboard() {
             <InspirationModeDialog
               isOpen={inspirationDialogOpen}
               onClose={() => setInspirationDialogOpen(false)}
+              onProjectCreated={(projectId) => {
+                router.push(`/novel/${projectId}`);
+              }}
+            />
+
+            <ProfessionalModeDialog
+              isOpen={professionalModeOpen}
+              onClose={() => setProfessionalModeOpen(false)}
               onProjectCreated={(projectId) => {
                 router.push(`/novel/${projectId}`);
               }}
