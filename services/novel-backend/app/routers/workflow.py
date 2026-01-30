@@ -1,6 +1,6 @@
 """
-??????? API ??
-????????????
+专业创作工作流 API 路由
+提供工作流会话管理和阶段执行功能
 """
 
 import logging
@@ -20,32 +20,32 @@ router = APIRouter(prefix="/workflow", tags=["workflow"])
 
 
 class CreateSessionRequest(BaseModel):
-    """??????"""
-    genre: Optional[str] = Field(None, description="????")
+    """创建会话请求"""
+    genre: Optional[str] = Field(None, description="小说类型")
     
     @field_validator("genre", mode="before")
     @classmethod
     def validate_genre(cls, v):
-        """?? genre ???????????"""
+        """清理 genre 字段，去除括号内容"""
         return clean_genre(v)
 
 
 class ExecutePhaseRequest(BaseModel):
-    """??????"""
-    template_id: str = Field(..., description="?????ID")
-    input_data: dict = Field(default_factory=dict, description="????")
+    """执行阶段请求"""
+    template_id: str = Field(..., description="模板 ID")
+    input_data: dict = Field(default_factory=dict, description="输入数据")
 
 
 class OptimizeResultRequest(BaseModel):
-    """??????"""
-    current_result: str = Field(..., description="???????")
-    optimization_instruction: Optional[str] = Field(None, description="???????")
+    """优化结果请求"""
+    current_result: str = Field(..., description="当前生成结果")
+    optimization_instruction: Optional[str] = Field(None, description="优化指令（可选）")
 
 
 class CompleteWorkflowRequest(BaseModel):
-    """???????"""
-    project_title: str = Field(..., description="????", min_length=1)
-    project_description: Optional[str] = Field(None, description="????")
+    """完成工作流请求"""
+    project_title: str = Field(..., description="项目标题", min_length=1)
+    project_description: Optional[str] = Field(None, description="项目描述")
 
 
 @router.post("/start")
@@ -55,19 +55,19 @@ async def start_workflow(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    ?????????
+    启动创作工作流
 
-    ?????????? session_id ??????????
+    创建新的工作流会话，返回 session_id 和可用模板列表
 
     Args:
-        request: ????? genre ??
+        request: 创建会话请求，包含 genre 参数
 
     Returns:
-        ?? session_id????????????
+        包含 session_id、当前阶段和可用模板列表
     """
     try:
-        # ??????
-        logger.info(f"[start_workflow] ????: genre={repr(request.genre)}, user_id={user_id}")
+        # 创建工作流会话
+        logger.info(f"[start_workflow] 创建会话: genre={repr(request.genre)}, user_id={user_id}")
         
         session = await workflow_service.create_session(
             user_id=user_id,
@@ -75,11 +75,11 @@ async def start_workflow(
             session=db,
         )
         
-        logger.info(f"[start_workflow] ?? available_templates: {len(session.get('available_templates', []))} ?")
+        logger.info(f"[start_workflow] 返回 available_templates: {len(session.get('available_templates', []))} 个")
         
         return session
     except Exception as e:
-        logger.exception(f"[start_workflow] ??: {e}")
+        logger.exception(f"[start_workflow] 失败: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to create session: {str(e)}")
 
 
@@ -89,13 +89,13 @@ async def get_workflow(
     user_id: str = Depends(get_current_user_id),
 ):
     """
-    ?????????
+    获取工作流会话状态
 
     Args:
-        session_id: ??ID
+        session_id: 会话 ID
 
     Returns:
-        ???????????????????????
+        工作流会话详情，包含当前阶段、进度和可用模板
     """
     session = await workflow_service.get_session(session_id=session_id, user_id=user_id)
     if not session:
@@ -110,16 +110,16 @@ async def execute_phase(
     user_id: str = Depends(get_current_user_id),
 ):
     """
-    ???????????
+    执行当前阶段的模板
 
-    ??????????????? LLM ????
+    使用指定模板和输入数据调用 LLM 生成内容
 
     Args:
-        session_id: ??ID
-        request: ????ID?????
+        session_id: 会话 ID
+        request: 执行请求，包含模板 ID 和输入数据
 
     Returns:
-        LLM ????
+        LLM 生成结果
     """
     try:
         result = await workflow_service.execute_phase(
@@ -143,16 +143,16 @@ async def optimize_result(
     user_id: str = Depends(get_current_user_id),
 ):
     """
-    ???????????
+    优化当前阶段的结果
     
-    ?? AI ?????????????
+    使用 AI 根据用户指令优化生成的内容
     
     Args:
-        session_id: ??ID
-        request: ??????????????
+        session_id: 会话 ID
+        request: 优化请求，包含当前结果和优化指令
         
     Returns:
-        ??????
+        优化后的结果
     """
     try:
         result = await workflow_service.optimize_result(
@@ -175,15 +175,15 @@ async def next_phase(
     user_id: str = Depends(get_current_user_id),
 ):
     """
-    ??????
+    进入下一阶段
 
-    ?????????????????????
+    完成当前阶段并进入工作流的下一个阶段
 
     Args:
-        session_id: ??ID
+        session_id: 会话 ID
 
     Returns:
-        ???????????????????
+        下一阶段的信息，包含阶段名称和可用模板
     """
     try:
         result = await workflow_service.next_phase(
@@ -203,15 +203,15 @@ async def previous_phase(
     user_id: str = Depends(get_current_user_id),
 ):
     """
-    ??????
+    返回上一阶段
 
-    ???????????
+    返回工作流的上一个阶段
 
     Args:
-        session_id: ??ID
+        session_id: 会话 ID
 
     Returns:
-        ?????????????????
+        上一阶段的信息，包含阶段名称和历史数据
     """
     try:
         result = await workflow_service.previous_phase(
@@ -232,16 +232,16 @@ async def complete_workflow(
     user_id: str = Depends(get_current_user_id),
 ):
     """
-    ????????????
+    完成工作流并创建项目
 
-    ???????????????????
+    将工作流结果保存为小说项目
 
     Args:
-        session_id: ??ID
-        request: ?????????
+        session_id: 会话 ID
+        request: 完成请求，包含项目标题和描述
 
     Returns:
-        ???????
+        创建的项目信息
     """
     try:
         result = await workflow_service.complete_workflow(
@@ -263,15 +263,15 @@ async def abandon_workflow(
     user_id: str = Depends(get_current_user_id),
 ):
     """
-    ???????
+    放弃工作流
 
-    ???????? abandoned
+    将工作流状态标记为 abandoned
 
     Args:
-        session_id: ??ID
+        session_id: 会话 ID
 
     Returns:
-        ????
+        操作结果
     """
-    # ????? workflow_service ????????????
+    # 暂时使用 workflow_service 的逻辑，或抛出未实现
     raise HTTPException(status_code=501, detail="Not implemented yet")
