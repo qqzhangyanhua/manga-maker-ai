@@ -48,6 +48,28 @@ class CompleteWorkflowRequest(BaseModel):
     project_description: Optional[str] = Field(None, description="项目描述")
 
 
+@router.get("/pending")
+async def get_pending_session(
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    获取用户未完成的工作流会话
+    
+    检查是否存在活跃且未过期的会话，用于会话恢复功能
+    
+    Returns:
+        如果存在未完成会话，返回会话详情；否则返回 null
+    """
+    try:
+        session = await workflow_service.get_pending_session(user_id=user_id)
+        if session:
+            return session
+        return {"session_id": None}
+    except Exception as e:
+        logger.exception(f"[get_pending_session] 失败: {e}")
+        return {"session_id": None}
+
+
 @router.post("/start")
 async def start_workflow(
     request: CreateSessionRequest,

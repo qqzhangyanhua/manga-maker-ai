@@ -10,7 +10,8 @@
       "Bash(grep:*)",
       "Bash(python:*)",
       "Bash(test:*)",
-      "Bash(/Users/zhangyanhua/ls/bin/python3:*)"
+      "Bash(/Users/zhangyanhua/ls/bin/python3:*)",
+      "mcp__augment-context-engine__codebase-retrieval"
     ]
   }
 }

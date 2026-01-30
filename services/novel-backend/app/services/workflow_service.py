@@ -104,6 +104,66 @@ class WorkflowService:
             "expires_at": expires_at.isoformat(),
         }
 
+    async def get_pending_session(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """
+        获取用户未完成的工作流会话
+        
+        查找最近的活跃且未过期的会话，用于会话恢复
+        
+        Args:
+            user_id: 用户ID
+            
+        Returns:
+            会话状态字典，如果不存在则返回 None
+        """
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                text("""
+                    SELECT id, user_id, current_phase, completed_phases, phase_data,
+                           status, project_id, created_at, updated_at, expires_at
+                    FROM workflow_sessions
+                    WHERE user_id = :user_id AND status = 'active' AND expires_at > NOW()
+                    ORDER BY updated_at DESC
+                    LIMIT 1
+                """),
+                {"user_id": user_id},
+            )
+            row = result.fetchone()
+
+            if not row:
+                return None
+
+            # JSONB fields may already be parsed by asyncpg
+            completed_phases = row.completed_phases if isinstance(row.completed_phases, list) else (json.loads(row.completed_phases) if row.completed_phases else [])
+            phase_data = row.phase_data if isinstance(row.phase_data, dict) else (json.loads(row.phase_data) if row.phase_data else {})
+
+            # 获取当前阶段的推荐模板
+            genre = phase_data.get("genre")
+            cleaned_genre = clean_genre(genre)
+            workflow_templates = await template_service.get_workflow_templates(genre=cleaned_genre)
+            current_templates = workflow_templates.get(row.current_phase, {}).get("templates", [])
+
+            return {
+                "session_id": str(row.id),
+                "current_phase": row.current_phase,
+                "completed_phases": completed_phases,
+                "phase_info": self.PHASES.get(row.current_phase, {}),
+                "phase_data": phase_data,
+                "available_templates": current_templates,
+                "project_id": str(row.project_id) if row.project_id else None,
+                "status": row.status,
+                "expires_at": row.expires_at.isoformat() if row.expires_at else None,
+                "workflow_phases": [
+                    {
+                        "phase": k,
+                        **v,
+                        "completed": k in completed_phases,
+                        "current": k == row.current_phase,
+                    }
+                    for k, v in self.PHASES.items()
+                ],
+            }
+
     async def get_session(self, session_id: str, user_id: str) -> Optional[Dict[str, Any]]:
         """
         获取工作流会话状态
@@ -607,20 +667,39 @@ class WorkflowService:
     def _build_user_prompt(self, input_data: Dict[str, Any], phase: str) -> str:
         """
         构建用户提示词，将用户输入的具体内容传递给 LLM
-        
+
         Args:
             input_data: 用户填写的表单数据
             phase: 当前阶段
-            
+
         Returns:
             格式化的用户提示词
         """
-        if not input_data:
-            return "请根据提供的信息和思维链指令，生成完整的输出结果。"
-        
+        phase_display = self.PHASES.get(phase, {}).get('display_name', phase)
+
+        # 过滤掉空值
+        valid_input = {k: v for k, v in input_data.items() if v} if input_data else {}
+
+        if not valid_input:
+            # 空表单时，指示 LLM 主动生成示例内容，而不是反问用户
+            return f"""## 任务要求
+
+当前阶段：{phase_display}
+
+用户尚未提供具体信息，请根据系统提示词中的思维链指令，**主动生成一个完整的示例内容**。
+
+要求：
+1. 直接输出结果，不要反问用户要更多信息
+2. 生成的内容应该是一个完整的、有创意的、可直接使用的示例
+3. 用户可以在此基础上进行编辑和调整
+4. 如果有 JSON 格式要求，严格按照格式输出
+5. 内容要专业、详细、有吸引力
+
+请直接开始生成："""
+
         # 构建用户输入部分
         prompt_parts = ["## 用户提供的创作信息\n"]
-        
+
         # 常见字段的友好名称映射
         field_names = {
             "title": "作品标题",
@@ -645,21 +724,21 @@ class WorkflowService:
             "requirements": "特殊要求",
             "constraints": "约束条件",
         }
-        
-        for key, value in input_data.items():
-            if value:  # 只包含非空值
-                display_name = field_names.get(key, key)
-                if isinstance(value, (dict, list)):
-                    import json
-                    value_str = json.dumps(value, ensure_ascii=False, indent=2)
-                    prompt_parts.append(f"### {display_name}\n```json\n{value_str}\n```\n")
-                else:
-                    prompt_parts.append(f"### {display_name}\n{value}\n")
-        
+
+        for key, value in valid_input.items():
+            display_name = field_names.get(key, key)
+            if isinstance(value, (dict, list)):
+                import json
+                value_str = json.dumps(value, ensure_ascii=False, indent=2)
+                prompt_parts.append(f"### {display_name}\n```json\n{value_str}\n```\n")
+            else:
+                prompt_parts.append(f"### {display_name}\n{value}\n")
+
         prompt_parts.append("\n## 任务要求\n")
         prompt_parts.append("请根据上述用户提供的信息，结合系统提示词中的思维链指令，生成完整、详细、高质量的输出结果。")
-        prompt_parts.append(f"\n\n当前阶段：{self.PHASES.get(phase, {}).get('display_name', phase)}")
-        
+        prompt_parts.append("直接输出结果，不要反问用户要更多信息。")
+        prompt_parts.append(f"\n\n当前阶段：{phase_display}")
+
         return "\n".join(prompt_parts)
 
     def _try_parse_json(self, content: str) -> Optional[Dict[str, Any]]:
