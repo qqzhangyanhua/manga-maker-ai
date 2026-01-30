@@ -314,6 +314,104 @@ async def complete_workflow(
         raise HTTPException(status_code=500, detail=f"Failed to complete workflow: {str(e)}")
 
 
+@router.post("/{session_id}/generate-options")
+async def generate_options(
+    session_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    生成当前阶段的方案选项
+    
+    自动根据会话上下文生成 3 个不同方向的方案供用户选择
+    
+    Args:
+        session_id: 会话 ID
+        
+    Returns:
+        options: 3 个方案列表，每个包含 id、summary、content
+        phase: 当前阶段
+    """
+    try:
+        result = await workflow_service.generate_options(
+            session_id=session_id,
+            user_id=user_id,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception(f"Workflow generate_options failed for session {session_id}")
+        raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
+
+
+@router.post("/{session_id}/select-option")
+async def select_option(
+    session_id: str,
+    request: SelectOptionRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    选择并确认某个方案
+    
+    选中方案后保存到会话，支持在选择前编辑内容
+    
+    Args:
+        session_id: 会话 ID
+        request: 选择请求，包含 option_id 和可选的 edited_content
+        
+    Returns:
+        saved: 是否保存成功
+        current_phase: 当前阶段
+        completed_phases: 已完成阶段列表
+    """
+    try:
+        result = await workflow_service.select_option(
+            session_id=session_id,
+            user_id=user_id,
+            option_id=request.option_id,
+            edited_content=request.edited_content,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception(f"Workflow select_option failed for session {session_id}")
+        raise HTTPException(status_code=500, detail=f"Selection failed: {str(e)}")
+
+
+@router.post("/{session_id}/redo-phase")
+async def redo_phase(
+    session_id: str,
+    request: RedoPhaseRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    回退到指定阶段重做
+    
+    用于预览阶段的回退功能，回退会清除目标阶段及之后的所有数据
+    
+    Args:
+        session_id: 会话 ID
+        request: 重做请求，包含目标阶段
+        
+    Returns:
+        current_phase: 当前阶段
+        completed_phases: 已完成阶段列表
+    """
+    try:
+        result = await workflow_service.redo_phase(
+            session_id=session_id,
+            user_id=user_id,
+            phase=request.phase,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception(f"Workflow redo_phase failed for session {session_id}")
+        raise HTTPException(status_code=500, detail=f"Redo failed: {str(e)}")
+
+
 @router.delete("/{session_id}")
 async def abandon_workflow(
     session_id: str,
