@@ -4,7 +4,7 @@
 """
 
 import logging
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -46,6 +46,41 @@ class CompleteWorkflowRequest(BaseModel):
     """完成工作流请求"""
     project_title: str = Field(..., description="项目标题", min_length=1)
     project_description: Optional[str] = Field(None, description="项目描述")
+
+
+class GenerateOptionsRequest(BaseModel):
+    """生成方案请求 - 无需用户输入，后端自动构建"""
+    pass  # 后端根据 session 上下文自动生成
+
+
+class GenerateOptionsResponse(BaseModel):
+    """生成方案响应"""
+    options: List[dict] = Field(..., description="3 个方案")
+    phase: str = Field(..., description="当前阶段")
+
+
+class SelectOptionRequest(BaseModel):
+    """选择方案请求"""
+    option_id: str = Field(..., description="选中的方案 ID")
+    edited_content: Optional[str] = Field(None, description="用户编辑后的内容（可选）")
+
+
+class SelectOptionResponse(BaseModel):
+    """选择方案响应"""
+    saved: bool = Field(True, description="是否保存成功")
+    current_phase: str = Field(..., description="当前阶段")
+    completed_phases: List[str] = Field(..., description="已完成阶段")
+
+
+class RedoPhaseRequest(BaseModel):
+    """重做阶段请求"""
+    phase: str = Field(..., description="要重做的阶段")
+
+
+class RedoPhaseResponse(BaseModel):
+    """重做阶段响应"""
+    current_phase: str = Field(..., description="当前阶段")
+    completed_phases: List[str] = Field(..., description="已完成阶段")
 
 
 @router.get("/pending")
