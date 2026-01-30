@@ -739,6 +739,74 @@ class WorkflowService:
             "is_final": is_final,
         }
 
+    async def redo_phase(
+        self,
+        session_id: str,
+        user_id: str,
+        phase: str,
+    ) -> Dict[str, Any]:
+        """
+        回退到指定阶段重做
+        
+        Args:
+            session_id: 会话ID
+            user_id: 用户ID
+            phase: 要重做的阶段
+            
+        Returns:
+            重做结果
+        """
+        if phase not in self.PHASES:
+            raise ValueError(f"Invalid phase: {phase}")
+        
+        session = await self.get_session(session_id, user_id)
+        if not session:
+            raise ValueError("Session not found or expired")
+        
+        phase_data = session.get("phase_data", {})
+        completed_phases = session.get("completed_phases", [])
+        
+        # 获取要重做阶段的顺序
+        phase_order = list(self.PHASES.keys())
+        redo_index = phase_order.index(phase)
+        
+        # 移除该阶段及之后所有阶段的数据
+        phases_to_remove = phase_order[redo_index:]
+        for p in phases_to_remove:
+            if p in completed_phases:
+                completed_phases.remove(p)
+            if "phases" in phase_data and p in phase_data["phases"]:
+                del phase_data["phases"][p]
+        
+        # 清理临时数据
+        phase_data.pop("current_options", None)
+        phase_data.pop("options_generated_at", None)
+        
+        # 更新会话
+        async with AsyncSessionLocal() as db_session:
+            await db_session.execute(
+                text("""
+                    UPDATE workflow_sessions
+                    SET phase_data = :phase_data, 
+                        current_phase = :current_phase,
+                        completed_phases = :completed_phases,
+                        updated_at = NOW()
+                    WHERE id = :session_id
+                """),
+                {
+                    "phase_data": json.dumps(phase_data),
+                    "current_phase": phase,
+                    "completed_phases": json.dumps(completed_phases),
+                    "session_id": session_id,
+                },
+            )
+            await db_session.commit()
+        
+        return {
+            "current_phase": phase,
+            "completed_phases": completed_phases,
+        }
+
     def _parse_options(self, content: str, expected_count: int = 3) -> List[Dict[str, Any]]:
         """解析 LLM 返回的选项"""
         import re
