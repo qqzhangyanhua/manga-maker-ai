@@ -41,13 +41,27 @@ export interface OptimizationHistory {
   timestamp: Date;
 }
 
+export interface GeneratedOption {
+  id: string;
+  content: string;
+  summary: string;
+}
+
+export interface PhaseResult {
+  phase: string;
+  phaseName: string;
+  content: string;
+  summary: string;
+}
+
 // ============ 对话框阶段 ============
 
 export type DialogStage =
   | "genre_select"
-  | "workflow"
-  | "generating"
-  | "result"
+  | "options_generating"  // 新增：方案生成中
+  | "options_select"      // 新增：方案选择
+  | "editing"             // 新增：编辑确认
+  | "preview"             // 新增：预览汇总
   | "completing"
   | "session_expired";
 
@@ -80,6 +94,11 @@ export interface WorkflowState {
   pendingSession: WorkflowSession | null;
   showResumePrompt: boolean;
   showCloseConfirm: boolean;
+  // 新增字段
+  generatedOptions: GeneratedOption[];
+  selectedOptionId: string | null;
+  editingContent: string;
+  phaseResults: PhaseResult[];
 }
 
 export type WorkflowAction =
@@ -142,7 +161,14 @@ export type WorkflowAction =
   | { type: "SESSION_EXPIRED" }
   | { type: "RESUME_SESSION" }
   | { type: "START_NEW_SESSION" }
-  | { type: "RESET" };
+  | { type: "RESET" }
+  // 新增 action types
+  | { type: "GENERATE_OPTIONS_SUCCESS"; payload: GeneratedOption[] }
+  | { type: "SELECT_OPTION"; payload: { id: string; content: string } }
+  | { type: "SET_EDITING_CONTENT"; payload: string }
+  | { type: "CONFIRM_PHASE"; payload: PhaseResult }
+  | { type: "REDO_PHASE"; payload: string }
+  | { type: "REGENERATE_OPTIONS" };
 
 // ============ Stage 组件 Props ============
 
@@ -174,6 +200,23 @@ export interface ResultProps extends StageProps {
 
 export interface CompletingProps extends StageProps {
   onComplete: () => Promise<void>;
+}
+
+export interface OptionsGeneratingProps extends StageProps {}
+
+export interface OptionsSelectProps extends StageProps {
+  onSelectOption: (optionId: string, content: string) => void;
+  onRegenerateOptions: () => Promise<void>;
+}
+
+export interface EditingProps extends StageProps {
+  onConfirm: () => Promise<void>;
+  onBackToSelect: () => void;
+}
+
+export interface PreviewProps extends StageProps {
+  onRedoPhase: (phase: string) => Promise<void>;
+  onComplete: () => void;
 }
 
 // ============ 常量 ============
@@ -258,4 +301,9 @@ export const initialState: WorkflowState = {
   pendingSession: null,
   showResumePrompt: false,
   showCloseConfirm: false,
+  // 新增字段初始值
+  generatedOptions: [],
+  selectedOptionId: null,
+  editingContent: "",
+  phaseResults: [],
 };
