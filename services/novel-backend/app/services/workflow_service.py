@@ -528,6 +528,142 @@ class WorkflowService:
             "parsed_result": self._try_parse_json(optimized_content),
         }
 
+    async def generate_options(
+        self,
+        session_id: str,
+        user_id: str,
+        num_options: int = 3,
+    ) -> Dict[str, Any]:
+        """
+        为当前阶段生成多个方案供用户选择
+        
+        Args:
+            session_id: 会话ID
+            user_id: 用户ID
+            num_options: 生成方案数量，默认 3
+            
+        Returns:
+            包含 options 和 phase 的字典
+        """
+        session = await self.get_session(session_id, user_id)
+        if not session:
+            raise ValueError("Session not found or expired")
+        
+        current_phase = session["current_phase"]
+        phase_data = session.get("phase_data", {})
+        phase_info = self.PHASES.get(current_phase, {})
+        
+        # 构建上下文
+        context = self._merge_context(phase_data, {})
+        genre = phase_data.get("genre", "通用")
+        
+        # 构建系统提示词
+        system_prompt = f"""你是一位资深网文创作顾问，正在帮助作者进行 {phase_info.get('display_name', current_phase)}。
+
+当前任务：为用户生成 {num_options} 个不同风格/方向的方案供选择。
+
+专题类型：{genre or '通用'}
+
+要求：
+1. 每个方案必须有明显差异化（风格、基调、方向等不同）
+2. 每个方案都应该完整可用，不是草稿或大纲
+3. 每个方案包含：
+   - id: 方案标识（opt_1, opt_2, opt_3）
+   - summary: 一句话摘要（15-25 字，突出方案特色）
+   - content: 详细内容
+4. 内容要专业、有吸引力、符合网文读者口味
+5. 输出格式为 JSON 数组
+
+输出格式示例：
+```json
+[
+  {{"id": "opt_1", "summary": "热血逆袭型：废材少年觉醒逆天血脉", "content": "详细内容..."}},
+  {{"id": "opt_2", "summary": "稳健发展型：低调修炼厚积薄发", "content": "详细内容..."}},
+  {{"id": "opt_3", "summary": "阴谋权术型：身陷阴谋步步为营", "content": "详细内容..."}}
+]
+```
+"""
+        
+        # 构建用户提示词，包含已完成阶段的上下文
+        user_prompt_parts = [f"## 当前阶段：{phase_info.get('display_name', current_phase)}\n"]
+        user_prompt_parts.append(f"阶段描述：{phase_info.get('description', '')}\n\n")
+        
+        if context:
+            user_prompt_parts.append("## 已有创作上下文\n")
+            for key, value in context.items():
+                if value and key not in ["genre"]:
+                    if isinstance(value, (dict, list)):
+                        import json as json_module
+                        user_prompt_parts.append(f"### {key}\n```json\n{json_module.dumps(value, ensure_ascii=False, indent=2)}\n```\n")
+                    else:
+                        user_prompt_parts.append(f"### {key}\n{value}\n")
+        
+        user_prompt_parts.append(f"\n请生成 {num_options} 个不同方向的方案，直接输出 JSON 数组，不要添加其他内容。")
+        user_prompt = "\n".join(user_prompt_parts)
+        
+        # 调用 LLM 生成
+        result = await generation_service.generate_with_prompt(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            temperature=0.9,  # 高温度增加多样性
+            max_tokens=8192,
+        )
+        
+        content = result.get("content", "")
+        options = self._parse_options(content, num_options)
+        
+        # 保存生成的选项到会话
+        async with AsyncSessionLocal() as db_session:
+            phase_data["current_options"] = options
+            phase_data["options_generated_at"] = datetime.utcnow().isoformat()
+            
+            await db_session.execute(
+                text("""
+                    UPDATE workflow_sessions
+                    SET phase_data = :phase_data, updated_at = NOW()
+                    WHERE id = :session_id
+                """),
+                {"phase_data": json.dumps(phase_data), "session_id": session_id},
+            )
+            await db_session.commit()
+        
+        return {
+            "options": options,
+            "phase": current_phase,
+        }
+
+    def _parse_options(self, content: str, expected_count: int = 3) -> List[Dict[str, Any]]:
+        """解析 LLM 返回的选项"""
+        import re
+        
+        # 尝试直接解析 JSON
+        try:
+            options = json.loads(content)
+            if isinstance(options, list):
+                return options[:expected_count]
+        except json.JSONDecodeError:
+            pass
+        
+        # 尝试提取 JSON 代码块
+        json_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", content)
+        if json_match:
+            try:
+                options = json.loads(json_match.group(1))
+                if isinstance(options, list):
+                    return options[:expected_count]
+            except json.JSONDecodeError:
+                pass
+        
+        # 如果解析失败，返回默认结构
+        return [
+            {
+                "id": f"opt_{i+1}",
+                "summary": f"方案 {i+1}",
+                "content": content if i == 0 else f"方案 {i+1} 内容待生成",
+            }
+            for i in range(expected_count)
+        ]
+
     async def complete_workflow(
         self,
         session_id: str,
