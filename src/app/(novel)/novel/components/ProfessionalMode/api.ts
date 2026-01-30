@@ -138,3 +138,62 @@ export async function completeWorkflow(
   });
   return handleResponse(response);
 }
+
+export interface GeneratedOption {
+  id: string;
+  content: string;
+  summary: string;
+}
+
+export async function generateOptions(sessionId: string): Promise<{
+  options: GeneratedOption[];
+  phase: string;
+}> {
+  const response = await fetch(
+    `/api/novel/workflow/${sessionId}/generate-options`,
+    { method: "POST" }
+  );
+  return handleResponse(response);
+}
+
+export async function selectOption(
+  sessionId: string,
+  optionId: string,
+  editedContent?: string
+): Promise<{
+  saved: boolean;
+  current_phase: string;
+  completed_phases: string[];
+  is_final: boolean;
+}> {
+  const response = await fetch(
+    `/api/novel/workflow/${sessionId}/select-option`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        option_id: optionId,
+        edited_content: editedContent || null,
+      }),
+    }
+  );
+  return handleResponse(response);
+}
+
+export async function redoPhase(
+  sessionId: string,
+  phase: string
+): Promise<{
+  current_phase: string;
+  completed_phases: string[];
+}> {
+  const response = await fetch(
+    `/api/novel/workflow/${sessionId}/redo-phase`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phase }),
+    }
+  );
+  return handleResponse(response);
+}
