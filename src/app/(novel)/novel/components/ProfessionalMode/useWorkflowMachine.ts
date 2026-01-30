@@ -9,6 +9,9 @@ import {
   WorkflowAction,
   initialState,
   OptimizationHistory,
+  GeneratedOption,
+  PhaseResult,
+  WORKFLOW_PHASES,
 } from "./types";
 
 function workflowReducer(
@@ -71,8 +74,9 @@ function workflowReducer(
       return {
         ...state,
         session: action.payload,
-        stage: "workflow",
-        loading: false,
+        stage: "options_generating",  // 改为自动进入方案生成
+        loading: true,  // 保持 loading 状态，等待 options 生成
+        phaseResults: [],  // 重置阶段结果
       };
 
     case "EXECUTE_PHASE_SUCCESS": {
@@ -187,6 +191,93 @@ function workflowReducer(
 
     case "RESET":
       return initialState;
+
+    case "GENERATE_OPTIONS_SUCCESS":
+      return {
+        ...state,
+        stage: "options_select",
+        generatedOptions: action.payload,
+        loading: false,
+      };
+
+    case "SELECT_OPTION":
+      return {
+        ...state,
+        stage: "editing",
+        selectedOptionId: action.payload.id,
+        editingContent: action.payload.content,
+      };
+
+    case "SET_EDITING_CONTENT":
+      return {
+        ...state,
+        editingContent: action.payload,
+      };
+
+    case "CONFIRM_PHASE": {
+      const newPhaseResults = [...state.phaseResults, action.payload];
+      const isAllComplete = newPhaseResults.length >= 4;
+      
+      // 更新 session 的 completed_phases
+      const updatedSession = state.session
+        ? {
+            ...state.session,
+            completed_phases: newPhaseResults.map((r) => r.phase),
+            current_phase: isAllComplete
+              ? state.session.current_phase
+              : WORKFLOW_PHASES[newPhaseResults.length]?.phase || state.session.current_phase,
+          }
+        : null;
+      
+      return {
+        ...state,
+        stage: isAllComplete ? "preview" : "options_generating",
+        session: updatedSession,
+        phaseResults: newPhaseResults,
+        generatedOptions: [],
+        selectedOptionId: null,
+        editingContent: "",
+        loading: isAllComplete ? false : true,
+      };
+    }
+
+    case "REDO_PHASE": {
+      const phaseToRedo = action.payload;
+      const phaseIndex = WORKFLOW_PHASES.findIndex((p) => p.phase === phaseToRedo);
+      
+      // 过滤掉要重做的阶段及之后的所有阶段
+      const filteredResults = state.phaseResults.filter((r) => {
+        const rIndex = WORKFLOW_PHASES.findIndex((p) => p.phase === r.phase);
+        return rIndex < phaseIndex;
+      });
+      
+      const updatedSession = state.session
+        ? {
+            ...state.session,
+            completed_phases: filteredResults.map((r) => r.phase),
+            current_phase: phaseToRedo,
+          }
+        : null;
+      
+      return {
+        ...state,
+        stage: "options_generating",
+        session: updatedSession,
+        phaseResults: filteredResults,
+        generatedOptions: [],
+        selectedOptionId: null,
+        editingContent: "",
+        loading: true,
+      };
+    }
+
+    case "REGENERATE_OPTIONS":
+      return {
+        ...state,
+        stage: "options_generating",
+        generatedOptions: [],
+        loading: true,
+      };
 
     default:
       return state;
