@@ -1,78 +1,57 @@
 /**
  * 进度指示器组件
+ * 显示四阶段工作流进度
  */
 
-import { Check, ChevronRight } from "lucide-react";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { WORKFLOW_PHASES, WorkflowState } from "../types";
+import { WORKFLOW_PHASES, StageProps } from "../types";
 
-interface ProgressIndicatorProps {
-  state: WorkflowState;
-  onJumpToPhase?: (phase: string) => void;
-}
-
-export function ProgressIndicator({
-  state,
-  onJumpToPhase,
-}: ProgressIndicatorProps) {
-  const { session, stage } = state;
+export function ProgressIndicator({ state }: Pick<StageProps, "state">) {
+  const { phaseResults } = state;
+  
+  // 使用 phaseResults 长度判断当前进度
+  const currentPhaseIndex = phaseResults.length;
+  const completedPhases = phaseResults.map((r) => r.phase);
 
   return (
-    <div className="flex items-center justify-center gap-1 mb-6">
+    <div className="flex items-center justify-center gap-2 mb-6">
       {WORKFLOW_PHASES.map((phase, index) => {
-        const isCompleted = session?.completed_phases.includes(phase.phase);
-        const isCurrent = session?.current_phase === phase.phase;
-        const Icon = phase.icon;
-        const canClick =
-          isCompleted && stage !== "generating" && onJumpToPhase;
+        const isCompleted = completedPhases.includes(phase.phase);
+        const isCurrent = index === currentPhaseIndex;
+        const PhaseIcon = phase.icon;
 
         return (
           <div key={phase.phase} className="flex items-center">
-            <button
-              type="button"
-              onClick={() => canClick && onJumpToPhase(phase.phase)}
-              disabled={!canClick}
+            <div
               className={cn(
-                "flex flex-col items-center gap-1 p-2 rounded-lg transition-all",
-                canClick && "cursor-pointer hover:bg-zinc-800/50",
-                !canClick && "cursor-default"
+                "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-all",
+                isCompleted && "bg-green-500/20 text-green-400",
+                isCurrent && !isCompleted && "bg-purple-500/20 text-purple-400",
+                !isCompleted && !isCurrent && "bg-zinc-800 text-zinc-500"
               )}
-              title={phase.description}
             >
               <div
                 className={cn(
-                  "flex items-center justify-center w-10 h-10 rounded-full transition-all",
-                  isCompleted
-                    ? "bg-green-500/20 text-green-500"
-                    : isCurrent
-                    ? "bg-purple-500/20 text-purple-500 ring-2 ring-purple-500"
-                    : "bg-zinc-800 text-zinc-500"
+                  "w-5 h-5 rounded-full flex items-center justify-center",
+                  isCompleted && "bg-green-500/30",
+                  isCurrent && !isCompleted && "bg-purple-500/30",
+                  !isCompleted && !isCurrent && "bg-zinc-700"
                 )}
               >
                 {isCompleted ? (
-                  <Check className="h-5 w-5" />
+                  <Check className="w-3 h-3" />
                 ) : (
-                  <Icon className="h-5 w-5" />
+                  <PhaseIcon className="w-3 h-3" />
                 )}
               </div>
-              <span
-                className={cn(
-                  "text-xs",
-                  isCompleted
-                    ? "text-green-400"
-                    : isCurrent
-                    ? "text-purple-400"
-                    : "text-zinc-500"
-                )}
-              >
-                {phase.shortName}
-              </span>
-            </button>
+              <span className="hidden sm:inline">{phase.shortName}</span>
+            </div>
             {index < WORKFLOW_PHASES.length - 1 && (
-              <ChevronRight
+              <div
                 className={cn(
-                  "h-4 w-4 mx-0.5 flex-shrink-0",
-                  isCompleted ? "text-green-500" : "text-zinc-600"
+                  "w-8 h-0.5 mx-1",
+                  index < currentPhaseIndex ? "bg-green-500/50" : "bg-zinc-700"
                 )}
               />
             )}
