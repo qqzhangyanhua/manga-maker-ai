@@ -28,17 +28,17 @@ export function useChapterCharacters(chapterId: string | undefined) {
         throw new Error(error.error || `获取角色失败 (${response.status})`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as ChapterCharactersResponse;
       console.log("[useChapterCharacters] API 返回:", {
         characterCount: data.characters?.length || 0,
-        characters: data.characters?.map((c: any) => ({
+        characters: data.characters?.map((c) => ({
           id: c.id,
           name: c.name,
           hasAvatar: !!c.avatar_url,
         })),
       });
 
-      return data as ChapterCharactersResponse;
+      return data;
     },
     enabled: true, // 始终启用查询,在 queryFn 内部处理空 chapterId
     staleTime: 1000 * 60 * 5, // 5分钟缓存
