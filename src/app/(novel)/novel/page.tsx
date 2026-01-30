@@ -21,7 +21,7 @@ import { parseErrorFromResponse } from "@/lib/error-utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { CreateProjectDialog } from "./components/CreateProjectDialog";
 import { InspirationModeDialog } from "./components/InspirationModeDialog";
-import { ProfessionalModeDialog } from "./components/ProfessionalModeDialog";
+import { ProfessionalModeDialog } from "./components/ProfessionalMode";
 
 import { cn } from "@/lib/utils";
 import { novelTheme } from "./theme";
