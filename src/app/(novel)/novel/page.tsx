@@ -26,45 +26,52 @@ import { cn } from "@/lib/utils";
 import { novelTheme } from "./theme";
 import "./novel-theme.css";
 
-interface NovelProject {
-  id: string;
-  title: string;
-  description: string | null;
-  genre: string | null;
-  status: string;
-  total_words: number;
-  chapter_count: number;
-  cover_image: string | null;
-  created_at: string;
-  updated_at: string;
-}
+// 复用统一类型，定义列表页专用字段
+import type { NovelProject as FullNovelProject } from "./[id]/types";
+
+type NovelProjectListItem = Pick<
+  FullNovelProject,
+  "id" | "title" | "description" | "genre" | "status" |
+  "total_words" | "chapter_count" | "cover_image" |
+  "created_at" | "updated_at"
+>;
 
 export default function NovelDashboard() {
   const router = useRouter();
   const { toast } = useToast();
   const { data: user, isLoading: userLoading, error: userError } = useCurrentUser();
-  const [projects, setProjects] = useState<NovelProject[]>([]);
+  const [projects, setProjects] = useState<NovelProjectListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [inspirationDialogOpen, setInspirationDialogOpen] = useState(false);
   const [professionalModeOpen, setProfessionalModeOpen] = useState(false);
   const [generatingCover, setGeneratingCover] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [projectToDelete, setProjectToDelete] = useState<NovelProject | null>(null);
+  const [projectToDelete, setProjectToDelete] = useState<NovelProjectListItem | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   // Spotlight effect state
   const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
   const [isHovering, setIsHovering] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // AbortController 用于取消请求
+  const abortControllerRef = useRef<AbortController | null>(null);
+  // rAF 节流用于聚光灯效果
+  const rafRef = useRef<number | null>(null);
 
-  // Mouse tracking for spotlight effect
+  // Mouse tracking for spotlight effect (使用 rAF 节流避免高频 setState)
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    setMousePosition({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    // 如果已有 rAF 在排队，跳过本次更新
+    if (rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      setMousePosition({ x, y });
+      rafRef.current = null;
     });
   }, []);
 
@@ -73,6 +80,33 @@ export default function NovelDashboard() {
     setIsHovering(false);
     setMousePosition(null);
   }, []);
+
+  // 获取项目列表（需要在 useEffect 之前定义）
+  const fetchProjects = useCallback(async (signal?: AbortSignal) => {
+    try {
+      setLoading(true);
+      const response = await fetch("/api/novel/projects", { signal });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.detail || "获取项目列表失败");
+      }
+      const data = await response.json();
+      setProjects(data);
+    } catch (error) {
+      // 忽略 abort 错误
+      if (error instanceof Error && error.name === "AbortError") {
+        return;
+      }
+      console.error("获取项目列表失败:", error);
+      toast({
+        title: "获取项目列表失败",
+        description: error instanceof Error ? error.message : "请稍后重试",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     // 检查用户登录状态
@@ -84,24 +118,23 @@ export default function NovelDashboard() {
 
     // 用户已登录，获取项目列表
     if (user) {
-      fetchProjects();
+      // 创建新的 AbortController
+      abortControllerRef.current = new AbortController();
+      fetchProjects(abortControllerRef.current.signal);
     }
-  }, [user, userError, router]);
 
-  async function fetchProjects() {
-    try {
-      setLoading(true);
-      const response = await fetch("/api/novel/projects");
-      if (response.ok) {
-        const data = await response.json();
-        setProjects(data);
+    // 清理函数：取消进行中的请求和 rAF
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
       }
-    } catch (error) {
-      console.error("获取项目列表失败:", error);
-    } finally {
-      setLoading(false);
-    }
-  }
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, [user, userError, router, fetchProjects]);
 
   function handleProjectClick(projectId: string) {
     router.push(`/novel/${projectId}`);
@@ -138,13 +171,13 @@ export default function NovelDashboard() {
     }
   }
 
-  function handleDeleteClick(project: NovelProject, event: React.MouseEvent) {
+  function handleDeleteClick(project: NovelProjectListItem, event: React.MouseEvent) {
     event.stopPropagation();
     setProjectToDelete(project);
     setDeleteDialogOpen(true);
   }
 
-  async function handleOpenCanvas(project: NovelProject, event: React.MouseEvent) {
+  async function handleOpenCanvas(project: NovelProjectListItem, event: React.MouseEvent) {
     event.stopPropagation();
     try {
       // 创建或获取现有时间线

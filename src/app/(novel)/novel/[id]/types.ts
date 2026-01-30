@@ -178,12 +178,17 @@ function generateTempId(): string {
 }
 
 /**
+ * normalizeOutline 输入类型：支持混合格式
+ */
+type OutlineInput = Partial<ChapterOutlineBackend & ChapterOutline> & { id?: string };
+
+/**
  * 转换后端 snake_case 格式的 outline 为前端 camelCase 格式
  */
-export function normalizeOutline(outline: Partial<ChapterOutlineBackend & ChapterOutline & { id?: string }>): ChapterOutline {
+export function normalizeOutline(outline: OutlineInput): ChapterOutline {
   return {
-    id: (outline as any).id, // 保留真实的数据库 ID
-    _tempId: (outline as ChapterOutline)._tempId || generateTempId(),
+    id: outline.id, // 保留真实的数据库 ID
+    _tempId: outline._tempId || generateTempId(),
     chapterNumber: outline.chapterNumber ?? outline.chapter_number ?? 0,
     title: outline.title ?? "",
     outline: outline.outline ?? "",

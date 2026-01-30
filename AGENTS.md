@@ -496,6 +496,7 @@ npm run build
 ## 10. 相关文档索引
 
 - `README.md` - 项目整体介绍与快速开始
+- `docs/README.md` - 文档索引（含 archive 说明）
 - `docs/DATABASE_SETUP.md` - 数据库设置指南
 - `services/novel-backend/RAG_GUIDE.md` - RAG 向量检索配置
 - `PHASE_4_COMPLETION.md` - 分镜编辑器功能迭代
