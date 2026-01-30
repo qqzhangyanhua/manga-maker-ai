@@ -59,7 +59,7 @@ export function Completing({ state, dispatch, onComplete }: CompletingProps) {
       <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
         <Button
           variant="outline"
-          onClick={() => dispatch({ type: "SET_STAGE", payload: "result" })}
+          onClick={() => dispatch({ type: "SET_STAGE", payload: "preview" })}
           className={novelTheme.button.outline}
         >
           返回

@@ -30,9 +30,10 @@ import { useWorkflowMachine } from "./useWorkflowMachine";
 import * as api from "./api";
 
 import { GenreSelect } from "./stages/GenreSelect";
-import { Workflow } from "./stages/Workflow";
-import { Generating } from "./stages/Generating";
-import { Result } from "./stages/Result";
+import { OptionsGenerating } from "./stages/OptionsGenerating";
+import { OptionsSelect } from "./stages/OptionsSelect";
+import { Editing } from "./stages/Editing";
+import { Preview } from "./stages/Preview";
 import { Completing } from "./stages/Completing";
 import { SessionExpired } from "./stages/SessionExpired";
 
@@ -45,17 +46,9 @@ export function ProfessionalModeDialog({
     state,
     dispatch,
     setLoading,
-    setOptimizing,
     setStage,
-    createAbortController,
-    cancelGeneration,
-    clearAbortController,
     reset,
   } = useWorkflowMachine();
-
-  const currentPhaseInfo = state.session
-    ? WORKFLOW_PHASES.find((p) => p.phase === state.session?.current_phase)
-    : null;
 
   // 获取专题列表
   const fetchGenres = useCallback(async () => {
@@ -89,6 +82,9 @@ export function ProfessionalModeDialog({
       try {
         const session = await api.startWorkflow(genre);
         dispatch({ type: "START_WORKFLOW_SUCCESS", payload: session });
+        // 立即触发第一阶段的方案生成
+        const data = await api.generateOptions(session.session_id);
+        dispatch({ type: "GENERATE_OPTIONS_SUCCESS", payload: data.options });
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "启动工作流失败");
         setLoading(false);
@@ -97,141 +93,6 @@ export function ProfessionalModeDialog({
     [dispatch, setLoading]
   );
 
-  // 执行当前阶段
-  const executePhase = useCallback(async () => {
-    if (!state.session || !state.selectedTemplate) return;
-
-    const controller = createAbortController();
-    setLoading(true);
-    setStage("generating");
-
-    try {
-      const data = await api.executePhase(
-        state.session.session_id,
-        state.selectedTemplate.id,
-        state.inputData,
-        controller.signal
-      );
-      dispatch({
-        type: "EXECUTE_PHASE_SUCCESS",
-        payload: {
-          result: data.result || "",
-          parsedResult: data.parsed_result || null,
-        },
-      });
-    } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") {
-        toast.info("已取消生成");
-        setStage("workflow");
-      } else if (error instanceof api.SessionExpiredError) {
-        dispatch({ type: "SESSION_EXPIRED" });
-      } else {
-        toast.error(error instanceof Error ? error.message : "生成失败");
-        setStage("workflow");
-      }
-      setLoading(false);
-    } finally {
-      clearAbortController();
-    }
-  }, [
-    state.session,
-    state.selectedTemplate,
-    state.inputData,
-    dispatch,
-    setLoading,
-    setStage,
-    createAbortController,
-    clearAbortController,
-  ]);
-
-  // AI 优化结果
-  const optimizeResult = useCallback(
-    async (instruction?: string) => {
-      if (!state.session || !state.generatedResult) return;
-
-      const optimizationInstruction =
-        instruction || state.optimizationInput || null;
-      setOptimizing(true);
-
-      try {
-        const data = await api.optimizeResult(
-          state.session.session_id,
-          state.generatedResult,
-          optimizationInstruction
-        );
-        dispatch({
-          type: "OPTIMIZE_SUCCESS",
-          payload: {
-            result: data.optimized_result || "",
-            parsedResult: data.parsed_result || null,
-            instruction: optimizationInstruction || undefined,
-          },
-        });
-        toast.success("优化完成");
-      } catch (error) {
-        if (error instanceof api.SessionExpiredError) {
-          dispatch({ type: "SESSION_EXPIRED" });
-        } else {
-          toast.error(error instanceof Error ? error.message : "优化失败");
-        }
-        setOptimizing(false);
-      }
-    },
-    [state.session, state.generatedResult, state.optimizationInput, dispatch, setOptimizing]
-  );
-
-  // 进入下一阶段
-  const nextPhase = useCallback(async () => {
-    if (!state.session) return;
-
-    setLoading(true);
-    try {
-      const data = await api.nextPhase(state.session.session_id);
-      dispatch({
-        type: "NEXT_PHASE_SUCCESS",
-        payload: {
-          isFinal: data.is_final,
-          currentPhase: data.current_phase,
-          completedPhases: data.completed_phases,
-          availableTemplates: data.available_templates,
-        },
-      });
-    } catch (error) {
-      if (error instanceof api.SessionExpiredError) {
-        dispatch({ type: "SESSION_EXPIRED" });
-      } else {
-        toast.error(error instanceof Error ? error.message : "进入下一阶段失败");
-      }
-      setLoading(false);
-    }
-  }, [state.session, dispatch, setLoading]);
-
-  // 返回上一阶段
-  const previousPhase = useCallback(async () => {
-    if (!state.session) return;
-
-    setLoading(true);
-    try {
-      const data = await api.previousPhase(state.session.session_id);
-      dispatch({
-        type: "PREVIOUS_PHASE_SUCCESS",
-        payload: {
-          currentPhase: data.current_phase,
-          completedPhases: data.completed_phases,
-          availableTemplates: data.available_templates,
-          previousInput: data.previous_input,
-          previousOutput: data.previous_output,
-        },
-      });
-    } catch (error) {
-      if (error instanceof api.SessionExpiredError) {
-        dispatch({ type: "SESSION_EXPIRED" });
-      } else {
-        toast.error(error instanceof Error ? error.message : "返回上一阶段失败");
-      }
-      setLoading(false);
-    }
-  }, [state.session, dispatch, setLoading]);
 
   // 完成工作流
   const completeWorkflow = useCallback(async () => {
@@ -269,6 +130,127 @@ export function ProfessionalModeDialog({
     onClose,
     reset,
   ]);
+
+  // 生成方案选项
+  const generateOptions = useCallback(async () => {
+    if (!state.session) return;
+
+    setLoading(true);
+    try {
+      const data = await api.generateOptions(state.session.session_id);
+      dispatch({ type: "GENERATE_OPTIONS_SUCCESS", payload: data.options });
+    } catch (error) {
+      if (error instanceof api.SessionExpiredError) {
+        dispatch({ type: "SESSION_EXPIRED" });
+      } else {
+        toast.error(error instanceof Error ? error.message : "生成方案失败");
+        // 回退到选择类型
+        setStage("genre_select");
+      }
+      setLoading(false);
+    }
+  }, [state.session, dispatch, setLoading, setStage]);
+
+  // 选择方案
+  const handleSelectOption = useCallback((optionId: string, content: string) => {
+    dispatch({ type: "SELECT_OPTION", payload: { id: optionId, content } });
+  }, [dispatch]);
+
+  // 重新生成方案
+  const handleRegenerateOptions = useCallback(async () => {
+    dispatch({ type: "REGENERATE_OPTIONS" });
+    await generateOptions();
+  }, [dispatch, generateOptions]);
+
+  // 确认当前阶段
+  const handleConfirmPhase = useCallback(async () => {
+    if (!state.session || !state.editingContent) return;
+
+    setLoading(true);
+    try {
+      const currentPhaseIndex = state.phaseResults.length;
+      const currentPhaseInfo = WORKFLOW_PHASES[currentPhaseIndex];
+      
+      if (!currentPhaseInfo) {
+        toast.error("无效的阶段信息");
+        setLoading(false);
+        return;
+      }
+      
+      // 调用后端保存
+      const result = await api.selectOption(
+        state.session.session_id,
+        state.selectedOptionId || "opt_1",
+        state.editingContent
+      );
+
+      // 找到选中的方案摘要
+      const selectedOption = state.generatedOptions.find(
+        (o) => o.id === state.selectedOptionId
+      );
+
+      dispatch({
+        type: "CONFIRM_PHASE",
+        payload: {
+          phase: currentPhaseInfo.phase,
+          phaseName: currentPhaseInfo.displayName,
+          content: state.editingContent,
+          summary: selectedOption?.summary || currentPhaseInfo.displayName,
+        },
+      });
+
+      // 如果不是最后阶段，自动触发下一阶段的方案生成
+      if (!result.is_final) {
+        await generateOptions();
+      }
+    } catch (error) {
+      if (error instanceof api.SessionExpiredError) {
+        dispatch({ type: "SESSION_EXPIRED" });
+      } else {
+        toast.error(error instanceof Error ? error.message : "保存失败");
+      }
+      setLoading(false);
+    }
+  }, [
+    state.session,
+    state.editingContent,
+    state.selectedOptionId,
+    state.generatedOptions,
+    state.phaseResults,
+    dispatch,
+    setLoading,
+    generateOptions,
+  ]);
+
+  // 返回方案选择
+  const handleBackToSelect = useCallback(() => {
+    setStage("options_select");
+  }, [setStage]);
+
+  // 重做某个阶段
+  const handleRedoPhase = useCallback(async (phase: string) => {
+    if (!state.session) return;
+
+    setLoading(true);
+    try {
+      await api.redoPhase(state.session.session_id, phase);
+      dispatch({ type: "REDO_PHASE", payload: phase });
+      // 自动触发方案生成
+      await generateOptions();
+    } catch (error) {
+      if (error instanceof api.SessionExpiredError) {
+        dispatch({ type: "SESSION_EXPIRED" });
+      } else {
+        toast.error(error instanceof Error ? error.message : "重做失败");
+      }
+      setLoading(false);
+    }
+  }, [state.session, dispatch, setLoading, generateOptions]);
+
+  // 从预览进入完成
+  const handleGoToComplete = useCallback(() => {
+    setStage("completing");
+  }, [setStage]);
 
   // 关闭对话框
   const handleClose = useCallback(
@@ -311,31 +293,33 @@ export function ProfessionalModeDialog({
             onClose={handleClose}
           />
         );
-      case "workflow":
+      case "options_generating":
+        return <OptionsGenerating state={state} dispatch={dispatch} />;
+      case "options_select":
         return (
-          <Workflow
+          <OptionsSelect
             state={state}
             dispatch={dispatch}
-            onExecutePhase={executePhase}
-            onPreviousPhase={previousPhase}
-            onClose={handleClose}
+            onSelectOption={handleSelectOption}
+            onRegenerateOptions={handleRegenerateOptions}
           />
         );
-      case "generating":
+      case "editing":
         return (
-          <Generating
+          <Editing
             state={state}
             dispatch={dispatch}
-            onCancel={cancelGeneration}
+            onConfirm={handleConfirmPhase}
+            onBackToSelect={handleBackToSelect}
           />
         );
-      case "result":
+      case "preview":
         return (
-          <Result
+          <Preview
             state={state}
             dispatch={dispatch}
-            onOptimize={optimizeResult}
-            onNextPhase={nextPhase}
+            onRedoPhase={handleRedoPhase}
+            onComplete={handleGoToComplete}
           />
         );
       case "completing":
@@ -357,13 +341,21 @@ export function ProfessionalModeDialog({
     if (state.stage === "genre_select") {
       return "选择创作类型开始专业的小说创作流程";
     }
+    if (state.stage === "options_generating" || state.stage === "options_select" || state.stage === "editing") {
+      const currentPhaseIndex = state.phaseResults.length;
+      const phaseInfo = WORKFLOW_PHASES[currentPhaseIndex];
+      return `${phaseInfo?.displayName || ""} - ${phaseInfo?.description || ""}`;
+    }
+    if (state.stage === "preview") {
+      return "预览并确认您的创作内容";
+    }
     if (state.stage === "completing") {
       return "为您的作品命名并创建项目";
     }
     if (state.stage === "session_expired") {
       return "会话已过期，请重新开始";
     }
-    return `${currentPhaseInfo?.displayName || ""} - ${currentPhaseInfo?.description || ""}`;
+    return "";
   };
 
   return (

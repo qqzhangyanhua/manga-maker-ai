@@ -92,7 +92,7 @@ function workflowReducer(
         generatedResult: action.payload.result,
         parsedResult: action.payload.parsedResult,
         optimizationHistory: initialHistory,
-        stage: "result",
+        stage: "preview",
         loading: false,
       };
     }
@@ -116,7 +116,7 @@ function workflowReducer(
         generatedResult: "",
         parsedResult: null,
         optimizationHistory: [],
-        stage: "workflow",
+        stage: "options_generating",
         loading: false,
       };
 
@@ -136,7 +136,7 @@ function workflowReducer(
         generatedResult: action.payload.previousOutput || "",
         parsedResult: null,
         optimizationHistory: [],
-        stage: "workflow",
+        stage: "options_generating",
         loading: false,
       };
 
@@ -177,7 +177,7 @@ function workflowReducer(
       return {
         ...state,
         session: state.pendingSession,
-        stage: "workflow",
+        stage: "options_generating",
         showResumePrompt: false,
         pendingSession: null,
       };
