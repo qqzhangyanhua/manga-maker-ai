@@ -183,21 +183,6 @@ export interface GenreSelectProps extends StageProps {
   onClose: (force?: boolean) => void;
 }
 
-export interface WorkflowStageProps extends StageProps {
-  onExecutePhase: () => Promise<void>;
-  onPreviousPhase: () => Promise<void>;
-  onClose: () => void;
-}
-
-export interface GeneratingProps extends StageProps {
-  onCancel: () => void;
-}
-
-export interface ResultProps extends StageProps {
-  onOptimize: (instruction?: string) => Promise<void>;
-  onNextPhase: () => Promise<void>;
-}
-
 export interface CompletingProps extends StageProps {
   onComplete: () => Promise<void>;
 }
