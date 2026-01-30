@@ -632,6 +632,113 @@ class WorkflowService:
             "phase": current_phase,
         }
 
+    async def select_option(
+        self,
+        session_id: str,
+        user_id: str,
+        option_id: str,
+        edited_content: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        选择并保存某个方案
+        
+        Args:
+            session_id: 会话ID
+            user_id: 用户ID
+            option_id: 选中的方案 ID
+            edited_content: 用户编辑后的内容（可选）
+            
+        Returns:
+            保存结果
+        """
+        session = await self.get_session(session_id, user_id)
+        if not session:
+            raise ValueError("Session not found or expired")
+        
+        current_phase = session["current_phase"]
+        phase_data = session.get("phase_data", {})
+        completed_phases = session.get("completed_phases", [])
+        
+        # 获取选中的方案
+        options = phase_data.get("current_options", [])
+        selected_option = next((o for o in options if o.get("id") == option_id), None)
+        
+        if not selected_option:
+            raise ValueError(f"Option {option_id} not found")
+        
+        # 使用编辑后的内容或原始内容
+        final_content = edited_content if edited_content else selected_option.get("content", "")
+        
+        # 保存到阶段数据
+        async with AsyncSessionLocal() as db_session:
+            if "phases" not in phase_data:
+                phase_data["phases"] = {}
+            
+            phase_data["phases"][current_phase] = {
+                "selected_option_id": option_id,
+                "selected_summary": selected_option.get("summary", ""),
+                "output": final_content,
+                "edited": edited_content is not None,
+                "completed_at": datetime.utcnow().isoformat(),
+            }
+            
+            # 清理临时选项数据
+            phase_data.pop("current_options", None)
+            phase_data.pop("options_generated_at", None)
+            
+            # 将当前阶段加入已完成列表
+            if current_phase not in completed_phases:
+                completed_phases.append(current_phase)
+            
+            # 确定下一阶段
+            phase_order = list(self.PHASES.keys())
+            current_index = phase_order.index(current_phase)
+            is_final = current_index >= len(phase_order) - 1
+            
+            if not is_final:
+                next_phase = phase_order[current_index + 1]
+                await db_session.execute(
+                    text("""
+                        UPDATE workflow_sessions
+                        SET phase_data = :phase_data, 
+                            current_phase = :current_phase,
+                            completed_phases = :completed_phases,
+                            updated_at = NOW()
+                        WHERE id = :session_id
+                    """),
+                    {
+                        "phase_data": json.dumps(phase_data),
+                        "current_phase": next_phase,
+                        "completed_phases": json.dumps(completed_phases),
+                        "session_id": session_id,
+                    },
+                )
+            else:
+                # 最后阶段，不改变 current_phase
+                await db_session.execute(
+                    text("""
+                        UPDATE workflow_sessions
+                        SET phase_data = :phase_data, 
+                            completed_phases = :completed_phases,
+                            updated_at = NOW()
+                        WHERE id = :session_id
+                    """),
+                    {
+                        "phase_data": json.dumps(phase_data),
+                        "completed_phases": json.dumps(completed_phases),
+                        "session_id": session_id,
+                    },
+                )
+            
+            await db_session.commit()
+        
+        return {
+            "saved": True,
+            "current_phase": current_phase,
+            "completed_phases": completed_phases,
+            "is_final": is_final,
+        }
+
     def _parse_options(self, content: str, expected_count: int = 3) -> List[Dict[str, Any]]:
         """解析 LLM 返回的选项"""
         import re
