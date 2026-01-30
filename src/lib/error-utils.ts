@@ -70,6 +70,74 @@ export function parseFastAPIError(
 }
 
 /**
+ * 通用 API 错误响应（兼容 FastAPI 和 Next.js API）
+ */
+interface GenericAPIErrorResponse {
+  error?: string;
+  detail?: string | FastAPIValidationError[];
+  message?: string;
+}
+
+/**
+ * 从 JSON 对象解析错误消息（统一处理 error/detail/message 字段）
+ * 
+ * @param data - API 响应的 JSON 对象
+ * @param defaultMessage - 默认错误消息
+ * @returns 格式化的错误消息
+ */
+export function parseErrorFromData(
+  data: unknown,
+  defaultMessage = "操作失败"
+): string {
+  // 如果是字符串，直接返回
+  if (typeof data === "string") {
+    return data;
+  }
+
+  // 如果是 Error 对象
+  if (data instanceof Error) {
+    return data.message;
+  }
+
+  // 如果是对象
+  if (typeof data === "object" && data !== null) {
+    const errorData = data as GenericAPIErrorResponse;
+    
+    // 优先使用 detail 字段（FastAPI 风格）
+    if (errorData.detail !== undefined) {
+      if (typeof errorData.detail === "string") {
+        return errorData.detail;
+      }
+      // 验证错误数组
+      if (Array.isArray(errorData.detail)) {
+        return errorData.detail
+          .map((e) => {
+            if (typeof e === "object" && e !== null && "msg" in e) {
+              const validationError = e as FastAPIValidationError;
+              const location = validationError.loc.join(" → ");
+              return `${location}: ${validationError.msg}`;
+            }
+            return String(e);
+          })
+          .join("; ");
+      }
+    }
+    
+    // 其次使用 error 字段（Next.js API 风格）
+    if (typeof errorData.error === "string") {
+      return errorData.error;
+    }
+    
+    // 最后使用 message 字段
+    if (typeof errorData.message === "string") {
+      return errorData.message;
+    }
+  }
+
+  return defaultMessage;
+}
+
+/**
  * 从 Response 对象解析错误
  *
  * @param response - Fetch Response 对象
@@ -82,7 +150,7 @@ export async function parseErrorFromResponse(
 ): Promise<string> {
   try {
     const data = await response.json();
-    return parseFastAPIError(data, defaultMessage);
+    return parseErrorFromData(data, defaultMessage);
   } catch {
     // JSON 解析失败，尝试读取文本
     try {

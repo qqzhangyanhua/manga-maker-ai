@@ -8,7 +8,7 @@ import { InfiniteCanvasView } from "../../components/InfiniteCanvas";
 import { useTimelineWindow } from "@/hooks/useTimelineWindow";
 import { StyleSelector } from "@/components/StyleSelector";
 import { useUpdateTimelineStyle, getSafeConfig } from "@/hooks/useTimelineConfig";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { CanvasSkeleton } from "./components/CanvasSkeleton";
 import { ErrorState } from "./components/ErrorState";
 import { CharacterLibraryDrawer } from "../../components/InfiniteCanvas/CharacterLibraryDrawer";
@@ -20,7 +20,6 @@ import "../../novel-theme.css";
 export default function CanvasPage() {
   const params = useParams();
   const router = useRouter();
-  const { toast } = useToast();
 
   const timelineId = params.id as string;
 
@@ -59,22 +58,15 @@ export default function CanvasPage() {
     (styleId: string | null) => {
       updateStyle.mutate(styleId, {
         onSuccess: () => {
-          toast({
-            title: "风格设置成功",
-            description: styleId ? "默认漫画风格已更新" : "已取消设置默认风格",
-          });
+          toast.success(styleId ? "默认漫画风格已更新" : "已取消设置默认风格");
           // invalidateQueries 会自动刷新数据，不需要手动调用 refresh
         },
         onError: (error) => {
-          toast({
-            title: "风格设置失败",
-            description: error instanceof Error ? error.message : "未知错误",
-            variant: "destructive",
-          });
+          toast.error(error instanceof Error ? error.message : "风格设置失败");
         },
       });
     },
-    [updateStyle, toast]
+    [updateStyle]
   );
 
   // ✅ 删除所有包装函数，直接使用 Hook 提供的方法

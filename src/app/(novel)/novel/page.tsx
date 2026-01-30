@@ -16,7 +16,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+import { parseErrorFromResponse } from "@/lib/error-utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { CreateProjectDialog } from "./components/CreateProjectDialog";
 import { InspirationModeDialog } from "./components/InspirationModeDialog";
@@ -38,7 +39,6 @@ type NovelProjectListItem = Pick<
 
 export default function NovelDashboard() {
   const router = useRouter();
-  const { toast } = useToast();
   const { data: user, isLoading: userLoading, error: userError } = useCurrentUser();
   const [projects, setProjects] = useState<NovelProjectListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,8 +87,8 @@ export default function NovelDashboard() {
       setLoading(true);
       const response = await fetch("/api/novel/projects", { signal });
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || errorData.detail || "获取项目列表失败");
+        const errorMsg = await parseErrorFromResponse(response, "获取项目列表失败");
+        throw new Error(errorMsg);
       }
       const data = await response.json();
       setProjects(data);
@@ -98,15 +98,11 @@ export default function NovelDashboard() {
         return;
       }
       console.error("获取项目列表失败:", error);
-      toast({
-        title: "获取项目列表失败",
-        description: error instanceof Error ? error.message : "请稍后重试",
-        variant: "destructive",
-      });
+      toast.error(error instanceof Error ? error.message : "获取项目列表失败");
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     // 检查用户登录状态
@@ -151,21 +147,18 @@ export default function NovelDashboard() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "生成封面失败");
+        const errorMsg = await parseErrorFromResponse(response, "生成封面失败");
+        throw new Error(errorMsg);
       }
 
       const data = await response.json();
       setProjects((prev) =>
         prev.map((p) => (p.id === projectId ? { ...p, cover_image: data.cover_url } : p))
       );
+      toast.success("封面生成成功");
     } catch (error) {
       console.error("生成封面失败:", error);
-      toast({
-        title: "生成封面失败",
-        description: error instanceof Error ? error.message : "生成封面失败",
-        variant: "destructive",
-      });
+      toast.error(error instanceof Error ? error.message : "生成封面失败");
     } finally {
       setGeneratingCover(null);
     }
@@ -191,18 +184,15 @@ export default function NovelDashboard() {
       });
 
       if (!response.ok) {
-        throw new Error("创建时间线失败");
+        const errorMsg = await parseErrorFromResponse(response, "创建时间线失败");
+        throw new Error(errorMsg);
       }
 
       const data = await response.json();
       router.push(`/novel/canvas/${data.timeline.id}`);
     } catch (error) {
       console.error("打开画布失败:", error);
-      toast({
-        title: "打开画布失败",
-        description: error instanceof Error ? error.message : "未知错误",
-        variant: "destructive",
-      });
+      toast.error(error instanceof Error ? error.message : "打开画布失败");
     }
   }
 
@@ -215,19 +205,15 @@ export default function NovelDashboard() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "删除失败");
+        const errorMsg = await parseErrorFromResponse(response, "删除失败");
+        throw new Error(errorMsg);
       }
 
       setProjects((prev) => prev.filter((p) => p.id !== projectToDelete.id));
-      toast({ title: "删除成功", description: `已删除小说「${projectToDelete.title}」` });
+      toast.success(`已删除小说「${projectToDelete.title}」`);
     } catch (error) {
       console.error("删除项目失败:", error);
-      toast({
-        title: "删除失败",
-        description: error instanceof Error ? error.message : "删除项目失败",
-        variant: "destructive",
-      });
+      toast.error(error instanceof Error ? error.message : "删除项目失败");
     } finally {
       setDeleting(false);
       setDeleteDialogOpen(false);

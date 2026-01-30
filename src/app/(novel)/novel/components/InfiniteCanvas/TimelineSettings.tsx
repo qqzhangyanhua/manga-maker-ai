@@ -19,7 +19,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+import { parseErrorFromResponse } from "@/lib/error-utils";
 import type { CanvasTimelineConfig } from "./types";
 
 interface TimelineSettingsProps {
@@ -37,7 +38,6 @@ export function TimelineSettings({
   currentConfig,
   onSaved,
 }: TimelineSettingsProps) {
-  const { toast } = useToast();
   const [config, setConfig] = useState<CanvasTimelineConfig>(currentConfig);
   const [saving, setSaving] = useState(false);
 
@@ -51,24 +51,17 @@ export function TimelineSettings({
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "保存失败");
+        const errorMsg = await parseErrorFromResponse(response, "保存失败");
+        throw new Error(errorMsg);
       }
 
-      toast({
-        title: "保存成功",
-        description: "时间线设置已更新",
-      });
+      toast.success("时间线设置已更新");
 
       onSaved?.();
       onClose();
     } catch (error) {
       console.error("保存设置失败:", error);
-      toast({
-        title: "保存失败",
-        description: error instanceof Error ? error.message : "未知错误",
-        variant: "destructive",
-      });
+      toast.error(error instanceof Error ? error.message : "保存失败");
     } finally {
       setSaving(false);
     }
