@@ -252,7 +252,8 @@ class NovelPromptTemplates:
     def get_chapter_generation_prompt(
         cls,
         chapter_number: int,
-        style_prompt: Optional[str] = None
+        style_prompt: Optional[str] = None,
+        has_style_guide: bool = False
     ) -> str:
         """
         获取章节内容生成的系统提示词
@@ -260,8 +261,19 @@ class NovelPromptTemplates:
         Args:
             chapter_number: 章节号
             style_prompt: 自定义风格提示
+            has_style_guide: 项目是否有风格指导文档
         """
         prompt = cls.BASE_PERSONA + "\n\n"
+
+        # 新增：如果项目有 style_guide，强调遵循
+        if has_style_guide:
+            prompt += """【重要】本项目有专属风格指导，请严格遵循上下文中的【创作风格指导】部分：
+- 保持指定的叙事基调和节奏
+- 按要求设置爽点密度和悬念
+- 严格避免禁止出现的写法
+- 章节字数按指定要求控制
+
+"""
 
         prompt += """【核心目标】
 基于提供的大纲写作本章正文，保持轻松、搞笑、轻度爽文风格，但剧情必须清晰、连贯、不过度夸张。

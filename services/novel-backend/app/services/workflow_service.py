@@ -459,28 +459,34 @@ class WorkflowService:
         current_phase = session["current_phase"]
         phase_data = session.get("phase_data", {})
         phase_info = phase_data.get("phases", {}).get(current_phase, {})
+        genre = phase_data.get("genre")
         
         # 获取模板信息
         template_id = phase_info.get("template_id")
         template_name = phase_info.get("template_name", "未知模板")
         input_data = phase_info.get("input_data", {})
         
-        # 构建优化提示词
-        system_prompt = f"""你是一位专业的小说创作顾问，擅长优化和改进创意内容。
-
-当前阶段：{self.PHASES.get(current_phase, {}).get('display_name', current_phase)}
-使用模板：{template_name}
-
-任务：根据用户的反馈和需求，优化以下生成结果。
-
-优化原则：
-1. 保留原有内容的核心创意和优点
-2. 改进表达的清晰度和专业性
-3. 增强内容的创意性和吸引力
-4. 确保输出格式与原内容保持一致
-5. 如果原内容是 JSON 格式，优化后也要保持 JSON 格式
-
-请直接输出优化后的完整内容，不要添加额外的解释或说明。"""
+        # 构建变量
+        variables = {
+            "phase_name": self.PHASES.get(current_phase, {}).get('display_name', current_phase),
+            "template_name": template_name,
+            "current_result": current_result,
+            "optimization_instruction": optimization_instruction or "请提升内容质量，使其更加专业、详细、有创意。",
+        }
+        
+        # 尝试从数据库获取模板
+        system_prompt = await template_service.render_function_template(
+            function_code="optimize_result",
+            genre=genre,
+            variables=variables,
+        )
+        
+        # 兜底：数据库没有模板时使用硬编码
+        if not system_prompt:
+            system_prompt = self._get_default_optimize_result_prompt(
+                phase_name=variables["phase_name"],
+                template_name=template_name,
+            )
 
         # 构建用户提示词
         user_parts = ["## 原始生成结果\n", current_result, "\n\n## 用户原始输入\n"]
@@ -557,32 +563,41 @@ class WorkflowService:
         context = self._merge_context(phase_data, {})
         genre = phase_data.get("genre", "通用")
         
-        # 构建系统提示词
-        system_prompt = f"""你是一位资深网文创作顾问，正在帮助作者进行 {phase_info.get('display_name', current_phase)}。
-
-当前任务：为用户生成 {num_options} 个不同风格/方向的方案供选择。
-
-专题类型：{genre or '通用'}
-
-要求：
-1. 每个方案必须有明显差异化（风格、基调、方向等不同）
-2. 每个方案都应该完整可用，不是草稿或大纲
-3. 每个方案包含：
-   - id: 方案标识（opt_1, opt_2, opt_3）
-   - summary: 一句话摘要（15-25 字，突出方案特色）
-   - content: 详细内容
-4. 内容要专业、有吸引力、符合网文读者口味
-5. 输出格式为 JSON 数组
-
-输出格式示例：
-```json
-[
-  {{"id": "opt_1", "summary": "热血逆袭型：废材少年觉醒逆天血脉", "content": "详细内容..."}},
-  {{"id": "opt_2", "summary": "稳健发展型：低调修炼厚积薄发", "content": "详细内容..."}},
-  {{"id": "opt_3", "summary": "阴谋权术型：身陷阴谋步步为营", "content": "详细内容..."}}
-]
-```
-"""
+        # 构建 function_code
+        function_code = f"{current_phase}_generate_options"
+        
+        # 构建变量
+        variables = {
+            "phase_name": phase_info.get("display_name", current_phase),
+            "phase_description": phase_info.get("description", ""),
+            "genre": genre or "通用",
+            "num_options": num_options,
+        }
+        
+        # 添加前序阶段输出
+        phases = phase_data.get("phases", {})
+        if "creative" in phases:
+            variables["creative_output"] = phases["creative"].get("output", "")
+        if "setting" in phases:
+            variables["setting_output"] = phases["setting"].get("output", "")
+        if "framework" in phases:
+            variables["framework_output"] = phases["framework"].get("output", "")
+        
+        # 尝试从数据库获取模板
+        system_prompt = await template_service.render_function_template(
+            function_code=function_code,
+            genre=genre,
+            variables=variables,
+        )
+        
+        # 兜底：数据库没有模板时使用硬编码
+        if not system_prompt:
+            system_prompt = self._get_default_generate_options_prompt(
+                phase_name=variables["phase_name"],
+                phase_description=variables["phase_description"],
+                genre=variables["genre"],
+                num_options=num_options,
+            )
         
         # 构建用户提示词，包含已完成阶段的上下文
         user_prompt_parts = [f"## 当前阶段：{phase_info.get('display_name', current_phase)}\n"]
@@ -839,6 +854,100 @@ class WorkflowService:
             for i in range(expected_count)
         ]
 
+    async def generate_project_info(
+        self,
+        session_id: str,
+        user_id: str,
+    ) -> Dict[str, Any]:
+        """
+        基于已完成阶段内容自动生成项目标题和描述
+
+        Args:
+            session_id: 会话ID
+            user_id: 用户ID
+
+        Returns:
+            包含 title 和 description 的字典
+        """
+        session = await self.get_session(session_id, user_id)
+        if not session:
+            raise ValueError("Session not found or expired")
+
+        phase_data = session.get("phase_data", {})
+        phases = phase_data.get("phases", {})
+        genre = phase_data.get("genre", "通用")
+
+        # 收集各阶段内容作为上下文
+        context_parts = []
+
+        if "creative" in phases:
+            creative_content = phases["creative"].get("output", "")
+            creative_summary = phases["creative"].get("selected_summary", "")
+            if creative_summary:
+                context_parts.append(f"创意方向：{creative_summary}")
+            if creative_content:
+                context_parts.append(f"创意内容：{creative_content[:500]}")
+
+        if "setting" in phases:
+            setting_summary = phases["setting"].get("selected_summary", "")
+            if setting_summary:
+                context_parts.append(f"设定方向：{setting_summary}")
+
+        if "framework" in phases:
+            framework_summary = phases["framework"].get("selected_summary", "")
+            if framework_summary:
+                context_parts.append(f"框架方向：{framework_summary}")
+
+        context = "\n".join(context_parts)
+
+        # 构建变量
+        variables = {
+            "genre": genre or "通用",
+            "creative_summary": phases.get("creative", {}).get("selected_summary", ""),
+            "setting_summary": phases.get("setting", {}).get("selected_summary", ""),
+            "framework_summary": phases.get("framework", {}).get("selected_summary", ""),
+        }
+        
+        # 尝试从数据库获取模板
+        system_prompt = await template_service.render_function_template(
+            function_code="generate_project_info",
+            genre=genre,
+            variables=variables,
+        )
+        
+        # 兜底：数据库没有模板时使用硬编码
+        if not system_prompt:
+            system_prompt = self._get_default_generate_project_info_prompt(genre or "通用")
+
+        user_prompt = f"""专题类型：{genre}
+
+{context}
+
+请根据以上内容，生成一个合适的小说标题和描述。直接输出 JSON，不要添加其他内容。"""
+
+        # 调用 LLM
+        result = await generation_service.generate_with_prompt(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            temperature=0.7,
+            max_tokens=512,
+        )
+
+        content = result.get("content", "")
+        parsed = self._try_parse_json(content)
+
+        if parsed and "title" in parsed:
+            return {
+                "title": parsed.get("title", ""),
+                "description": parsed.get("description", ""),
+            }
+
+        # 解析失败时返回默认值
+        return {
+            "title": f"我的{genre}小说",
+            "description": "一个精彩的故事即将展开...",
+        }
+
     async def complete_workflow(
         self,
         session_id: str,
@@ -872,31 +981,74 @@ class WorkflowService:
                 raise ValueError(f"Phase '{phase}' must be completed before creating project")
 
         # 从各阶段提取数据
+        # 新流程：output 可能是纯文本或 JSON
+        creative_content = None
         world_setting = None
         characters = None
         outlines = None
+        writing_content = None
 
+        # 提前获取 genre，后续 AI 转换需要使用
+        genre = phase_data.get("genre")
+
+        # 创意阶段
+        if "creative" in phases:
+            creative_raw = phases["creative"].get("output", "")
+            creative_parsed = self._try_parse_json(creative_raw)
+            creative_content = creative_parsed if creative_parsed else creative_raw
+
+        # 设定阶段
         if "setting" in phases:
-            setting_output = self._try_parse_json(phases["setting"].get("output", ""))
-            if setting_output:
-                world_setting = setting_output.get("world_setting") or setting_output
-                characters = setting_output.get("characters") or setting_output.get("protagonist")
+            setting_raw = phases["setting"].get("output", "")
+            setting_parsed = self._try_parse_json(setting_raw)
+            if setting_parsed:
+                # 旧格式：JSON 结构
+                world_setting = setting_parsed.get("world_setting") or setting_parsed
+                characters = setting_parsed.get("characters") or setting_parsed.get("protagonist")
+            else:
+                # 新格式：纯文本，整体作为世界设定
+                world_setting = setting_raw
 
+        # 框架阶段
+        # 注意：outlines 必须是数组格式，纯文本需要通过 AI 转换
+        framework_text = None
         if "framework" in phases:
-            framework_output = self._try_parse_json(phases["framework"].get("output", ""))
-            if framework_output:
-                outlines = framework_output.get("chapterPlans") or framework_output
+            framework_raw = phases["framework"].get("output", "")
+            framework_parsed = self._try_parse_json(framework_raw)
+            if framework_parsed:
+                # JSON 格式：提取章节计划数组
+                if isinstance(framework_parsed, list):
+                    outlines = framework_parsed
+                elif isinstance(framework_parsed, dict):
+                    outlines = framework_parsed.get("chapterPlans") or framework_parsed.get("chapters")
+                    # 如果还不是数组，尝试 AI 转换
+                    if not isinstance(outlines, list):
+                        outlines = await self._convert_text_to_outlines(framework_raw, genre)
+            else:
+                # 纯文本：通过 AI 转换为章节数组
+                outlines = await self._convert_text_to_outlines(framework_raw, genre)
+
+        # 创作阶段
+        if "writing" in phases:
+            writing_raw = phases["writing"].get("output", "")
+            writing_parsed = self._try_parse_json(writing_raw)
+            writing_content = writing_parsed if writing_parsed else writing_raw
+
+        # 新增：生成风格指导文档
+        style_guide = await self._generate_style_guide(
+            phase_data=phase_data,
+            genre=genre,
+        )
 
         # 创建项目
         async with AsyncSessionLocal() as db_session:
             project_id = str(uuid.uuid4())
-            genre = phase_data.get("genre")
 
             await db_session.execute(
                 text("""
                     INSERT INTO novel_projects 
-                    (id, user_id, title, description, genre, world_setting, characters, outlines, status)
-                    VALUES (:id, :user_id, :title, :description, :genre, :world_setting, :characters, :outlines, :status)
+                    (id, user_id, title, description, genre, world_setting, characters, outlines, style_guide, status)
+                    VALUES (:id, :user_id, :title, :description, :genre, :world_setting, :characters, :outlines, :style_guide, :status)
                 """),
                 {
                     "id": project_id,
@@ -907,6 +1059,7 @@ class WorkflowService:
                     "world_setting": json.dumps(world_setting) if world_setting else None,
                     "characters": json.dumps(characters) if characters else None,
                     "outlines": json.dumps(outlines) if outlines else None,
+                    "style_guide": json.dumps(style_guide) if style_guide else None,
                     "status": "draft",
                 },
             )
@@ -1052,6 +1205,164 @@ class WorkflowService:
 
         return "\n".join(prompt_parts)
 
+    async def _convert_text_to_outlines(
+        self, framework_text: str, genre: Optional[str] = None
+    ) -> Optional[List[Dict[str, Any]]]:
+        """
+        将纯文本框架转换为章节大纲数组
+
+        Args:
+            framework_text: 纯文本框架描述
+            genre: 小说类型
+
+        Returns:
+            章节大纲数组，转换失败返回 None
+        """
+        if not framework_text or len(framework_text.strip()) < 20:
+            return None
+
+        # 构建变量
+        variables = {
+            "genre": genre or "通用",
+            "framework_text": framework_text,
+        }
+        
+        # 尝试从数据库获取模板
+        system_prompt = await template_service.render_function_template(
+            function_code="convert_text_to_outlines",
+            genre=genre,
+            variables=variables,
+        )
+        
+        # 兜底：数据库没有模板时使用硬编码
+        if not system_prompt:
+            system_prompt = self._get_default_convert_text_to_outlines_prompt()
+
+        user_prompt = f"""小说类型：{genre or '通用'}
+
+故事框架：
+{framework_text}
+
+请将以上框架转换为章节大纲数组，直接输出 JSON。"""
+
+        try:
+            result = await generation_service.generate_with_prompt(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                temperature=0.5,
+                max_tokens=4096,
+            )
+
+            content = result.get("content", "")
+            parsed = self._try_parse_json(content)
+
+            if parsed and isinstance(parsed, list) and len(parsed) > 0:
+                # 确保每个章节都有必要字段
+                normalized = []
+                for i, chapter in enumerate(parsed):
+                    if isinstance(chapter, dict):
+                        normalized.append({
+                            "title": chapter.get("title", f"第{i+1}章"),
+                            "summary": chapter.get("summary", ""),
+                            "status": chapter.get("status", "pending"),
+                        })
+                return normalized if normalized else None
+
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to convert framework to outlines: {e}")
+
+        return None
+
+    async def _generate_style_guide(
+        self,
+        phase_data: Dict[str, Any],
+        genre: Optional[str],
+    ) -> Optional[Dict[str, Any]]:
+        """
+        基于 4 个阶段的输出，生成项目风格指导文档
+        
+        Args:
+            phase_data: 包含各阶段数据的字典
+            genre: 小说类型
+            
+        Returns:
+            风格指导文档字典，失败返回 None
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        phases = phase_data.get("phases", {})
+        
+        # 收集各阶段关键内容
+        context_parts = []
+        phase_names_map = {
+            "creative": "创意阶段",
+            "setting": "设定阶段", 
+            "framework": "框架阶段",
+            "writing": "创作阶段"
+        }
+        
+        for phase_name in ["creative", "setting", "framework", "writing"]:
+            if phase_name in phases:
+                output = phases[phase_name].get("output", "")
+                summary = phases[phase_name].get("selected_summary", "")
+                display_name = phase_names_map.get(phase_name, phase_name)
+                # 限制每个阶段的内容长度，避免 token 超限
+                output_truncated = output[:2000] if output else ""
+                context_parts.append(f"【{display_name}】\n摘要：{summary}\n内容：{output_truncated}")
+        
+        if not context_parts:
+            logger.warning("No phase data available for style guide generation")
+            return None
+        
+        # 构建变量
+        variables = {
+            "genre": genre or "通用",
+            "creative_output": phases.get("creative", {}).get("output", "")[:2000],
+            "setting_output": phases.get("setting", {}).get("output", "")[:2000],
+            "framework_output": phases.get("framework", {}).get("output", "")[:2000],
+            "writing_output": phases.get("writing", {}).get("output", "")[:2000],
+        }
+        
+        # 尝试从数据库获取模板
+        system_prompt = await template_service.render_function_template(
+            function_code="generate_style_guide",
+            genre=genre,
+            variables=variables,
+        )
+        
+        # 兜底：数据库没有模板时使用硬编码
+        if not system_prompt:
+            system_prompt = self._get_default_generate_style_guide_prompt()
+
+        try:
+            # 构建 user_prompt（避免 f-string 内嵌套 join 的转义问题）
+            context_text = "\n\n".join(context_parts)
+            user_prompt = f"专题类型：{genre or '通用'}\n\n{context_text}"
+
+            result = await generation_service.generate_with_prompt(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                temperature=0.5,
+                max_tokens=2048,
+            )
+            
+            parsed = self._try_parse_json(result.get("content", ""))
+            if parsed:
+                parsed["version"] = "1.0"
+                parsed["generated_at"] = datetime.utcnow().isoformat()
+                parsed["source"] = "professional_workflow"
+                logger.info(f"Successfully generated style_guide for genre: {genre}")
+                return parsed
+            else:
+                logger.warning("Failed to parse style_guide JSON response")
+                
+        except Exception as e:
+            logger.warning(f"Failed to generate style_guide: {e}")
+        
+        return None
+
     def _try_parse_json(self, content: str) -> Optional[Dict[str, Any]]:
         """尝试解析 JSON 内容"""
         if not content:
@@ -1073,6 +1384,145 @@ class WorkflowService:
                 pass
 
         return None
+
+    # ============================================================
+    # 默认提示词方法（硬编码兜底）
+    # ============================================================
+
+    def _get_default_generate_options_prompt(
+        self,
+        phase_name: str,
+        phase_description: str,
+        genre: str,
+        num_options: int,
+    ) -> str:
+        """获取默认的方案生成提示词（硬编码兜底）"""
+        return f"""你是一位资深网文创作顾问，正在帮助作者进行 {phase_name}。
+
+当前任务：为用户生成 {num_options} 个不同风格/方向的方案供选择。
+
+专题类型：{genre}
+
+要求：
+1. 每个方案必须有明显差异化（风格、基调、方向等不同）
+2. 每个方案都应该完整可用，不是草稿或大纲
+3. 每个方案包含：
+   - id: 方案标识（opt_1, opt_2, opt_3）
+   - summary: 一句话摘要（15-25 字，突出方案特色）
+   - content: 详细内容
+4. 内容要专业、有吸引力、符合网文读者口味
+5. 输出格式为 JSON 数组
+
+输出格式示例：
+```json
+[
+  {{"id": "opt_1", "summary": "热血逆袭型：废材少年觉醒逆天血脉", "content": "详细内容..."}},
+  {{"id": "opt_2", "summary": "稳健发展型：低调修炼厚积薄发", "content": "详细内容..."}},
+  {{"id": "opt_3", "summary": "阴谋权术型：身陷阴谋步步为营", "content": "详细内容..."}}
+]
+```
+"""
+
+    def _get_default_optimize_result_prompt(
+        self,
+        phase_name: str,
+        template_name: str,
+    ) -> str:
+        """获取默认的优化结果提示词（硬编码兜底）"""
+        return f"""你是一位专业的小说创作顾问，擅长优化和改进创意内容。
+
+当前阶段：{phase_name}
+使用模板：{template_name}
+
+任务：根据用户的反馈和需求，优化以下生成结果。
+
+优化原则：
+1. 保留原有内容的核心创意和优点
+2. 改进表达的清晰度和专业性
+3. 增强内容的创意性和吸引力
+4. 确保输出格式与原内容保持一致
+5. 如果原内容是 JSON 格式，优化后也要保持 JSON 格式
+
+请直接输出优化后的完整内容，不要添加额外的解释或说明。"""
+
+    def _get_default_generate_project_info_prompt(self, genre: str) -> str:
+        """获取默认的项目信息生成提示词（硬编码兜底）"""
+        return """你是一位专业的网文编辑，擅长为小说起标题和撰写简介。
+
+任务：根据提供的创作内容，生成一个吸引人的小说标题和简短描述。
+
+要求：
+1. 标题：2-8个字，简洁有力，能体现作品核心卖点
+2. 描述：50-150字，概括故事主线、主角特点和核心冲突，吸引读者点击
+
+输出格式（严格JSON）：
+{"title": "小说标题", "description": "小说描述..."}"""
+
+    def _get_default_generate_style_guide_prompt(self) -> str:
+        """获取默认的风格指导生成提示词（硬编码兜底）"""
+        return """你是专业网文编辑，擅长提炼创作风格指南。
+
+任务：根据创作工作流的各阶段输出，生成结构化的风格指导文档。
+
+输出 JSON 格式（严格遵循）：
+{
+  "creative_direction": {
+    "core_theme": "核心主题（2-10字）",
+    "tone": "作品基调（如：热血燃向、轻松搞笑、暗黑虐心）",
+    "target_audience": "目标读者群体",
+    "market_positioning": "市场定位（如：都市修仙+系统流）",
+    "unique_selling_points": ["卖点1", "卖点2"]
+  },
+  "writing_style": {
+    "pacing": "叙事节奏要求",
+    "narrative_voice": "叙事视角",
+    "dialogue_style": "对话风格要求",
+    "description_density": "描写密度要求"
+  },
+  "quality_rules": {
+    "chapter_word_count": 6000,
+    "cool_points_per_chapter": 2,
+    "cliffhanger_frequency": "悬念设置频率",
+    "forbidden_patterns": ["禁止出现的写法1", "禁止出现的写法2"]
+  },
+  "framework_summary": {
+    "total_arcs": 3,
+    "arc_structure": "各卷/阶段概述",
+    "key_turning_points": ["关键转折点1", "关键转折点2"]
+  }
+}
+
+直接输出 JSON，不要添加其他内容。"""
+
+    def _get_default_convert_text_to_outlines_prompt(self) -> str:
+        """获取默认的文本转大纲提示词（硬编码兜底）"""
+        return """你是一位专业的小说编辑，擅长将故事框架转换为结构化的章节大纲。
+
+任务：将用户提供的故事框架/大纲描述，转换为结构化的章节列表。
+
+输出格式要求（严格 JSON 数组）：
+```json
+[
+  {
+    "title": "第一章：章节标题",
+    "summary": "本章内容摘要，50-100字",
+    "status": "pending"
+  },
+  {
+    "title": "第二章：章节标题",
+    "summary": "本章内容摘要，50-100字",
+    "status": "pending"
+  }
+]
+```
+
+转换规则：
+1. 根据文本中提到的章节规划（如"1-8章"、"第一卷"等）拆分章节
+2. 如果没有明确章节划分，根据情节发展合理拆分为5-15章
+3. 每章标题要有吸引力，体现该章核心内容
+4. summary 要概括该章的主要情节和冲突
+5. status 统一设为 "pending"
+6. 直接输出 JSON 数组，不要添加其他内容"""
 
 
 # 单例服务实例

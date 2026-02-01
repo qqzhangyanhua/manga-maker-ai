@@ -387,13 +387,13 @@ async def redo_phase(
 ):
     """
     回退到指定阶段重做
-    
+
     用于预览阶段的回退功能，回退会清除目标阶段及之后的所有数据
-    
+
     Args:
         session_id: 会话 ID
         request: 重做请求，包含目标阶段
-        
+
     Returns:
         current_phase: 当前阶段
         completed_phases: 已完成阶段列表
@@ -410,6 +410,36 @@ async def redo_phase(
     except Exception as e:
         logger.exception(f"Workflow redo_phase failed for session {session_id}")
         raise HTTPException(status_code=500, detail=f"Redo failed: {str(e)}")
+
+
+@router.post("/{session_id}/generate-project-info")
+async def generate_project_info(
+    session_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    自动生成项目名称和描述
+
+    基于已完成阶段的内容，自动生成适合的项目标题和描述
+
+    Args:
+        session_id: 会话 ID
+
+    Returns:
+        title: 推荐的项目标题
+        description: 推荐的项目描述
+    """
+    try:
+        result = await workflow_service.generate_project_info(
+            session_id=session_id,
+            user_id=user_id,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception(f"Workflow generate_project_info failed for session {session_id}")
+        raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
 
 
 @router.delete("/{session_id}")

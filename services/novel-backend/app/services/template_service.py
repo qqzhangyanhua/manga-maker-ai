@@ -18,6 +18,18 @@ from app.utils.genre_utils import clean_genre
 class TemplateService:
     """写作提示词模板服务"""
 
+    # 8 个 function_code 及其预定义变量
+    FUNCTION_VARIABLES = {
+        "creative_generate_options": ["phase_name", "phase_description", "genre", "num_options"],
+        "setting_generate_options": ["phase_name", "phase_description", "genre", "num_options", "creative_output"],
+        "framework_generate_options": ["phase_name", "phase_description", "genre", "num_options", "creative_output", "setting_output"],
+        "writing_generate_options": ["phase_name", "phase_description", "genre", "num_options", "creative_output", "setting_output", "framework_output"],
+        "optimize_result": ["phase_name", "template_name", "current_result", "optimization_instruction"],
+        "generate_project_info": ["genre", "creative_summary", "setting_summary", "framework_summary"],
+        "generate_style_guide": ["genre", "creative_output", "setting_output", "framework_output", "writing_output"],
+        "convert_text_to_outlines": ["genre", "framework_text"],
+    }
+
     # 阶段显示名称映射
     PHASE_DISPLAY_NAMES = {
         "creative": "创意阶段",
@@ -372,6 +384,155 @@ class TemplateService:
                 {"template_id": template_id},
             )
             await session.commit()
+
+    async def get_template_for_function(
+        self,
+        function_code: str,
+        genre: Optional[str] = None,
+        session: Optional[AsyncSession] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        三层兜底匹配获取功能模板
+        
+        匹配顺序：
+        1. 先查专题模板：genre=指定值 AND function_code=指定值
+        2. 再查通用模板：genre IS NULL AND function_code=指定值
+        3. 都没有则返回 None（由调用方使用硬编码兜底）
+        
+        Args:
+            function_code: 功能代码，如 "creative_generate_options"
+            genre: 专题类型，如 "玄幻"
+            session: 可选的数据库会话
+            
+        Returns:
+            模板字典或 None
+        """
+        if session is None:
+            async with AsyncSessionLocal() as session:
+                return await self._get_template_for_function_internal(session, function_code, genre)
+        else:
+            return await self._get_template_for_function_internal(session, function_code, genre)
+    
+    async def _get_template_for_function_internal(
+        self,
+        session: AsyncSession,
+        function_code: str,
+        genre: Optional[str],
+    ) -> Optional[Dict[str, Any]]:
+        """内部方法：执行三层兜底匹配"""
+        cleaned_genre = clean_genre(genre)
+        
+        # 第一层：查找专题模板
+        if cleaned_genre:
+            query = text("""
+                SELECT id, code, name, description, phase, category, genre,
+                       system_role, chain_of_thought, output_schema,
+                       function_code, sort_order, usage_count
+                FROM writing_prompt_templates
+                WHERE function_code = :function_code 
+                  AND genre = :genre 
+                  AND is_active = true
+                ORDER BY sort_order ASC, usage_count DESC
+                LIMIT 1
+            """)
+            result = await session.execute(query, {"function_code": function_code, "genre": cleaned_genre})
+            row = result.fetchone()
+            if row:
+                return self._row_to_template_dict(row)
+        
+        # 第二层：查找通用模板
+        query = text("""
+            SELECT id, code, name, description, phase, category, genre,
+                   system_role, chain_of_thought, output_schema,
+                   function_code, sort_order, usage_count
+            FROM writing_prompt_templates
+            WHERE function_code = :function_code 
+              AND genre IS NULL 
+              AND is_active = true
+            ORDER BY sort_order ASC, usage_count DESC
+            LIMIT 1
+        """)
+        result = await session.execute(query, {"function_code": function_code})
+        row = result.fetchone()
+        if row:
+            return self._row_to_template_dict(row)
+        
+        # 第三层：返回 None，由调用方使用硬编码兜底
+        return None
+    
+    def _row_to_template_dict(self, row) -> Dict[str, Any]:
+        """将数据库行转换为模板字典"""
+        return {
+            "id": str(row.id),
+            "code": row.code,
+            "name": row.name,
+            "description": row.description,
+            "phase": row.phase,
+            "category": row.category,
+            "genre": row.genre,
+            "system_role": row.system_role,
+            "chain_of_thought": row.chain_of_thought if isinstance(row.chain_of_thought, list) else (json.loads(row.chain_of_thought) if row.chain_of_thought else []),
+            "output_schema": row.output_schema if isinstance(row.output_schema, dict) else (json.loads(row.output_schema) if row.output_schema else None),
+            "function_code": row.function_code,
+        }
+
+    async def render_function_template(
+        self,
+        function_code: str,
+        genre: Optional[str],
+        variables: Dict[str, Any],
+    ) -> Optional[str]:
+        """
+        获取功能模板并渲染为完整提示词
+        
+        Args:
+            function_code: 功能代码
+            genre: 专题类型
+            variables: 变量字典
+            
+        Returns:
+            渲染后的系统提示词，如果没有可用模板则返回 None
+        """
+        template = await self.get_template_for_function(function_code, genre)
+        if not template:
+            return None
+        
+        # 渲染系统角色
+        system_role = template.get("system_role", "")
+        for key, value in variables.items():
+            placeholder = f"{{{{{key}}}}}"
+            if isinstance(value, (dict, list)):
+                value_str = json.dumps(value, ensure_ascii=False, indent=2)
+            else:
+                value_str = str(value) if value is not None else ""
+            system_role = system_role.replace(placeholder, value_str)
+        
+        # 渲染思维链指令
+        chain_of_thought = template.get("chain_of_thought", [])
+        full_prompt = f"{system_role}\n\n"
+        
+        if chain_of_thought:
+            full_prompt += "## 思维链指令\n\n"
+            for level in chain_of_thought:
+                if isinstance(level, dict):
+                    full_prompt += f"### {level.get('title', '')}\n"
+                    for i, item in enumerate(level.get("content", []), 1):
+                        # 渲染变量
+                        rendered_item = item
+                        for key, value in variables.items():
+                            placeholder = f"{{{{{key}}}}}"
+                            if isinstance(value, (dict, list)):
+                                value_str = json.dumps(value, ensure_ascii=False)
+                            else:
+                                value_str = str(value) if value is not None else ""
+                            rendered_item = rendered_item.replace(placeholder, value_str)
+                        full_prompt += f"{i}. {rendered_item}\n"
+                    full_prompt += "\n"
+        
+        # 更新使用次数
+        await self._increment_usage_count(template["id"])
+        
+        return full_prompt
 
     async def get_workflow_templates(
         self, genre: Optional[str] = None, session: Optional[AsyncSession] = None

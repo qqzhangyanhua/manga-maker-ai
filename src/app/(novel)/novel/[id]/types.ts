@@ -134,6 +134,44 @@ export interface WorldSetting {
 }
 
 /**
+ * 风格指导文档类型定义
+ * 由 ProfessionalMode 工作流生成
+ */
+export interface StyleGuide {
+  version: string;
+  generated_at: string;
+  source: "professional_workflow" | "manual";
+
+  creative_direction: {
+    core_theme: string;
+    tone: string;
+    target_audience: string;
+    market_positioning?: string;
+    unique_selling_points?: string[];
+  };
+
+  writing_style: {
+    pacing: string;
+    narrative_voice: string;
+    dialogue_style: string;
+    description_density?: string;
+  };
+
+  quality_rules: {
+    chapter_word_count: number;
+    cool_points_per_chapter: number;
+    cliffhanger_frequency?: string;
+    forbidden_patterns?: string[];
+  };
+
+  framework_summary?: {
+    total_arcs: number;
+    arc_structure: string;
+    key_turning_points?: string[];
+  };
+}
+
+/**
  * 小说项目
  */
 export interface NovelProject {
@@ -149,6 +187,7 @@ export interface NovelProject {
   world_setting: WorldSetting | null;
   characters: Character[] | null;
   outlines: ChapterOutline[] | null;
+  style_guide?: StyleGuide | null;  // 新增：风格指导文档
   chapters?: NovelChapter[] | null;  // ✅ 新增：完整章节列表（包含content）
   created_at: string;
   updated_at: string;

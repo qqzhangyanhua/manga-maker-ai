@@ -28,6 +28,7 @@ class NovelGenerationService:
         style_prompt: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: int = 12000,  # ✨ 提升到12000以确保6000字中文的输出空间
+        has_style_guide: bool = False,  # 新增参数
     ) -> AsyncGenerator[str, None]:
         """
         流式生成章节内容
@@ -39,6 +40,7 @@ class NovelGenerationService:
             style_prompt: 风格提示（可选）
             temperature: 温度参数
             max_tokens: 最大 token 数（12000 tokens ≈ 6000-9000 中文字）
+            has_style_guide: 项目是否有风格指导文档
 
         Yields:
             生成的文本片段
@@ -47,7 +49,8 @@ class NovelGenerationService:
             # 使用新的提示词模板
             system_prompt = NovelPromptTemplates.get_chapter_generation_prompt(
                 chapter_number=chapter_number,
-                style_prompt=style_prompt
+                style_prompt=style_prompt,
+                has_style_guide=has_style_guide,  # 新增参数
             )
 
             # 构建用户提示词
@@ -69,6 +72,7 @@ class NovelGenerationService:
             logger.info(
                 f"🤖 准备调用 LLM 生成章节 - "
                 f"章节号: {chapter_number}, "
+                f"has_style_guide: {has_style_guide}, "
                 f"system_prompt 长度: {len(system_prompt)} 字符, "
                 f"user_prompt 长度: {len(user_prompt)} 字符, "
                 f"context 长度: {len(context)} 字符, "

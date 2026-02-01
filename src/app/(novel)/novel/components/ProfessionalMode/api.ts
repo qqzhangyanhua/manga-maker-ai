@@ -197,3 +197,14 @@ export async function redoPhase(
   );
   return handleResponse(response);
 }
+
+export async function generateProjectInfo(sessionId: string): Promise<{
+  title: string;
+  description: string;
+}> {
+  const response = await fetch(
+    `/api/novel/workflow/${sessionId}/generate-project-info`,
+    { method: "POST" }
+  );
+  return handleResponse(response);
+}

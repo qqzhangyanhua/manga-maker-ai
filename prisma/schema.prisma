@@ -998,6 +998,9 @@ model NovelProject {
   // 章节大纲（JSON 结构化存储）
   outlines Json? // [{ chapterNumber, title, outline, keyEvents, characters, plotLines, isKeyChapter }]
 
+  // 新增：风格指导文档（由 ProfessionalMode 工作流生成）
+  style_guide Json? // { creative_direction, writing_style, quality_rules, framework_summary }
+
   // 项目配置
   target_words Int? // 目标字数
   status       String  @default("draft") // draft, writing, completed, archived
@@ -1577,6 +1580,9 @@ model WritingPromptTemplate {
   category String  @db.VarChar(50) // 子分类: inspiration, character, outline 等
   genre    String? @db.VarChar(50) // 专题: 玄幻, 多子多福, 替身文 等，null=通用
 
+  // 功能代码（用于动态模板匹配）
+  function_code String? @db.VarChar(50) // 功能代码: creative_generate_options, setting_generate_options 等
+
   // 核心内容
   system_role      String @db.Text // 系统角色定义
   chain_of_thought Json   @db.JsonB // 思维链指令（结构化存储）
@@ -1596,6 +1602,7 @@ model WritingPromptTemplate {
   @@index([phase, category], map: "idx_writing_templates_phase_category")
   @@index([genre], map: "idx_writing_templates_genre")
   @@index([is_active, sort_order], map: "idx_writing_templates_active_sort")
+  @@index([function_code, genre, is_active], map: "idx_writing_templates_function_genre")
   @@map("writing_prompt_templates")
 }
 
@@ -1604,14 +1611,14 @@ model TemplateSlot {
   id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   template_id String @db.Uuid
 
-  name         String  @db.VarChar(100) // 变量名如 "inspiration_input"
-  display_name String  @db.VarChar(200) // 显示名称
-  description  String? @db.Text // 说明
-  slot_type    String  @db.VarChar(20) // input | output
-  data_type    String  @db.VarChar(20) // text | json | choice
-  required     Boolean @default(false)
+  name          String  @db.VarChar(100) // 变量名如 "inspiration_input"
+  display_name  String  @db.VarChar(200) // 显示名称
+  description   String? @db.Text // 说明
+  slot_type     String  @db.VarChar(20) // input | output
+  data_type     String  @db.VarChar(20) // text | json | choice
+  required      Boolean @default(false)
   default_value String? @db.Text
-  options      Json?   @db.JsonB // 选项（用于 choice 类型）
+  options       Json?   @db.JsonB // 选项（用于 choice 类型）
 
   created_at DateTime @default(now()) @db.Timestamptz(6)
 
@@ -1645,4 +1652,28 @@ model WorkflowSession {
   @@index([user_id, status], map: "idx_workflow_sessions_user_status")
   @@index([expires_at], map: "idx_workflow_sessions_expires")
   @@map("workflow_sessions")
+}
+
+// ============================================================
+// 专题管理 - Genre System for Dynamic Prompt Templates
+// ============================================================
+
+// 专题类型（玄幻、都市、悬疑等）
+model Genre {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code         String   @unique @db.VarChar(50) // 如 "xuanhuan", "dushi"
+  display_name String   @db.VarChar(100) // 如 "玄幻", "都市"
+  description  String?  @db.Text
+  parent_id    String?  @db.Uuid // 预留，暂不使用
+  is_active    Boolean  @default(true)
+  sort_order   Int      @default(0)
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  // Self-relation for hierarchical genres (future use)
+  parent   Genre?  @relation("GenreHierarchy", fields: [parent_id], references: [id], onDelete: SetNull)
+  children Genre[] @relation("GenreHierarchy")
+
+  @@index([is_active, sort_order], map: "idx_genres_active_sort")
+  @@map("genres")
 }
