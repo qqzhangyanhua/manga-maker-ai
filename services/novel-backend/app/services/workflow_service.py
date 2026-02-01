@@ -1040,13 +1040,18 @@ class WorkflowService:
             genre=genre,
         )
 
+        # 规范化数据结构，确保兼容详情页
+        normalized_outlines = self._normalize_outlines(outlines)
+        normalized_world_setting = self._normalize_world_setting(world_setting)
+        normalized_characters = self._normalize_characters(characters)
+
         # 创建项目
         async with AsyncSessionLocal() as db_session:
             project_id = str(uuid.uuid4())
 
             await db_session.execute(
                 text("""
-                    INSERT INTO novel_projects 
+                    INSERT INTO novel_projects
                     (id, user_id, title, description, genre, world_setting, characters, outlines, style_guide, status)
                     VALUES (:id, :user_id, :title, :description, :genre, :world_setting, :characters, :outlines, :style_guide, :status)
                 """),
@@ -1056,9 +1061,9 @@ class WorkflowService:
                     "title": project_title,
                     "description": project_description,
                     "genre": genre,
-                    "world_setting": json.dumps(world_setting) if world_setting else None,
-                    "characters": json.dumps(characters) if characters else None,
-                    "outlines": json.dumps(outlines) if outlines else None,
+                    "world_setting": json.dumps(normalized_world_setting) if normalized_world_setting else None,
+                    "characters": json.dumps(normalized_characters) if normalized_characters else None,
+                    "outlines": json.dumps(normalized_outlines) if normalized_outlines else None,
                     "style_guide": json.dumps(style_guide) if style_guide else None,
                     "status": "draft",
                 },
@@ -1384,6 +1389,203 @@ class WorkflowService:
                 pass
 
         return None
+
+    # ============================================================
+    # 数据规范化方法（兼容详情页数据结构）
+    # ============================================================
+
+    def _normalize_outlines(
+        self, raw_outlines: Optional[List[Dict[str, Any]]]
+    ) -> Optional[List[Dict[str, Any]]]:
+        """
+        规范化章节大纲数据，转换为 ChapterOutlineBackend 格式
+
+        输入可能是：
+        - [{title, summary, status}] - 简单格式（专业模式生成）
+        - [{chapter_number, title, outline, ...}] - 完整格式
+
+        输出：
+        - [{chapter_number, title, outline, key_events, characters, plot_lines, is_key_chapter, status}]
+        """
+        if not raw_outlines or not isinstance(raw_outlines, list):
+            return None
+
+        normalized = []
+        for i, chapter in enumerate(raw_outlines):
+            if not isinstance(chapter, dict):
+                continue
+
+            # 提取章节号（优先使用已有的，否则按顺序生成）
+            chapter_number = (
+                chapter.get("chapter_number") or
+                chapter.get("chapterNumber") or
+                (i + 1)
+            )
+
+            # 提取标题
+            title = chapter.get("title") or f"第{chapter_number}章"
+
+            # 提取大纲（summary 映射到 outline）
+            outline = (
+                chapter.get("outline") or
+                chapter.get("summary") or
+                chapter.get("content") or
+                ""
+            )
+
+            # 提取或初始化数组字段
+            key_events = chapter.get("key_events") or chapter.get("keyEvents") or []
+            characters = chapter.get("characters") or []
+            plot_lines = chapter.get("plot_lines") or chapter.get("plotLines") or []
+
+            # 提取布尔字段
+            is_key_chapter = chapter.get("is_key_chapter") or chapter.get("isKeyChapter") or False
+
+            # 提取状态
+            status = chapter.get("status") or "draft"
+
+            normalized.append({
+                "chapter_number": chapter_number,
+                "title": title,
+                "outline": outline,
+                "key_events": key_events if isinstance(key_events, list) else [],
+                "characters": characters if isinstance(characters, list) else [],
+                "plot_lines": plot_lines if isinstance(plot_lines, list) else [],
+                "is_key_chapter": bool(is_key_chapter),
+                "status": status,
+            })
+
+        return normalized if normalized else None
+
+    def _normalize_world_setting(
+        self, raw: Optional[Any]
+    ) -> Optional[Dict[str, Any]]:
+        """
+        规范化世界观设定数据，转换为 WorldSetting 格式
+
+        输入可能是：
+        - 纯文本字符串（专业模式生成）
+        - {locations, factions, rules, timeline} - 完整格式
+        - 其他字典格式
+
+        输出：
+        - {locations: [], factions: [], rules: [], timeline: []}
+        """
+        if raw is None:
+            return None
+
+        # 如果是字符串，转换为 rules 条目
+        if isinstance(raw, str):
+            if not raw.strip():
+                return None
+            return {
+                "locations": [],
+                "factions": [],
+                "rules": [{
+                    "id": str(uuid.uuid4()),
+                    "title": "世界观设定",
+                    "content": raw,
+                    "category": "other",
+                }],
+                "timeline": [],
+            }
+
+        # 如果已经是正确格式
+        if isinstance(raw, dict):
+            # 检查是否已有正确结构
+            if all(key in raw for key in ["locations", "factions", "rules", "timeline"]):
+                return {
+                    "locations": raw.get("locations") or [],
+                    "factions": raw.get("factions") or [],
+                    "rules": raw.get("rules") or [],
+                    "timeline": raw.get("timeline") or [],
+                }
+
+            # 其他字典格式，整体作为 rules 条目
+            content_parts = []
+            for key, value in raw.items():
+                if value:
+                    if isinstance(value, str):
+                        content_parts.append(f"【{key}】\n{value}")
+                    else:
+                        content_parts.append(f"【{key}】\n{json.dumps(value, ensure_ascii=False, indent=2)}")
+
+            if content_parts:
+                return {
+                    "locations": [],
+                    "factions": [],
+                    "rules": [{
+                        "id": str(uuid.uuid4()),
+                        "title": "世界观设定",
+                        "content": "\n\n".join(content_parts),
+                        "category": "other",
+                    }],
+                    "timeline": [],
+                }
+
+        return None
+
+    def _normalize_characters(
+        self, raw: Optional[Any]
+    ) -> Optional[List[Dict[str, Any]]]:
+        """
+        规范化角色数据，转换为 Character[] 格式
+
+        输入可能是：
+        - 单个角色字典（protagonist）
+        - 角色数组
+        - 包含 protagonist 和 supporting_characters 的字典
+
+        输出：
+        - [{id, name, role, description, traits, ...}]
+        """
+        if raw is None:
+            return None
+
+        characters = []
+
+        # 如果是单个角色字典
+        if isinstance(raw, dict) and "name" in raw:
+            characters.append(self._normalize_single_character(raw, "protagonist"))
+
+        # 如果是包含 protagonist 的复合结构
+        elif isinstance(raw, dict):
+            # 提取主角
+            if "protagonist" in raw:
+                protagonist = raw["protagonist"]
+                if isinstance(protagonist, dict) and "name" in protagonist:
+                    characters.append(self._normalize_single_character(protagonist, "protagonist"))
+
+            # 提取配角
+            supporting = raw.get("supporting_characters") or raw.get("characters") or []
+            if isinstance(supporting, list):
+                for char in supporting:
+                    if isinstance(char, dict) and "name" in char:
+                        characters.append(self._normalize_single_character(char, "supporting"))
+
+        # 如果是角色数组
+        elif isinstance(raw, list):
+            for i, char in enumerate(raw):
+                if isinstance(char, dict) and "name" in char:
+                    role = "protagonist" if i == 0 else "supporting"
+                    characters.append(self._normalize_single_character(char, role))
+
+        return characters if characters else None
+
+    def _normalize_single_character(
+        self, char: Dict[str, Any], default_role: str
+    ) -> Dict[str, Any]:
+        """规范化单个角色数据"""
+        return {
+            "id": char.get("id") or str(uuid.uuid4()),
+            "name": char.get("name") or "未命名角色",
+            "role": char.get("role") or default_role,
+            "description": char.get("description") or char.get("personality") or "",
+            "traits": char.get("traits") or [],
+            "relationships": char.get("relationships") or [],
+            "appearance": char.get("appearance") or "",
+            "background": char.get("background") or char.get("backstory") or "",
+        }
 
     # ============================================================
     # 默认提示词方法（硬编码兜底）
