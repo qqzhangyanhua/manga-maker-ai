@@ -2,6 +2,7 @@
  * SerialChapterList 组件类型定义
  */
 
+import type React from "react";
 import type { CharacterReference as CharacterRef } from "@/app/scripts/[id]/types/character.types";
 
 // 重新导出以供外部使用
@@ -52,7 +53,6 @@ export interface SerialChapterListProps {
   streamingPanels?: Panel[];
   storyStyle?: string; // 当前故事的风格
   onRefresh: () => Promise<void> | void;
-  onCreateChapter: () => void;
   onGenerateNext: () => void;
   onGeneratePanels: (chapterId: string) => void;
   onGenerateBackground: (chapterId: string, params: { scene_type: string; style: string; prompt?: string; negative_prompt?: string }) => Promise<void>;
@@ -88,6 +88,8 @@ export interface ChapterCardProps {
   onCharactersRefresh?: () => void;
   onRefresh: () => Promise<void> | void;
   onError: (message: string) => void;
+  /** 拖拽手柄属性（由 dnd-kit 提供） */
+  dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
 }
 
 export interface PublishCheckDialogProps {

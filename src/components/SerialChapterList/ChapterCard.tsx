@@ -16,6 +16,7 @@ import {
   Layers,
   Edit2,
   Image as ImageIcon,
+  GripVertical,
 } from "lucide-react";
 import { ChapterPanelEditor } from "./ChapterPanelEditor";
 import { GenerateChapterScenesDialog } from "./GenerateChapterScenesDialog";
@@ -62,17 +63,28 @@ export function ChapterCard({
   onCharactersRefresh,
   onRefresh,
   onError,
+  dragHandleProps,
 }: ChapterCardProps) {
   const [generateScenesDialogOpen, setGenerateScenesDialogOpen] = useState(false);
 
   return (
     <div
-      className={`border rounded-lg overflow-hidden transition-colors ${
+      className={`border rounded-lg overflow-hidden transition-colors relative ${
         isSelected
           ? "border-blue-500 bg-blue-500/5"
           : "border-gray-800/50 bg-[#1a1a1f]/60"
-      }`}
+      } ${dragHandleProps ? "pl-8" : ""}`}
     >
+      {/* 拖拽手柄 */}
+      {dragHandleProps && (
+        <div
+          {...dragHandleProps}
+          className="absolute left-0 top-0 bottom-0 w-8 flex items-center justify-center cursor-grab active:cursor-grabbing hover:bg-gray-800/30 transition-colors rounded-l-lg"
+        >
+          <GripVertical className="w-5 h-5 text-gray-500" />
+        </div>
+      )}
+
       {/* 章节头部 - 可点击展开 */}
       <div
         className="p-4 cursor-pointer hover:bg-gray-800/20 transition-colors"
