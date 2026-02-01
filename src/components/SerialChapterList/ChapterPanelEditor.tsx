@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   DndContext,
   closestCenter,
@@ -33,7 +33,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { SortablePanelCard } from "@/app/scripts/[id]/components/PanelEditor/SortablePanelCard";
+import { SortableInlineEditablePanelCard } from "@/app/scripts/[id]/components/PanelEditor/SortableInlineEditablePanelCard";
+import { usePanelInlineUpdate } from "@/app/scripts/[id]/hooks/usePanelInlineUpdate";
 import { PanelCardActions } from "@/app/scripts/[id]/components/PanelEditor/PanelCardActions";
 import { InsertPanelDialog } from "@/app/scripts/[id]/components/PanelEditor/InsertPanelDialog";
 import { SplitPanelDialog } from "@/app/scripts/[id]/components/PanelEditor/SplitPanelDialog";
@@ -78,6 +79,17 @@ export function ChapterPanelEditor({
   onError,
 }: ChapterPanelEditorProps) {
   const { toast } = useToast();
+
+  // Inline editing hook
+  const { updatePanelField } = usePanelInlineUpdate();
+
+  // Handler for inline panel updates
+  const handlePanelUpdate = useCallback(
+    async (panelId: string, field: string, value: string) => {
+      await updatePanelField(panelId, field, value);
+    },
+    [updatePanelField]
+  );
 
   // 过滤当前章节的分镜
   const chapterPanels = useMemo(() => {
@@ -301,10 +313,11 @@ export function ChapterPanelEditor({
           >
             <div className="space-y-3">
               {displayPanels.map((panel, index) => (
-                <SortablePanelCard
+                <SortableInlineEditablePanelCard
                   key={panel.id}
                   panel={panel as ScriptPanel}
                   index={index}
+                  onPanelUpdate={handlePanelUpdate}
                   actions={
                     <PanelCardActions
                       panel={panel as ScriptPanel}
