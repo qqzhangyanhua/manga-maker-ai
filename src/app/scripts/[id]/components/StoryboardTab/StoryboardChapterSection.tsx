@@ -85,7 +85,7 @@ export function StoryboardChapterSection({
                 index={index}
                 size={thumbnailSize}
                 isSelected={selectedPanelIds.has(panel.id)}
-                onClick={() => onPanelClick(panel.id, {} as React.MouseEvent)}
+                onClick={(event) => onPanelClick(panel.id, event)}
                 onDoubleClick={() => onPanelDoubleClick(panel.id)}
               />
             ))}

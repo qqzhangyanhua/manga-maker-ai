@@ -15,7 +15,7 @@ interface StoryboardThumbnailProps {
   index: number;
   size: "small" | "medium" | "large";
   isSelected?: boolean;
-  onClick?: () => void;
+  onClick?: (event: React.MouseEvent) => void;
   onDoubleClick?: () => void;
 }
 
@@ -39,7 +39,7 @@ export function StoryboardThumbnail({
 
   return (
     <div
-      onClick={onClick}
+      onClick={onClick ? (e) => onClick(e) : undefined}
       onDoubleClick={onDoubleClick}
       className={cn(
         "relative rounded-lg overflow-hidden cursor-pointer",
