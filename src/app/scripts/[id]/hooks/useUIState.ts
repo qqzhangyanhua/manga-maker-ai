@@ -10,6 +10,7 @@ import type { Panel, StoryFormData } from '../types/script-editor.types';
 export const TAB_VALUES = {
   SERIAL: 'serial',
   CHARACTERS: 'characters',
+  STORYBOARD: 'storyboard',
   GALLERY: 'gallery',
   LAYOUT: 'layout',
 } as const;
@@ -219,8 +220,11 @@ export interface UIActions {
 /**
  * 自定义 Hook 封装 UI 状态管理
  */
-export function useUIState() {
-  const [state, dispatch] = useReducer(uiReducer, initialState);
+export function useUIState(initialTab?: TabValue) {
+  const [state, dispatch] = useReducer(uiReducer, {
+    ...initialState,
+    activeTab: initialTab || TAB_VALUES.SERIAL,
+  });
 
   // 封装常用操作为便捷方法 - 使用 useMemo 确保 actions 对象引用稳定
   const actions = useMemo<UIActions>(() => ({
