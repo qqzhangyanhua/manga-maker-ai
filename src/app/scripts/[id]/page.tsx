@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useCallback, useMemo, useState, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/Landing";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -18,7 +18,8 @@ import { AssetLibrarySidebarSheet } from "./components/AssetLibrarySidebarSheet"
 import { useStoryDataOptimized } from "./hooks/useStoryDataOptimized";
 import { useCharacterAssets } from "./hooks/useCharacterAssets";
 import { useStoryCharacters } from "./hooks/useStoryCharacters";
-import { useUIState } from "./hooks/useUIState";
+import { useUIState, TAB_VALUES } from "./hooks/useUIState";
+import type { TabValue } from "./hooks/useUIState";
 import { useScriptPageHandlers } from "./hooks/useScriptPageHandlers";
 import { useScriptContextValues } from "./hooks/useScriptContextValues";
 import { useAssetApplication } from "./hooks/useAssetApplication";
@@ -33,11 +34,22 @@ import { useNovelCharacterSync } from "./hooks/useNovelCharacterSync";
 import { NineGridDialog } from "./components/NineGridDialog";
 import { validateBackgroundParams, ValidationError } from "./utils/inputValidation";
 
+// 验证 URL 中的 tab 参数是否有效
+function isValidTab(tab: string | null): tab is TabValue {
+  if (!tab) return false;
+  return Object.values(TAB_VALUES).includes(tab as TabValue);
+}
+
 export default function ScriptDetailsPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const storyId = params.id as string;
+
+  // 从 URL 读取初始 tab 值
+  const urlTab = searchParams.get("tab");
+  const initialTab = isValidTab(urlTab) ? urlTab : TAB_VALUES.SERIAL;
 
   // Data fetching hooks
   const { data, isLoading, isPanelsLoading, error, refetchPanels, refetchStory, hasStory } =
@@ -71,8 +83,18 @@ export default function ScriptDetailsPage() {
     ]);
   }, []); // ✅ 空依赖数组，函数引用永不变化
 
-  // UI state
-  const { state: uiState, actions: uiActions } = useUIState();
+  // UI state - 使用 URL 中的 tab 作为初始值
+  const { state: uiState, actions: uiActions } = useUIState(initialTab);
+
+  // 同步 activeTab 到 URL（无刷新）
+  useEffect(() => {
+    const currentTab = searchParams.get("tab");
+    if (currentTab !== uiState.activeTab) {
+      const newSearchParams = new URLSearchParams(searchParams.toString());
+      newSearchParams.set("tab", uiState.activeTab);
+      router.replace(`/scripts/${storyId}?${newSearchParams.toString()}`, { scroll: false });
+    }
+  }, [uiState.activeTab, searchParams, router, storyId]);
 
   // Progress calculation - 使用 as unknown 解决类型系统冲突
   const progressStats = useProgressCalculation({
@@ -385,10 +407,6 @@ export default function ScriptDetailsPage() {
                 <ScriptPageGuidance
                   progressStats={progressStats}
                   chapters={data.chapters || []}
-                  nextChapterOrder={nextChapterOrder}
-                  onCreateChapter={() => {
-                    uiActions.openChapterDialog("create", nextChapterOrder);
-                  }}
                   onGeneratePanelsForChapter={handleGeneratePanelsForChapter}
                   onSetCurrentChapter={uiActions.setCurrentChapter}
                 />
@@ -406,6 +424,7 @@ export default function ScriptDetailsPage() {
                   storyCharacters={storyCharacters}
                   characterAssets={characterAssets}
                   isCharactersLoading={isCharactersLoading}
+                  isStoryCharactersLoading={isStoryCharactersLoading}
                   isGenerating={isGenerating}
                   streamingPanels={progress.generatedPanels || []}
                   progressStats={progressStats}
@@ -413,9 +432,6 @@ export default function ScriptDetailsPage() {
                   onTabChange={(value) =>
                     uiActions.setActiveTab(value as typeof uiState.activeTab)
                   }
-                  onCreateChapter={() => {
-                    uiActions.openChapterDialog("create", nextChapterOrder);
-                  }}
                   onGenerateNext={() => {
                     uiActions.openChapterDialog("generate-next", nextChapterOrder);
                   }}

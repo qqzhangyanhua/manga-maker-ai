@@ -57,8 +57,6 @@ export interface ScriptPageHeaderProps {
 export interface ScriptPageGuidanceProps {
   progressStats: ProgressCalculationResult;
   chapters: Chapter[];
-  nextChapterOrder: number;
-  onCreateChapter: () => void;
   onGeneratePanelsForChapter: (chapterId: string) => void;
   onSetCurrentChapter: (chapterId: string) => void;
 }
@@ -77,12 +75,12 @@ export interface ScriptPageTabsProps {
   storyCharacters: StoryCharacterWithDetails[];
   characterAssets: CharacterAsset[];
   isCharactersLoading: boolean;
+  isStoryCharactersLoading: boolean;
   isGenerating: boolean;
   streamingPanels: Panel[];
   progressStats: ProgressCalculationResult;
   nextChapterOrder: number;
   onTabChange: (value: string) => void;
-  onCreateChapter: () => void;
   onGenerateNext: () => void;
   onGeneratePanels: (chapterId: string) => void;
   onGenerateBackground: (

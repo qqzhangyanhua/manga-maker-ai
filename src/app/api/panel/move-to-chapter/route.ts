@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     const targetChapter = await prisma.chapter.findUnique({
       where: { id: target_chapter_id },
       include: {
-        story: { select: { user_id: true, project_id: true } },
+        story: { select: { user_id: true } },
       },
     });
 

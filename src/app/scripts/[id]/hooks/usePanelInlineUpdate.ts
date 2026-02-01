@@ -4,7 +4,6 @@
  */
 
 import { useCallback } from "react";
-import { useToast } from "@/hooks/use-toast";
 
 interface UsePanelInlineUpdateOptions {
   /** 更新成功后的回调 */
@@ -12,7 +11,6 @@ interface UsePanelInlineUpdateOptions {
 }
 
 export function usePanelInlineUpdate(options: UsePanelInlineUpdateOptions = {}) {
-  const { toast } = useToast();
   const { onSuccess } = options;
 
   /**

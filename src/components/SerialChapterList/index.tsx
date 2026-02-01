@@ -10,8 +10,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { Button } from "@/components/ui/button";
-import { BookOpen, Plus } from "lucide-react";
+import { BookOpen, ArrowUp } from "lucide-react";
 import { EditChapterDialog } from "@/components/EditChapterDialog";
 import { ChapterCard } from "./ChapterCard";
 import { PublishCheckDialog } from "./PublishCheckDialog";
@@ -30,7 +29,6 @@ export function SerialChapterList({
   streamingPanels = [],
   storyStyle,
   onRefresh,
-  onCreateChapter,
   onGenerateNext,
   onGeneratePanels,
   onGenerateBackground,
@@ -120,13 +118,10 @@ export function SerialChapterList({
           <div className="text-center py-12 text-gray-400 bg-[#1a1a1f]/60 rounded-xl border border-gray-800/50">
             <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <p className="mb-4">还没有章节</p>
-            <Button
-              onClick={onCreateChapter}
-              className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              创建第一章
-            </Button>
+            <div className="flex items-center justify-center gap-2 text-sm text-zinc-500">
+              <ArrowUp className="w-4 h-4 animate-bounce" />
+              <span>点击右上角「创建章节」按钮开始</span>
+            </div>
           </div>
         ) : (
           <div className="space-y-3">
