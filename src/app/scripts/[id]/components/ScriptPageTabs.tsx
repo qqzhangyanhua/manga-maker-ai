@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Lock } from "lucide-react";
+import { Lock, Loader2 } from "lucide-react";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
 import { TAB_VALUES } from "../hooks/useUIState";
 import { SerialChapterList } from "@/components/SerialChapterList";
@@ -9,6 +9,7 @@ import { StoryCharactersManager } from "./StoryCharactersManager";
 import { StoryImagesGallery } from "./StoryImagesGallery";
 import { LayoutExportTab } from "./LayoutExportTab";
 import { BatchOperationsManager } from "./BatchOperationsManager";
+import { StoryboardTab } from "./StoryboardTab";
 import type { ScriptPageTabsProps } from "../types/component-props.types";
 
 export function ScriptPageTabs({
@@ -23,12 +24,12 @@ export function ScriptPageTabs({
   storyCharacters,
   characterAssets,
   isCharactersLoading,
+  isStoryCharactersLoading,
   isGenerating,
   streamingPanels,
   progressStats,
   nextChapterOrder,
   onTabChange,
-  onCreateChapter,
   onGenerateNext,
   onGeneratePanels,
   onGenerateBackground,
@@ -69,9 +70,24 @@ export function ScriptPageTabs({
         >
           <div className="flex items-center gap-2">
             <span>关联角色</span>
-            {storyCharacters.length > 0 && (
+            {isStoryCharactersLoading ? (
+              <Loader2 className="w-3 h-3 animate-spin text-gray-500" />
+            ) : storyCharacters.length > 0 ? (
               <Badge variant="secondary" className="ml-1">
                 {storyCharacters.length}
+              </Badge>
+            ) : null}
+          </div>
+        </TabsTrigger>
+        <TabsTrigger
+          value={TAB_VALUES.STORYBOARD}
+          className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-500 data-[state=active]:bg-transparent bg-transparent px-4 py-3 text-gray-400 data-[state=active]:text-white data-[state=active]:shadow-none"
+        >
+          <div className="flex items-center gap-2">
+            <span>故事板</span>
+            {progressStats.totalPanels > 0 && (
+              <Badge variant="secondary" className="ml-1">
+                {progressStats.completedPanels}/{progressStats.totalPanels}
               </Badge>
             )}
           </div>
@@ -109,7 +125,6 @@ export function ScriptPageTabs({
           streamingPanels={streamingPanels}
           storyStyle={storyStyle}
           onRefresh={onRefreshStoryData}
-          onCreateChapter={onCreateChapter}
           onGenerateNext={onGenerateNext}
           onGeneratePanels={onGeneratePanels}
           onGenerateBackground={onGenerateBackground}
@@ -133,6 +148,19 @@ export function ScriptPageTabs({
             onRefresh={onStoryCharactersRefresh}
           />
         </div>
+      </TabsContent>
+
+      {/* 故事板视图 */}
+      <TabsContent value={TAB_VALUES.STORYBOARD} className="mt-0">
+        <StoryboardTab
+          chapters={chapters}
+          panels={panels}
+          onPanelDoubleClick={(panelId, chapterId) => {
+            // 切换到章节创作 Tab
+            onTabChange(TAB_VALUES.SERIAL);
+          }}
+          onGeneratePanels={onGeneratePanels}
+        />
       </TabsContent>
 
       {/* 素材库视图 */}
