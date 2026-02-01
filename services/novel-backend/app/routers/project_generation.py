@@ -8,6 +8,7 @@ from sqlalchemy import select
 from uuid import UUID
 import logging
 import json
+import re
 
 from ..database import get_db
 from ..models import NovelProject
@@ -23,6 +24,45 @@ from .project_models import (
 
 router = APIRouter(prefix="/projects", tags=["Projects - AI Generation"])
 logger = logging.getLogger(__name__)
+
+
+def extract_json(content: str) -> dict:
+    """
+    从 LLM 返回内容中提取 JSON，支持 markdown 代码块格式
+
+    Args:
+        content: LLM 返回的原始内容
+
+    Returns:
+        解析后的 JSON 字典
+
+    Raises:
+        json.JSONDecodeError: 无法解析 JSON
+    """
+    if not content or not content.strip():
+        raise json.JSONDecodeError("Empty content", content or "", 0)
+
+    text = content.strip()
+
+    # 尝试直接解析
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # 尝试提取 markdown 代码块中的 JSON
+    json_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text)
+    if json_match:
+        return json.loads(json_match.group(1))
+
+    # 尝试找到第一个 { 和最后一个 } 之间的内容
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        return json.loads(text[start:end + 1])
+
+    # 都失败了，抛出原始错误
+    raise json.JSONDecodeError("No valid JSON found", text, 0)
 
 
 @router.post("/{project_id}/analyze-chapters-characters")
@@ -101,7 +141,7 @@ async def analyze_chapters_characters(
             logger.warning(f"LLM 返回空内容，项目ID: {project_id}")
             return {"characters": []}
 
-        result = json.loads(content)
+        result = extract_json(content)
 
         logger.info(f"分析章节角色成功，项目ID: {project_id}，角色数: {len(result.get('characters', []))}")
 
