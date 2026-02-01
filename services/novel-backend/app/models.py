@@ -25,6 +25,9 @@ class NovelProject(Base):
     characters = Column(JSON)
     outlines = Column(JSON)  # 章节大纲
     
+    # 新增：风格指导文档（由 ProfessionalMode 工作流生成）
+    style_guide = Column(JSON)
+    
     # 项目配置
     target_words = Column(Integer)
     status = Column(String(50), default="draft")

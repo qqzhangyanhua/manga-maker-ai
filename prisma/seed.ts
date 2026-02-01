@@ -13,6 +13,7 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { PREDEFINED_TEMPLATES } from '../src/lib/story-templates';
+import { seedGenres } from './seeds/genres-seed';
 
 const prisma = new PrismaClient();
 
@@ -606,6 +607,10 @@ const LAYOUT_TEMPLATES = [
 
 async function main() {
   console.log('开始种子数据初始化...\n');
+
+  // 0. Seed genres
+  console.log('0. 创建专题数据...');
+  await seedGenres();
 
   // 1. Create or get system user
   console.log('1. 创建/获取系统用户...');

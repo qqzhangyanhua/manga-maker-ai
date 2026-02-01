@@ -396,17 +396,22 @@ async def generate_chapter_stream(
             detail="章节不存在"
         )
     
-    # 验证项目所有权
+    # 验证项目所有权并获取项目信息
     project_query = select(NovelProject).where(
         NovelProject.id == chapter.project_id,
         NovelProject.user_id == user_id
     )
     project_result = await db.execute(project_query)
-    if not project_result.scalar_one_or_none():
+    project = project_result.scalar_one_or_none()
+    
+    if not project:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="无权访问此章节"
         )
+    
+    # 检查项目是否有 style_guide
+    has_style_guide = project.style_guide is not None
     
     # 构建上下文
     context = ""
@@ -434,6 +439,7 @@ async def generate_chapter_stream(
                 chapter_number=chapter.chapter_number,  # 新增参数
                 style_prompt=request.style_prompt,
                 temperature=request.temperature,
+                has_style_guide=has_style_guide,  # 新增参数
             ):
                 accumulated_content += chunk
                 # 发送 SSE 事件

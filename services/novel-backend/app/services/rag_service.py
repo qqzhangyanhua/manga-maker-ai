@@ -363,6 +363,65 @@ class NovelRAGService:
             logger.error(f"❌ 伏笔检索失败: {str(e)}")
             return []
 
+    def _format_style_guide(self, style_guide: Dict) -> str:
+        """
+        将 style_guide 格式化为 LLM 友好的文本
+        
+        Args:
+            style_guide: 风格指导文档字典
+            
+        Returns:
+            格式化的文本字符串
+        """
+        parts = []
+        
+        # 创意方向
+        if cd := style_guide.get("creative_direction"):
+            if cd.get("core_theme"):
+                parts.append(f"核心主题：{cd['core_theme']}")
+            if cd.get("tone"):
+                parts.append(f"作品基调：{cd['tone']}")
+            if cd.get("target_audience"):
+                parts.append(f"目标读者：{cd['target_audience']}")
+            if cd.get("market_positioning"):
+                parts.append(f"市场定位：{cd['market_positioning']}")
+            if usp := cd.get("unique_selling_points"):
+                if isinstance(usp, list) and usp:
+                    parts.append(f"核心卖点：{', '.join(usp)}")
+        
+        # 写作风格
+        if ws := style_guide.get("writing_style"):
+            if ws.get("pacing"):
+                parts.append(f"叙事节奏：{ws['pacing']}")
+            if ws.get("narrative_voice"):
+                parts.append(f"叙事视角：{ws['narrative_voice']}")
+            if ws.get("dialogue_style"):
+                parts.append(f"对话风格：{ws['dialogue_style']}")
+            if ws.get("description_density"):
+                parts.append(f"描写密度：{ws['description_density']}")
+        
+        # 质量规则
+        if qr := style_guide.get("quality_rules"):
+            word_count = qr.get("chapter_word_count", 6000)
+            parts.append(f"章节字数：{word_count}字")
+            cool_points = qr.get("cool_points_per_chapter", 2)
+            parts.append(f"每章爽点：至少{cool_points}个")
+            if cf := qr.get("cliffhanger_frequency"):
+                parts.append(f"悬念设置：{cf}")
+            if forbidden := qr.get("forbidden_patterns"):
+                if isinstance(forbidden, list) and forbidden:
+                    parts.append(f"禁止出现：{', '.join(forbidden)}")
+        
+        # 框架摘要
+        if fs := style_guide.get("framework_summary"):
+            if fs.get("arc_structure"):
+                parts.append(f"故事结构：{fs['arc_structure']}")
+            if ktp := fs.get("key_turning_points"):
+                if isinstance(ktp, list) and ktp:
+                    parts.append(f"关键转折：{', '.join(ktp)}")
+        
+        return "\n".join(parts)
+
     async def get_previous_chapters(
         self,
         project_id: str,
@@ -458,6 +517,22 @@ class NovelRAGService:
 
             # 6. 构建上下文
             context_parts = []
+
+            # 新增：风格指导（优先级最高，放在最前面）
+            if project.style_guide:
+                style_guide = project.style_guide
+                # 处理可能的 JSON 字符串
+                if isinstance(style_guide, str):
+                    import json
+                    try:
+                        style_guide = json.loads(style_guide)
+                    except json.JSONDecodeError:
+                        style_guide = None
+                
+                if style_guide and isinstance(style_guide, dict):
+                    context_parts.append("【创作风格指导】")
+                    context_parts.append(self._format_style_guide(style_guide))
+                    context_parts.append("")
 
             # 世界观设定
             if project.world_setting:
@@ -656,6 +731,7 @@ class NovelRAGService:
                 f"章节号: {chapter_number}, "
                 f"上下文长度: {len(final_context)} 字符, "
                 f"包含组件: "
+                f"风格指导={'✅' if project.style_guide else '❌'}, "
                 f"世界观={'✅' if project.world_setting else '❌'}, "
                 f"角色={'✅' if project.characters else '❌'}, "
                 f"前序章节={len(previous_chapters)}, "
