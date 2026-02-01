@@ -96,12 +96,23 @@ async def analyze_chapters_characters(
             response_format={"type": "json_object"}
         )
 
-        result = json.loads(completion.choices[0].message.content)
+        content = completion.choices[0].message.content
+        if not content or not content.strip():
+            logger.warning(f"LLM 返回空内容，项目ID: {project_id}")
+            return {"characters": []}
+
+        result = json.loads(content)
 
         logger.info(f"分析章节角色成功，项目ID: {project_id}，角色数: {len(result.get('characters', []))}")
 
         return result
 
+    except json.JSONDecodeError as e:
+        logger.error(f"分析章节角色 JSON 解析失败: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="AI 返回格式异常，请重试"
+        )
     except Exception as e:
         logger.error(f"分析章节角色失败: {str(e)}", exc_info=True)
         raise HTTPException(
