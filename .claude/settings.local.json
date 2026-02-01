@@ -166,7 +166,8 @@
       "Skill(superpowers:systematic-debugging)",
       "mcp__spec-workflow-mcp__specs-workflow",
       "mcp__augment-context-engine__codebase-retrieval",
-      "Bash(npx ts-node:*)"
+      "Bash(npx ts-node:*)",
+      "Bash(PGPASSWORD=manga123 psql:*)"
     ],
     "deny": [],
     "ask": []

@@ -192,6 +192,7 @@ export const TopProgressPanel = memo(function TopProgressPanel({
             
             {/* 漫画阶段 */}
             <div className="flex items-center gap-1.5">
+              {/* eslint-disable-next-line jsx-a11y/alt-text */}
               <Image className={`w-3 h-3 ${
                 stageProgress.final.generating > 0 ? 'text-purple-400 animate-pulse' :
                 stageProgress.final.completed === stageProgress.final.total ? 'text-green-400' : 'text-zinc-500'
