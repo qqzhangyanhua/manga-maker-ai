@@ -35,6 +35,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { ROLE_LABELS, ROLE_COLORS } from "../constants/characterRoles";
 import CreateCharacterDialog from "@/components/AssetLibrary/CreateCharacterDialog";
 import ImportNovelCharactersDialog from "./ImportNovelCharactersDialog"; // 小说角色导入
+import { RegenerateImageDialog } from "./RegenerateImageDialog"; // 重新生成图片对话框
 import type { CharacterInfo } from "../types/character";
 import type { CharacterAsset } from "@/components/AssetLibrary/CharacterLibrary";
 import type { CharacterRole } from "@/components/character/RoleSelector";
@@ -71,6 +72,10 @@ export function StoryCharactersManager({
 
   // 小说角色导入对话框状态
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+
+  // 重新生成图片对话框状态
+  const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
+  const [regenerateCharacter, setRegenerateCharacter] = useState<CharacterInfo | null>(null);
 
   // Phase 2.1: AI 推荐相关状态
   const [recommendations, setRecommendations] = useState<CharacterRecommendation[]>([]);
@@ -168,41 +173,13 @@ export function StoryCharactersManager({
     [storyId, toast, onRefresh]
   );
 
-  // 重新生成角色图片
+  // 打开重新生成图片对话框
   const handleRegenerateImage = useCallback(
-    async (characterId: string) => {
-      try {
-        setRegeneratingId(characterId);
-
-        const response = await fetch(`/api/character/${characterId}/regenerate-image`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: "fast" }),
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || "重新生成失败");
-        }
-
-        toast({
-          title: "重新生成成功",
-          description: "角色图片已更新",
-        });
-
-        onRefresh();
-      } catch (error) {
-        console.error("Regenerate image error:", error);
-        toast({
-          title: "重新生成失败",
-          description: error instanceof Error ? error.message : "重新生成角色图片失败",
-          variant: "destructive",
-        });
-      } finally {
-        setRegeneratingId(null);
-      }
+    (character: CharacterInfo) => {
+      setRegenerateCharacter(character);
+      setRegenerateDialogOpen(true);
     },
-    [toast, onRefresh]
+    []
   );
 
   // 上传角色图片
@@ -412,7 +389,7 @@ export function StoryCharactersManager({
                           查看详情
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => handleRegenerateImage(sc.character.id)}
+                          onClick={() => handleRegenerateImage(sc.character)}
                           disabled={regeneratingId === sc.character.id}
                         >
                           {regeneratingId === sc.character.id ? (
@@ -577,6 +554,14 @@ export function StoryCharactersManager({
           onImportComplete={onRefresh}
         />
       )}
+
+      {/* 重新生成图片对话框 */}
+      <RegenerateImageDialog
+        open={regenerateDialogOpen}
+        onOpenChange={setRegenerateDialogOpen}
+        character={regenerateCharacter}
+        onSuccess={onRefresh}
+      />
     </div>
   );
 }

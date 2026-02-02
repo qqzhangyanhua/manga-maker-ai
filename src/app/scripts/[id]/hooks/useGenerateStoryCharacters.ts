@@ -221,6 +221,7 @@ export function useBatchGenerateImages(storyId: string) {
  */
 export interface RegenerateImageResult {
   success: boolean;
+  image_url: string | null;
   image_base64: string;
   optimized_prompt: string;
   credits_used: number;
@@ -251,8 +252,10 @@ export function useRegenerateCharacterImage() {
       return data;
     },
     onSuccess: () => {
-      // 刷新角色库
+      // 刷新所有角色相关的缓存
       queryClient.invalidateQueries({ queryKey: ["characters"] });
+      queryClient.invalidateQueries({ queryKey: ["character-assets"] });
+      queryClient.invalidateQueries({ queryKey: ["story-characters"] });
     },
   });
 }

@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     userId = payload.userId;
 
     const body = await req.json();
-    const { character_id, description, provider_type, view_types } = body;
+    const { character_id, description, provider_type, view_types, comic_style_id } = body;
     imageProviderType = provider_type || DEFAULT_IMAGE_PROVIDER_TYPE;
     promptProviderType = DEFAULT_PROMPT_PROVIDER_TYPE;
 
@@ -122,17 +122,36 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "角色不存在" }, { status: 404 });
     }
 
-    // Step 1: 使用 LLM 优化角色描述（可选，提高生成质量）
+    // Step 1: 查询漫画风格（如果提供了 comic_style_id）
+    let stylePromptPrefix = "";
+    let styleName = "";
+    if (comic_style_id) {
+      const comicStyle = await prisma.comicStyle.findUnique({
+        where: { id: comic_style_id },
+        select: { prompt_prefix: true, name_zh: true, style_key: true },
+      });
+      if (comicStyle) {
+        stylePromptPrefix = comicStyle.prompt_prefix || "";
+        styleName = comicStyle.name_zh || comicStyle.style_key;
+        console.log(`使用漫画风格: ${styleName}, prompt_prefix: ${stylePromptPrefix}`);
+      }
+    }
+
+    // Step 2: 使用 LLM 优化角色描述（可选，提高生成质量）
     const characterDesc = description || character.description || character.name;
 
     let optimizedDescription = characterDesc;
     try {
+      const styleInstruction = stylePromptPrefix
+        ? `\n5. 融入以下风格要素: ${stylePromptPrefix}`
+        : "";
+
       const systemPrompt = `你是一个专业的角色设计师。请将用户的角色描述优化为适合 AI 绘画的详细提示词。
 要求：
 1. 保留核心特征（外貌、服装、风格）
 2. 添加专业术语（如 anime style, detailed, 8k 等）
 3. 描述要具体且富有画面感
-4. 输出纯文本，不要 JSON 格式`;
+4. 输出纯文本，不要 JSON 格式${styleInstruction}`;
 
       const { content } = await callChatCompletionByType({
         providerType: promptProviderType,
@@ -147,9 +166,16 @@ export async function POST(req: Request) {
         },
       });
 
-      optimizedDescription = content.trim();
+      // 如果有风格前缀，附加到优化后的描述
+      optimizedDescription = stylePromptPrefix
+        ? `${stylePromptPrefix}, ${content.trim()}`
+        : content.trim();
     } catch (error) {
       console.warn("LLM 优化失败，使用原始描述:", error);
+      // 即使 LLM 失败，也要附加风格前缀
+      if (stylePromptPrefix) {
+        optimizedDescription = `${stylePromptPrefix}, ${characterDesc}`;
+      }
     }
 
     // Step 2: 智能查找参考图（使用通用函数）

@@ -150,6 +150,7 @@ export async function callOpenAIImageAPI(
 
     const decoder = new TextDecoder();
     let buffer = "";
+    let accumulatedContent = ""; // 累积所有 delta.content 用于调试
     const images: string[] = [];
     let chunkCount = 0;
     let totalBytes = 0;
@@ -194,6 +195,9 @@ export async function callOpenAIImageAPI(
               for (const choice of choices) {
                 const content = choice?.delta?.content;
                 if (!content) continue;
+
+                // 累积内容用于调试
+                accumulatedContent += content;
 
                 // 方式 1: 匹配 base64 格式: ![image](data:image/png;base64,...)
                 const base64Regex = /!\[.*?\]\(data:image\/[^;]+;base64,([^)]+)\)/g;
@@ -253,11 +257,28 @@ export async function callOpenAIImageAPI(
       console.error(`接收到的数据块数: ${chunkCount}`);
       console.error(`接收到的总字节数: ${totalBytes}`);
       console.error(`最后的 buffer 内容 (前 500 字符):`, buffer.substring(0, 500));
+      console.error(`累积的文本内容 (前 2000 字符):`, accumulatedContent.substring(0, 2000));
+      console.error(`累积的文本内容长度:`, accumulatedContent.length);
+
+      // 尝试检测其他可能的图片格式
+      const possiblePatterns = [
+        { name: 'base64 in JSON', pattern: /"data":\s*"([A-Za-z0-9+/=]{100,})"/ },
+        { name: 'image_url in JSON', pattern: /"url":\s*"(https?:\/\/[^"]+)"/ },
+        { name: 'b64_json', pattern: /"b64_json":\s*"([A-Za-z0-9+/=]{100,})"/ },
+        { name: 'inline base64', pattern: /data:image\/[^;]+;base64,([A-Za-z0-9+/=]{100,})/ },
+      ];
+
+      for (const { name, pattern } of possiblePatterns) {
+        const match = accumulatedContent.match(pattern);
+        if (match) {
+          console.log(`检测到可能的 ${name} 格式，匹配内容前 100 字符:`, match[1]?.substring(0, 100));
+        }
+      }
 
       return {
         success: false,
         images: [],
-        error: "未从响应中提取到图片数据",
+        error: "未从响应中提取到图片数据。模型可能不支持图片生成，或返回格式不兼容。",
       };
     }
 

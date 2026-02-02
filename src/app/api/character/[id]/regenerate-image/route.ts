@@ -50,8 +50,13 @@ export async function POST(
     }
 
     // 解析请求
-    const body = (await req.json()) as RequestBody;
-    const { mode, variation_prompt, update_base_image = true } = body;
+    const body = (await req.json()) as Partial<RequestBody>;
+    const { mode = "fast", variation_prompt, update_base_image = true } = body;
+
+    // 验证 mode 参数
+    if (mode !== "fast" && mode !== "variation") {
+      return NextResponse.json({ error: "mode 必须是 fast 或 variation" }, { status: 400 });
+    }
 
     if (mode === "variation" && !variation_prompt) {
       return NextResponse.json({ error: "variation 模式需要提供 variation_prompt" }, { status: 400 });
@@ -87,46 +92,43 @@ export async function POST(
     }
 
     const image_base64 = imageResult.images[0];
+    let image_url: string | null = null;
 
     // 如果需要更新 base_image，上传到 MinIO
     if (update_base_image) {
-      try {
-        await ensureBucketExists();
+      await ensureBucketExists();
 
-        // 转换 base64 为 Buffer
-        const base64Data = image_base64.replace(/^data:image\/\w+;base64,/, "");
-        const imageBuffer = Buffer.from(base64Data, "base64");
+      // 转换 base64 为 Buffer
+      const base64Data = image_base64.replace(/^data:image\/\w+;base64,/, "");
+      const imageBuffer = Buffer.from(base64Data, "base64");
 
-        // 生成对象名
-        const timestamp = Date.now();
-        const randomStr = Math.random().toString(36).substring(7);
-        const objectName = `users/${payload.userId}/characters/${character.id}/base_${timestamp}_${randomStr}.png`;
+      // 生成对象名
+      const timestamp = Date.now();
+      const randomStr = Math.random().toString(36).substring(7);
+      const objectName = `users/${payload.userId}/characters/${character.id}/base_${timestamp}_${randomStr}.png`;
 
-        // 上传到 MinIO
-        await minioClient.putObject(MINIO_BUCKET, objectName, imageBuffer, imageBuffer.length, {
-          "Content-Type": "image/png",
-        });
+      // 上传到 MinIO
+      await minioClient.putObject(MINIO_BUCKET, objectName, imageBuffer, imageBuffer.length, {
+        "Content-Type": "image/png",
+      });
 
-        const imageUrl = getPublicUrl(objectName);
+      image_url = getPublicUrl(objectName);
 
-        // 更新 Character.base_image_url
-        await prisma.character.update({
-          where: { id: characterId },
-          data: { base_image_url: imageUrl },
-        });
+      // 更新 Character.base_image_url
+      await prisma.character.update({
+        where: { id: characterId },
+        data: { base_image_url: image_url },
+      });
 
-        console.log(`[regenerate-image] Updated base_image for ${character.name}: ${imageUrl}`);
-      } catch (uploadError) {
-        console.error(`[regenerate-image] Image upload failed:`, uploadError);
-        // 继续处理，返回 base64
-      }
+      console.log(`[regenerate-image] Updated base_image for ${character.name}: ${image_url}`);
     }
 
     return NextResponse.json({
       success: true,
+      image_url,
       image_base64,
       optimized_prompt: finalPrompt,
-      credits_used: 30, // 假设30 credits
+      credits_used: 30,
     });
   } catch (error) {
     console.error("[regenerate-image] Error:", error);
