@@ -121,27 +121,124 @@ export function ScriptPageGuidance({
         </div>
       )}
 
-      {/* 智能引导提示 - 章节已创建，等待生成分镜 */}
+      {/* ✅ 智能引导提示 - 章节已创建，等待生成分镜 */}
       {progressStats.stage === "chapter_created" && (
         <div className="mt-6 mb-6">
-          <ActionPrompt
-            icon={<Sparkles className="w-full h-full" />}
-            message='章节已就绪！点击"生成分镜"让 AI 为你创作精彩画面'
-            variant="success"
-            action={
-              <Button
-                onClick={() => {
-                  if (chapters && chapters.length > 0) {
-                    onSetCurrentChapter(chapters[0].id);
-                    onGeneratePanelsForChapter(chapters[0].id);
-                  }
-                }}
-                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
-              >
-                开始生成分镜
-              </Button>
-            }
-          />
+          <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/5 border border-green-500/20 rounded-xl p-6">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-500/10 flex items-center justify-center">
+                <Sparkles className="w-6 h-6 text-green-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-white mb-2">
+                  章节已创建，开始生成分镜吧！
+                </h3>
+                <p className="text-sm text-gray-400 mb-4">
+                  您已创建 {chapters.length} 个章节，现在可以使用 AI 自动生成分镜画面。
+                </p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    onClick={() => {
+                      if (chapters && chapters.length > 0) {
+                        onSetCurrentChapter(chapters[0].id);
+                        onGeneratePanelsForChapter(chapters[0].id);
+                      }
+                    }}
+                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-lg shadow-green-500/20"
+                  >
+                    <Wand2 className="w-4 h-4 mr-2" />
+                    生成第 1 章分镜
+                  </Button>
+                  {chapters.length > 1 && (
+                    <span className="text-xs text-gray-500">
+                      或点击右上角「批量生成分镜」一次生成所有章节
+                    </span>
+                  )}
+                </div>
+
+                {/* 生成步骤说明 */}
+                <div className="mt-4 pt-4 border-t border-green-500/10">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                    <div className="flex items-start gap-2">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 font-semibold">
+                        1
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-300">AI 分析剧情</div>
+                        <div className="text-gray-500">理解章节内容和情节</div>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 font-semibold">
+                        2
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-300">生成分镜脚本</div>
+                        <div className="text-gray-500">自动创建分镜描述</div>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 font-semibold">
+                        3
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-300">等待图片生成</div>
+                        <div className="text-gray-500">稍后生成精美图片</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ 新增：分镜已生成，等待生成图片 */}
+      {progressStats.stage === "generating" && progressStats.pendingPanels > 0 && (
+        <div className="mt-6 mb-6">
+          <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/5 border border-blue-500/20 rounded-xl p-6">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/10 flex items-center justify-center">
+                <Image className="w-6 h-6 text-blue-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-white mb-2">
+                  分镜脚本已就绪，生成图片吧！
+                </h3>
+                <p className="text-sm text-gray-400 mb-4">
+                  您有 <span className="text-blue-400 font-semibold">{progressStats.pendingPanels}</span> 个分镜等待生成图片，
+                  预计需要 <span className="text-blue-400 font-semibold">{progressStats.estimatedMinutes}</span> 分钟。
+                </p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg shadow-blue-500/20"
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    开始生成图片
+                  </Button>
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <span>已完成 {progressStats.completedPanels}/{progressStats.totalPanels}</span>
+                  </div>
+                </div>
+
+                {/* 进度条 */}
+                <div className="mt-4">
+                  <div className="flex items-center justify-between mb-2 text-xs">
+                    <span className="text-gray-400">整体进度</span>
+                    <span className="text-blue-400 font-semibold">{progressStats.completionRate}%</span>
+                  </div>
+                  <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 transition-all duration-500"
+                      style={{ width: `${progressStats.completionRate}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </>

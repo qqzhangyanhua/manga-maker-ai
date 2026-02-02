@@ -49,55 +49,79 @@ export function ScriptPageHeader({
           </div>
           <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">{title}</h1>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {/* 专注模式按钮 - 仅在有分镜时显示 */}
-          {panels.length > 0 && onEnterFocusMode && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onEnterFocusMode}
-              className="border-purple-500/30 hover:border-purple-500 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 bg-purple-500/5"
-            >
-              <Maximize2 className="w-4 h-4 mr-2" />
-              专注编辑
-            </Button>
+
+        {/* ✅ 优化后的按钮布局：主要操作 + 次要操作 */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* 🎯 主要操作区（根据状态动态显示） */}
+          <div className="flex items-center gap-2">
+            {/* 无章节时：突出显示创建章节 */}
+            {chapters.length === 0 ? (
+              <Button
+                size="default"
+                onClick={onCreateChapter}
+                className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg shadow-orange-500/20"
+              >
+                <BookOpen className="w-4 h-4 mr-2" />
+                创建第一章
+              </Button>
+            ) : (
+              <>
+                {/* 有章节时：批量生成分镜作为主操作 */}
+                {onOpenNineGrid && (
+                  <Button
+                    size="default"
+                    onClick={onOpenNineGrid}
+                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg shadow-green-500/20"
+                  >
+                    <Grid3x3 className="w-4 h-4 mr-2" />
+                    批量生成分镜
+                  </Button>
+                )}
+                {/* 创建更多章节（次要） */}
+                <Button
+                  variant="outline"
+                  size="default"
+                  onClick={onCreateChapter}
+                  className="border-orange-500/30 hover:border-orange-500 text-orange-400 hover:text-orange-300 hover:bg-orange-500/10 bg-orange-500/5"
+                >
+                  <BookOpen className="w-4 h-4 mr-2" />
+                  新增章节
+                </Button>
+              </>
+            )}
+          </div>
+
+          {/* 分隔线 */}
+          {chapters.length > 0 && (
+            <div className="w-px h-6 bg-zinc-700/50" />
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onImportText}
-            className="border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white"
-          >
-            <FileText className="w-4 h-4 mr-2" />
-            导入文本
-          </Button>
-          {/* 九宫格生成按钮 - 仅在有章节时显示 */}
-          {chapters.length > 0 && onOpenNineGrid && (
+
+          {/* 📎 次要操作区 */}
+          <div className="flex items-center gap-2">
+            {/* 专注模式 - 仅在有分镜时显示 */}
+            {panels.length > 0 && onEnterFocusMode && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onEnterFocusMode}
+                className="border-purple-500/30 hover:border-purple-500 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 bg-purple-500/5"
+              >
+                <Maximize2 className="w-4 h-4 mr-2" />
+                专注编辑
+              </Button>
+            )}
+
+            {/* 导入文本 */}
             <Button
               variant="outline"
               size="sm"
-              onClick={onOpenNineGrid}
+              onClick={onImportText}
               className="border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white"
             >
-              <Grid3x3 className="w-4 h-4 mr-2" />
-              九宫格
+              <FileText className="w-4 h-4 mr-2" />
+              导入文本
             </Button>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-800 hover:text-white"
-          >
-            <Wand2 className="w-4 h-4 mr-2" />
-            AI 续写
-          </Button>
-          <Button
-            size="sm"
-            onClick={onCreateChapter}
-            className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg shadow-orange-500/20"
-          >
-            + 创建章节
-          </Button>
+          </div>
         </div>
       </div>
 
