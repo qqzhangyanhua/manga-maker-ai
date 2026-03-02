@@ -1,11 +1,18 @@
-import { Grid3X3, Edit3, Sparkles, Download } from "lucide-react";
+import { Grid3X3, Edit3, Sparkles, Download, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import AutoLayoutGrid from "@/components/Storyboard/AutoLayoutGrid";
 import { PanelData } from "@/components/Storyboard/StoryboardPanel";
 import { PanelDetails } from "./PanelDetails";
 import { PanelStats } from "./PanelStats";
 import { EmptyState } from "./EmptyState";
 import { GeneratingState } from "./GeneratingState";
+import type { ExportFormat } from "../hooks/useExport";
 
 type StoryboardPreviewProps = {
   hasGeneratedPanels: boolean;
@@ -15,8 +22,9 @@ type StoryboardPreviewProps = {
   selectedPanelData: PanelData | undefined;
   onEnterEditor: () => void;
   onGenerateImages: () => void;
-  onExport: () => void;
+  onExport: (format: ExportFormat) => void;
   isExporting: boolean;
+  formatLabels: Record<ExportFormat, string>;
   onGenerateSingleImage: (panelId: string) => void;
   generatingSinglePanel: string | null;
   isGenerating: boolean;
@@ -32,6 +40,7 @@ export function StoryboardPreview({
   onGenerateImages,
   onExport,
   isExporting,
+  formatLabels,
   onGenerateSingleImage,
   generatingSinglePanel,
   isGenerating,
@@ -54,15 +63,33 @@ export function StoryboardPreview({
               <Sparkles className="w-4 h-4" />
               生成图像
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onExport}
-              disabled={isExporting}
-            >
-              <Download className="w-4 h-4" />
-              {isExporting ? "导出中..." : "导出"}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isExporting}
+                >
+                  <Download className="w-4 h-4" />
+                  {isExporting ? "导出中..." : "导出"}
+                  <ChevronDown className="w-4 h-4 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onExport("json")} disabled={isExporting}>
+                  {formatLabels.json}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onExport("png")} disabled={isExporting}>
+                  {formatLabels.png}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onExport("pdf")} disabled={isExporting}>
+                  {formatLabels.pdf}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onExport("zip")} disabled={isExporting}>
+                  {formatLabels.zip}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
       </div>

@@ -1,89 +1,59 @@
-"use client";
+import { prisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth-helpers";
+import type { WorkflowResult } from "@/lib/type";
+import { WorkflowPageClient } from "./workflow-page-client";
+import type { WorkflowStatusItem } from "@/components/Workflow/WorkflowDashboard";
 
-import { useRef, useCallback, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-import { Navbar } from "@/components/Landing";
-import { WorkflowDashboard } from "@/components/Workflow/WorkflowDashboard";
-import { cn } from "@/lib/utils";
+export const dynamic = "force-dynamic";
 
-export default function WorkflowPage() {
-    // Spotlight effect state
-    const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
-    const [isHovering, setIsHovering] = useState(false);
-    const containerRef = useRef<HTMLDivElement>(null);
+function toIso(value: Date | string | null): string {
+  if (!value) {
+    return new Date().toISOString();
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+}
 
-    // Mouse tracking for spotlight effect
-    const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-        if (!containerRef.current) return;
+async function getInitialWorkflows(): Promise<WorkflowStatusItem[]> {
+  const user = await getCurrentUser();
+  if (!user?.userId) {
+    return [];
+  }
 
-        const rect = containerRef.current.getBoundingClientRect();
-        setMousePosition({
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top,
-        });
-    }, []);
+  const workflows = await prisma.workflow.findMany({
+    where: { user_id: user.userId },
+    orderBy: { created_at: "desc" },
+    take: 50,
+    select: {
+      id: true,
+      status: true,
+      current_step: true,
+      progress: true,
+      result: true,
+      error: true,
+      created_at: true,
+      started_at: true,
+      completed_at: true,
+    },
+  });
 
-    const handleMouseEnter = useCallback(() => {
-        setIsHovering(true);
-    }, []);
+  return workflows.map((workflow) => ({
+    id: workflow.id,
+    status: workflow.status as WorkflowStatusItem["status"],
+    currentStep: workflow.current_step,
+    progress: workflow.progress,
+    result: (workflow.result as WorkflowResult | null) ?? null,
+    error: workflow.error ?? undefined,
+    createdAt: toIso(workflow.created_at),
+    startedAt: workflow.started_at ? toIso(workflow.started_at) : undefined,
+    completedAt: workflow.completed_at ? toIso(workflow.completed_at) : undefined,
+  }));
+}
 
-    const handleMouseLeave = useCallback(() => {
-        setIsHovering(false);
-        setMousePosition(null);
-    }, []);
-
-    return (
-        <div className="min-h-screen" style={{ backgroundColor: '#1a1410' }}>
-            <Navbar />
-
-            <main className="pt-16">
-                {/* 装饰性光晕 */}
-                <div className="fixed top-20 left-1/4 w-96 h-96 bg-orange-500/5 blur-3xl rounded-full pointer-events-none" />
-                <div className="fixed bottom-20 right-1/4 w-96 h-96 bg-purple-500/3 blur-3xl rounded-full pointer-events-none" />
-
-                <div
-                    ref={containerRef}
-                    className="relative px-4 py-12"
-                    onMouseMove={handleMouseMove}
-                    onMouseEnter={handleMouseEnter}
-                    onMouseLeave={handleMouseLeave}
-                >
-                    {/* Global Spotlight Overlay */}
-                    <div
-                        className={cn(
-                            "pointer-events-none absolute inset-0 z-30 transition-opacity duration-500",
-                            isHovering ? "opacity-100" : "opacity-0"
-                        )}
-                        style={{
-                            background: mousePosition
-                                ? `radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(249, 115, 22, 0.08), transparent 40%)`
-                                : "none",
-                        }}
-                    />
-
-                    <div className="max-w-6xl mx-auto relative">
-                        <Link
-                            href="/"
-                            className="inline-flex items-center gap-2 text-zinc-400 hover:text-orange-500 transition-colors mb-6"
-                        >
-                            <ArrowLeft className="w-4 h-4" />
-                            返回首页
-                        </Link>
-
-                        <div className="mb-8">
-                            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500 bg-clip-text text-transparent mb-4">
-                                工作流管理
-                            </h1>
-                            <p className="text-zinc-300 text-lg">
-                                一键生成完整漫画，自动化整个创作流程
-                            </p>
-                        </div>
-
-                        <WorkflowDashboard />
-                    </div>
-                </div>
-            </main>
-        </div>
-    );
+export default async function WorkflowPage() {
+  const initialWorkflows = await getInitialWorkflows();
+  return <WorkflowPageClient initialWorkflows={initialWorkflows} />;
 }

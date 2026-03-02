@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { User, AlertCircle, Edit2, Maximize2 } from "lucide-react";
 import { PanelGenerationProgress } from "./PanelGenerationProgress";
+import { TaskStatusOverlay } from "@/components/common/TaskStatusOverlay";
 import { ImagePreviewDialog } from "@/components/ImagePreview/ImagePreviewDialog";
 import { useTypewriterEffect } from "../../hooks/useTypewriterEffect";
 import type { Panel, GenerationTask } from "../../types/script-editor.types";
@@ -162,42 +163,75 @@ export function PanelCard({
             />
           )}
         </CardContent>
-        {imageUrl && (
+        {(imageUrl || (generationTask && generationTask.status !== "completed")) && (
           <CardFooter className={`bg-muted/10 p-0 overflow-hidden rounded-b-lg`}>
             <div className={`w-full relative group/image ${compact ? "h-24" : "h-32"}`}>
-              <img
-                src={imageUrl}
-                alt="Shot preview"
-                className="w-full h-full object-cover cursor-pointer"
-                onClick={() => setPreviewOpen(true)}
-              />
-              {/* 图片操作按钮 */}
-              <div className="absolute inset-0 bg-black/0 group-hover/image:bg-black/40 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover/image:opacity-100">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setPreviewOpen(true);
-                  }}
-                >
-                  <Maximize2 className="w-4 h-4 mr-1" />
-                  预览
-                </Button>
-                {!compact && (
+              {imageUrl ? (
+                <img
+                  src={imageUrl}
+                  alt="Shot preview"
+                  className="w-full h-full object-cover cursor-pointer"
+                  onClick={() => setPreviewOpen(true)}
+                />
+              ) : (
+                <div className="w-full h-full bg-muted/50 flex items-center justify-center" />
+              )}
+              {/* 图片生成状态遮罩 */}
+              {generationTask && (
+                <TaskStatusOverlay
+                  status={
+                    generationTask.status === "pending"
+                      ? "pending"
+                      : generationTask.status === "processing"
+                        ? "processing"
+                        : generationTask.status === "failed"
+                          ? "failed"
+                          : "idle"
+                  }
+                  progress={generationTask.progress}
+                  message={
+                    generationTask.status === "processing"
+                      ? "图像生成中..."
+                      : generationTask.status === "pending"
+                        ? "排队中..."
+                        : generationTask.status === "failed"
+                          ? generationTask.error
+                          : undefined
+                  }
+                  onRetry={
+                    generationTask.status === "failed" ? onRetryGeneration : undefined
+                  }
+                />
+              )}
+              {/* 图片操作按钮（仅在有图片且无生成遮罩时显示） */}
+              {imageUrl && !generationTask && (
+                <div className="absolute inset-0 bg-black/0 group-hover/image:bg-black/40 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover/image:opacity-100">
                   <Button
                     size="sm"
                     variant="secondary"
                     onClick={(e) => {
                       e.stopPropagation();
-                      router.push(`/panel/editor/${panel.id}`);
+                      setPreviewOpen(true);
                     }}
                   >
-                    <Edit2 className="w-4 h-4 mr-1" />
-                    编辑
+                    <Maximize2 className="w-4 h-4 mr-1" />
+                    预览
                   </Button>
-                )}
-              </div>
+                  {!compact && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/panel/editor/${panel.id}`);
+                      }}
+                    >
+                      <Edit2 className="w-4 h-4 mr-1" />
+                      编辑
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           </CardFooter>
         )}

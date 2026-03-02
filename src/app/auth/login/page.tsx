@@ -107,6 +107,14 @@ const LoginPage = () => {
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
+              <div className="flex justify-end">
+                <Link
+                  href="/auth/forgot-password"
+                  className="text-sm text-orange-400 hover:text-orange-300"
+                >
+                  忘记密码？
+                </Link>
+              </div>
             </div>
 
             <div>

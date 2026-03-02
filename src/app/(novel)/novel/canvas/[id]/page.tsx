@@ -16,6 +16,7 @@ import { ImageGalleryDialog } from "../../components/ImageGallery/ImageGalleryDi
 import { novelTheme } from "../../theme";
 import { cn } from "@/lib/utils";
 import "../../novel-theme.css";
+import { Navbar } from "@/components/Landing";
 
 export default function CanvasPage() {
   const params = useParams();
@@ -73,7 +74,14 @@ export default function CanvasPage() {
 
   // ✅ 使用骨架屏替代全屏 Loading，避免布局抖动
   if (isLoading) {
-    return <CanvasSkeleton />;
+    return (
+      <div className="min-h-screen bg-[#0f0f13] novel-theme-scope">
+        <Navbar />
+        <div className="pt-20">
+          <CanvasSkeleton />
+        </div>
+      </div>
+    );
   }
 
   // ✅ 增强错误处理：添加重试按钮，区分错误类型
@@ -81,24 +89,30 @@ export default function CanvasPage() {
     const isNotFound = error?.message?.includes("不存在") || !timeline;
 
     return (
-      <ErrorState
-        title={isNotFound ? "时间线不存在" : "加载失败"}
-        message={
-          isNotFound
-            ? "该时间线可能已被删除或您没有访问权限"
-            : error?.message || "网络连接异常，请检查网络后重试"
-        }
-        onRetry={isNotFound ? undefined : refresh}
-        onGoBack={() => router.back()}
-        showRetry={!isNotFound}
-      />
+      <div className="min-h-screen bg-[#0f0f13] novel-theme-scope">
+        <Navbar />
+        <div className="pt-20">
+          <ErrorState
+            title={isNotFound ? "时间线不存在" : "加载失败"}
+            message={
+              isNotFound
+                ? "该时间线可能已被删除或您没有访问权限"
+                : error?.message || "网络连接异常，请检查网络后重试"
+            }
+            onRetry={isNotFound ? undefined : refresh}
+            onGoBack={() => router.back()}
+            showRetry={!isNotFound}
+          />
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="h-screen bg-[#0f0f13] flex flex-col text-zinc-100 novel-theme-scope">
+    <div className="min-h-screen bg-[#0f0f13] flex flex-col text-zinc-100 novel-theme-scope pt-20">
+      <Navbar />
       {/* Header */}
-      <div className="flex items-center gap-4 p-4 border-b border-purple-500/10 bg-[#0f0f13]/80 backdrop-blur-md sticky top-0 z-50">
+      <div className="flex items-center gap-4 p-4 border-b border-purple-500/10 bg-[#0f0f13]/80 backdrop-blur-md sticky top-20 z-40">
         <Button
           variant="ghost"
           size="sm"
@@ -156,7 +170,7 @@ export default function CanvasPage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden min-h-0">
         <InfiniteCanvasView
           timeline={timeline}
           windowState={windowState}

@@ -313,6 +313,7 @@ export function LayoutExportTab({
             pageMargin,
             showDialogBubbles,
           },
+          bubbles: showDialogBubbles ? bubbles : [],
         }),
       });
 

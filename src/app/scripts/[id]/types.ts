@@ -10,16 +10,8 @@ import type { Panel, Chapter } from "./types/script-editor.types";
  * 解决 useProgressCalculation 类型转换问题
  */
 export interface ProgressCalculationInput {
-  chapters: Array<{
-    id: string;
-    [key: string]: unknown;
-  }>;
-  panels: Array<{
-    id: string;
-    chapter_id?: string;
-    image_url?: string | null;
-    [key: string]: unknown;
-  }>;
+  chapters: Chapter[];
+  panels: Panel[];
 }
 
 /**

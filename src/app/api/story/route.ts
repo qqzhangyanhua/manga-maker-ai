@@ -28,23 +28,37 @@ export async function GET(req: Request) {
             where: whereCondition,
         });
 
-        const stories = await prisma.story.findMany({
+        const storiesRaw = await prisma.story.findMany({
             where: whereCondition,
             orderBy: {
                 created_at: "desc",
             },
             skip,
             take: limit,
-            select: {
-                id: true,
-                title: true,
-                genre: true,
-                premise: true,
-                status: true,
-                created_at: true,
-                updated_at: true,
+            include: {
+                chapters: {
+                    include: {
+                        _count: { select: { panels: true } },
+                    },
+                },
             },
         });
+
+        const stories = storiesRaw.map(({ chapters, ...rest }) => ({
+            id: rest.id,
+            title: rest.title,
+            genre: rest.genre,
+            premise: rest.premise,
+            status: rest.status,
+            created_at: rest.created_at,
+            updated_at: rest.updated_at,
+            _count: {
+                panels: chapters.reduce(
+                    (acc, ch) => acc + ch._count.panels,
+                    0
+                ),
+            },
+        }));
 
         return {
             stories,

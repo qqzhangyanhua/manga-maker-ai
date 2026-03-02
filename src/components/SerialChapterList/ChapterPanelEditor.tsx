@@ -40,6 +40,8 @@ import { InsertPanelDialog } from "@/app/scripts/[id]/components/PanelEditor/Ins
 import { SplitPanelDialog } from "@/app/scripts/[id]/components/PanelEditor/SplitPanelDialog";
 import { ReferenceGuidedGenerationDialog } from "@/app/scripts/[id]/components/PanelEditor/ReferenceGuidedGenerationDialog";
 import { MultiPanelGenerateDialog } from "@/app/scripts/[id]/components/MultiPanelGenerateDialog";
+import { CandidateSelector } from "@/components/common/CandidateSelector";
+import { useCandidateSystem } from "@/hooks/useCandidateSystem";
 import { useToast } from "@/hooks/use-toast";
 import type { Panel } from "./types";
 import type { CharacterReference } from "@/app/scripts/[id]/types/character.types";
@@ -127,6 +129,27 @@ export function ChapterPanelEditor({
   const [referenceDialogOpen, setReferenceDialogOpen] = useState(false);
   const [selectedPanelForGeneration, setSelectedPanelForGeneration] =
     useState<Panel | null>(null);
+
+  // 候选图系统
+  const [variantPanelId, setVariantPanelId] = useState<string | null>(null);
+  const candidateSystem = useCandidateSystem({
+    panelId: variantPanelId || "",
+    onConfirm: onImageGenerated,
+  });
+
+  const handleGenerateVariants = useCallback(
+    (panel: Panel) => {
+      setVariantPanelId(panel.id);
+      const imageUrl = panel.generated_image || panel.image_url;
+      candidateSystem.clearCandidates();
+      void candidateSystem.generateCandidates(
+        panel.description || "",
+        3,
+        imageUrl
+      );
+    },
+    [candidateSystem]
+  );
 
   // 配置拖拽传感器
   const sensors = useSensors(
@@ -313,24 +336,42 @@ export function ChapterPanelEditor({
           >
             <div className="space-y-3">
               {displayPanels.map((panel, index) => (
-                <SortableInlineEditablePanelCard
-                  key={panel.id}
-                  panel={panel as ScriptPanel}
-                  index={index}
-                  onPanelUpdate={handlePanelUpdate}
-                  actions={
-                    <PanelCardActions
-                      panel={panel as ScriptPanel}
-                      onEdit={() => {}}
-                      onDelete={() => onDeletePanel(panel.id)}
-                      onGenerate={() => handleGenerateSingle(panel)}
-                      onInsertAfter={() => handleInsertAfter(panel)}
-                      onSplit={() => handleSplit(panel)}
-                      onMergeWithNext={() => handleMergeWithNext(panel)}
-                      onShareSuccess={handleOperationComplete}
-                    />
-                  }
-                />
+                <div key={panel.id}>
+                  <SortableInlineEditablePanelCard
+                    panel={panel as ScriptPanel}
+                    index={index}
+                    onPanelUpdate={handlePanelUpdate}
+                    actions={
+                      <PanelCardActions
+                        panel={panel as ScriptPanel}
+                        onEdit={() => {}}
+                        onDelete={() => onDeletePanel(panel.id)}
+                        onGenerate={() => handleGenerateSingle(panel)}
+                        onGenerateVariants={
+                          (panel.generated_image || panel.image_url)
+                            ? () => handleGenerateVariants(panel)
+                            : undefined
+                        }
+                        onInsertAfter={() => handleInsertAfter(panel)}
+                        onSplit={() => handleSplit(panel)}
+                        onMergeWithNext={() => handleMergeWithNext(panel)}
+                        onShareSuccess={handleOperationComplete}
+                      />
+                    }
+                  />
+                  {variantPanelId === panel.id && (
+                    <div className="ml-10 mt-2 p-3 bg-zinc-900/50 rounded-lg border border-zinc-800">
+                      <CandidateSelector
+                        candidates={candidateSystem.candidates}
+                        currentImageUrl={panel.generated_image || panel.image_url}
+                        isGenerating={candidateSystem.isGenerating}
+                        onSelect={candidateSystem.selectCandidate}
+                        onUndo={candidateSystem.undo}
+                        canUndo={candidateSystem.canUndo}
+                      />
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           </SortableContext>

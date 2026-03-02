@@ -51,6 +51,35 @@ const DAILY_LIMITS: Record<UsageAction, number> = {
   sketch_generation: parseLimit(process.env.QUOTA_SKETCH_DAILY, 100),
 };
 
+/**
+ * 断言并增加使用量（旧接口，已废弃）
+ *
+ * @deprecated 使用 withCreditFreeze（src/lib/api-helpers.ts）替代，以支持配额事务保护（freeze -> settle/rollback）。
+ * 当前实现先扣配额再执行生成，失败时配额无法回滚，会导致用户损失配额。
+ * 新接口通过三阶段事务机制解决此问题。
+ *
+ * 迁移示例：
+ * ```typescript
+ * // 旧方式（不推荐）
+ * await assertAndIncrementUsage({ userId, action: "image_generation", amount: 1 });
+ * const result = await callImageGenerationByType({ ... });
+ *
+ * // 新方式（推荐）
+ * return withCreditFreeze(
+ *   async ({ userId, freezeId }) => {
+ *     const result = await callImageGenerationByType({ ... });
+ *     return { result };
+ *   },
+ *   {
+ *     estimateCost: () => estimateImageCost('standard'),
+ *     taskId: panel_id,
+ *     description: '图片生成',
+ *   }
+ * );
+ * ```
+ *
+ * 计划于 3 个月后删除此接口（2025-06-27）。
+ */
 export async function assertAndIncrementUsage(params: {
   userId: string;
   action: UsageAction;

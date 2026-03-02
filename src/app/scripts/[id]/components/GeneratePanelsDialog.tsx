@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,10 @@ import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { CostPreview } from "@/components/common/CostPreview";
 import { AlertCircle, Sparkles } from "lucide-react";
+
+const CREDITS_PER_PANEL = 5;
 
 interface GeneratePanelsDialogProps {
   open: boolean;
@@ -39,6 +42,27 @@ export function GeneratePanelsDialog({
     isFirstGeneration ? "overwrite" : "append"
   );
   const [panelCount, setPanelCount] = useState<string>("8");
+  const [currentBalance, setCurrentBalance] = useState<number>(0);
+
+  // 获取用户算力余额
+  useEffect(() => {
+    if (!open) return;
+    const fetchBalance = async () => {
+      try {
+        const res = await fetch("/api/auth/me");
+        const data = await res.json();
+        if (data?.data?.user?.credits != null) {
+          setCurrentBalance(data.data.user.credits);
+        }
+      } catch {
+        setCurrentBalance(0);
+      }
+    };
+    void fetchBalance();
+  }, [open]);
+
+  const count = parseInt(panelCount, 10) || 0;
+  const estimatedCost = Math.max(0, count) * CREDITS_PER_PANEL;
 
   const handleConfirm = () => {
     const count = parseInt(panelCount, 10);
@@ -122,6 +146,13 @@ export function GeneratePanelsDialog({
               建议 8-15 个分镜，可根据章节内容调整
             </p>
           </div>
+
+          <CostPreview
+            estimatedCost={estimatedCost}
+            currentBalance={currentBalance}
+            itemCount={count > 0 ? count : undefined}
+            itemLabel="个分镜"
+          />
         </div>
 
         <DialogFooter>

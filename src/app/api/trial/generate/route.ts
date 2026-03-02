@@ -43,32 +43,23 @@ const STYLE_PROMPTS: Record<string, string> = {
   webtoon: "Korean webtoon style, vertical format, soft colors, clean linework",
 };
 
-// 调用图像生成 API
-async function generatePanelImages(
+// 生成带描述文本的占位图 URL（试用模式不调用真实图像生成 API）
+function generatePanelImages(
   descriptions: string[],
-  stylePrompt: string
-): Promise<string[]> {
-  // TODO: 集成实际的图像生成 API
-  // 当前返回占位图 URL
-  const placeholderImages = [
-    "https://placehold.co/400x400/1a1a2e/ffffff?text=Panel+1",
-    "https://placehold.co/400x400/16213e/ffffff?text=Panel+2",
-    "https://placehold.co/400x400/0f3460/ffffff?text=Panel+3",
-    "https://placehold.co/400x400/e94560/ffffff?text=Panel+4",
-  ];
-
-  // 模拟延迟
-  await new Promise((resolve) => setTimeout(resolve, 2000));
-
-  // 实际实现应该调用图像生成服务
-  // const imageUrls = await Promise.all(
-  //   descriptions.map(async (desc) => {
-  //     const fullPrompt = `${desc}, ${stylePrompt}`;
-  //     return await callImageGeneration(fullPrompt);
-  //   })
-  // );
-
-  return placeholderImages;
+  _stylePrompt: string
+): string[] {
+  return descriptions.map((desc, i) => {
+    const colors = [
+      { bg: "1a1a2e", fg: "e2e2e2" },
+      { bg: "16213e", fg: "e2e2e2" },
+      { bg: "0f3460", fg: "e2e2e2" },
+      { bg: "533483", fg: "e2e2e2" },
+    ];
+    const color = colors[i % colors.length];
+    const shortDesc = desc.length > 30 ? desc.slice(0, 30) + "..." : desc;
+    const encodedDesc = encodeURIComponent(shortDesc);
+    return `https://placehold.co/512x512/${color.bg}/${color.fg}?text=${encodedDesc}&font=noto`;
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -196,7 +187,7 @@ export async function POST(request: NextRequest) {
 
         // 生成图像
         const stylePrompt = STYLE_PROMPTS[styleId] || STYLE_PROMPTS.manga;
-        const imageUrls = await generatePanelImages(descriptions, stylePrompt);
+        const imageUrls = generatePanelImages(descriptions, stylePrompt);
 
         // 增加计数
         incrementRateLimit(fingerprint);

@@ -2,6 +2,7 @@ import {
   Users,
   Building2,
   BookOpen,
+  BookText,
   Sparkles,
   FileCode,
   FolderOpen,
@@ -12,6 +13,7 @@ import {
   Workflow,
   Palette,
   LayoutTemplate,
+  LayoutDashboard,
 } from "lucide-react";
 import { MenuItem, MenuCategory } from "./types";
 
@@ -41,6 +43,12 @@ export const workspaceMenuItems: MenuCategory[] = [
     category: "创作中心",
     items: [
       {
+        icon: LayoutDashboard,
+        title: "创作工作台",
+        description: "统一创作入口与最近作品",
+        href: "/workspace",
+      },
+      {
         icon: Sparkles,
         title: "创作新故事",
         description: "从零开始创作漫画",
@@ -57,6 +65,12 @@ export const workspaceMenuItems: MenuCategory[] = [
         title: "分镜编辑",
         description: "编辑分镜和面板",
         href: "/storyboard",
+      },
+      {
+        icon: BookText,
+        title: "小说创作",
+        description: "AI 辅助小说写作与管理",
+        href: "/novel",
       },
     ],
   },

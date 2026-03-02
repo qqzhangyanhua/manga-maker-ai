@@ -21,6 +21,7 @@ import type { ChapterOutline } from "./types";
 import { ProjectDetailSkeleton } from "./components/ProjectDetailSkeleton";
 import { novelTheme } from "../theme";
 import { cn } from "@/lib/utils";
+import { Navbar } from "@/components/Landing";
 import "../novel-theme.css";
 
 // ✅ 性能优化：动态导入重型组件
@@ -152,12 +153,15 @@ function NovelProjectPageContent() {
   if (error) {
     return (
       <div className={cn(novelTheme.layout.background, "novel-theme-scope")}>
-        <ErrorState
-          error={error}
-          title="加载项目失败"
-          description="无法加载项目数据，请检查项目是否存在或稍后重试。"
-          onRetry={refetch}
-        />
+        <Navbar />
+        <div className="pt-24">
+          <ErrorState
+            error={error}
+            title="加载项目失败"
+            description="无法加载项目数据，请检查项目是否存在或稍后重试。"
+            onRetry={refetch}
+          />
+        </div>
       </div>
     );
   }
@@ -195,11 +199,12 @@ function NovelProjectPageContent() {
 
   return (
     <div className={cn(novelTheme.layout.background, "novel-theme-scope")}>
+      <Navbar />
       {/* 装饰性光晕 */}
       <div className={novelTheme.layout.glowPrimary} />
       <div className={novelTheme.layout.glowSecondary} />
 
-      <div className={novelTheme.layout.container}>
+      <div className={cn(novelTheme.layout.container, "pt-24")}>
         {/* 项目头部 + 保存指示器 */}
         <div className="flex items-center justify-between">
           <ProjectHeader

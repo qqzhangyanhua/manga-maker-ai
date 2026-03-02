@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { PanelRight } from "lucide-react";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
+import { AutoSaveIndicator } from "@/components/common/AutoSaveIndicator";
 import { ScriptPageHeader } from "./ScriptPageHeader";
 import type { ScriptPageTopBarProps } from "../types/component-props.types";
 
@@ -14,6 +15,7 @@ export function ScriptPageTopBar({
   onEnterFocusMode,
   onOpenSidebar,
   onOpenNineGrid,
+  saveStatus = "saved",
 }: ScriptPageTopBarProps) {
   return (
     <div className="flex items-center justify-between mb-6">
@@ -27,6 +29,7 @@ export function ScriptPageTopBar({
           onEnterFocusMode={onEnterFocusMode}
           onOpenNineGrid={onOpenNineGrid}
         />
+        <AutoSaveIndicator status={saveStatus} className="mt-2" />
       </div>
 
       {/* 侧边栏触发按钮 (仅在新布局时显示) */}

@@ -4,14 +4,33 @@ import { EditorVersion } from "@/components/ImageEditor/VersionTimeline";
 import { CanvasSchema } from "@/components/ImageEditor/CanvasWorkspace";
 import { ApiVersion, VersionFilters, normalizeVersion } from "../types";
 
-export const useVersionManager = () => {
-  const [versions, setVersions] = useState<EditorVersion[]>([]);
-  const [activeVersion, setActiveVersion] = useState<string | null>(null);
-  const [listLoading, setListLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-  const [total, setTotal] = useState(0);
-  const [filters, setFilters] = useState<VersionFilters>({ projectId: "", taskId: "" });
+interface UseVersionManagerOptions {
+  initialVersions?: EditorVersion[];
+  initialActiveVersion?: string | null;
+  initialTotal?: number;
+  initialPage?: number;
+  initialPageSize?: number;
+  initialFilters?: VersionFilters;
+}
+
+interface VersionListMeta {
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export const useVersionManager = (options: UseVersionManagerOptions = {}) => {
+  const [versions, setVersions] = useState<EditorVersion[]>(options.initialVersions ?? []);
+  const [activeVersion, setActiveVersion] = useState<string | null>(
+    options.initialActiveVersion ?? options.initialVersions?.[0]?.id ?? null
+  );
+  const [listLoading, setListLoading] = useState(false);
+  const [page, setPage] = useState(options.initialPage ?? 1);
+  const [pageSize, setPageSize] = useState(options.initialPageSize ?? 20);
+  const [total, setTotal] = useState(options.initialTotal ?? 0);
+  const [filters, setFilters] = useState<VersionFilters>(
+    options.initialFilters ?? { projectId: "", taskId: "" }
+  );
   const { toast } = useToast();
 
   const fetchVersions = useCallback(
@@ -48,10 +67,17 @@ export const useVersionManager = () => {
         } else {
           setActiveVersion(null);
         }
+
+        return {
+          total: data.total ?? 0,
+          page: data.page ?? pageArg,
+          pageSize: data.pageSize ?? pageSizeArg,
+        } as VersionListMeta;
       } catch (error: unknown) {
         console.error("加载版本失败:", error);
         const message = error instanceof Error ? error.message : "请稍后再试";
         toast({ title: "加载版本失败", description: message, variant: "destructive" });
+        return null;
       } finally {
         setListLoading(false);
       }

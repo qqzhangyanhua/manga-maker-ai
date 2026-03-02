@@ -7,8 +7,8 @@ import { ImportTextDialog } from "@/components/StoryScript/ImportTextDialog";
 import { NineGridDialog } from "./NineGridDialog";
 import { DialogsManager } from "./DialogsManager";
 import type { UIState, UIActions } from "../hooks/useUIState";
-import type { Chapter } from "../types/script-editor.types";
-import type { StoryCharacterForSync } from "../types";
+import type { Chapter, Panel } from "../types/script-editor.types";
+import type { StoryCharacterWithDetails } from "@/components/StoryCharacter/types";
 
 export interface ScriptPageDialogsProps {
   // 基础信息
@@ -28,21 +28,25 @@ export interface ScriptPageDialogsProps {
 
   // 数据
   nextChapterOrder: number;
-  suggestedCharacters: unknown[];
-  storyCharacters: StoryCharacterForSync[];
-  panels: Array<{ id: string; [key: string]: unknown }>;
+  suggestedCharacters: Array<{ name: string; role: string; description?: string }>;
+  storyCharacters: StoryCharacterWithDetails[];
+  panels: Panel[];
 
-  // 小说角色同步相关
+  // 小说角色同步相关（与 DialogsManagerProps 一致）
   novelCharacterSync: {
-    shouldShowSyncPrompt: boolean;
-    charactersWithStatus: Array<{ generated: boolean; [key: string]: unknown }>;
-    openDialog: () => void;
+    dialogOpen: boolean;
+    charactersWithStatus: Array<{ name: string; role: string; generated: boolean }>;
+    closeDialog: () => void;
   };
 
   // 回调函数
   onRefresh: () => Promise<void>;
   onRefetchStoryCharacters: () => Promise<void>;
-  onExecuteGeneration: (chapterId: string, count: number) => Promise<void>;
+  onExecuteGeneration: (
+    chapterId: string,
+    mode: "overwrite" | "append",
+    panelCount?: number
+  ) => Promise<void>;
   onNineGridSuccess: () => void;
   onImportSuccess: () => void;
 }

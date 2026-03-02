@@ -40,6 +40,8 @@ export interface ScriptPageTopBarProps {
   onEnterFocusMode: () => void;
   onOpenSidebar: () => void;
   onOpenNineGrid?: () => void;
+  /** 故事表单保存状态，用于 AutoSaveIndicator */
+  saveStatus?: "idle" | "unsaved" | "saving" | "saved" | "error";
 }
 
 export interface ScriptPageHeaderProps {
@@ -59,6 +61,7 @@ export interface ScriptPageGuidanceProps {
   chapters: Chapter[];
   onGeneratePanelsForChapter: (chapterId: string) => void;
   onSetCurrentChapter: (chapterId: string) => void;
+  onBatchGenerateImages: () => void;
 }
 
 // ==================== Tab 组件 ====================

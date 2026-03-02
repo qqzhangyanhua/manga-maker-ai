@@ -14,5 +14,5 @@ export async function callComfyUIAPI(
 ): Promise<ImageGenerationResult> {
   // ComfyUI 的 API 调用较复杂，需要使用 workflow JSON
   // 这里先返回未实现的错误
-  throw new Error("ComfyUI 支持暂未实现，请先使用 Stable Diffusion (Automatic1111)");
+  throw new Error("ComfyUI 图像生成暂未集成，请在管理后台切换到 Stable Diffusion 或 OpenAI 提供商。");
 }

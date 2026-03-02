@@ -40,14 +40,21 @@ export type VersionFilters = {
 
 export interface ApiVersion {
   id: string;
-  pageId: string;
+  label?: string;
+  sourceType?: "original" | "optimize" | "layout" | "upload";
+  source_type?: "original" | "optimize" | "layout" | "upload";
   status: string;
-  imageUrl: string;
-  canvasSchema: Record<string, unknown> | null;
-  prompt: string | null;
-  strength: number | null;
-  createdAt: string;
-  updatedAt: string;
+  imageUrl?: string | null;
+  image_url?: string | null;
+  canvasSchema?: Record<string, unknown> | null;
+  canvas_schema?: Record<string, unknown> | null;
+  prompt?: string | null;
+  taskId?: string | null;
+  task_id?: string | null;
+  createdAt?: string;
+  created_at?: string;
+  updatedAt?: string;
+  updated_at?: string;
 }
 
 export function normalizeVersion(apiVersion: ApiVersion): EditorVersion {
@@ -59,13 +66,19 @@ export function normalizeVersion(apiVersion: ApiVersion): EditorVersion {
     status = "failed";
   }
 
+  const sourceType = apiVersion.sourceType ?? apiVersion.source_type ?? "optimize";
+  const imageUrl = apiVersion.imageUrl ?? apiVersion.image_url ?? "/placeholder.svg";
+  const createdAtRaw = apiVersion.createdAt ?? apiVersion.created_at;
+  const createdAt = createdAtRaw ? new Date(createdAtRaw) : new Date();
+
   return {
     id: apiVersion.id,
-    label: apiVersion.prompt || "版本",
-    sourceType: "optimize",
+    label: apiVersion.label || apiVersion.prompt || "版本",
+    sourceType,
     status,
-    thumbnail: apiVersion.imageUrl,
-    canvasSchema: apiVersion.canvasSchema as CanvasSchema | null,
-    createdAt: new Date(apiVersion.createdAt),
+    thumbnail: imageUrl,
+    taskId: apiVersion.taskId ?? apiVersion.task_id ?? null,
+    canvasSchema: (apiVersion.canvasSchema ?? apiVersion.canvas_schema ?? null) as CanvasSchema | null,
+    createdAt: Number.isNaN(createdAt.getTime()) ? new Date() : createdAt,
   };
 }

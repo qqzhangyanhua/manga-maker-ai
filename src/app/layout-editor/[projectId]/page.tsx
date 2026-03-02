@@ -21,12 +21,12 @@ export default async function Page({ params }: PageProps) {
   const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
 
   if (!token) {
-    redirect("/login");
+    redirect("/auth/login");
   }
 
   const payload = verifyAuthToken(token);
   if (!payload?.userId) {
-    redirect("/login");
+    redirect("/auth/login");
   }
 
   // 获取项目信息

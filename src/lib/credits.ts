@@ -9,7 +9,9 @@ export type CreditAction =
   | "consume"       // AI调用消耗
   | "recharge"      // 充值
   | "admin_adjust"  // 管理员调整
-  | "refund";       // 退款
+  | "refund"        // 退款
+  | "freeze"        // 冻结算力
+  | "settle";       // 结算
 
 export type CreditRefType =
   | "generation_log"
@@ -398,6 +400,10 @@ function getDefaultDescription(action: CreditAction): string {
       return "管理员调整";
     case "refund":
       return "退款";
+    case "freeze":
+      return "任务预估费用冻结";
+    case "settle":
+      return "任务结算";
     default:
       return "算力变动";
   }

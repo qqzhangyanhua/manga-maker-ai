@@ -266,11 +266,11 @@ export function HeroSection({ onOpenTrial }: HeroSectionProps) {
             className="relative bg-orange-500 hover:bg-orange-600 text-white border-0 px-8 overflow-hidden group"
             asChild
           >
-            <Link href="/story">
+            <Link href="/workspace">
               {/* Shimmer effect */}
               <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
               <Sparkles className="w-5 h-5 mr-2 relative z-10" />
-              <span className="relative z-10">开始创作</span>
+              <span className="relative z-10">进入工作台</span>
             </Link>
           </Button>
 

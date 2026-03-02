@@ -15,6 +15,10 @@ import {
   History,
   LogOut,
   ArrowLeft,
+  FileCode,
+  FolderOpen,
+  Image,
+  Palette,
 } from "lucide-react";
 import { Navbar } from "@/components/Landing";
 import { Button } from "@/components/ui/button";
@@ -28,8 +32,10 @@ import { EditProfileDialog } from "./components/EditProfileDialog";
 import { ChangePasswordDialog } from "./components/ChangePasswordDialog";
 import { TransactionsDialog } from "./components/TransactionsDialog";
 import { RechargeDialog } from "./components/RechargeDialog";
+import { ApiKeySettings } from "./components/ApiKeySettings";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -37,6 +43,8 @@ export default function ProfilePage() {
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [transactionsOpen, setTransactionsOpen] = useState(false);
   const [rechargeOpen, setRechargeOpen] = useState(false);
+  const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
+  const { toast } = useToast();
 
   // Use React Query hook for user data
   const { data: user, isLoading, error, refetch } = useCurrentUser();
@@ -72,6 +80,42 @@ export default function ProfilePage() {
       router.push("/");
     } catch (error) {
       console.error("Logout failed:", error);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    const firstConfirm = window.confirm(
+      "确定要注销账户吗？此操作将永久删除您的所有数据，无法恢复。"
+    );
+    if (!firstConfirm) return;
+
+    const secondConfirm = window.confirm(
+      "请再次确认：注销后所有作品、角色、生成记录将被永久删除。"
+    );
+    if (!secondConfirm) return;
+
+    setDeleteAccountLoading(true);
+    try {
+      const res = await fetch("/api/auth/delete-account", { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast({
+          title: "注销失败",
+          description: data.error || "请稍后再试",
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({ title: "账户已注销" });
+      router.push("/");
+    } catch (error) {
+      toast({
+        title: "注销失败",
+        description: error instanceof Error ? error.message : "网络异常，请稍后重试",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteAccountLoading(false);
     }
   };
 
@@ -350,10 +394,10 @@ export default function ProfilePage() {
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {[
-                      { icon: User, color: "text-orange-500", label: "剧本记录", href: "/scripts" },
-                      { icon: User, color: "text-blue-500", label: "分镜项目", href: "/projects" },
-                      { icon: User, color: "text-purple-500", label: "生成图库", href: "/generated" },
-                      { icon: User, color: "text-emerald-500", label: "资产库", href: "/assets" },
+                      { icon: FileCode, color: "text-orange-500", label: "作品记录", href: "/scripts" },
+                      { icon: FolderOpen, color: "text-blue-500", label: "分镜项目", href: "/projects" },
+                      { icon: Image, color: "text-purple-500", label: "生成图库", href: "/generated" },
+                      { icon: Palette, color: "text-emerald-500", label: "资产库", href: "/assets" },
                     ].map((item, i) => (
                       <Button
                         key={i}
@@ -459,12 +503,20 @@ export default function ProfilePage() {
                         <Button
                           variant="outline"
                           className="justify-start h-12 border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:bg-zinc-800 hover:text-white hover:border-zinc-600"
+                          onClick={() =>
+                            toast({
+                              title: "功能开发中",
+                              description: "绑定新邮箱功能即将上线，敬请期待",
+                            })
+                          }
                         >
                           <Mail className="w-4 h-4 mr-3" />
                           绑定新邮箱
                         </Button>
                       </div>
                     </section>
+
+                    <ApiKeySettings />
 
                     <section className="space-y-4">
                       <h4 className="text-sm font-medium text-red-400 uppercase tracking-wider opacity-70">危险区域</h4>
@@ -476,8 +528,10 @@ export default function ProfilePage() {
                         <Button
                           variant="destructive"
                           className="bg-red-900/50 hover:bg-red-900 text-red-200 border border-red-800/50"
+                          onClick={handleDeleteAccount}
+                          disabled={deleteAccountLoading}
                         >
-                          注销账户
+                          {deleteAccountLoading ? "处理中..." : "注销账户"}
                         </Button>
                       </div>
                     </section>
@@ -511,6 +565,7 @@ export default function ProfilePage() {
           <RechargeDialog
             open={rechargeOpen}
             onOpenChange={setRechargeOpen}
+            onSuccess={refetch}
           />
         </>
       )}

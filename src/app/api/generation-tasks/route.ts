@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { Prisma, prisma } from "@/lib/db";
+import { enqueueBatchImageGeneration } from "@/lib/queue";
 import type { SuccessResponse, BatchGenerateInput, BatchGenerateResponse } from "@/types/template";
 
 /**
@@ -247,14 +248,20 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    // TODO: Trigger background job to process this task
-    // For now, we just create the task record
-    // In production, this should:
-    // 1. Enqueue task to a job queue (Bull, BullMQ, etc.)
-    // 2. Background worker picks up task
-    // 3. Worker generates images one by one
-    // 4. Worker updates task progress
-    // 5. Worker marks task as completed/failed
+    // 将图像生成任务加入 BullMQ 队列，由后台 Worker 处理
+    const panelsData = panels.map((p) => ({
+      id: p.id,
+      prompt: p.description || ""
+    }));
+
+    await enqueueBatchImageGeneration(
+      task.id,
+      panelsData,
+      payload.userId,
+      projectId,
+      settings.style,
+      settings.quality
+    );
 
     // Estimate time (rough calculation: 10 seconds per panel)
     const estimatedTime = panelIds.length * 10;

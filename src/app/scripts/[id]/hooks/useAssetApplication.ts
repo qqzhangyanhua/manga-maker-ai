@@ -6,16 +6,10 @@
 import { useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 
-interface Character {
+/** 角色/场景选择项（仅需 id 和 name 用于 API 调用） */
+interface AssetSelectable {
   id: string;
   name: string;
-  [key: string]: unknown;
-}
-
-interface Scene {
-  id: string;
-  name: string;
-  [key: string]: unknown;
 }
 
 interface UseAssetApplicationProps {
@@ -33,7 +27,7 @@ export function useAssetApplication({
    * 应用角色到选中的分镜
    */
   const applyCharacterToPanels = useCallback(
-    async (character: Character) => {
+    async (character: AssetSelectable) => {
       if (selectedPanelIds.length === 0) {
         toast({
           title: "请先选择分镜",
@@ -85,7 +79,7 @@ export function useAssetApplication({
    * 应用场景到选中的分镜
    */
   const applySceneToPanels = useCallback(
-    async (scene: Scene) => {
+    async (scene: AssetSelectable) => {
       if (selectedPanelIds.length === 0) {
         toast({
           title: "请先选择分镜",

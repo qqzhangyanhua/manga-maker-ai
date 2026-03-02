@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { parseErrorFromResponse } from "@/lib/error-utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { Navbar } from "@/components/Landing";
 import { CreateProjectDialog } from "./components/CreateProjectDialog";
 import { InspirationModeDialog } from "./components/InspirationModeDialog";
 import { ProfessionalModeDialog } from "./components/ProfessionalMode";
@@ -249,6 +250,7 @@ export default function NovelDashboard() {
       {/* 用户已登录时显示页面内容 */}
       {user && (
         <>
+          <Navbar />
           {/* 装饰性光晕 */}
           <div className={novelTheme.layout.glowPrimary} />
           <div className={novelTheme.layout.glowSecondary} />

@@ -44,10 +44,16 @@ export class WorkflowEngine {
                 await this.updateStatus("running", "export", 75);
             }
 
-            // Step 4: Export (if configured)
+            // Step 4: Export (if configured) - 生成导出链接供用户下载
             const exportUrls: string[] = [];
             if (this.config.exportFormat) {
-                // TODO: Implement export functionality
+                const format = this.config.exportFormat;
+                if (format === "pdf" || format === "both") {
+                    exportUrls.push(`/api/project/${project.id}/export?format=pdf`);
+                }
+                if (format === "images" || format === "both") {
+                    exportUrls.push(`/api/project/${project.id}/export?format=zip`);
+                }
                 await this.updateStatus("running", "export", 90);
             }
 

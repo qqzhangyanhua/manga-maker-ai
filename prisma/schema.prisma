@@ -29,8 +29,24 @@ model User {
   generationTasks    GenerationTask[]
   tags               Tag[]
   creditTransactions CreditTransaction[]
+  userApiKeys        UserApiKey[]
 
   @@map("users")
+}
+
+model UserApiKey {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @db.Uuid
+  provider   String
+  api_key    String   @db.Text // AES-256 加密存储
+  base_url   String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, provider], map: "unique_user_provider")
+  @@index([user_id], map: "idx_user_api_keys_user_id")
+  @@map("user_api_keys")
 }
 
 model EmailVerification {

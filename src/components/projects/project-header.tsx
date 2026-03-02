@@ -16,18 +16,18 @@ export function ProjectHeader({ onSearchChange, onRefresh, isRefreshing }: Proje
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <Link
-            href="/"
+            href="/workspace"
             className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-orange-500 transition-colors mb-2"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            返回首页
+            返回工作台
           </Link>
           <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
-            我的项目
+            我的作品
             <span className="text-orange-500">.</span>
           </h1>
           <p className="text-zinc-400 text-sm max-w-md">
-            管理您所有的分镜创作，支持编辑、导出及多人协作
+            管理您所有的作品，支持编辑、导出及多人协作
           </p>
         </div>
 
@@ -46,7 +46,7 @@ export function ProjectHeader({ onSearchChange, onRefresh, isRefreshing }: Proje
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
           <Input 
-            placeholder="搜索项目名称..." 
+            placeholder="搜索作品名称..." 
             className="pl-9 bg-zinc-900/50 border-zinc-800 focus:border-orange-500/50 focus:ring-orange-500/20 transition-all text-sm"
             onChange={(e) => onSearchChange?.(e.target.value)}
           />

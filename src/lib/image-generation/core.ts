@@ -9,6 +9,9 @@ import type { ImageGenerationParams, ImageGenerationResult, ImageGenerationOptio
 import { callStableDiffusionAPI } from "./providers/stable-diffusion";
 import { callComfyUIAPI } from "./providers/comfyui";
 import { callOpenAIImageAPI } from "./providers/openai";
+import { callFalAPI } from "./providers/fal";
+import { callGoogleImagenAPI } from "./providers/google-imagen";
+import { callSeedreamAPI } from "./providers/seedream";
 
 /**
  * 调用图片生成 API（根据 provider_type 自动选择配置）
@@ -115,12 +118,45 @@ export async function callImageGenerationByType(
       );
       break;
 
+    case "fal":
+    case "fal-ai":
+      result = await callFalAPI(
+        provider.base_url,
+        imageParams,
+        provider.api_key,
+        provider.model || "flux/schnell"
+      );
+      break;
+
+    case "google":
+    case "imagen":
+    case "google-imagen":
+      result = await callGoogleImagenAPI(
+        provider.base_url,
+        imageParams,
+        provider.api_key,
+        provider.model || "imagen-3.0-generate-002"
+      );
+      break;
+
+    case "seedream":
+    case "volcengine":
+      result = await callSeedreamAPI(
+        provider.base_url,
+        imageParams,
+        provider.api_key,
+        provider.model || "seedream-3.0"
+      );
+      break;
+
     case "replicate":
-      throw new Error("Replicate 支持暂未实现，请使用 SD 或 ComfyUI");
+      throw new Error(
+        "Replicate 图像生成暂未集成，请在管理后台切换到 Stable Diffusion、OpenAI、FAL、Google Imagen 或 Seedream 提供商。"
+      );
 
     default:
       throw new Error(
-        `不支持的 provider_name: ${provider.provider_name}，请使用 sd, comfyui, openai 等`
+        "不支持的图像生成提供商，请在管理后台切换到 Stable Diffusion、OpenAI、FAL、Google Imagen 或 Seedream 提供商。"
       );
   }
 

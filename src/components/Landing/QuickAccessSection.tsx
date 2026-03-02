@@ -1,15 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { BarChart3, BookOpen, FileText, Images, PenLine, Layers, ArrowRight, Sparkles, Wand2 } from "lucide-react";
+import { BarChart3, FileText, Images, PenLine, Layers, ArrowRight, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
     {
-        title: "生成小说",
-        description: "从一个灵感开始，AI 辅助生成完整小说章节与剧本大纲。",
-        href: "/novel",
-        icon: PenLine,
+        title: "创作工作台",
+        description: "统一创作入口：从灵感到分镜，按阶段推进全流程。",
+        href: "/workspace",
+        icon: Layers,
         span: "md:col-span-2",
         theme: "amber", // Primary Action - Amber/Gold
         bgGradient: "from-amber-500/10 via-amber-500/5 to-transparent",
@@ -18,10 +18,10 @@ const items = [
         iconBg: "bg-amber-500/10",
     },
     {
-        title: "分镜项目",
-        description: "进入编辑器，调整分镜布局与画面细节。",
-        href: "/projects",
-        icon: BookOpen,
+        title: "小说创作",
+        description: "从灵感生成章节和大纲，再进入工作台继续创作。",
+        href: "/novel",
+        icon: PenLine,
         span: "md:col-span-1",
         theme: "stone", // Secondary - Warm Stone
         bgGradient: "from-stone-500/10 via-stone-500/5 to-transparent",

@@ -1,0 +1,557 @@
+{
+  "timestamp": "2025-03-27T01:30:00",
+  "root": "/Users/zhangyanhua/AI/manga-maker-ai",
+  "truncated": false,
+  "modules": [
+    {
+      "name": "src",
+      "path": "src",
+      "language": ["TypeScript", "TSX"],
+      "entry": [
+        "src/app/layout.tsx",
+        "src/app/providers.tsx",
+        "src/app/page.tsx",
+        "src/app/api/novel/[...path]/route.ts"
+      ],
+      "interfaces": [
+        "src/app/api/auth/login/route.ts",
+        "src/app/api/auth/register/route.ts",
+        "src/app/api/character/route.ts",
+        "src/app/api/character/[id]/route.ts",
+        "src/app/api/story/route.ts",
+        "src/app/api/story/[id]/route.ts",
+        "src/app/api/chapter/[id]/route.ts",
+        "src/app/api/admin/users/route.ts",
+        "src/app/api/admin/characters/route.ts",
+        "src/app/api/admin/generation-logs/route.ts",
+        "src/app/api/panel/route.ts",
+        "src/app/api/panel/[id]/route.ts",
+        "src/app/api/panel/generate-image/route.ts",
+        "src/app/api/canvas/timeline/route.ts",
+        "src/app/api/canvas/timeline/[id]/route.ts",
+        "src/app/api/generation-tasks/route.ts",
+        "src/app/api/user/api-keys/route.ts",
+        "src/app/api/payment/create-order/route.ts",
+        "src/app/api/sse/route.ts",
+        "src/lib/api-helpers.ts"
+      ],
+      "tests": [
+        "src/app/api/panel/reorder/route.test.ts",
+        "src/app/scripts/[id]/hooks/useInlineEdit.test.ts",
+        "src/app/scripts/[id]/components/__tests__/NineGridDialog.test.tsx",
+        "src/app/(novel)/novel/components/InfiniteCanvas/utils/shot-grouping.test.ts",
+        "src/lib/utils.test.ts",
+        "src/lib/credits.test.ts",
+        "src/lib/llm-provider.test.ts",
+        "src/lib/image-generation.test.ts",
+        "src/lib/novel/content-serializer.test.ts",
+        "src/lib/__tests__/nine-grid-generator.test.ts",
+        "src/app/(novel)/novel/components/EditorToolbar.test.tsx"
+      ],
+      "important_paths": [
+        "src/app/api/auth/",
+        "src/app/api/admin/",
+        "src/app/(novel)/novel/components/InfiniteCanvas/",
+        "src/app/(novel)/novel/components/ProfessionalMode/",
+        "src/app/admin/",
+        "src/app/scripts/[id]/components/PanelEditor/",
+        "src/app/scripts/[id]/hooks/",
+        "src/app/api/panel/",
+        "src/app/api/canvas/",
+        "src/app/api/generation-tasks/",
+        "src/lib/",
+        "src/lib/queue/",
+        "src/lib/security/",
+        "src/lib/novel/",
+        "src/hooks/",
+        "src/stores/",
+        "src/components/"
+      ],
+      "coverage": {
+        "indexed_files": 1200,
+        "deep_scanned_files": 656,
+        "percent": 54.67
+      },
+      "gaps": [
+        "src/components/ui/** shadcn/ui 定制层（~50 文件）清单级即可，无需深扫",
+        "src/app/api/** API 路由剩余端点（~43 文件，novel 代理端点、project/workflow 端点、部分 character/story/chapter 子端点）",
+        "src/lib/** 剩余服务层文件（~40 文件，部分 LLM 生成器、布局导出、提示词构建器等）",
+        "src/app/scripts/[id]/** 剩余 ~15 文件跨组件状态一致性复核"
+      ]
+    },
+    {
+      "name": "novel-backend",
+      "path": "services/novel-backend",
+      "language": ["Python"],
+      "entry": [
+        "services/novel-backend/app/main.py"
+      ],
+      "interfaces": [
+        "services/novel-backend/app/routers/progressive.py",
+        "services/novel-backend/app/routers/canvas.py",
+        "services/novel-backend/app/routers/world.py"
+      ],
+      "tests": [
+        "services/novel-backend/test/test_rag.py",
+        "services/novel-backend/test/test_outline_continuation.py"
+      ],
+      "important_paths": [
+        "services/novel-backend/app/services/canvas/",
+        "services/novel-backend/app/schemas/"
+      ],
+      "coverage": {
+        "indexed_files": 40,
+        "deep_scanned_files": 21,
+        "percent": 52.5
+      },
+      "gaps": [
+        "部分服务函数错误分支仍未逐函数核验"
+      ]
+    },
+    {
+      "name": "prisma",
+      "path": "prisma",
+      "language": ["Prisma", "SQL", "TypeScript"],
+      "entry": [
+        "prisma/schema.prisma",
+        "prisma/seed.ts"
+      ],
+      "interfaces": [],
+      "tests": [],
+      "important_paths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/manual/",
+        "prisma/migrations/20260126000000_add_character_prompt_and_nine_grid_workflow/migration.sql",
+        "prisma/migrations/20260301000000_add_user_api_keys/migration.sql"
+      ],
+      "coverage": {
+        "indexed_files": 36,
+        "deep_scanned_files": 17,
+        "percent": 47.22
+      },
+      "gaps": [
+        "托管迁移仍需分层抽样（尤其 2025-12 早期迁移）",
+        "schema 其余模型与 API 实际使用映射仍需核对"
+      ]
+    },
+    {
+      "name": "scripts",
+      "path": "scripts",
+      "language": ["TypeScript", "JavaScript", "Shell", "SQL"],
+      "entry": [
+        "scripts/init-db.sh",
+        "scripts/run-vitest.mjs"
+      ],
+      "interfaces": [],
+      "tests": [],
+      "important_paths": [
+        "scripts/migrate-comic-style.ts",
+        "scripts/migrate-suggested-characters.ts",
+        "scripts/migrate-panel-characters.ts",
+        "scripts/migrate-quality-score.ts",
+        "scripts/migrate-phase2-data.ts",
+        "scripts/migrate-gallery.ts"
+      ],
+      "coverage": {
+        "indexed_files": 47,
+        "deep_scanned_files": 16,
+        "percent": 34.04
+      },
+      "gaps": [
+        "多数迁移脚本缺少统一事务封装与回滚策略",
+        "仅部分脚本支持 dry-run 和范围限制",
+        "SQL 语句分号切分方式对复杂语句不稳"
+      ]
+    },
+    {
+      "name": "example",
+      "path": "example",
+      "language": ["HTML", "JavaScript", "Python", "CSS"],
+      "entry": ["example/index.html"],
+      "interfaces": [],
+      "tests": [
+        "example/test_api_simple.py",
+        "example/test_comic_generation.py"
+      ],
+      "important_paths": [
+        "example/js/storyboard-generator.js",
+        "example/js/comic-generator.js",
+        "example/js/config.js"
+      ],
+      "coverage": {
+        "indexed_files": 26,
+        "deep_scanned_files": 5,
+        "percent": 19.23
+      },
+      "gaps": [
+        "example/js/app.js 与 mock-data.js 仍缺端到端调用链核验",
+        "配置文件含明文密钥样式配置，需替换为安全注入"
+      ]
+    }
+  ],
+  "scan_coverage": {
+    "estimated_total_files": 1349,
+    "indexed_files": 1349,
+    "deep_scanned_files": 715,
+    "deep_scan_percent": 53.00,
+    "module_coverage_percent": 100
+  },
+  "target_path_coverage": [
+    { "path": "src/app/api/auth/**", "total_files": 9, "deep_scanned_files": 9, "percent": 100 },
+    { "path": "src/app/api/admin/**", "total_files": 36, "deep_scanned_files": 36, "percent": 100 },
+    { "path": "src/app/api/character/**", "total_files": 14, "deep_scanned_files": 6, "percent": 42.86 },
+    { "path": "src/app/api/story/**", "total_files": 28, "deep_scanned_files": 4, "percent": 14.29 },
+    { "path": "src/app/api/chapter/**", "total_files": 20, "deep_scanned_files": 3, "percent": 15.00 },
+    { "path": "src/app/(novel)/novel/components/InfiniteCanvas/**", "total_files": 57, "deep_scanned_files": 57, "percent": 100 },
+    { "path": "src/app/(novel)/novel/components/InfiniteCanvas/nodes/**", "total_files": 5, "deep_scanned_files": 5, "percent": 100 },
+    { "path": "src/app/admin/**", "total_files": 72, "deep_scanned_files": 54, "percent": 75.0 },
+    { "path": "src/app/scripts/[id]/components/PanelEditor/**", "total_files": 12, "deep_scanned_files": 12, "percent": 100 },
+    { "path": "scripts/migrate-*.ts", "total_files": 7, "deep_scanned_files": 7, "percent": 100 },
+    { "path": "src/app/(novel)/novel/components/ProfessionalMode/**", "total_files": 14, "deep_scanned_files": 14, "percent": 100 },
+    { "path": "src/lib/**", "total_files": 100, "deep_scanned_files": 68, "percent": 68.0 },
+    { "path": "src/lib/image-generation/providers/**", "total_files": 6, "deep_scanned_files": 6, "percent": 100 },
+    { "path": "src/lib/queue/**", "total_files": 5, "deep_scanned_files": 5, "percent": 100 },
+    { "path": "src/lib/security/**", "total_files": 3, "deep_scanned_files": 3, "percent": 100 },
+    { "path": "src/lib/novel/**", "total_files": 3, "deep_scanned_files": 3, "percent": 100 },
+    { "path": "src/hooks/**", "total_files": 30, "deep_scanned_files": 19, "percent": 63.33 },
+    { "path": "src/stores/**", "total_files": 2, "deep_scanned_files": 2, "percent": 100 },
+    { "path": "src/components/**", "total_files": 66, "deep_scanned_files": 30, "percent": 45.45 },
+    { "path": "src/app/api/panel/**", "total_files": 31, "deep_scanned_files": 13, "percent": 41.94 },
+    { "path": "src/app/api/canvas/**", "total_files": 38, "deep_scanned_files": 12, "percent": 31.58 },
+    { "path": "src/app/api/generation-tasks/**", "total_files": 3, "deep_scanned_files": 2, "percent": 66.67 },
+    { "path": "src/app/(novel)/novel/**", "total_files": 100, "deep_scanned_files": 85, "percent": 85.0 }
+  ],
+  "ignore": {
+    "strategy": "merge:.gitignore+default",
+    "active_patterns": [
+      "node_modules/**",
+      ".git/**",
+      ".github/**",
+      "dist/**",
+      "build/**",
+      ".next/**",
+      "__pycache__/**",
+      "*.lock",
+      "*.log",
+      "*.bin",
+      "*.pdf",
+      "*.png",
+      "*.jpg",
+      "*.jpeg",
+      "*.gif",
+      "*.mp4",
+      "*.zip",
+      "*.tar",
+      "*.gz",
+      ".venv/**",
+      ".env"
+    ],
+    "top_skipped": [
+      { "path": "node_modules", "reason": "ignore-rule" },
+      { "path": ".next", "reason": "ignore-rule" },
+      { "path": "services/novel-backend/.venv", "reason": "ignore-rule" },
+      { "path": "services/novel-backend/app/__pycache__", "reason": "ignore-rule" }
+    ]
+  },
+  "gap_backlog": [
+    "src/components/ui/** shadcn/ui 定制层（~50 文件）清单级即可，无需深扫",
+    "src/app/api/** API 路由剩余端点（~43 文件，novel 代理端点、project/workflow 端点）",
+    "src/lib/** 剩余服务层文件（~40 文件，部分 LLM 生成器、布局导出器等）",
+    "src/app/scripts/[id]/** 剩余 ~15 文件跨组件状态一致性复核",
+    "scripts/** 迁移脚本统一事务与回滚模板改造（~31 文件）",
+    "example/** 端到端调用链核验（~21 文件）"
+  ],
+  "next_priority": [
+    "src/lib/** 剩余服务层（LLM 生成器、布局导出器、提示词构建器等，~40 文件）",
+    "src/app/api/** 剩余 API 端点（novel 代理端点、project/workflow 端点，~43 文件）",
+    "src/app/scripts/[id]/** 剩余组件与 hooks（~15 文件）",
+    "src/hooks/** 剩余 hooks（~11 文件）"
+  ],
+  "linus_architectural_issues": [
+    {
+      "priority": "P0",
+      "category": "security",
+      "issue": "鉴权代码重复率 92%：213 个 API 文件中，仅 17 个（8%）使用 withAuth，其余全部手动重复鉴权代码",
+      "location": "src/app/api/** 全部端点",
+      "impact": "维护成本高、安全风险大、代码膨胀（每个端点多 10-15 行）",
+      "solution": "统一使用 withAuth wrapper 或 Next.js Middleware，扩展 withAuth 支持 role 检查",
+      "estimated_files": 180
+    },
+    {
+      "priority": "P0",
+      "category": "transaction",
+      "issue": "配额扣费无事务保护：6 个生成端点先扣配额再执行生成，失败时配额不回滚",
+      "location": "panel/generate-image, batch-generate, generate-multi, canvas/generate-finals, character/regenerate-image, shot-design/generate-image",
+      "impact": "用户配额被错误扣除无法恢复，信任危机",
+      "solution": "使用 billing.ts 的 freeze -> settle/rollback 模式替代 assertAndIncrementUsage",
+      "estimated_files": 30
+    },
+    {
+      "priority": "P0",
+      "category": "api-contract",
+      "issue": "错误响应格式 4 种模式并存：{ error } / { success, message } / { success, data } / { error, detail }",
+      "location": "src/app/api/** 全部 140 个端点",
+      "impact": "前端需要 4 种不同解析逻辑，API 契约混乱",
+      "solution": "统一使用 api-response.ts 的 ApiResponse<T> 格式 { success, data?, error?, code?, details? }",
+      "estimated_files": 140
+    },
+    {
+      "priority": "P0",
+      "category": "data-integrity",
+      "issue": "ScriptNode/ShotNode 的 80 行 React Query 缓存更新逻辑耦合在组件内",
+      "location": "src/app/(novel)/novel/components/InfiniteCanvas/nodes/",
+      "solution": "提取为独立 hook useGenerateScriptMutation/useGenerateShotMutation"
+    },
+    {
+      "priority": "P0",
+      "category": "error-handling",
+      "issue": "6 个 image provider 错误处理不统一",
+      "location": "src/lib/image-generation/providers/**",
+      "solution": "提取 withProviderErrorHandler 装饰器"
+    },
+    {
+      "priority": "P0",
+      "category": "code-duplication",
+      "issue": "图片 URL 下载逻辑重复（OpenAI/FAL）",
+      "location": "providers/openai.ts, providers/fal.ts",
+      "solution": "提取 downloadAndConvertToBase64 通用函数到 utils.ts"
+    },
+    {
+      "priority": "P0",
+      "category": "scalability",
+      "issue": "队列系统缺少死信队列和重试策略监控：BullMQ 配置了 3 次重试，但缺少死信队列处理和重试失败告警",
+      "location": "src/lib/queue/**",
+      "impact": "失败任务无监控、无告警、无恢复机制",
+      "solution": "添加 failed job listener + 死信队列 + Sentry/监控告警集成",
+      "estimated_files": 5
+    },
+    {
+      "priority": "P0",
+      "category": "security",
+      "issue": "限流系统内存单点问题：rate-limit.ts 和 security/rate-limiter.ts 两套内存限流实现并存，分布式部署失效",
+      "location": "src/lib/rate-limit.ts, src/lib/security/rate-limiter.ts",
+      "impact": "多实例部署时限流失效，容易被绕过",
+      "solution": "统一迁移到 Redis 限流（rate-limit.ts 的 checkAndIncrementWindowLimitDistributed 已实现，但未全局应用）",
+      "estimated_files": 2
+    },
+    {
+      "priority": "P1",
+      "category": "data-loss",
+      "issue": "DELETE 操作未实现软删除：character/story/chapter/auth 的 DELETE 端点全部硬删除",
+      "location": "api/character/[id], api/story/[id], api/chapter/[id], api/auth/delete-account",
+      "impact": "用户误操作无法恢复，数据永久丢失",
+      "solution": "schema 添加 deleted_at 字段 + Prisma middleware 全局过滤",
+      "estimated_files": 4
+    },
+    {
+      "priority": "P1",
+      "category": "backward-compatibility",
+      "issue": "character_name 向后兼容逻辑重复：panel/route.ts 和 panel/[id]/route.ts 重复 20 行",
+      "location": "api/panel/route.ts, api/panel/[id]/route.ts",
+      "solution": "提取 resolveCharacterId(name, id, userId) 函数"
+    },
+    {
+      "priority": "P1",
+      "category": "complexity",
+      "issue": "参考图智能选择逻辑复杂：generate-image/route.ts L155-201（45 行 5 层 if 嵌套）",
+      "location": "api/panel/generate-image/route.ts",
+      "solution": "提取 collectReferenceImages(panel, userSelected) 函数"
+    },
+    {
+      "priority": "P1",
+      "category": "transaction",
+      "issue": "Panel 排序更新竞态风险：updateMany + create/delete 不在事务内",
+      "location": "api/panel/[id]/route.ts, api/canvas/chapter/[id]/generate-shots",
+      "solution": "使用 Prisma $transaction 包裹 CRUD + 排序更新"
+    },
+    {
+      "priority": "P1",
+      "category": "complexity",
+      "issue": "OpenAI provider 390 行复杂流式解析",
+      "location": "src/lib/image-generation/providers/openai.ts",
+      "solution": "拆分为 parseSSEStream + downloadImageUrl + 主调度函数"
+    },
+    {
+      "priority": "P1",
+      "category": "component-size",
+      "issue": "ChapterPanelEditor 460 行大组件（8 useState + 10+ handler + 6 对话框）",
+      "location": "src/components/SerialChapterList/ChapterPanelEditor.tsx",
+      "solution": "拆分为 5 个子组件 + usePanelDragDrop + usePanelOperations hooks"
+    },
+    {
+      "priority": "P1",
+      "category": "component-size",
+      "issue": "HeroSection 427 行打字机动画（状态管理与渲染耦合）",
+      "location": "src/components/Landing/HeroSection.tsx",
+      "solution": "提取 useTypewriterEffect hook + 3 个子组件"
+    },
+    {
+      "priority": "P1",
+      "category": "component-size",
+      "issue": "novel/page.tsx 512 行复杂页面（8 useState + 10+ handler + AbortController + rAF 聚光灯动画）",
+      "location": "src/app/(novel)/novel/page.tsx",
+      "impact": "单文件超过 500 行阈值，状态管理与 UI 渲染耦合",
+      "solution": "拆分为 NovelListPage + useProjectList + useSpotlightEffect hooks + ProjectCard/ProjectGrid 子组件"
+    },
+    {
+      "priority": "P1",
+      "category": "component-size",
+      "issue": "EditorToolbar 610 行复杂组件（复杂位置计算 + 视口检测 + IntersectionObserver + rAF 优化）",
+      "location": "src/app/(novel)/novel/components/EditorToolbar.tsx",
+      "impact": "单文件超过 500 行阈值，测试/生产环境分支逻辑耦合",
+      "solution": "拆分为 useToolbarPosition + useToolbarVisibility hooks + ToolbarButton 子组件"
+    },
+    {
+      "priority": "P1",
+      "category": "security",
+      "issue": "payment-order-store.ts 内存存储占位实现：支付订单仅存内存，服务重启丢失",
+      "location": "src/lib/payment-order-store.ts",
+      "impact": "订单丢失、支付状态不一致",
+      "solution": "迁移到 Prisma PaymentOrder 模型 + 数据库持久化"
+    },
+    {
+      "priority": "P2",
+      "category": "security",
+      "issue": "密码重置验证码可暴力破解：6 位纯数字验证码（100 万种可能）+ 10 分钟 TTL + 无重置次数限流",
+      "location": "api/auth/forgot-password, api/auth/reset-password",
+      "impact": "10 分钟内 100 万次尝试可破解",
+      "solution": "添加每邮箱 10 分钟最多 5 次重置请求限流"
+    },
+    {
+      "priority": "P2",
+      "category": "performance",
+      "issue": "generate-shots 数据库写入串行：for 循环内 shotDesign.create",
+      "location": "api/canvas/chapter/[id]/generate-shots",
+      "solution": "改为 createMany 批量插入"
+    },
+    {
+      "priority": "P2",
+      "category": "performance",
+      "issue": "generate-finals 批量 LLM 识别未分批：单次处理 100+ 镜头可能超时",
+      "location": "api/canvas/chapter/[id]/generate-finals",
+      "solution": "chunk(shots, 20) + Promise.allSettled 容错"
+    },
+    {
+      "priority": "P2",
+      "category": "component-size",
+      "issue": "CandidateSelector 171 行混合组件",
+      "location": "src/components/common/CandidateSelector.tsx",
+      "solution": "拆分为 CandidateThumbnailStrip + CandidatePreviewDialog + useCandidateSelection"
+    },
+    {
+      "priority": "P2",
+      "category": "maintainability",
+      "issue": "CommandPalette 的 165 行 commands 硬编码",
+      "location": "src/components/Landing/CommandPalette.tsx",
+      "solution": "提取为 command-registry.ts 常量文件"
+    },
+    {
+      "priority": "P2",
+      "category": "maintainability",
+      "issue": "project-card 进度计算逻辑内联",
+      "location": "src/components/projects/project-card.tsx",
+      "solution": "提取为 useProjectProgress hook 和 getProjectStatusConfig 字典"
+    },
+    {
+      "priority": "P2",
+      "category": "code-duplication",
+      "issue": "character/route.ts FormData/JSON 双模式重复代码 40%",
+      "location": "api/character/route.ts",
+      "solution": "提取公共函数 createCharacterWithData({ name, description, ... }, userId)"
+    },
+    {
+      "priority": "P2",
+      "category": "data-inconsistency",
+      "issue": "regenerate-image 硬编码配额 30，但实际扣费在 callImageGenerationByType 内部",
+      "location": "api/character/[id]/regenerate-image",
+      "solution": "从 imageResult.metadata 中获取实际扣费金额"
+    },
+    {
+      "priority": "P2",
+      "category": "security",
+      "issue": "URL 验证白名单硬编码：url-validator.ts 的 ALLOWED_HOSTS 仅 3 个域名，动态 MinIO 主机提取依赖环境变量",
+      "location": "src/lib/security/url-validator.ts",
+      "impact": "新增图片服务需修改代码，MinIO 配置错误会导致校验失败",
+      "solution": "将白名单移到环境变量或数据库配置表"
+    },
+    {
+      "priority": "P2",
+      "category": "code-duplication",
+      "issue": "限流实现重复：rate-limit.ts 和 security/rate-limiter.ts 两套独立实现，功能重叠 70%",
+      "location": "src/lib/rate-limit.ts, src/lib/security/rate-limiter.ts",
+      "solution": "统一为单个 rate-limiter.ts，支持内存/Redis 双模式"
+    }
+  ],
+  "good_patterns": [
+    "Timeline 分页窗口设计（center + range 参数控制可见窗口）",
+    "generate-finals 速率限制保护（checkRateLimit + resetAt 返回）",
+    "api-helpers.ts 的辅助函数设计（withAuth/validateOwnership/parsePaginationParams）",
+    "ConfirmDialog 的 VARIANT_CONFIG 字典（消除 if/else）",
+    "InfiniteCanvas nodes 的 StatusConfig 统一模式",
+    "EmptyState 的向后兼容 API 设计",
+    "CommandPalette 的 useMemo 稳定化 + useEffect 依赖管理",
+    "useChapterOperations 关注点分离",
+    "admin 端点 requireAdmin 一致性（全部 36 个端点使用相同鉴权模式）",
+    "事务分页查询（$transaction([count, findMany]) 防止分页数据不一致）",
+    "批量用户信息关联（避免 N+1 查询的教科书式实现）",
+    "限流双维度保护（login/register 同时限流邮箱和 IP）",
+    "防邮箱枚举（forgot-password 无论用户是否存在都返回 success）",
+    "BullMQ 队列配置规范：3 次指数退避重试 + 完成/失败任务保留策略 + 去重机制（dedupeKey）",
+    "队列任务发布订阅模式：Redis pub/sub 实时推送进度到前端",
+    "AES-256-GCM API 密钥加密：IV + AuthTag + 密文组合存储 + scrypt 密钥派生",
+    "API 密钥脱敏显示：maskApiKey 保护敏感信息",
+    "SSRF 防护多层验证：协议白名单 + 私有 IP 黑名单 + 端口白名单 + 主机白名单",
+    "文本清理完善：sanitizeDialogueText 移除控制字符 + 零宽字符 + 方向控制字符",
+    "Tiptap 编辑器测试环境兼容：EditorToolbar 区分测试/生产环境，测试时立即更新避免 setTimeout",
+    "useAutoSave 防抖与首次渲染跳过：避免初始化时误触保存",
+    "useHotkeys 跨平台快捷键：mod 键自动映射 Mac ⌘ / Windows Ctrl",
+    "useBatchSelection 范围选择支持：Shift+点击连续选中",
+    "useUnsavedChangesWarning 数据丢失保护：beforeunload 标准实现",
+    "useTimelineWindow 分页窗口管理：React Query + center 状态驱动",
+    "小说前端聚光灯效果优化：rAF 节流 + AbortController 取消请求"
+  ],
+  "security_audit_summary": {
+    "auth_endpoints": {
+      "total": 9,
+      "rate_limiting": "excellent",
+      "password_hashing": "excellent",
+      "jwt_ttl": "warning (7 days too long, suggest access/refresh token split)",
+      "verification_code": "warning (6-digit numeric, suggest alphanumeric)",
+      "brute_force_protection": "critical (password reset has no rate limit)"
+    },
+    "admin_endpoints": {
+      "total": 36,
+      "auth_consistency": "excellent (all use requireAdmin)",
+      "pagination_protection": "excellent (max 200 limit + $transaction)",
+      "n_plus_1_prevention": "excellent (batch user fetch)"
+    },
+    "data_protection": {
+      "soft_delete": "critical (all DELETE endpoints use hard delete)",
+      "transaction_protection": "warning (some batch operations not wrapped)",
+      "credit_rollback": "critical (6 endpoints have no rollback mechanism)"
+    },
+    "rate_limiting": {
+      "implementation": "warning (dual in-memory implementations, no unified Redis migration)",
+      "distributed_support": "partial (checkAndIncrementWindowLimitDistributed available but not globally applied)",
+      "monitoring": "missing (no rate limit stats export to monitoring)"
+    },
+    "queue_system": {
+      "retry_strategy": "good (3 attempts + exponential backoff)",
+      "dead_letter_queue": "missing (no DLQ handler + alerting)",
+      "task_monitoring": "basic (watchdog for stalled tasks, but no Sentry integration)"
+    },
+    "ssrf_protection": {
+      "url_validation": "excellent (multi-layer: protocol + private IP + port + host whitelist)",
+      "whitelist_management": "warning (hardcoded hosts, should be env-based)"
+    },
+    "api_key_encryption": {
+      "algorithm": "excellent (AES-256-GCM)",
+      "key_derivation": "excellent (scrypt with salt)",
+      "masking": "excellent (4+***+4 format)"
+    },
+    "text_sanitization": {
+      "control_chars": "excellent (removes control + zero-width + bidirectional)",
+      "validation": "good (isValidDialogueText pre-check)"
+    }
+  }
+}

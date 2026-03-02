@@ -9,6 +9,7 @@ import {
 import { Input } from "@/components/ui/input";
 import {
   Sparkles,
+  LayoutDashboard,
   FileCode,
   FolderOpen,
   Image,
@@ -39,6 +40,15 @@ interface Command {
 
 const commands: Command[] = [
   // 创作中心
+  {
+    id: "workspace",
+    title: "创作工作台",
+    description: "统一创作入口与最近作品",
+    icon: LayoutDashboard,
+    href: "/workspace",
+    keywords: ["工作台", "workspace", "入口", "创作中心"],
+    category: "创作中心",
+  },
   {
     id: "story-create",
     title: "创作新故事",

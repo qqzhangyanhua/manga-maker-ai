@@ -2,16 +2,16 @@ import { useMemo } from "react";
 
 export type CreationStage = "empty" | "chapter_created" | "generating" | "ready_to_export";
 
+/** 进度计算所需的最小章节类型 */
 export interface Chapter {
   id: string;
-  [key: string]: unknown;
 }
 
+/** 进度计算所需的最小分镜类型 */
 export interface Panel {
   id: string;
   chapter_id?: string;
   image_url?: string | null;
-  [key: string]: unknown;
 }
 
 export interface ProgressCalculationResult {

@@ -4,7 +4,7 @@ import {
   Sparkles,
   ArrowUp,
   Layers,
-  Image,
+  Image as ImageIcon,
   Users,
   Wand2,
 } from "lucide-react";
@@ -26,7 +26,7 @@ const FEATURE_CARDS = [
     step: 2,
   },
   {
-    icon: Image,
+    icon: ImageIcon,
     title: "图像生成",
     description: "为每个分镜生成精美的漫画图像",
     step: 3,
@@ -44,6 +44,7 @@ export function ScriptPageGuidance({
   chapters,
   onGeneratePanelsForChapter,
   onSetCurrentChapter,
+  onBatchGenerateImages,
 }: ScriptPageGuidanceProps) {
   return (
     <>
@@ -114,7 +115,7 @@ export function ScriptPageGuidance({
             </div>
             <div className="w-px h-4 bg-gray-800" />
             <div className="flex items-center gap-2">
-              <Image className="w-4 h-4" />
+              <ImageIcon className="w-4 h-4" />
               <span>多种导出格式</span>
             </div>
           </div>
@@ -200,7 +201,7 @@ export function ScriptPageGuidance({
           <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/5 border border-blue-500/20 rounded-xl p-6">
             <div className="flex items-start gap-4">
               <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/10 flex items-center justify-center">
-                <Image className="w-6 h-6 text-blue-400" />
+                <ImageIcon className="w-6 h-6 text-blue-400" />
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-white mb-2">
@@ -212,6 +213,7 @@ export function ScriptPageGuidance({
                 </p>
                 <div className="flex flex-wrap items-center gap-3">
                   <Button
+                    onClick={onBatchGenerateImages}
                     className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg shadow-blue-500/20"
                   >
                     <Sparkles className="w-4 h-4 mr-2" />

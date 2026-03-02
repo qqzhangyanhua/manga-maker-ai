@@ -45,6 +45,9 @@ export default {
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
+          primary: "#f97316",
+          hover: "#ea580c",
+          muted: "rgba(249,115,22,0.15)",
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",
@@ -72,6 +75,11 @@ export default {
           "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
+        },
+        surface: {
+          DEFAULT: "#1a1a1f",
+          elevated: "#222228",
+          overlay: "rgba(0,0,0,0.6)",
         },
       },
       borderRadius: {
@@ -111,7 +119,8 @@ export default {
       boxShadow: {
         comic: "4px 4px 0px hsl(var(--foreground))",
         "comic-sm": "2px 2px 0px hsl(var(--foreground))",
-        glow: "0 0 30px hsl(var(--primary) / 0.5)",
+        glow: "0 0 20px rgba(249,115,22,0.15)",
+        "glow-lg": "0 0 40px rgba(249,115,22,0.2)",
       },
     },
   },

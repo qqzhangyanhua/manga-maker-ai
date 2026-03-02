@@ -15,9 +15,11 @@ import {
 
 interface ProjectCardProps {
   project: Project;
+  onRename?: (projectId: string, currentTitle: string) => void;
+  onDelete?: (projectId: string) => void;
 }
 
-export function ProjectCard({ project }: ProjectCardProps) {
+export function ProjectCard({ project, onRename, onDelete }: ProjectCardProps) {
   const generatedCount = project.panels.filter((p) => p.generated_image).length;
   const panelCount = project.panels.length;
   const progress = panelCount > 0 ? Math.round((generatedCount / panelCount) * 100) : 0;
@@ -44,7 +46,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
             </div>
             <div>
               <h3 className="font-semibold text-zinc-100 line-clamp-1 group-hover:text-orange-400 transition-colors">
-                {project.title || "未命名项目"}
+                {project.title || "未命名作品"}
               </h3>
               <div className="flex items-center gap-2 text-xs text-zinc-500 mt-1">
                 <span className={cn(
@@ -71,11 +73,23 @@ export function ProjectCard({ project }: ProjectCardProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40 bg-zinc-900 border-zinc-800 text-zinc-300">
-              <DropdownMenuItem className="focus:bg-zinc-800 focus:text-white cursor-pointer">
+              <DropdownMenuItem
+                className="focus:bg-zinc-800 focus:text-white cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRename?.(project.id, project.title || "");
+                }}
+              >
                 重命名
               </DropdownMenuItem>
-              <DropdownMenuItem className="focus:bg-zinc-800 focus:text-red-400 text-red-500 cursor-pointer">
-                删除项目
+              <DropdownMenuItem
+                className="focus:bg-zinc-800 focus:text-red-400 text-red-500 cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete?.(project.id);
+                }}
+              >
+                删除作品
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -84,7 +98,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
         {/* 描述区域 */}
         <div className="flex-1 min-h-[3rem]">
           <p className="text-sm text-zinc-400 line-clamp-2 leading-relaxed">
-            {project.description || "暂无项目描述..."}
+            {project.description || "暂无作品描述..."}
           </p>
         </div>
 

@@ -16,7 +16,11 @@ import { NovelCharacterSyncPrompt } from "./components/NovelCharacterSyncPrompt"
 import { AssetLibrarySidebarSheet } from "./components/AssetLibrarySidebarSheet";
 import { GenerationProgress } from "./components/GenerationProgress";
 import { ScriptEditorProvider } from "./contexts/ScriptEditorContext";
+import { CapsuleNav } from "@/components/common/CapsuleNav";
+import type { CapsuleStage } from "@/components/common/CapsuleNav";
 import { ErrorBanner } from "@/components/common/ErrorBanner";
+import { PageBreadcrumb } from "@/components/common/PageBreadcrumb";
+import { BookOpen, Wand2, Image, Download } from "lucide-react";
 import { useProgressCalculation } from "@/hooks/useProgressCalculation";
 import { useBatchSelection } from "@/hooks/useBatchSelection";
 import { useNovelCharacterSync } from "./hooks/useNovelCharacterSync";
@@ -98,6 +102,61 @@ export default function ScriptDetailsPage() {
   const nextChapterOrder = useMemo(() => {
     return chapters.length > 0 ? Math.max(...chapters.map((ch) => ch.chapter_order)) + 1 : 1;
   }, [chapters]);
+
+  // 阶段导航：故事构思 → 剧本分镜 → 图像生成 → 排版导出
+  const capsuleStages = useMemo((): CapsuleStage[] => {
+    const hasStory = !!story;
+    const hasChapters = chapters.length > 0;
+    const hasPanels = panels.length > 0;
+    const hasImages = panels.some((p) => p.generated_image);
+
+    return [
+      {
+        id: "story",
+        label: "故事构思",
+        icon: BookOpen,
+        status: hasStory ? "completed" : "active",
+      },
+      {
+        id: "script",
+        label: "剧本分镜",
+        icon: Wand2,
+        status: hasPanels ? "completed" : hasChapters ? "active" : hasStory ? "available" : "locked",
+      },
+      {
+        id: "image",
+        label: "图像生成",
+        icon: Image,
+        status: hasImages ? "completed" : hasPanels ? "active" : "locked",
+      },
+      {
+        id: "export",
+        label: "排版导出",
+        icon: Download,
+        status: hasImages ? "available" : "locked",
+      },
+    ];
+  }, [story, chapters.length, panels]);
+
+  const handleStageClick = useCallback(
+    (stageId: string) => {
+      switch (stageId) {
+        case "story":
+          uiActions.setActiveTab(TAB_VALUES.SERIAL);
+          break;
+        case "script":
+          uiActions.setActiveTab(TAB_VALUES.SERIAL);
+          break;
+        case "image":
+          uiActions.setActiveTab(TAB_VALUES.STORYBOARD);
+          break;
+        case "export":
+          uiActions.setActiveTab(TAB_VALUES.LAYOUT);
+          break;
+      }
+    },
+    [uiActions]
+  );
 
   // Event handlers
   const {
@@ -203,6 +262,57 @@ export default function ScriptDetailsPage() {
       await refetchPanels();
     },
   });
+
+  // 批量生成图片：为有 prompt_used 但无 generated_image 的分镜生成图片
+  const handleBatchGenerateImages = useCallback(async () => {
+    const panelsNeedingImages = panels.filter(
+      (p) => p.prompt_used && !p.generated_image
+    );
+
+    if (panelsNeedingImages.length === 0) {
+      toast({
+        title: "没有待生成的分镜",
+        description: "所有分镜都已生成图片，或还没有提示词",
+      });
+      return;
+    }
+
+    toast({
+      title: "开始批量生成",
+      description: `正在为 ${panelsNeedingImages.length} 个分镜生成图片...`,
+    });
+
+    try {
+      const response = await fetch("/api/panel/batch-generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          panel_ids: panelsNeedingImages.map((p) => p.id),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "批量生成失败");
+      }
+
+      const result = await response.json();
+      toast({
+        title: "批量生成完成",
+        description: `成功: ${result.succeeded}, 失败: ${result.failed}, 跳过: ${result.skipped}`,
+        variant: result.failed > 0 ? "destructive" : "default",
+      });
+
+      await refetchPanels();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "批量生成失败";
+      toast({
+        title: "批量生成失败",
+        description: message,
+        variant: "destructive",
+      });
+    }
+  }, [panels, toast, refetchPanels]);
 
   // Focus mode: 通过路由跳转
   const handleEnterFocusMode = useCallback(
@@ -333,6 +443,13 @@ export default function ScriptDetailsPage() {
 
             <div className="relative px-4 py-8">
               <div className="max-w-6xl mx-auto relative">
+                <PageBreadcrumb
+                  segments={[
+                    { label: "剧本管理", href: "/scripts" },
+                    { label: story.title },
+                  ]}
+                  className="mb-6"
+                />
                 {/* Error Banner */}
                 {errorState && (
                   <div className="mb-6">
@@ -369,6 +486,13 @@ export default function ScriptDetailsPage() {
                   onEnterFocusMode={() => handleEnterFocusMode()}
                   onOpenSidebar={() => setSidebarOpen(true)}
                   onOpenNineGrid={() => setNineGridDialogOpen(true)}
+                  saveStatus={isSaving ? "saving" : "saved"}
+                />
+
+                <CapsuleNav
+                  stages={capsuleStages}
+                  onStageClick={handleStageClick}
+                  className="mb-6"
                 />
 
                 {/* 小说来源信息卡片 */}
@@ -394,6 +518,7 @@ export default function ScriptDetailsPage() {
                   chapters={chapters}
                   onGeneratePanelsForChapter={handleGeneratePanelsForChapter}
                   onSetCurrentChapter={uiActions.setCurrentChapter}
+                  onBatchGenerateImages={handleBatchGenerateImages}
                 />
 
                 {/* Tab 导航 */}
@@ -456,10 +581,20 @@ export default function ScriptDetailsPage() {
                   nineGridDialogOpen={nineGridDialogOpen}
                   setNineGridDialogOpen={setNineGridDialogOpen}
                   nextChapterOrder={nextChapterOrder}
-                  suggestedCharacters={story.suggested_characters || []}
-                  storyCharacters={syncCharacters}
+                  suggestedCharacters={
+                    (story.suggested_characters ?? []) as Array<{
+                      name: string;
+                      role: string;
+                      description?: string;
+                    }>
+                  }
+                  storyCharacters={storyCharacters}
                   panels={panels}
-                  novelCharacterSync={novelCharacterSync}
+                  novelCharacterSync={{
+                    dialogOpen: novelCharacterSync.dialogOpen,
+                    charactersWithStatus: novelCharacterSync.charactersWithStatus,
+                    closeDialog: novelCharacterSync.closeDialog,
+                  }}
                   onRefresh={refreshStoryData}
                   onRefetchStoryCharacters={async () => {
                     await refetchStoryCharacters();

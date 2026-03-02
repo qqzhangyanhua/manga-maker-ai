@@ -6,9 +6,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface ProjectListProps {
   projects: Project[];
   loading: boolean;
+  onRename?: (projectId: string, currentTitle: string) => void;
+  onDelete?: (projectId: string) => void;
 }
 
-export function ProjectList({ projects, loading }: ProjectListProps) {
+export function ProjectList({ projects, loading, onRename, onDelete }: ProjectListProps) {
   if (loading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -36,7 +38,12 @@ export function ProjectList({ projects, loading }: ProjectListProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       {projects.map((project) => (
-        <ProjectCard key={project.id} project={project} />
+        <ProjectCard
+          key={project.id}
+          project={project}
+          onRename={onRename}
+          onDelete={onDelete}
+        />
       ))}
     </div>
   );

@@ -1,737 +1,256 @@
-# CLAUDE.md
+# 变更记录 (Changelog)
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+- 2025-03-27 01:00:00: 第十轮深扫核心 API 端点全审计（+58 文件），覆盖 auth（9 端点）、character（6 端点）、story（4 端点）、chapter（3 端点）、admin（36 端点）；覆盖率 39.88% -> 43.22%。**关键发现**：鉴权代码重复率 92%（213 文件中仅 17 个使用 withAuth）、配额扣费无事务保护（6 端点已识别）、错误响应格式 4 种模式并存、DELETE 操作未实现软删除、密码重置验证码可暴力破解。详见 `.claude/api-scan-report-round10.md`。
+- 2025-03-27 00:20:00: 第九轮深扫核心 API 路由（+35 文件），覆盖 Panel API（6 端点）、Canvas API（6 端点）、GenerationTasks（2 端点）、User/Payment/SSE（4 端点）、api-helpers 服务层；覆盖率 37.29% -> 39.88%。发现配额扣费无事务保护、鉴权代码重复 14 次、错误处理 4 种模式等架构问题，详见 `.claude/api-scan-report-round9.md`。
+- 2025-03-26 23:31:34: 第八轮深扫基础设施完善（+31 文件），覆盖 InfiniteCanvas nodes（5 文件）、image-generation providers（6 文件）、common 组件（10 文件）、projects 组件（5 文件）、Landing 组件（3 文件）、SerialChapterList（2 文件）；覆盖率 34.99% -> 37.29%。
+- 2026-03-01 19:15:00: 第七轮深扫核心共享层（+50 文件），覆盖 lib 服务层（20 文件）、Zustand stores（2 文件）、全局 hooks（8 文件）；覆盖率 31.28% -> 34.99%。
+- 2026-03-01 18:53:41: 第六轮续扫 admin 子组件+hooks + DetailPanel + NineGrid + ProfessionalMode + 小说前端杂项（66 文件），覆盖率 26.39% -> 31.28%。
+- 2026-03-01 18:40:43: 第五轮续扫 admin 全页面 + InfiniteCanvas 对话框全集 + 小说前端杂项。
+- 2026-03-01 10:13:03: 续扫 InfiniteCanvas/admin/PanelEditor/migrate/example。
+- 2026-03-01 09:32:34: 续扫 admin/scripts/prisma/scripts 四类高优先路径。
+- 2026-03-01 00:41:16: 深扫 scripts/[id] 110+ 文件 + panel API 22 端点。
+- 2026-03-01 00:12:46: 续扫分镜组件、nine-grid、canvas 服务、manual SQL 迁移。
+- 2026-02-28 23:40:57: 首次架构扫描（阶段 A/B/C）。
 
-## Project Overview
+# 项目愿景
 
-**Manga Maker AI** - End-to-end AI comic and novel creation platform covering "Story → Script → Storyboard → Image → Layout" workflow with Digital Actor management, style library, workflow orchestration, and image refinement tools.
+Manga Maker AI 是一个面向漫画与小说创作的全流程 AI 平台，目标是把"故事构思、剧本扩展、分镜生成、图像生成、排版导出"连接成可持续迭代的生产链路。
 
-This is a **hybrid architecture** project combining:
-- **Next.js 14 frontend + API** (TypeScript) for comic creation workflow
-- **Python FastAPI microservice** for novel generation and RAG (Retrieval-Augmented Generation)
+# 架构总览
 
-## Tech Stack
+- Web 与主 API：Next.js 14 + TypeScript（`src/`），React Query / SWR / Zustand
+- 数据层：PostgreSQL + Prisma（`prisma/`）
+- 小说微服务：FastAPI（`services/novel-backend/`）
+- 工具脚本：迁移、修复、初始化与诊断（`scripts/`）
+- 示例客户端：静态演示与 API 调试（`example/`）
 
-### Frontend & Comic Backend
-- **Framework**: Next.js 14 (App Router) + React 18 + TypeScript
-- **Database**: PostgreSQL 14+ + Prisma ORM
-- **UI**: TailwindCSS + shadcn/ui (Radix UI) + lucide-react icons
-- **3D**: Three.js via @react-three/fiber (pose lab)
-- **Storage**: MinIO/S3-compatible object storage
-- **Auth**: JWT + bcrypt + Nodemailer SMTP
-- **AI/LLM**: OpenAI-compatible APIs configured via `llm_providers` table
-- **Testing**: Vitest + React Testing Library
+主请求路径：浏览器 -> Next.js `/api/*` -> Prisma/PostgreSQL；小说能力通过 `/api/novel/*` 代理到 FastAPI。
 
-### Novel Backend Microservice (Python)
-- **Framework**: FastAPI 0.115.0 + Uvicorn
-- **Database**: Shared PostgreSQL (via asyncpg)
-- **AI**: OpenAI API (GPT-4 Turbo for text generation)
-- **RAG**: ChromaDB + OpenAI Embeddings (text-embedding-3-small)
-- **Document Generation**: python-docx, reportlab
-- **Communication**: REST + SSE (Server-Sent Events) for streaming
+## 核心服务层架构（第七轮补充）
 
-## Package Management
+按职责分层的共享服务：
 
-**IMPORTANT**: This project uses **npm** (NOT pnpm). The README mentions pnpm support, but `package-lock.json` is the source of truth.
+**1. 数据层（Database & ORM）**
+- `db.ts`：Prisma 客户端单例 + 全局类型导出 + SSL 配置 + admin 初始化
+- `prisma-middleware.ts`：NovelChapter 增删改触发 NovelProject 统计自动更新
 
-```bash
-# Install dependencies
-npm install
+**2. 鉴权层（Authentication）**
+- `auth.ts`：JWT 签发/验证、密码哈希、cookie 操作、7 天 TTL
+- `auth-helpers.ts`：`getCurrentUser`/`requireAdmin` 异步 helper
 
-# Development
-npm run dev
+**3. API 辅助层（API Utilities）**
+- `api-response.ts`：统一响应格式（success/error/validation/unauthorized/forbidden/notFound/rateLimit）
+- `api-error.ts`：错误类层次（ApiError/UnauthorizedError/ForbiddenError/NotFoundError/BadRequestError/InsufficientCreditsError/InternalServerError/ServiceUnavailableError）+ `withErrorHandler` wrapper + `parseJsonBody`
+- `api-helpers.ts`：`withAuth`/`validateOwnership`/`parsePaginationParams`/`createPaginatedResponse`/`parseWithSchema`
 
-# Build & Production
-npm run build
-npm run start
+**4. 业务服务层（Business Logic）**
+- **算力系统（三层架构）**：
+  - `usage.ts`：日配额限流（13 种 action，env 可配）
+  - `credits.ts`：余额扣费（SELECT FOR UPDATE 行级锁防并发）+ 交易日志
+  - `billing.ts`：冻结/结算机制（freeze -> settle/rollback）
+- **LLM 服务**：
+  - `llm-provider.ts`：`callChatCompletionByType`/`callChatCompletionStreamByType` + provider fallback + SSL 安全检查
+- **图像生成服务**：
+  - `image-generation/core.ts`：`callImageGenerationByType` 路由到 6 种 provider（SD/ComfyUI/OpenAI/FAL/Google Imagen/Seedream）
+  - `image-generation/types.ts`：参数与结果类型定义（支持单参考图/多参考图）
+  - `image-generation/index.ts`：统一导出 + 角色生成（三视图/姿态变体）
+  - **Provider 适配器层（第八轮补充）**：
+    - `providers/stable-diffusion.ts`：Automatic1111 API 封装，支持 txt2img（负面提示/采样器/步数/CFG/种子/批量）
+    - `providers/openai.ts`：DALL-E/Gemini 流式图像生成，支持多参考图（base64 转换）+ 图片 URL 下载（代理支持）+ SSE 流解析（Markdown 图片提取）
+    - `providers/comfyui.ts`：占位（未实现，抛出明确错误）
+    - `providers/fal.ts`：FAL AI（Flux/SDXL），支持参考图 + seed
+    - `providers/google-imagen.ts`：Google Imagen 3.0，宽高比自动映射（1:1/16:9/4:3/9:16/3:4）
+    - `providers/seedream.ts`：火山引擎 Seedream，支持自定义尺寸 + b64_json 响应
+- **工作流引擎**：
+  - `workflow-engine.ts`：`WorkflowEngine` 类编排 Story -> Storyboard -> Images -> Export 四阶段，支持断点续跑（`resume`）与取消（`cancel`）
+- **小说后端客户端**：
+  - `novel-backend-client.ts`：`NovelBackendClient` 类封装 HTTP 通信 + 指数退避重试 + 超时控制（60s）+ 5 种端点（analyzeScript/planShots/generateFinals/identifyCharacters/batchIdentifyCharacters）
 
-# Testing
-npm test
-npm run test:watch
+**5. 基础设施层（Infrastructure）**
+- `logger.ts`：Winston 日志（dev 输出 debug，prod 写文件）+ 业务日志辅助（userAction/credits/aiGeneration/security）
+- `minio.ts`：MinIO 客户端 + bucket 自动创建 + 公开策略设置 + `uploadToMinIO`
+- `redis.ts`：ioredis 客户端单例 + `redisPing` 健康检查
+- `mailer.ts`：nodemailer + `sendVerificationEmail`/`sendPasswordResetEmail`（10 分钟 TTL）
 
-# Type checking
-npm run type-check
+## API 路由架构（第九轮 + 第十轮补充）
 
-# Linting
-npm run lint
+**核心端点扫描覆盖**（94 个文件）：
+
+### Panel API（6 端点）
+- `POST /api/panel` - 创建分镜（手动鉴权模式）
+- `GET/PATCH/DELETE /api/panel/[id]` - 分镜 CRUD（使用 withAuth）
+- `POST /api/panel/generate-image` - 单镜头图片生成（350 行，含参考图智能选择 45 行）
+- `POST /api/panel/batch-generate` - 批量生成（307 行，并发控制 limit=3）
+- `POST /api/panel/generate-multi` - 多格漫画生成（2-6 格，266 行）
+- `POST /api/panel/[id]/variants` - 候选图生成（212 行，已废弃队列改直接生成）
+
+### Canvas API（6 端点）
+- `POST/GET /api/canvas/timeline` - 时间线列表与创建
+- `GET/PATCH/DELETE /api/canvas/timeline/[id]` - 时间线详情（分页窗口 + 配置更新，290 行）
+- `GET /api/canvas/timeline/[id]/stream` - SSE 流代理（60 行，转发到 Python 后端）
+- `POST /api/canvas/chapter/[id]/generate-shots` - 镜头生成（340 行，并行优化 + 批量角色识别）
+- `POST /api/canvas/chapter/[id]/generate-finals` - 最终漫画生成（300 行，速率限制 + LLM 识别 + 并发处理）
+- `GET /api/canvas/styles` - 漫画风格列表（88 行，登录即可访问）
+
+### Auth API（9 端点，第十轮）
+- `POST /api/auth/login` - 登录（双维度限流：邮箱 10min/5次 + IP 1min/20次）
+- `POST /api/auth/register` - 注册（邮箱验证 + 事务保护 + 赠送算力）
+- `POST /api/auth/logout` - 退出（清除 cookie）
+- `GET /api/auth/me` - 当前用户信息
+- `POST /api/auth/forgot-password` - 请求重置密码（Redis 验证码 10min TTL + 防邮箱枚举）
+- `POST /api/auth/reset-password` - 确认重置密码（验证码校验 + bcrypt 哈希）
+- `DELETE /api/auth/delete-account` - 注销账户（硬删除，无软删除保护 ⚠️）
+- `POST /api/auth/send-code` - 发送验证码（邮箱/IP 双限流 + 6 位数字码）
+- `GET /api/auth/token` - 获取 JWT token（Swagger UI 测试用）
+
+### Character API（6 端点采样，第十轮）
+- `GET /api/character` - 角色列表（手动鉴权 + style_id 过滤）
+- `POST /api/character` - 创建角色（FormData/JSON 双模式 + MinIO 上传 + 默认 outfit 创建）
+- `GET/PATCH/DELETE /api/character/[id]` - 角色 CRUD（手动鉴权 + user_id 所有权验证）
+- `POST /api/character/[id]/regenerate-image` - 重新生成角色图片（手动鉴权 + 硬编码 30 credits ⚠️）
+
+### Story API（4 端点采样，第十轮）
+- `GET /api/story` - 故事列表（withAuth + 分页 + status 过滤）
+- `POST /api/story` - 创建故事（withAuth + genre 默认 suspense）
+- `GET/PATCH/DELETE /api/story/[id]` - 故事 CRUD（withAuth + 所有权验证 + 关联 projectId/chapters/characters）
+
+### Chapter API（3 端点采样，第十轮）
+- `GET/PATCH/DELETE /api/chapter/[id]` - 章节 CRUD（手动鉴权 + 日志记录 + 级联删除 panels）
+
+### Admin API（36 端点全覆盖，第十轮）
+- **users**：`GET/POST /api/admin/users` + `GET/PATCH/DELETE /api/admin/users/[id]` + `POST /api/admin/users/[id]/recharge`
+- **characters**：`GET/POST /api/admin/characters` + `GET/PATCH/DELETE /api/admin/characters/[id]`
+- **generation-logs**：`GET /api/admin/generation-logs`（分页 + 过滤 + userMap 批量关联）
+- **generated-images**：`GET/DELETE /api/admin/generated-images` + `POST /api/admin/generated-images/batch`
+- **tags**：`GET/POST/PATCH/DELETE /api/admin/tags` + `POST /api/admin/tags/merge`
+- **story-templates/comic-styles/panel-templates/prompt-templates/genres**：标准 CRUD
+- **stories/projects/scenes/workflows/generation-tasks/credits/upload/usage**：管理功能
+
+**所有 admin 端点一致性**：全部使用 `requireAdmin()` 检查权限 ✅
+
+### 其他核心端点（4 类）
+- **GenerationTasks**：`GET/POST /api/generation-tasks` + `GET /api/generation-tasks/[id]`
+- **User**：`GET/POST /api/user/api-keys` - API 密钥管理（加密存储 + upsert）
+- **Payment**：`POST /api/payment/create-order` - 创建订单（模拟支付，内存存储）
+- **SSE**：`GET /api/sse` - Redis 订阅 SSE 流（130 行，支持 taskId/projectId/userId 三种 channel）
+
+**关键发现（第十轮 Linus 视角）**：
+
+### P0 架构根本性缺陷（必须修复）
+
+1. **鉴权代码重复率 92%**：213 个 API 文件中，仅 17 个（8%）使用 `withAuth` wrapper，其余全部手动重复 10-15 行鉴权代码（cookies() + verifyAuthToken）。修复方案：统一使用 withAuth 或 Next.js Middleware。
+2. **配额扣费无事务保护**：6 个图片生成端点（panel/generate-image、batch-generate、generate-multi、canvas/generate-finals、character/regenerate-image、shot-design/generate-image）先扣配额再执行生成，失败时配额不回滚。修复方案：使用 `billing.ts` 的 freeze -> settle/rollback 模式。
+3. **错误响应格式 4 种模式并存**：`{ error }` / `{ success, message }` / `{ success, data }` / `{ error, detail }` 四种模式同时存在，前端需要 4 种不同解析逻辑。修复方案：统一使用 `api-response.ts` 的 `ApiResponse<T>` 格式。
+
+### P1 严重性能/安全风险（应尽快修复）
+
+4. **DELETE 操作未实现软删除**：character/story/chapter/auth 的 DELETE 端点全部硬删除，用户误操作无法恢复。修复方案：schema 添加 `deleted_at` 字段 + Prisma middleware 全局过滤。
+5. **Admin 端点未全部使用 withAuth**：36 个 admin 端点仍使用 `requireAdmin()` 手动检查，未统一到 `withAuth({ role: 'admin' })`。
+6. **数据库批量操作未使用事务**：`canvas/generate-shots` 的 for 循环 create、`character` 的 create + createMany 未包裹事务，可能遗留脏数据。
+
+### P2 性能/可维护性问题（中期优化）
+
+7. **密码重置验证码可暴力破解**：6 位纯数字验证码（100 万种可能）+ 10 分钟 TTL + 无重置次数限流。修复方案：添加每邮箱 10 分钟最多 5 次重置请求限流。
+8. **character/route.ts FormData/JSON 双模式**：133 行处理 FormData + 61 行处理 JSON，重复代码 40%。修复方案：提取公共函数。
+9. **硬编码配额**：regenerate-image 返回 `credits_used: 30`，但实际扣费在 `callImageGenerationByType` 内部。
+
+# 模块结构图
+
+```mermaid
+graph TD
+    A["(根) manga-maker-ai"] --> B["src"];
+    A --> C["services"];
+    C --> D["novel-backend"];
+    A --> E["prisma"];
+    A --> F["scripts"];
+    A --> G["example"];
+
+    click B "./src/CLAUDE.md" "查看 src 模块文档"
+    click D "./services/novel-backend/CLAUDE.md" "查看 novel-backend 模块文档"
+    click E "./prisma/CLAUDE.md" "查看 prisma 模块文档"
+    click F "./scripts/CLAUDE.md" "查看 scripts 模块文档"
+    click G "./example/CLAUDE.md" "查看 example 模块文档"
 ```
 
-## Development Commands
-
-### Next.js Application
-
-```bash
-# Development server (http://localhost:3000)
-npm run dev
-
-# Production build
-npm run build
-
-# Start production server
-npm run start
-
-# Run ESLint
-npm run lint
-
-# TypeScript type checking (no emit)
-npm run type-check
-```
-
-### Database Operations (Prisma)
-
-```bash
-# Generate Prisma Client (REQUIRED after schema changes)
-npx prisma generate
-
-# Create migration (development)
-npx prisma migrate dev --name <migration_name>
-
-# Apply migrations (production)
-npx prisma migrate deploy
-
-# Open Prisma Studio (database GUI)
-npx prisma studio
-
-# Seed database
-npx prisma db seed
-
-# Initialize database (uses migration system)
-./scripts/init-db.sh
-```
-
-### Testing
-
-```bash
-# Run all tests (Vitest)
-npm test
-
-# Watch mode
-npm run test:watch
-```
-
-Test files use Vitest with React Testing Library. Place tests next to source files with `.test.ts` or `.test.tsx` extension.
-
-### Novel Backend Service (Python FastAPI)
-
-**Location**: `services/novel-backend/`
-
-```bash
-# First-time setup
-cd services/novel-backend
-
-# Create virtual environment
-python -m venv .venv
-
-# Activate virtual environment
-source .venv/bin/activate  # macOS/Linux
-# .venv\Scripts\activate   # Windows
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-# Edit .env: DATABASE_URL, OPENAI_API_KEY, JWT_SECRET
-
-# Start service (port 8000)
-uvicorn app.main:app --reload --port 8000
-
-# Health check
-curl http://localhost:8000/health
-
-# API documentation
-# http://localhost:8000/docs (Swagger UI)
-```
-
-**Subsequent starts** (after initial setup):
-```bash
-cd services/novel-backend
-source .venv/bin/activate
-uvicorn app.main:app --reload --port 8000
-```
-
-### Docker Compose (Full Stack)
-
-```bash
-# Start all services (PostgreSQL, MinIO, Redis, Novel Backend)
-docker-compose up -d
-
-# Stop all services
-docker-compose down
-
-# View logs
-docker-compose logs -f novel-backend
-```
-
-## Architecture Overview
-
-### Microservice Communication
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Client Browser                          │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Next.js App (Port 3000)                        │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  Frontend Pages (React Components)                   │   │
-│  └──────────────────────────────────────────────────────┘   │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  API Routes (/api/*)                                 │   │
-│  │  - /api/auth/*        - Authentication               │   │
-│  │  - /api/character/*   - Comic character CRUD         │   │
-│  │  - /api/story/*       - Story generation             │   │
-│  │  - /api/panel/*       - Storyboard panels            │   │
-│  │  - /api/novel/*       - Proxy to Python backend ──┐  │   │
-│  └──────────────────────────────────────────────────────┘   │
-└───────────────────────────────────┬────────────────┬─────────┘
-                                    │                │
-                                    │                └──────────┐
-                                    ▼                           ▼
-                    ┌───────────────────────────┐   ┌──────────────────────┐
-                    │   PostgreSQL (5432)       │   │ Novel Backend (8000) │
-                    │   - Shared by both apps   │   │  Python FastAPI      │
-                    └───────────────────────────┘   │  ┌────────────────┐  │
-                                    ▲               │  │ Novel Gen      │  │
-                                    │               │  │ RAG Service    │  │
-                                    │               │  │ ChromaDB       │  │
-                    ┌───────────────┴───────────┐   │  └────────────────┘  │
-                    │   MinIO (9000)            │   └──────────────────────┘
-                    │   Object Storage          │               │
-                    └───────────────────────────┘               │
-                                                                │
-                                                                ▼
-                                                    ┌──────────────────────┐
-                                                    │  PostgreSQL (5432)   │
-                                                    │  Same DB, asyncpg    │
-                                                    └──────────────────────┘
-```
-
-**Key Integration Points:**
-
-1. **API Proxy Layer**: `/api/novel/[...path]/route.ts`
-   - Forwards all `/api/novel/*` requests to Python backend
-   - Handles authentication (extracts JWT from Next.js cookie)
-   - Converts cookie auth → Bearer token for FastAPI
-   - Supports both JSON and streaming responses
-
-2. **Typed Client**: `src/lib/novel-backend-client.ts`
-   - TypeScript wrapper for novel-backend API
-   - Automatic retry logic (3 attempts, exponential backoff)
-   - Type-safe request/response interfaces
-   - Used by Next.js API routes and components
-
-3. **Shared Resources**:
-   - PostgreSQL database (same connection string)
-   - JWT secret (shared for auth verification)
-   - MinIO storage (same bucket configuration)
-
-### Directory Structure
-
-```
-.
-├── src/                          # Next.js application
-│   ├── app/                      # App Router
-│   │   ├── api/                  # Next.js API routes
-│   │   │   ├── auth/             # Authentication (JWT cookies)
-│   │   │   ├── character/        # Comic character CRUD
-│   │   │   ├── scene/            # Scene library
-│   │   │   ├── story/            # Story generation
-│   │   │   ├── chapter/          # Chapter management
-│   │   │   ├── panel/            # Storyboard panel operations
-│   │   │   ├── project/          # Comic project management
-│   │   │   ├── admin/            # Admin endpoints
-│   │   │   └── novel/[...path]/  # Proxy to Python backend
-│   │   ├── scripts/[id]/         # Story editor pages
-│   │   ├── storyboard/           # Storyboard editor
-│   │   ├── editor/               # Image refinement
-│   │   ├── workflow/             # Workflow orchestration
-│   │   ├── assets/               # Asset library
-│   │   └── admin/                # Admin dashboard
-│   ├── components/               # React components
-│   │   ├── Storyboard/           # Storyboard editor components
-│   │   ├── ImageEditor/          # Canvas & timeline
-│   │   ├── ui/                   # shadcn/ui base components
-│   │   └── ...
-│   ├── lib/                      # Shared utilities & services
-│   │   ├── auth.ts               # JWT signing/verification
-│   │   ├── db.ts                 # Prisma client singleton
-│   │   ├── llm-provider.ts       # LLM API integration
-│   │   ├── credits.ts            # Credits system
-│   │   ├── novel-backend-client.ts  # Python backend client
-│   │   └── ...
-│   └── hooks/                    # Custom React hooks
-│
-├── services/novel-backend/       # Python FastAPI microservice
-│   ├── app/
-│   │   ├── main.py               # FastAPI application
-│   │   ├── config.py             # Settings (pydantic-settings)
-│   │   ├── models.py             # SQLAlchemy models
-│   │   ├── routers/              # API routes
-│   │   │   ├── projects.py       # Novel project CRUD
-│   │   │   ├── chapters.py       # Chapter generation (SSE)
-│   │   │   ├── progressive.py    # Progressive outline generation
-│   │   │   ├── rag.py            # RAG indexing & search
-│   │   │   ├── canvas.py         # Script analysis for storyboard
-│   │   │   └── ...
-│   │   └── services/
-│   │       ├── generation_service.py        # Text generation
-│   │       ├── rag_service.py               # RAG retrieval
-│   │       ├── vector_service.py            # ChromaDB wrapper
-│   │       ├── progressive_outline_service.py
-│   │       └── prompt_templates.py          # LLM prompt templates
-│   ├── requirements.txt          # Python dependencies
-│   ├── .env.example              # Environment template
-│   └── chroma_db/                # ChromaDB persistent storage
-│
-├── prisma/
-│   ├── schema.prisma             # Database schema (shared)
-│   ├── migrations/               # Prisma migrations
-│   └── seed.ts                   # Seed script
-│
-├── scripts/                      # Utility scripts
-│   ├── init-db.sh                # Database initialization
-│   └── ...
-│
-├── docker-compose.yml            # Multi-container setup
-└── package.json                  # npm dependencies
-```
-
-## Core Database Models
-
-**Shared between Next.js and Python backends via same PostgreSQL instance.**
-
-### User & Auth
-- `User` - User accounts with `credits`, `total_credits_used`, role, status
-- `EmailVerification` - Email verification codes (bcrypt hashed)
-- `CreditTransaction` - Credits transaction history
-
-### LLM Configuration
-- `LlmProvider` - Configurable LLM providers (Next.js only)
-
-### Character System (Comic Creation)
-- `Character` - Digital actors with reference images
-- `CharacterView` - Three-view reference images
-- `CharacterExpression` - Expression matrix (9 emotions)
-- `CharacterOutfit` - Wardrobe system
-- `CharacterRelationship` - Relationship chart positioning
-
-### Story & Projects
-- `Story` - Story outlines (used by both systems)
-- `StoryCharacter` - Many-to-many Story ↔ Character
-- `Chapter` - Story chapters
-- `Project` - Comic projects
-- `Panel` - Storyboard panels with asset bindings
-
-### Novel System (Python Backend)
-- `NovelProject` - Novel-specific projects
-- `NovelChapter` - Novel chapters with content
-- `NovelScene` - Scene/location definitions
-- `NovelCharacter` - Novel character profiles
-- `NovelTimeline` - Infinite canvas timeline nodes
-
-### Scene Library
-- `Scene` - Background/environment assets
-
-### Templates & Workflows
-- `StoryTemplate` - Predefined story structures
-- `PanelTemplate` - Reusable storyboard layouts
-- `Workflow` - Automation workflow tracking
-
-## Authentication Architecture
-
-**Cross-Service Authentication Flow:**
-
-1. **User Login** (Next.js):
-   - `POST /api/auth/login`
-   - Returns JWT in HTTP-only cookie (`comicai_session`)
-   - Cookie domain: Next.js app only
-
-2. **Next.js API Routes**:
-   ```typescript
-   import { cookies } from "next/headers";
-   import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
-
-   const cookieStore = await cookies();
-   const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
-   const payload = verifyAuthToken(token);
-   // payload.userId, payload.role, payload.email
-   ```
-
-3. **Novel Backend Proxy** (`/api/novel/[...path]/route.ts`):
-   - Extracts JWT from Next.js cookie
-   - Forwards as `Authorization: Bearer <token>` header
-   - Python backend validates using shared `JWT_SECRET`
-
-4. **Python Backend**:
-   ```python
-   from fastapi import Header
-   from jose import jwt
-
-   def verify_token(authorization: str = Header(...)):
-       token = authorization.replace("Bearer ", "")
-       payload = jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"])
-       return payload["userId"]
-   ```
-
-**Admin-only routes**:
-```typescript
-import { requireAdmin } from "@/lib/auth-helpers";
-
-export async function GET() {
-  const result = await requireAdmin();
-  if (result instanceof NextResponse) return result;
-  const payload = result; // AuthTokenPayload
-}
-```
-
-## Code Style Guidelines
-
-### TypeScript Strict Mode Enforcement
-
-**CRITICAL**: `tsconfig.json` has `"strict": false`, but you MUST write code as if it were `true`.
-
-1. **NO `any` types allowed**
-   - Explicitly type all parameters, return values, variables
-   - Use `unknown` instead of `any` when type is genuinely unknown
-
-2. **Type Definitions**
-   - Extract shared types to separate `types.ts` files
-   - Example: `src/lib/novel-backend-client.ts` has comprehensive type definitions
-
-3. **File Length Limit**: 500 lines maximum
-   - Split into sub-components or extract hooks if exceeded
-
-4. **No Emojis in UI**
-   - Use lucide-react icons instead
-   ```typescript
-   import { IconName } from "lucide-react";
-   ```
-
-5. **Path Aliases**: Always use `@/` for imports
-   ```typescript
-   import { prisma } from "@/lib/db";
-   import { Button } from "@/components/ui/button";
-   ```
-
-6. **Error Handling**: Consistent format
-   ```typescript
-   return NextResponse.json(
-     { error: "错误描述" },
-     { status: 400 | 401 | 403 | 500 }
-   );
-   ```
-
-## Testing Strategy
-
-### Frontend Tests (Vitest)
-```bash
-npm test                    # Run all tests
-npm run test:watch          # Watch mode
-```
-
-- Test files: `*.test.ts`, `*.test.tsx` next to source files
-- Config: `vitest.config.ts`
-- Setup: `vitest.setup.ts`
-- Separate tsconfig: `tsconfig.vitest.json`
-
-### Python Backend Tests
-```bash
-cd services/novel-backend
-python test_rag.py          # RAG service tests
-```
-
-## Environment Variables
-
-### Next.js (.env.local)
-```bash
-# Database
-DATABASE_URL=postgresql://manga:manga123@localhost:5432/manga
-
-# Authentication
-AUTH_SECRET=<random_secret_for_jwt>
-
-# Email (SMTP)
-EMAIL_HOST=smtp.qq.com
-EMAIL_PORT=465
-EMAIL_USER=your@qq.com
-EMAIL_PASSWORD=your_smtp_key
-EMAIL_FROM="ComicAI <your@qq.com>"
-
-# MinIO Object Storage
-MINIO_ENDPOINT=localhost
-MINIO_PORT=9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-MINIO_USE_SSL=false
-MINIO_BUCKET_NAME=input-image
-
-# Novel Backend Service
-NOVEL_SERVICE_URL=http://localhost:8000
-
-# Optional Quotas
-QUOTA_STORYBOARD_DAILY=20
-QUOTA_STORY_DAILY=30
-QUOTA_IMAGE_DAILY=50
-```
-
-### Python Backend (services/novel-backend/.env)
-```bash
-# Database (shared with Next.js)
-DATABASE_URL=postgresql://manga:manga123@localhost:5432/manga
-
-# JWT (MUST match Next.js AUTH_SECRET)
-JWT_SECRET=<same_as_nextjs_auth_secret>
-JWT_ALGORITHM=HS256
-
-# OpenAI API
-OPENAI_API_KEY=your-openai-api-key
-OPENAI_API_BASE=https://api.openai.com/v1
-OPENAI_MODEL=gpt-4-turbo-preview
-
-# Embedding Model (RAG)
-OPENAI_EMBEDDING_MODEL=text-embedding-3-small
-# Optional: Separate embedding endpoint
-# OPENAI_EMBEDDING_API_BASE=https://custom-embedding-api.com/v1
-
-# ChromaDB (RAG)
-CHROMA_PERSIST_DIR=./chroma_db
-CHROMA_COLLECTION_NAME=novel_chapters
-RAG_TOP_K=3
-RAG_ENABLE_VECTOR_SEARCH=true
-
-# CORS
-CORS_ORIGINS=http://localhost:3000,http://localhost:3001
-LOG_LEVEL=INFO
-```
-
-## Key API Endpoints
-
-### Comic Creation APIs (Next.js)
-
-**Auth**:
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/login` - User login (sets HTTP-only cookie)
-- `POST /api/auth/send-code` - Email verification
-- `GET /api/auth/me` - Current user info
-- `POST /api/auth/logout` - Logout
-
-**Characters**:
-- `GET /api/character` - List characters
-- `POST /api/character` - Create character (auto-creates default outfit)
-- `POST /api/character/[id]/regenerate-image` - Regenerate character image
-- `POST /api/character/generate-views` - Generate three-view images
-- `POST /api/character/generate-expressions` - Generate expression matrix
-
-**Stories & Panels**:
-- `POST /api/story/generate` - Generate story outline
-- `POST /api/chapter/[id]/generate-panels` - Generate storyboard panels
-- `POST /api/panel/insert` - Insert panel at position
-- `POST /api/panel/split` - Split panel into multiple
-- `POST /api/panel/merge` - Merge consecutive panels
-
-### Novel Generation APIs (Python Backend)
-
-**Access via Next.js proxy**: `/api/novel/*` → forwarded to Python backend
-
-**Projects**:
-- `POST /api/novel/projects` - Create novel project
-- `GET /api/novel/projects` - List projects
-- `GET /api/novel/projects/{id}` - Get project details
-
-**Progressive Outline Generation** (10-step workflow):
-- `POST /api/novel/progressive/concept` - Step 1: Generate one-sentence concept
-- `POST /api/novel/progressive/structure` - Step 2: Three-act structure
-- `POST /api/novel/progressive/detailed-outline` - Step 3: Detailed chapter outline
-- `POST /api/novel/progressive/analyze` - Step 4: Analyze quality (爽点密度/节奏)
-
-**Chapter Generation**:
-- `POST /api/novel/chapters/generate/stream` - Generate chapter with SSE streaming
-- `POST /api/novel/chapters/regenerate` - Regenerate existing chapter
-
-**RAG (Retrieval-Augmented Generation)**:
-- `POST /api/novel/rag/index-chapter` - Index single chapter
-- `POST /api/novel/rag/batch-index` - Batch index project chapters
-- `DELETE /api/novel/rag/chapter/{id}` - Remove chapter from index
-- `GET /api/novel/rag/stats` - RAG system statistics
-
-**Canvas Integration** (Script → Storyboard):
-- `POST /api/novel/canvas/analyze-script` - Analyze chapter text into script segments
-- `POST /api/novel/canvas/generate-shots` - Generate camera shots from segments
-- `POST /api/novel/canvas/generate-scenes` - Generate scene images
-- `POST /api/novel/canvas/generate-finals` - Generate final comic panels
-
-## Novel Backend Architecture Details
-
-### Progressive Outline Generation (10-Step Workflow)
-
-**Design Philosophy**: "网文爽文" style (Chinese web novel with high engagement)
-
-1. **Step 1: Concept** - One-sentence premise
-2. **Step 2: Structure** - Three-act structure (5 sentences)
-3. **Step 3: Detailed Outline** - Chapter-by-chapter outline with "爽点" (pleasure points) markers
-4. **Step 4-10: Quality Analysis**:
-   - 爽点密度 (pleasure point density)
-   - 节奏分析 (pacing analysis)
-   - 开篇吸引力 (opening hook strength)
-   - 主角吸引力 (protagonist appeal)
-   - 冲突强度 (conflict intensity)
-
-### RAG System (Retrieval-Augmented Generation)
-
-**Purpose**: Context-aware chapter generation using vector search
-
-**Stack**:
-- **Vector DB**: ChromaDB (persistent storage in `chroma_db/`)
-- **Embeddings**: OpenAI `text-embedding-3-small` (1536 dimensions)
-- **Retrieval**: Cosine similarity with top-k=3
-
-**Workflow**:
-1. When chapter is created/updated → auto-index to ChromaDB
-2. When generating new chapter → retrieve similar chapters as context
-3. LLM uses retrieved context for consistent style/continuity
-
-**Cost Optimization**:
-- `text-embedding-3-small`: $0.02 per 1M tokens (80% cheaper than ada-002)
-- Fallback to keyword search if embedding fails
-
-### Prompt Engineering
-
-**Location**: `services/novel-backend/app/services/prompt_templates.py`
-
-**Key Components**:
-- `BASE_PERSONA` - "新人网文作家" (new web novel author persona)
-- `ANTI_AI_RULES` - Rules to avoid AI-like writing
-- `GOLDEN_THREE_RULES` - First 3 chapters must hook readers
-- `WEB_NOVEL_CORE` - Core requirements (6000 chars/chapter, fast pacing)
-
-**Template Methods**:
-```python
-NovelPromptTemplates.get_chapter_generation_prompt(
-    chapter_number=1,
-    outline="...",
-    character_profiles=[...],
-    previous_context="...",
-    rag_context=[...]  # Retrieved similar chapters
-)
-```
-
-## Common Workflows
-
-### 1. Comic Creation Workflow
-```
-Story Generation → Character Assignment → Script Generation →
-Panel Generation → Image Generation → Layout & Export
-```
-
-1. `POST /api/story/generate` - Generate story outline
-2. `POST /api/story/[id]/characters` - Add characters from library
-3. `POST /api/story/expand` - Expand into detailed script
-4. `POST /api/project` - Create comic project
-5. `POST /api/chapter/[id]/generate-panels` - Generate storyboard panels
-6. `POST /api/panel/[id]/variants` - Generate panel variants
-
-### 2. Novel Creation Workflow (Progressive Mode)
-```
-Concept → Structure → Detailed Outline → Analysis →
-Chapter Generation (6000 chars) → RAG Indexing
-```
-
-1. `POST /api/novel/progressive/concept` - One-sentence concept
-2. `POST /api/novel/progressive/structure` - Three-act structure
-3. `POST /api/novel/progressive/detailed-outline` - Chapter outlines
-4. `POST /api/novel/progressive/analyze` - Quality analysis
-5. **User reviews and refines outline**
-6. `POST /api/novel/chapters/generate/stream` - Generate chapters with SSE
-7. **Auto-indexed to RAG** for context in subsequent chapters
-
-### 3. Novel → Comic Conversion (Canvas Integration)
-```
-Novel Chapter Text → Script Segments → Camera Shots →
-Scene Images → Final Comic Panels
-```
-
-1. `POST /api/novel/canvas/analyze-script` - Split chapter into segments
-2. `POST /api/novel/canvas/generate-shots` - Generate camera directions
-3. `POST /api/novel/canvas/generate-scenes` - Generate scene images
-4. `POST /api/novel/canvas/generate-finals` - Add speech bubbles & effects
-
-## Known Limitations
-
-1. **Image Generation**: Requires external AI service (Stable Diffusion, DALL-E)
-2. **LoRA Training**: Not implemented - `training_status` remains `pending`
-3. **MinIO Storage**: Requires MinIO server or S3-compatible storage running
-4. **Python Service**: Must run separately from Next.js app (different ports)
-
-## Docker Deployment
-
-```bash
-# Start all services (recommended for production)
-docker-compose up -d
-
-# Services started:
-# - PostgreSQL (5432)
-# - MinIO (9000, 9001 console)
-# - Redis (6379)
-# - Novel Backend (8000)
-
-# Next.js app runs separately:
-npm run build
-npm run start
-```
-
-## Troubleshooting
-
-### Novel Backend Connection Issues
-```bash
-# 1. Check if service is running
-curl http://localhost:8000/health
-
-# 2. Check Next.js environment variable
-echo $NOVEL_SERVICE_URL  # Should be http://localhost:8000
-
-# 3. Check Python backend logs
-cd services/novel-backend
-tail -f app.log
-```
-
-### RAG Not Working
-```bash
-# 1. Check ChromaDB initialization
-curl http://localhost:8000/api/novel/rag/stats
-
-# 2. Verify environment variables
-cd services/novel-backend
-grep RAG_ENABLE_VECTOR_SEARCH .env  # Should be true
-
-# 3. Test embedding API
-python test_rag.py
-```
-
-### Database Migration Issues
-```bash
-# Reset database (WARNING: destroys data)
-npx prisma migrate reset
-
-# Apply pending migrations
-npx prisma migrate deploy
-
-# Regenerate Prisma client
-npx prisma generate
-```
-
-## Important Notes
-
-1. **Shared JWT Secret**: `AUTH_SECRET` (Next.js) MUST equal `JWT_SECRET` (Python)
-2. **Database Schema**: Managed by Prisma migrations, Python uses same schema
-3. **File Limit**: 500 lines per file - split if exceeded
-4. **TypeScript**: Write as if `strict: true` even though it's `false`
-5. **Package Manager**: Use `npm` (not pnpm) - `package-lock.json` is canonical
-
-## Exclusions
-
-**DO NOT modify**:
-- `example/` directory - Contains standalone demo application
-- Files in `.git/`, `node_modules/`, `.next/`, `dist/`
+# 模块索引
+
+| 模块 | 语言 | 一句话职责 | 入口 | 测试 | 深扫覆盖 |
+|---|---|---|---|---|---|
+| `src` | TS/TSX | Next.js 页面、API、代理层与前端业务 | `src/app/layout.tsx` | 31+ 测试文件 | 537/1200 (44.75%) |
+| `services/novel-backend` | Python | 小说生成、RAG、渐进式大纲、画布服务 | `services/novel-backend/app/main.py` | `test/` | 21/40 (52.50%) |
+| `prisma` | Prisma/SQL/TS | 统一数据库模型与迁移 | `prisma/schema.prisma` | 集成验证为主 | 17/36 (47.22%) |
+| `scripts` | TS/JS/Shell/SQL | 迁移、初始化、诊断、修复工具 | `scripts/init-db.sh` | 脚本级验证 | 16/47 (34.04%) |
+| `example` | HTML/JS/Python/CSS | API 演示和最小样例 | `example/index.html` | Python 测试脚本 | 5/26 (19.23%) |
+
+# 运行与开发
+
+- 安装：`pnpm install`
+- 开发：`pnpm dev`
+- 构建：`pnpm build && pnpm start`
+- 测试：`pnpm test`
+- 类型检查：`pnpm type-check`
+- 小说服务：`cd services/novel-backend && uvicorn app.main:app --reload --port 8000`
+
+# 测试策略
+
+- 前端与 API：Vitest（`vitest.config.ts` + `vitest.setup.ts`）
+- Python 服务：`services/novel-backend/test/` 与 `test_*.py`
+- 高风险回归优先级：鉴权、小说代理、分镜生成、角色生成、RAG 路由、工作流状态机。
+
+# 编码规范
+
+- TypeScript 按 strict 风格编写，不引入 `any`
+- 类型定义放独立 `types.ts/type.ts`
+- API 错误返回统一 JSON 结构（**P0 待修复：当前 4 种模式并存**）
+- 使用 `@/` 路径别名
+- 单文件不超过 500 行，超过必须拆分
+- 不使用 emoji，用 icon 组件替代
+
+# AI 使用指引
+
+- 优先复用既有服务层：
+  - 前端：`src/lib/*`
+  - 小说后端：`services/novel-backend/app/services/*`
+- 涉及生成链路改动时，必须联动检查：
+  - 配额计数（usage）
+  - 生成日志（generation-log）
+  - 鉴权边界（cookie/JWT/代理）
+- 涉及小说流程优先核对：`progressive.py`、`chapters.py`、`rag_*.py`。
+- 涉及 ProfessionalMode 改动，核对 `useWorkflowMachine` reducer 和 `api.ts` 端点一致性。
+- 涉及 NineGrid 改动，核对 `prompt-builder.ts` 的 9 镜头约束和类型定义。
+
+# 覆盖率与缺口摘要（第十轮）
+
+- 估算总文件数：`1349`
+- 已索引文件数：`1349`
+- 深度扫描文件数：`596`
+- 深扫覆盖率：`44.18%`
+
+本轮补扫完成（+58 文件）：
+1. **auth 鉴权端点（+9）** -- login/register/logout/me/forgot-password/reset-password/delete-account/send-code/token
+2. **character 端点（+6）** -- 列表/创建/详情/更新/删除/重新生成图片
+3. **story 端点（+4）** -- 列表/创建/详情/更新/删除
+4. **chapter 端点（+3）** -- 详情/更新/删除
+5. **admin 端点（+36）** -- users/characters/generation-logs/generated-images/tags/story-templates/comic-styles/panel-templates/prompt-templates/genres/stories/projects/scenes/workflows/generation-tasks/credits/upload/usage
+
+关键子域覆盖率变化：
+- `src/app/api/auth/**`：0% -> 100%（0 -> 9 / 9 文件）
+- `src/app/api/admin/**`：0% -> 100%（0 -> 36 / 36 文件）
+- `src/app/api/character/**`：0% -> 42.86%（0 -> 6 / 14 文件）
+- `src/app/api/story/**`：0% -> 14.29%（0 -> 4 / 28 文件）
+- `src/app/api/chapter/**`：0% -> 15.00%（0 -> 3 / 20 文件）
+
+主要缺口：
+1. `src/app/api/**` 剩余端点（~81 文件）-- character/story/chapter 子端点、novel 代理端点、project/workflow 端点。
+2. `src/app/(novel)/novel/**` 小说前端页面与 hooks（~40 文件）。
+3. `src/lib/**` 剩余服务层文件（queue/security/novel 等，~69 文件）。
+4. `src/app/scripts/[id]/**` 剩余组件与 hooks（~30 文件）。
+5. `scripts/**` 迁移脚本统一事务与回滚模板改造（~31 文件）。
+6. `example/**` 端到端调用链核验（~21 文件）。
+
+# 变更记录 (Changelog)
+
+- 2025-03-27 01:00:00: 第十轮深扫核心 API 端点全审计（+58 文件），覆盖 auth（9 端点）、character（6 端点）、story（4 端点）、chapter（3 端点）、admin（36 端点）；覆盖率 39.88% -> 43.22%。**关键发现**：鉴权代码重复率 92%（213 文件中仅 17 个使用 withAuth）、配额扣费无事务保护（6 端点已识别）、错误响应格式 4 种模式并存、DELETE 操作未实现软删除、密码重置验证码可暴力破解。详见 `.claude/api-scan-report-round10.md`。
+- 2025-03-27 00:20:00: 第九轮深扫核心 API 路由（+35 文件），覆盖 Panel API（6 端点）、Canvas API（6 端点）、GenerationTasks（2 端点）、User/Payment/SSE（4 端点）、api-helpers 服务层；覆盖率 37.29% -> 39.88%。
+- 2025-03-26 23:31:34: 第八轮深扫基础设施完善（+31 文件），覆盖 InfiniteCanvas nodes（5 文件）、image-generation providers（6 文件）、common 组件（10 文件）；覆盖率 34.99% -> 37.29%。
+- 2026-03-01 19:15:00: 第七轮深扫核心共享层（+50 文件），覆盖 lib 服务层（20 文件）、Zustand stores（2 文件）、全局 hooks（8 文件）；覆盖率 31.28% -> 34.99%。

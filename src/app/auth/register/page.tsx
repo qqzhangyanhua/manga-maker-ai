@@ -103,7 +103,7 @@ const RegisterForm = () => {
       }
 
       toast({ title: "注册成功", description: "已为你自动登录" });
-      router.replace("/");
+      router.replace("/workspace");
     } catch (error) {
       toast({ title: "注册失败", description: "网络异常，请稍后重试", variant: "destructive" });
     } finally {

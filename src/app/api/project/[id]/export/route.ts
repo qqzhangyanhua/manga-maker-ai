@@ -18,6 +18,19 @@ interface LayoutSettings {
   showDialogBubbles?: boolean;
 }
 
+/** 导出用气泡数据（与前端 SpeechBubble 结构一致） */
+interface ExportBubble {
+  id: string;
+  panelId: string;
+  type: string;
+  text: string;
+  position: { x: number; y: number };
+  size: { width: number; height: number };
+  style: Record<string, unknown>;
+  pointer?: { angle: number; length: number; position: string };
+  zIndex?: number;
+}
+
 interface ExportPanel {
   id: string;
   panel_order: number;
@@ -122,6 +135,8 @@ export async function POST(req: Request, { params }: RouteParams) {
       panelGap: 10,
       pageMargin: 15,
     };
+    // 气泡数据（位置、文本、样式、尺寸），用于 PDF 等导出时渲染对话框
+    const bubbles: ExportBubble[] = Array.isArray(body.bubbles) ? body.bubbles : [];
 
     // 筛选有图片的分镜
     const panelsWithImages = project.panels.filter(
@@ -138,10 +153,10 @@ export async function POST(req: Request, { params }: RouteParams) {
     // 根据格式导出
     switch (format) {
       case "pdf":
-        return await exportToPDF(project, panelsWithImages, layout);
+        return await exportToPDF(project, panelsWithImages, layout, bubbles);
 
       case "png":
-        return await exportToPNG(project, panelsWithImages, layout);
+        return await exportToPNG(project, panelsWithImages, layout, bubbles);
 
       case "zip":
         return await exportToZIP(project, panelsWithImages);
@@ -173,8 +188,14 @@ export async function POST(req: Request, { params }: RouteParams) {
 async function exportToPDF(
   project: ExportProject,
   panels: ExportPanel[],
-  layout: LayoutSettings
+  layout: LayoutSettings,
+  bubbles: ExportBubble[]
 ) {
+  // TODO: 气泡渲染待实现。当 layout.showDialogBubbles 为 true 时，需在每格分镜上按气泡的
+  // position/size/style/text 绘制对话框。bubbles 已按 panelId 关联到对应分镜。
+  if (layout.showDialogBubbles && bubbles.length > 0) {
+    console.debug("[export] 收到气泡数据，待实现渲染:", bubbles.length, "个气泡");
+  }
   const pdfDoc = await PDFDocument.create();
 
   // 转换 mm 到 points (1mm = 2.83465 points)
@@ -306,8 +327,13 @@ async function exportToPDF(
 async function exportToPNG(
   project: ExportProject,
   panels: ExportPanel[],
-  layout: LayoutSettings
+  layout: LayoutSettings,
+  bubbles: ExportBubble[]
 ) {
+  // TODO: 气泡渲染待实现。bubbles 数据已传入，供后续在 PNG 合成时绘制对话框使用。
+  if (layout.showDialogBubbles && bubbles.length > 0) {
+    console.debug("[export] PNG 导出收到气泡数据，待实现渲染:", bubbles.length, "个气泡");
+  }
   // 方案：返回 ZIP 包含所有单张 PNG
   // 因为服务端合成 PNG 需要 Canvas，建议在客户端实现或使用其他方案
 
