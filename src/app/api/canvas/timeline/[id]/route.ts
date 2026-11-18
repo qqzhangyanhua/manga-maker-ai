@@ -11,6 +11,7 @@ import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { logInfo, logError } from "@/lib/api-logger";
 import { UpdateTimelineConfigRequestSchema } from "@/lib/api-schemas/canvas.schemas";
+import { listNovelComicProjects } from "@/lib/project";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -67,6 +68,11 @@ export async function GET(req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "时间线不存在" }, { status: 404 });
     }
 
+    // 时间线未归属漫画项目时，列出候选项目供画布界面选择
+    const candidateProjects = timeline.project_id
+      ? []
+      : await listNovelComicProjects(prisma, payload.userId, timeline.novel_project_id);
+
     const totalChapters = timeline.chapters.length;
 
     if (totalChapters === 0) {
@@ -74,6 +80,7 @@ export async function GET(req: Request, { params }: RouteParams) {
         success: true,
         timeline: {
           ...timeline,
+          candidate_projects: candidateProjects,
           chapter_summaries: [],
           chapters: [],
           window: {
@@ -109,6 +116,8 @@ export async function GET(req: Request, { params }: RouteParams) {
     const response = {
       id: timeline.id,
       novel_project_id: timeline.novel_project_id,
+      project_id: timeline.project_id,
+      candidate_projects: candidateProjects,
       user_id: timeline.user_id,
       title: timeline.title,
       status: timeline.status,
@@ -189,7 +198,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       );
     }
 
-    const { title, config, status } = validation.data;
+    const { title, config, status, project_id } = validation.data;
 
     logInfo("更新时间线配置", {
       endpoint: "/api/canvas/timeline/[id]",
@@ -206,6 +215,23 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
     if (!timeline) {
       return NextResponse.json({ error: "时间线不存在" }, { status: 404 });
+    }
+
+    // 归属项目校验：必须是当前用户的、且以该小说为来源的漫画项目
+    if (project_id) {
+      const project = await prisma.project.findFirst({
+        where: { id: project_id, user_id: payload.userId },
+        select: { source_novel_id: true },
+      });
+      if (!project) {
+        return NextResponse.json({ error: "项目不存在" }, { status: 404 });
+      }
+      if (project.source_novel_id !== timeline.novel_project_id) {
+        return NextResponse.json(
+          { error: "该项目不是该小说的改编项目" },
+          { status: 400 }
+        );
+      }
     }
 
     // If updating comic style, verify it exists
@@ -237,6 +263,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
         ...(title && { title }),
         ...(updatedConfig && { config: updatedConfig }),
         ...(status && { status }),
+        ...(project_id !== undefined && { project_id }),
         updated_at: new Date(),
       },
     });

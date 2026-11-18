@@ -203,6 +203,10 @@ export const UpdateTimelineConfigRequestSchema = z.object({
   }).partial().optional().openapi({
     description: "时间线配置（部分更新）",
   }),
+  project_id: z.string().uuid().nullable().optional().openapi({
+    description: "归属的漫画项目 ID（必须是该小说的改编项目，null 表示暂不关联）",
+    example: "550e8400-e29b-41d4-a716-446655440000",
+  }),
 }).strict().openapi({
   description: "更新时间线配置请求",
 });

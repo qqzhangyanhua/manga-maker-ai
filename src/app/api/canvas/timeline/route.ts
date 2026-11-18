@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { findUnambiguousNovelProject } from "@/lib/project";
 
 export async function POST(req: Request) {
   const cookieStore = await cookies();
@@ -46,16 +47,29 @@ export async function POST(req: Request) {
 
     if (existingTimeline) {
       console.log(`[Timeline API] 复用现有时间线: ${existingTimeline.id} for project ${novel_project_id}`);
+      // 旧时间线还没关联漫画项目时，项目无歧义则顺手补上
+      if (!existingTimeline.project_id) {
+        const linked = await findUnambiguousNovelProject(prisma, payload.userId, novel_project_id);
+        if (linked) {
+          const healed = await prisma.canvasTimeline.update({
+            where: { id: existingTimeline.id },
+            data: { project_id: linked.id },
+          });
+          return NextResponse.json({ success: true, timeline: healed });
+        }
+      }
       return NextResponse.json({ success: true, timeline: existingTimeline });
     }
 
-    // 不存在才创建新时间线
+    // 不存在才创建新时间线；小说只改编出一个漫画项目时自动关联，多个留给用户在画布中选择
+    const linked = await findUnambiguousNovelProject(prisma, payload.userId, novel_project_id);
     console.log(`[Timeline API] 创建新时间线 for project ${novel_project_id}`);
     const timeline = await prisma.canvasTimeline.create({
       data: {
         novel_project_id,
         user_id: payload.userId,
         title,
+        ...(linked ? { project_id: linked.id } : {}),
         config: config || {
           auto_generate: true,
           use_character_library: true,

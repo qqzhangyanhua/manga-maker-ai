@@ -57,11 +57,46 @@ export async function GET(req: Request, { params }: RouteParams) {
         id: true,
         title: true,
         novel_project_id: true,
+        project_id: true,
       },
     });
 
     if (!timeline) {
       return NextResponse.json({ error: "时间线不存在" }, { status: 404 });
+    }
+
+    // 时间线已归属漫画项目：角色来源是项目角色（角色库实体，可直接绑定镜头）
+    if (timeline.project_id) {
+      const projectCharacters = await prisma.projectCharacter.findMany({
+        where: { project_id: timeline.project_id },
+        include: { character: true },
+        orderBy: { display_order: "asc" },
+      });
+
+      const characters: NovelCharacter[] = projectCharacters.map((pc) => ({
+        name: pc.character.name,
+        role: pc.role,
+        description: pc.character.description || "",
+        tempId: pc.character.id,
+        generatedImageUrl:
+          pc.character.base_image_url || pc.character.reference_image || undefined,
+      }));
+
+      logInfo("时间线项目角色获取成功", {
+        timelineId,
+        projectId: timeline.project_id,
+        characterCount: characters.length,
+        durationMs: Date.now() - startedAt,
+      });
+
+      return NextResponse.json({
+        success: true,
+        source: "project",
+        timeline_id: timeline.id,
+        timeline_title: timeline.title,
+        project_id: timeline.project_id,
+        characters,
+      });
     }
 
     const novel = await prisma.novelProject.findUnique({
@@ -113,6 +148,7 @@ export async function GET(req: Request, { params }: RouteParams) {
 
     return NextResponse.json({
       success: true,
+      source: "novel",
       timeline_id: timeline.id,
       timeline_title: timeline.title,
       novel_id: novel.id,
