@@ -194,15 +194,24 @@ User
 
 **行为变化（需要周知）**
 
-- `Chapter.story_id` 不再写入，读取侧一律以 `project_id` 为准。
+- `Chapter.story_id` 已可空，但在阶段 6 删除 Story 之前保持双写（兼容层读取仍按 story_id 查章节），数据库触发器校验 story_id 与 project_id 一致；新代码读取一律以 `project_id` 为准。
 - 删除章节会级联删除其分镜；删除故事不再删除章节与分镜。
 - 旧代码路径写入分镜不带 `chapter_id` 也能成功，由数据库触发器自动挂默认章节。
 
-### 阶段 5：小说线对齐
+### 阶段 5：小说线对齐（进行中，2026-11-18 决策）
 
-- `convert-to-comic` 改为创建或更新 Project（`source_novel_id`），小说人物生成角色并加入项目角色。
-- `CanvasTimeline` 按 `project_id` 关联，画布角色来源改为项目角色。
-- `ScriptSegment`/`ShotDesign` 与项目的剧本片段和分镜合并，单独出设计文档后再动手。
+决策（已与用户确认）：
+
+1. convert-to-comic 保留兼容 Story（剧本编辑器仍读 `/api/story/[id]`），Story 留到阶段 6 删除；阶段 2 触发器已把 `story_characters` 自动同步为 `project_characters`，人物继续写 StoryCharacter 即可进入项目角色。
+2. 同一部小说再次转换维持现状：按 `source_novel_id` 找到既有改编项目并追加章节，不新建第二个项目。
+3. 15 条归属歧义的 canvas timeline 在画布界面上让用户选择归属项目；新时间线在项目无歧义时自动写入 `project_id`。
+4. ScriptSegment/ShotDesign 与项目剧本片段、分镜合并的设计文档放到 5a/5b 落地之后再写。
+
+拆分：
+
+- **5a convert-to-comic 对齐**：章节保持 story_id 双写（阶段 6 前兼容层需要），追加模式的章节顺序改按项目现有章节最大值计算（原来按 story.chapters，独立项目章节会漏算）；确认主项目 `source_novel_id` 写入；人物路径走 StoryCharacter -> 触发器 -> ProjectCharacter。
+- **5b 画布对齐**：timeline 创建时自动关联无歧义项目；新增归属选择（API + 画布 UI）；画布角色来源从小说 JSON 人物切换为项目角色（无 `project_id` 时回退小说人物）；重新跑一遍 timeline 回填脚本处理新产生的无歧义情况。
+- **5c 合并设计文档**：`ScriptSegment`/`ShotDesign` 与项目剧本片段、分镜合并，单独出设计文档后再动手。
 
 ### 阶段 6：清理
 

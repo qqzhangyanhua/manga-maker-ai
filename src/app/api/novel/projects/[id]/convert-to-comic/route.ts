@@ -117,12 +117,6 @@ export async function POST(
         source_novel_id: projectId,
         user_id: userId,
       },
-      include: {
-        chapters: {
-          orderBy: { chapter_order: "desc" },
-          take: 1, // 只取最后一个章节，用于计算新章节的 order
-        },
-      },
     });
 
     let isNewStory = false;
@@ -141,9 +135,6 @@ export async function POST(
           source_type: "novel_adaptation",
           source_novel_id: projectId,
           status: "draft",
-        },
-        include: {
-          chapters: true,
         },
       });
     } else {
@@ -172,8 +163,14 @@ export async function POST(
 
     // 创建 Chapters（基于选中的场景）
     const chaptersCreated: Array<{ id: string; title: string; order: number }> = [];
-    // ✅ 如果是追加模式，从现有章节的最大 order + 1 开始
-    let chapterOrder = story.chapters.length > 0 ? story.chapters[0].chapter_order + 1 : 1;
+    // ✅ 如果是追加模式，从项目现有章节的最大 order + 1 开始
+    // 章节按 project_id 归属（阶段 4 起 story_id 停止写入），不能再用 story.chapters 计算
+    const lastChapter = await prisma.chapter.findFirst({
+      where: { project_id: comicProject.id },
+      orderBy: { chapter_order: "desc" },
+      select: { chapter_order: true },
+    });
+    let chapterOrder = (lastChapter?.chapter_order ?? 0) + 1;
 
     for (const sceneSelection of selected_scenes) {
       const novelChapter = novelProject.chapters.find(
@@ -199,6 +196,8 @@ export async function POST(
 
       const chapter = await prisma.chapter.create({
         data: {
+          // story_id 保持双写到阶段 6（兼容层读取仍按 story_id 查章节），
+          // 数据库触发器会校验 story_id 与 project_id 属于同一项目
           story_id: story.id,
           project_id: comicProject.id,
           title: novelChapter?.title || outline?.title || `第${sceneSelection.chapter_number}章`,
