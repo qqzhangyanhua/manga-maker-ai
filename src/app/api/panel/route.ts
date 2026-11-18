@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { ApiError } from "@/lib/api-helpers";
+import { ensureProjectCharacters } from "@/lib/project";
 
 /**
  * POST /api/panel
@@ -75,6 +77,13 @@ export async function POST(req: Request) {
             }
         }
 
+        // 分镜绑定的角色必须是项目角色：角色库中的角色自动加入，非本人角色直接拒绝
+        await ensureProjectCharacters(prisma, {
+            projectId: project_id,
+            userId: payload.userId,
+            characterIds: [resolvedCharacterId],
+        });
+
         // Determine order
         let newOrder = panel_order;
         if (newOrder === undefined) {
@@ -124,6 +133,9 @@ export async function POST(req: Request) {
             message: "分镜创建成功",
         });
     } catch (error) {
+        if (error instanceof ApiError) {
+            return NextResponse.json({ error: error.message, code: error.code }, { status: error.statusCode });
+        }
         console.error("Create panel error:", error);
         return NextResponse.json(
             { error: "创建分镜失败" },

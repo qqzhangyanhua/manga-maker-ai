@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { ApiError } from "@/lib/api-helpers";
+import { ensureProjectCharacters, filterOwnedCharacterIds } from "@/lib/project";
 import { callChatCompletionStreamByType } from "@/lib/llm-provider";
 
 const mergeSystemPrompt = `你是一位专业的漫画分镜编辑。
@@ -186,8 +188,24 @@ export async function POST(req: Request) {
       );
     }
 
+    // LLM 给出的角色 ID 只保留当前用户角色库中的，其余回落到原分镜角色或置空
+    const llmCharacterId =
+      typeof mergedData.character_id === "string" && mergedData.character_id.length > 0
+        ? mergedData.character_id
+        : null;
+    const candidateIds = [llmCharacterId, panels[0].character_id, panels[1].character_id];
+    const ownedCharacterIds = await filterOwnedCharacterIds(prisma, payload.userId, candidateIds);
+    const characterId =
+      candidateIds.find((id): id is string => !!id && ownedCharacterIds.has(id)) ?? null;
+
     // 使用事务删除两个旧 panel 并创建新 panel
     const newPanel = await prisma.$transaction(async (tx) => {
+      await ensureProjectCharacters(tx, {
+        projectId: project_id,
+        userId: payload.userId,
+        characterIds: [characterId],
+      });
+
       // 删除两个旧 panels
       await tx.panel.deleteMany({
         where: { id: { in: panel_ids } },
@@ -205,7 +223,7 @@ export async function POST(req: Request) {
           visual_prompt: mergedData.visual_prompt || mergedData.description,
           prompt_used: mergedData.english_prompt,
           dialogue: mergedData.dialogue || null,
-          character_id: mergedData.character_id || panels[0].character_id || panels[1].character_id || null,
+          character_id: characterId,
           emotion: mergedData.emotion || null,
           camera_angle: mergedData.camera_angle || null,
           shot_size: mergedData.shot_size || null,
@@ -237,6 +255,9 @@ export async function POST(req: Request) {
       message: "分镜已合并",
     });
   } catch (error) {
+    if (error instanceof ApiError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.statusCode });
+    }
     console.error("Merge panels error:", error);
     const message = error instanceof Error ? error.message : "未知错误";
     return NextResponse.json({ error: message }, { status: 500 });

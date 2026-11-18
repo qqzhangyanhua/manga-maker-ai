@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { ApiError } from "@/lib/api-helpers";
+import { assertChapterInProject } from "@/lib/project";
 import { generateNineGridImage } from "@/lib/nine-grid-image-generator";
 import { uploadToMinIO } from "@/lib/minio";
 import { assertAndIncrementUsage } from "@/lib/usage";
@@ -99,6 +101,9 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    // 章节必须属于该项目，避免把分镜/图片挂到别的项目的章节上
+    await assertChapterInProject(prisma, chapterId, project_id);
 
     // 获取选中的 9 个分镜
     const panels = await prisma.panel.findMany({
@@ -242,6 +247,9 @@ export async function POST(
       message: `成功生成九宫格图片`,
     });
   } catch (error) {
+    if (error instanceof ApiError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.statusCode });
+    }
     console.error("九宫格图片生成失败:", error);
     const message = error instanceof Error ? error.message : "未知错误";
 

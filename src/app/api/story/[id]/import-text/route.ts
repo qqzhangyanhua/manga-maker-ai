@@ -166,6 +166,8 @@ export async function POST(
     const chapter = await prisma.chapter.create({
       data: {
         story_id: storyId,
+        // 分镜写入 projectId 对应的项目，章节也必须归属同一项目（panel.project_id == chapter.project_id）
+        project_id: projectId,
         title: finalChapterTitle,
         summary: text,
         chapter_order: nextChapterOrder,

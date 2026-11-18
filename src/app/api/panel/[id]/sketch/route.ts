@@ -81,6 +81,35 @@ export async function POST(
       return NextResponse.json({ error: "无权限" }, { status: 403 });
     }
 
+    // 请求体指定的角色必须来自当前用户的角色库，在扣配额之前校验
+    const requestedCharacter =
+      requestCharacterId && requestCharacterId !== panel.character_id
+        ? await prisma.character.findFirst({
+            where: { id: requestCharacterId, user_id: payload.userId },
+            include: {
+              expressions: {
+                select: {
+                  expression_type: true,
+                  image_url: true,
+                },
+              },
+              views: {
+                select: {
+                  view_type: true,
+                  image_url: true,
+                },
+              },
+            },
+          })
+        : null;
+
+    if (requestCharacterId && requestCharacterId !== panel.character_id && !requestedCharacter) {
+      return NextResponse.json(
+        { error: "角色不存在或不属于当前用户", code: "INVALID_CHARACTER" },
+        { status: 400 }
+      );
+    }
+
     // 检查是否有描述可用于生成草图
     const description = panel.visual_prompt || panel.description;
     if (!description) {
@@ -123,26 +152,8 @@ export async function POST(
     const effectiveCharacterId = requestCharacterId || panel.character_id;
 
     if (effectiveCharacterId) {
-      // 如果请求体传了 character_id，需要单独查询
+      // 如果请求体传了 character_id，使用上面已校验过的角色
       if (requestCharacterId && requestCharacterId !== panel.character_id) {
-        const requestedCharacter = await prisma.character.findUnique({
-          where: { id: requestCharacterId },
-          include: {
-            expressions: {
-              select: {
-                expression_type: true,
-                image_url: true,
-              },
-            },
-            views: {
-              select: {
-                view_type: true,
-                image_url: true,
-              },
-            },
-          },
-        });
-
         if (requestedCharacter) {
           const refImage = findBestReferenceImage({
             id: requestedCharacter.id,

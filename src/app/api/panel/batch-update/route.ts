@@ -8,6 +8,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { ApiError } from "@/lib/api-helpers";
+import { ensureProjectCharacters } from "@/lib/project";
 
 export const dynamic = "force-dynamic";
 
@@ -182,12 +184,20 @@ export async function POST(req: Request) {
       );
     }
 
-    // Update panels
-    await prisma.panel.updateMany({
-      where: {
-        id: { in: panelIds }
-      },
-      data: updateData
+    // 绑定的角色必须是项目角色：角色库中的角色自动加入，非本人角色返回 400
+    await prisma.$transaction(async (tx) => {
+      await ensureProjectCharacters(tx, {
+        projectId: project.id,
+        userId: payload.userId,
+        characterIds: [updateData.character_id],
+      });
+
+      await tx.panel.updateMany({
+        where: {
+          id: { in: panelIds }
+        },
+        data: updateData
+      });
     });
 
     // Get updated panels for response
@@ -208,6 +218,9 @@ export async function POST(req: Request) {
       message: `成功修改 ${updatedPanels.length} 个分镜`
     });
   } catch (error) {
+    if (error instanceof ApiError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.statusCode });
+    }
     console.error("Batch update panels error:", error);
     const message = error instanceof Error ? error.message : "未知错误";
     return NextResponse.json({ error: `批量修改失败: ${message}` }, { status: 500 });

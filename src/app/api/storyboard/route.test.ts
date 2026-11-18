@@ -45,6 +45,12 @@ vi.mock("@/lib/db", () => ({
     story: {
       findUnique: vi.fn(),
     },
+    character: {
+      findMany: vi.fn(),
+    },
+    projectCharacter: {
+      createMany: vi.fn(),
+    },
   },
 }));
 
@@ -413,6 +419,37 @@ describe("POST /api/storyboard", () => {
       expect(response.status).toBe(403);
       expect(assertAndIncrementUsage).not.toHaveBeenCalled();
       expect(prisma.project.create).not.toHaveBeenCalled();
+    });
+  });
+
+  it("LLM 给出的角色 ID 只保留当前用户的，并加入项目角色", async () => {
+    (callChatCompletionByType as ReturnType<typeof vi.fn>).mockResolvedValue({
+      content: JSON.stringify({
+        project_title: "测试项目",
+        panels: [
+          { panel_order: 1, description: "a", character_id: "my-character" },
+          { panel_order: 2, description: "b", character_id: "hallucinated" },
+        ],
+      }),
+    });
+    (prisma.character.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "my-character" }]);
+    (prisma.project.create as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "project-123", panels: [] });
+
+    const response = await POST(
+      new Request("http://localhost/api/storyboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ story: "故事", saveToDb: true }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const panels = (prisma.project.create as ReturnType<typeof vi.fn>).mock.calls[0][0].data.panels.create;
+    expect(panels[0].character_id).toBe("my-character");
+    expect(panels[1].character_id).toBeNull();
+    expect(prisma.projectCharacter.createMany).toHaveBeenCalledWith({
+      data: [{ project_id: "project-123", character_id: "my-character", role: "minor" }],
+      skipDuplicates: true,
     });
   });
 

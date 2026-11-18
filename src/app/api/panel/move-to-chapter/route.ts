@@ -7,6 +7,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { ApiError } from "@/lib/api-helpers";
+import { assertChapterInProject } from "@/lib/project";
 
 interface MoveRequest {
   panel_id: string;
@@ -55,21 +57,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "无权限操作" }, { status: 403 });
     }
 
-    // 验证目标章节
-    const targetChapter = await prisma.chapter.findUnique({
-      where: { id: target_chapter_id },
-      include: {
-        story: { select: { user_id: true } },
-      },
-    });
-
-    if (!targetChapter) {
-      return NextResponse.json({ error: "目标章节不存在" }, { status: 404 });
-    }
-
-    if (targetChapter.story.user_id !== payload.userId) {
-      return NextResponse.json({ error: "无权限操作目标章节" }, { status: 403 });
-    }
+    // 目标章节必须属于分镜所在的项目（项目已校验归属当前用户）
+    await assertChapterInProject(prisma, target_chapter_id, panel.project_id);
 
     // 如果分镜已在目标章节，直接返回
     if (panel.chapter_id === target_chapter_id) {
@@ -133,6 +122,9 @@ export async function POST(req: Request) {
       },
     });
   } catch (error) {
+    if (error instanceof ApiError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.statusCode });
+    }
     console.error("Panel move error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "移动失败" },

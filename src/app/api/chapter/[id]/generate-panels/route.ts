@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { ApiError } from "@/lib/api-helpers";
+import { assertChapterInProject } from "@/lib/project";
 import { generatePanelsFromChapter } from "@/lib/panel-generator";
 import { assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
@@ -86,6 +88,9 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    // 章节必须属于该项目，避免把分镜/图片挂到别的项目的章节上
+    await assertChapterInProject(prisma, chapterId, project_id);
 
     // 检查章节是否有梗概
     if (!chapter.summary) {
@@ -204,6 +209,9 @@ export async function POST(
       message: `成功为章节"${chapter.title}"生成 ${panels.length} 个分镜`
     });
   } catch (error) {
+    if (error instanceof ApiError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.statusCode });
+    }
     console.error("分镜生成失败:", error);
     const message = error instanceof Error ? error.message : "未知错误";
 

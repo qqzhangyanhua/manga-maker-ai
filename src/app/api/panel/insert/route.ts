@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { ApiError } from "@/lib/api-helpers";
+import { ensureProjectCharacters, filterOwnedCharacterIds } from "@/lib/project";
 import { callChatCompletionStreamByType } from "@/lib/llm-provider";
 
 const insertSystemPrompt = `你是一位专业的漫画分镜编辑。
@@ -140,8 +142,19 @@ ${contextInfo}
       };
     }
 
+    // LLM 给出的角色 ID 只保留当前用户角色库中的，其余视为未绑定
+    const llmCharacterId = typeof panelData.character_id === "string" ? panelData.character_id : null;
+    const ownedCharacterIds = await filterOwnedCharacterIds(prisma, payload.userId, [llmCharacterId]);
+    const characterId = llmCharacterId && ownedCharacterIds.has(llmCharacterId) ? llmCharacterId : null;
+
     // 使用事务插入新 panel
     const newPanel = await prisma.$transaction(async (tx) => {
+      await ensureProjectCharacters(tx, {
+        projectId: project_id,
+        userId: payload.userId,
+        characterIds: [characterId],
+      });
+
       // 后续 panels 的 order 都要 +1
       await tx.$executeRaw`
         UPDATE panels
@@ -161,7 +174,7 @@ ${contextInfo}
           visual_prompt: panelData.visual_prompt || panelData.description,
           prompt_used: panelData.english_prompt,
           dialogue: panelData.dialogue || null,
-          character_id: panelData.character_id || null,
+          character_id: characterId,
           emotion: panelData.emotion || null,
           camera_angle: panelData.camera_angle || null,
           shot_size: panelData.shot_size || null,
@@ -177,6 +190,9 @@ ${contextInfo}
       message: "分镜已插入",
     });
   } catch (error) {
+    if (error instanceof ApiError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.statusCode });
+    }
     console.error("Insert panel error:", error);
     const message = error instanceof Error ? error.message : "未知错误";
     return NextResponse.json({ error: message }, { status: 500 });

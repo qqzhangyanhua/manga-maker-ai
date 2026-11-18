@@ -5,7 +5,7 @@ import { Prisma, prisma } from "@/lib/db";
 import { callChatCompletionByType } from "@/lib/llm-provider";
 import { QuotaExceededError, assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
-import { findStoryProject } from "@/lib/project";
+import { ensureProjectCharacters, filterOwnedCharacterIds, findStoryProject } from "@/lib/project";
 
 const systemPrompt = `你是一位资深的漫画分镜导演和AI绘画专家。
 
@@ -205,6 +205,13 @@ export async function POST(req: Request) {
       const validPanelTypes = ["wide", "medium", "closeup", "action", "dialogue", "transition"];
       const validImportanceLevels = ["high", "medium", "low"];
 
+      // LLM 给出的角色 ID 只保留当前用户角色库中的，其余视为未绑定
+      const ownedCharacterIds = await filterOwnedCharacterIds(
+        prisma,
+        userId,
+        panels.map((panel) => asString((panel as Record<string, unknown>).character_id))
+      );
+
       const normalizedPanels = panels.map((panel, index) => {
         const panelData = panel as Record<string, unknown>;
         const dialogue = asString(panelData.dialogue);
@@ -234,6 +241,7 @@ export async function POST(req: Request) {
         const panelOrder = asNumber(panelData.panel_order) ?? index + 1;
         const scriptStart = asNumber(panelData.script_start);
         const scriptEnd = asNumber(panelData.script_end);
+        const characterId = asString(panelData.character_id);
 
         return {
           panel_order: panelOrder,
@@ -241,7 +249,7 @@ export async function POST(req: Request) {
           importance: importance,
           description: description,
           dialogue: dialogue ?? null,
-          character_id: asString(panelData.character_id) ?? null,
+          character_id: characterId && ownedCharacterIds.has(characterId) ? characterId : null,
           emotion: asString(panelData.emotion) ?? null,
           prompt_used: englishPrompt ?? description,
           generated_image: null,
@@ -298,6 +306,12 @@ export async function POST(req: Request) {
             },
             include,
           });
+
+      await ensureProjectCharacters(prisma, {
+        projectId: project.id,
+        userId,
+        characterIds: Array.from(ownedCharacterIds),
+      });
 
       await recordGenerationLog({
         userId,

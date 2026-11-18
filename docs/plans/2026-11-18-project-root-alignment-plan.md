@@ -152,9 +152,16 @@ User
 - `POST /api/story` 在同一事务里建故事并取主项目，返回 `projectId`；`/api/trial/claim` 返回 `projectId`；`convert-to-comic` 返回 `project_id`。智能导入、注册领取体验作品、小说转漫画直接跳转 `/projects/[projectId]`。
 - `/api/gallery/[id]` 的风格改为读项目的 `comic_style_id` 关联。原来把自由文本 `projects.style`（如"日式漫画"）当 UUID 查 `comic_styles`，查不到或直接报错。
 - 设定字段的读取仍走 Story：阶段 2 的触发器保证主项目和故事一致，剧本编辑器继续通过 `/api/story/[id]` 读写，等阶段 4 章节改挂项目后再整体切换。
-**3c 项目角色引用校验（待做）**
 
-- `getProjectForUser`、`listProjectCharacters`、`assertCharacterInProject`、`assertPanelInProject`；分镜绑定、参考图选择、角色识别只接受项目角色。
+**3c 项目归属与角色引用校验（已完成，2026-11-19）**
+
+- `src/lib/project/access.ts` 提供 `getProjectForUser`、`assertChapterInProject`、`assertPanelsInProject`、`listProjectCharacters`、`ensureProjectCharacters`、`filterOwnedCharacterIds`，有单元测试。
+- 章节归属：`/api/chapter/[id]/generate-panels`、`generate-panels-stream`、`generate-nine-grid`、`generate-nine-grid-image`、`generate-nine-grid-from-plot` 要求章节属于请求里的 `project_id`，否则 400（流式接口用 SSE error 事件返回）；`/api/panel/move-to-chapter` 只能移到同一项目的章节；`/api/story/[id]/import-text` 建章节时写入 `project_id`。
+- 角色引用：分镜绑定角色（`POST /api/panel`、`PATCH /api/panel/[id]`、`batch-update`、`batch-apply-character`、`insert`、`split`、`merge`、`/api/storyboard`）只接受当前用户角色库里的角色，不在项目角色里的自动加入（`role=minor`）；别人的角色返回 400 `INVALID_CHARACTER`。LLM 产出的角色 ID 只保留本人角色库里的，其余当作未绑定，不让整个请求失败。`/api/panel/[id]/sketch` 在扣配额前校验请求里的角色。
+- 和原计划的差别：没有做成"只接受项目角色"的硬限制，而是从角色库自动加入项目角色，前端不用先维护项目角色列表。
+- 已在 dev server 上实测：绑定他人角色 400、绑定本人角色自动加入项目角色且不重复、跨项目移动分镜 400、项目内移动正常、他人修改分镜 403；临时数据已清理。
+- 前端可见变化：如果旧章节没有 `project_id`，章节生成和移动分镜会被拒绝。远端库已回填全部章节，审计没有未归属的章节。
+
 ### 阶段 4：收紧约束
 
 - 没有章节的项目自动创建"第一章"，再把这些项目的分镜挂到该章节上。

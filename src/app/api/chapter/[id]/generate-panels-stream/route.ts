@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { ApiError } from "@/lib/api-helpers";
+import { assertChapterInProject } from "@/lib/project";
 import { generatePanelsFromChapterStream } from "@/lib/panel-generator";
 import { assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
@@ -173,6 +175,23 @@ export async function POST(
           });
           controller.close();
           return;
+        }
+
+        // 章节必须属于该项目，避免把分镜挂到别的项目的章节上
+        try {
+          await assertChapterInProject(prisma, chapterId, project_id);
+        } catch (accessError) {
+          if (accessError instanceof ApiError) {
+            sendEvent(controller, {
+              stage: "error",
+              current: 0,
+              total: 0,
+              message: accessError.message,
+            });
+            controller.close();
+            return;
+          }
+          throw accessError;
         }
 
         // 检查章节是否有梗概

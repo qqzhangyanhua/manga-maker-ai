@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { ApiError, withAuth } from "@/lib/api-helpers";
+import { ensureProjectCharacters } from "@/lib/project";
 
 export async function GET(
   req: Request,
@@ -91,6 +92,15 @@ export async function PATCH(
       } else {
         resolvedCharacterId = null;
       }
+    }
+
+    // 绑定的角色必须是项目角色：角色库中的角色自动加入，非本人角色返回 400
+    if (typeof resolvedCharacterId === "string") {
+      await ensureProjectCharacters(prisma, {
+        projectId: existingPanel.project_id,
+        userId,
+        characterIds: [resolvedCharacterId],
+      });
     }
 
     // 更新 panel

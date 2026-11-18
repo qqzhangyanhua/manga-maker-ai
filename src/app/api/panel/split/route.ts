@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { ApiError } from "@/lib/api-helpers";
+import { ensureProjectCharacters, filterOwnedCharacterIds } from "@/lib/project";
 import { callChatCompletionStreamByType } from "@/lib/llm-provider";
 
 const splitSystemPrompt = `你是一位专业的漫画分镜编辑。
@@ -130,8 +132,23 @@ export async function POST(req: Request) {
       );
     }
 
+    // LLM 给出的角色 ID 只保留当前用户角色库中的，其余回落到原分镜角色或置空
+    const asId = (value: unknown) => (typeof value === "string" && value.length > 0 ? value : null);
+    const candidateIds = [asId(splitData.panel1.character_id), asId(splitData.panel2.character_id), panel.character_id];
+    const ownedCharacterIds = await filterOwnedCharacterIds(prisma, payload.userId, candidateIds);
+    const pickCharacterId = (llmValue: unknown) =>
+      [asId(llmValue), panel.character_id].find((id): id is string => !!id && ownedCharacterIds.has(id)) ?? null;
+    const characterId1 = pickCharacterId(splitData.panel1.character_id);
+    const characterId2 = pickCharacterId(splitData.panel2.character_id);
+
     // 使用事务删除旧 panel 并创建两个新 panel
     const newPanels = await prisma.$transaction(async (tx) => {
+      await ensureProjectCharacters(tx, {
+        projectId: panel.project_id,
+        userId: payload.userId,
+        characterIds: [characterId1, characterId2],
+      });
+
       // 后续 panels 的 order 都要 +1 (使用 Prisma query 代替 raw SQL)
       await tx.panel.updateMany({
         where: {
@@ -154,7 +171,7 @@ export async function POST(req: Request) {
           visual_prompt: splitData.panel1.visual_prompt || splitData.panel1.description,
           prompt_used: splitData.panel1.english_prompt,
           dialogue: splitData.panel1.dialogue || null,
-          character_id: splitData.panel1.character_id || panel.character_id || null,
+          character_id: characterId1,
           emotion: splitData.panel1.emotion || null,
           camera_angle: splitData.panel1.camera_angle || null,
           shot_size: splitData.panel1.shot_size || null,
@@ -175,7 +192,7 @@ export async function POST(req: Request) {
           visual_prompt: splitData.panel2.visual_prompt || splitData.panel2.description,
           prompt_used: splitData.panel2.english_prompt,
           dialogue: splitData.panel2.dialogue || null,
-          character_id: splitData.panel2.character_id || panel.character_id || null,
+          character_id: characterId2,
           emotion: splitData.panel2.emotion || null,
           camera_angle: splitData.panel2.camera_angle || null,
           shot_size: splitData.panel2.shot_size || null,
@@ -199,6 +216,9 @@ export async function POST(req: Request) {
       message: "分镜已拆分",
     });
   } catch (error) {
+    if (error instanceof ApiError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.statusCode });
+    }
     console.error("Split panel error:", error);
     const message = error instanceof Error ? error.message : "未知错误";
     return NextResponse.json({ error: message }, { status: 500 });

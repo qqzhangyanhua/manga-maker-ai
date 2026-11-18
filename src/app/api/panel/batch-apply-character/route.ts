@@ -6,6 +6,8 @@
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { ApiError } from "@/lib/api-helpers";
+import { ensureProjectCharacters } from "@/lib/project";
 // import { rateLimit } from "@/lib/rate-limit"; // TODO: 修复 rateLimit 导入
 import {
   successResponse,
@@ -101,14 +103,25 @@ export async function POST(req: Request) {
       return forbiddenResponse("存在无权限的分镜");
     }
 
-    // 批量更新分镜
-    const result = await prisma.panel.updateMany({
-      where: {
-        id: { in: panel_ids },
-      },
-      data: {
-        character_id: character_id,
-      },
+    // 分镜可能分属多个项目：角色要加入每个涉及的项目角色
+    const projectIds = Array.from(new Set(panels.map((p) => p.project_id)));
+    const result = await prisma.$transaction(async (tx) => {
+      for (const projectId of projectIds) {
+        await ensureProjectCharacters(tx, {
+          projectId,
+          userId: payload.userId,
+          characterIds: [character_id],
+        });
+      }
+
+      return tx.panel.updateMany({
+        where: {
+          id: { in: panel_ids },
+        },
+        data: {
+          character_id: character_id,
+        },
+      });
     });
 
     return successResponse(
@@ -122,6 +135,9 @@ export async function POST(req: Request) {
       }
     );
   } catch (error) {
+    if (error instanceof ApiError) {
+      return errorResponse(error.message, error.statusCode);
+    }
     console.error("Batch apply character error:", error);
     const message = error instanceof Error ? error.message : "未知错误";
     return errorResponse(`批量应用角色失败: ${message}`);
