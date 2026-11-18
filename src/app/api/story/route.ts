@@ -100,7 +100,8 @@ export async function POST(req: Request) {
                 data: {
                     user_id: userId,
                     title,
-                    premise,
+                    // premise 在库里是必填列，草稿模式允许不传，兜底为空串
+                    premise: premise || "",
                     genre: genre || "suspense",
                     outline: outline || {},
                     status,
