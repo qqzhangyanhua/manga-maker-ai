@@ -6,8 +6,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { z } from "zod";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { findStoryProject } from "@/lib/project";
 
 export const dynamic = "force-dynamic";
 
@@ -77,41 +79,24 @@ export async function GET(
 
     let projectIds: string[] = [];
 
-    // If projectId is provided directly, use it
     if (projectIdParam) {
-      console.log(`[Story Images] Using projectId from query param: ${projectIdParam}`);
-      projectIds = [projectIdParam];
-    } else {
-      // WORKAROUND: Since story_id might not be set in projects table,
-      // we use the same logic as /api/story/[id]/panels to find the project
-      const storyWithProjects = await prisma.story.findUnique({
-        where: { id: storyId },
-        include: {
-          projects: {
+      // 只接受当前用户自己的项目，避免借故事接口读取他人项目的图片
+      const ownedProject = z.string().uuid().safeParse(projectIdParam).success
+        ? await prisma.project.findFirst({
+            where: { id: projectIdParam, user_id: payload.userId },
             select: { id: true },
-            take: 1,
-            orderBy: { updated_at: 'desc' }
-          }
-        }
-      });
-
-      console.log(`[Story Images] Projects via Prisma relation:`, storyWithProjects?.projects);
-
-      // Try to get projects via relation first
-      if (storyWithProjects?.projects && storyWithProjects.projects.length > 0) {
-        projectIds = storyWithProjects.projects.map(p => p.id);
-        console.log(`[Story Images] Found projects via relation:`, projectIds);
-      } else {
-        // Fallback: If relation doesn't work, try to find projects by story_id field
-        const projectsByStoryId = await prisma.project.findMany({
-          where: {
-            story_id: storyId,
-          },
-          select: { id: true },
-        });
-        projectIds = projectsByStoryId.map(p => p.id);
-        console.log(`[Story Images] Found projects via story_id field:`, projectIds);
+          })
+        : null;
+      if (!ownedProject) {
+        return NextResponse.json(
+          { success: false, error: "项目不存在或无权限" },
+          { status: 404 }
+        );
       }
+      projectIds = [ownedProject.id];
+    } else {
+      const storyProject = await findStoryProject(prisma, story.id);
+      projectIds = storyProject ? [storyProject.id] : [];
     }
 
     if (projectIds.length === 0) {

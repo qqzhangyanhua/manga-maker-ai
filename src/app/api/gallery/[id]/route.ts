@@ -44,6 +44,15 @@ export async function GET(
             style: true,
             user_id: true,
             story_id: true,
+            // projects.style 是自由文本画风描述，不是 comic_styles 的 ID，风格信息取 comic_style_id 关联
+            comic_style: {
+              select: {
+                id: true,
+                name_zh: true,
+                name_en: true,
+                style_key: true,
+              },
+            },
           },
         },
 
@@ -106,19 +115,6 @@ export async function GET(
       },
     });
 
-    // 获取风格信息
-    const style = panel.project.style
-      ? await prisma.comicStyle.findUnique({
-          where: { id: panel.project.style },
-          select: {
-            id: true,
-            name_zh: true,
-            name_en: true,
-            style_key: true,
-          },
-        })
-      : null;
-
     // 组装响应数据
     const detail: GalleryDetail = {
       id: panel.id,
@@ -149,7 +145,7 @@ export async function GET(
         name: user?.name || null,
         image: user?.image || null,
       },
-      comic_style: style || null,
+      comic_style: panel.project.comic_style,
       character: panel.character,
       outfit: panel.outfit,
       scene: panel.scene,

@@ -11,6 +11,7 @@ import {
   parsePaginationParams,
   createPaginatedResponse,
 } from "@/lib/api-helpers";
+import { findStoryProject } from "@/lib/project";
 
 /**
  * GET /api/story/[id]/panels-optimized
@@ -44,13 +45,7 @@ export async function GET(
     // 验证故事所有权并获取项目 ID
     const story = await prisma.story.findUnique({
       where: { id: storyId },
-      include: {
-        projects: {
-          select: { id: true },
-          take: 1,
-          orderBy: { updated_at: 'desc' },
-        },
-      },
+      select: { id: true, user_id: true },
     });
 
     if (!story) {
@@ -61,8 +56,10 @@ export async function GET(
       throw new ApiError('无权访问', 403);
     }
 
+    const project = await findStoryProject(prisma, story.id);
+
     // 如果没有关联项目，返回空列表
-    if (!story.projects || story.projects.length === 0) {
+    if (!project) {
       return {
         data: [],
         pagination: {
@@ -77,7 +74,7 @@ export async function GET(
       };
     }
 
-    const projectId = story.projects[0].id;
+    const projectId = project.id;
 
     // 构建查询条件
     const where = {

@@ -210,8 +210,8 @@ export function ConvertToComicDialog({
         const data = await response.json();
         toast.success(data.message || "转换成功");
         onClose();
-        // 跳转到故事页面（可能是新创建的，也可能是已存在的）
-        router.push(`/scripts/${data.story_id}`);
+        // 跳转到漫画项目（可能是新创建的，也可能是已存在的）
+        router.push(`/projects/${data.project_id}`);
       } else {
         const error = await response.json();
         toast.error(error.error || "转换失败");

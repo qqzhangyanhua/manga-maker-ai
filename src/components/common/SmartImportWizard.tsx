@@ -103,9 +103,9 @@ export function SmartImportWizard({ open, onOpenChange }: SmartImportWizardProps
       }
 
       const data = await res.json();
-      const storyId = data.story?.id;
-      if (!storyId) {
-        throw new Error("创建故事失败：未返回有效 ID");
+      const projectId: string | undefined = data.projectId;
+      if (!projectId) {
+        throw new Error("创建项目失败：未返回有效 ID");
       }
 
       toast({
@@ -114,7 +114,7 @@ export function SmartImportWizard({ open, onOpenChange }: SmartImportWizardProps
       });
 
       onOpenChange(false);
-      router.push(`/scripts/${storyId}`);
+      router.push(`/projects/${projectId}`);
     } catch (error) {
       toast({
         title: "创建失败",

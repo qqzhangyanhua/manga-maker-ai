@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { ApiError, withAuth } from "@/lib/api-helpers";
+import { findStoryProject } from "@/lib/project";
 
 /**
  * GET /api/story/[id]/panels
@@ -14,13 +15,7 @@ export async function GET(
 
         const story = await prisma.story.findUnique({
             where: { id },
-            include: {
-                projects: {
-                    select: { id: true },
-                    take: 1,
-                    orderBy: { updated_at: 'desc' }
-                }
-            }
+            select: { id: true, user_id: true },
         });
 
         if (!story) {
@@ -31,13 +26,14 @@ export async function GET(
             throw new ApiError("无权访问", 403, "FORBIDDEN");
         }
 
-        if (!story.projects || story.projects.length === 0) {
+        const project = await findStoryProject(prisma, story.id);
+        if (!project) {
             return {
                 panels: [],
             };
         }
 
-        const projectId = story.projects[0].id;
+        const projectId = project.id;
 
         const panels = await prisma.panel.findMany({
             where: { project_id: projectId },

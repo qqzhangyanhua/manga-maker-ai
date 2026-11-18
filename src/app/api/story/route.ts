@@ -1,5 +1,6 @@
 import { Prisma, prisma } from "@/lib/db";
 import { withAuth } from "@/lib/api-helpers";
+import { ensureStoryProject } from "@/lib/project";
 
 export const dynamic = "force-dynamic";
 
@@ -94,20 +95,23 @@ export async function POST(req: Request) {
             throw error;
         }
 
-        const story = await prisma.story.create({
-            data: {
-                user_id: userId,
-                title,
-                premise,
-                genre: genre || "suspense",
-                outline: outline || {},
-                // characters: characters || [], // REMOVED
-                status,
-            },
+        const { story, project } = await prisma.$transaction(async (tx) => {
+            const story = await tx.story.create({
+                data: {
+                    user_id: userId,
+                    title,
+                    premise,
+                    genre: genre || "suspense",
+                    outline: outline || {},
+                    status,
+                },
+            });
+            return { story, project: await ensureStoryProject(tx, story.id) };
         });
 
         return {
             story,
+            projectId: project.id,
             message: "故事保存成功",
         };
     });

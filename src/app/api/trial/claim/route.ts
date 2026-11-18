@@ -12,6 +12,7 @@ interface ClaimRequest {
 interface ClaimResponse {
   success: boolean;
   storyId?: string;
+  projectId?: string;
   error?: string;
 }
 
@@ -132,6 +133,7 @@ export async function POST(
     return NextResponse.json({
       success: true,
       storyId: result.storyId,
+      projectId: result.projectId,
     });
   } catch (error) {
     console.error("认领体验结果失败:", error);

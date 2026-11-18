@@ -89,12 +89,12 @@ const RegisterForm = () => {
           });
           const claimData = await claimRes.json();
 
-          if (claimRes.ok && claimData.storyId) {
+          if (claimRes.ok && claimData.projectId) {
             toast({
               title: "注册成功",
               description: "体验作品已保存到你的账号，正在跳转..."
             });
-            router.replace(`/scripts/${claimData.storyId}`);
+            router.replace(`/projects/${claimData.projectId}`);
             return;
           }
         } catch (claimError) {

@@ -24,7 +24,9 @@ const projectId = "3f1582a9-2f17-48cb-a8f9-b994005f6d2b";
 const storyId = "39bd5294-8191-4089-9bfe-bfa7d7f7ee2a";
 const userId = "3f2dfbe8-2e2f-4487-8d98-2611c87fca20";
 
-function buildPanel(projectStoryId: string | null) {
+const comicStyle = { id: "c0a8f1d2-5b6e-4c3a-9f7d-1e2b3c4d5e6f", name_zh: "日漫", name_en: "Manga", style_key: "manga" };
+
+function buildPanel(projectStoryId: string | null, projectComicStyle: typeof comicStyle | null = null) {
   return {
     id: panelId,
     project_id: projectId,
@@ -43,7 +45,14 @@ function buildPanel(projectStoryId: string | null) {
     show_prompt: true,
     is_shared: true,
     expression_type: null,
-    project: { id: projectId, title: "项目", style: null, user_id: userId, story_id: projectStoryId },
+    project: {
+      id: projectId,
+      title: "项目",
+      style: "日式漫画",
+      user_id: userId,
+      story_id: projectStoryId,
+      comic_style: projectComicStyle,
+    },
     character: null,
     outfit: null,
     scene: null,
@@ -81,5 +90,26 @@ describe("API /api/gallery/[id]", () => {
 
     expect(response.status).toBe(200);
     expect(body.story_id).toBeNull();
+  });
+
+  it("风格取项目的 comic_style_id 关联，不再把自由文本 style 当作 ID 查询", async () => {
+    (prisma.panel.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(buildPanel(null, comicStyle));
+
+    const response = await callGet();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.comic_style).toEqual(comicStyle);
+    expect(body.project.style).toBe("日式漫画");
+    expect(prisma.comicStyle.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("项目没有设置风格时 comic_style 为 null", async () => {
+    (prisma.panel.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(buildPanel(null));
+
+    const response = await callGet();
+    const body = await response.json();
+
+    expect(body.comic_style).toBeNull();
   });
 });

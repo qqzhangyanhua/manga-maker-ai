@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { ApiError, withAuth } from "@/lib/api-helpers";
-import { deleteStoryWithProject } from "@/lib/project";
+import { deleteStoryWithProject, findStoryProject } from "@/lib/project";
 
 /**
  * GET /api/story/[id]
@@ -18,11 +18,6 @@ export async function GET(
         const story = await prisma.story.findUnique({
             where: { id },
             include: {
-                projects: {
-                    select: { id: true },
-                    take: 1,
-                    orderBy: { updated_at: 'desc' }
-                },
                 comic_style: {
                     select: {
                         id: true,
@@ -61,10 +56,7 @@ export async function GET(
             throw new ApiError("无权访问", 403, "FORBIDDEN");
         }
 
-        // Extract projectId if exists
-        const projectId = story.projects && story.projects.length > 0
-            ? story.projects[0].id
-            : null;
+        const projectId = (await findStoryProject(prisma, story.id))?.id ?? null;
 
         // Query source novel if story is an adaptation
         let sourceNovel = null;
@@ -89,8 +81,7 @@ export async function GET(
             }
         }
 
-        // Remove projects and story_characters from story object, but keep comic_style and chapters
-        const { projects, chapters, story_characters, ...storyData } = story;
+        const { chapters, story_characters, ...storyData } = story;
 
         // Transform story_characters to flat character list with role info
         const characters = story_characters?.map(sc => ({

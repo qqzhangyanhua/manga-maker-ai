@@ -138,19 +138,20 @@ User
 - 新路由 `/projects/[projectId]` 是项目主页：故事主项目显示剧本编辑器，没有故事的独立项目（25 个，阶段 4 补章节之前没有剧本可编辑）直接重定向到分镜编辑器。原计划的"设定 -> 角色 -> 剧本 -> 分镜 -> 排版导出"标签页留到阶段 4 之后，现在的剧本编辑器已经带有阶段条。
 - 子路由：`/projects/[projectId]/focus`（专注模式）、`/storyboard`（分镜编辑器）、`/storyboard/layout`（分镜排版）、`/layout`（排版编辑器）。剧本编辑器和专注模式的组件仍放在 `src/app/scripts/[id]/`（约 15 个模块从这里 import），改为接收 `storyId`、`routeProjectId` 的命名导出组件，页面链接都用 `projectId`。
 - 旧 URL 改为服务端重定向，保留查询参数：`/scripts` -> `/projects`；`/scripts/[storyId]`、`/scripts/[storyId]/focus` 通过 `ensureStoryProject` 换成主项目；`/storyboard/editor/[id]`、`/storyboard/layout/[id]`、`/layout-editor/[id]` 换到项目下的对应路径。未登录跳登录页，ID 非法或无权访问跳 `/projects`。
-- 站内链接改到新路由：项目卡片、工作台、画廊详情（直接用分镜的 `project_id`）、快速分镜、故事生成器、个人中心。注册领取体验作品、智能导入、小说转漫画仍拿到 `storyId`，暂时经旧 URL 重定向，3b 让这些接口直接返回 `projectId`。
+- 站内链接改到新路由：项目卡片、工作台、画廊详情（直接用分镜的 `project_id`）、快速分镜、故事生成器、个人中心。注册领取体验作品、智能导入、小说转漫画在 3b 改为直接用接口返回的 `projectId`。
 - 项目列表改名"我的项目"，卡片标出"剧本 / 分镜"两类；工作台"最近作品"改为列出最近项目。
 - 删除：删除故事主项目时连同故事一起删除（`deleteProjectWithStory`），删除故事时连同主项目一起删除（`deleteStoryWithProject`），都在一个事务里，先删故事再删项目。
 - 导航：创作（工作台 / 我的项目 / 新建项目 / 小说）、资产库（角色库 / 场景库 / 模板）、工具（快速分镜 / 生成图库 / 一键生成 / 画面精炼）。命令面板、首页快速入口、页脚同步修改。
 
 已知情况：有些故事的分镜在阶段 2 之前生成在别的项目上，所以故事主项目在列表里显示 0 个分镜，同名的独立项目里才有分镜。是否把它们合并到主项目，留到阶段 4 和"第一章"回填一起决定。
 
-**3b API 读切换（待做）**
+**3b API 读切换（已完成，2026-11-19）**
 
-- API 读路径切到 Project；`/api/story/**` 变成转发到项目服务的兼容层。`/api/story/[id]` 与 `/api/story/[id]/panels` 目前用 `projects take:1`，改为取主项目。
-- `POST /api/story`、`/api/trial/claim`、`convert-to-comic` 的返回值加上 `projectId`，前端直接跳转项目页。
-- `projects.style` 是自由文本，`/api/gallery/[id]` 用它查 `comic_styles` 永远为空，改为用 `comic_style_id`。
-
+- `/api/story/[id]`、`/panels`、`/panels-optimized`、`/generated-images` 改用 `findStoryProject` 取主项目，不再依赖 `projects take:1`。
+- `/api/story/[id]/generated-images` 的 `projectId` 参数原来不校验归属，现在只接受当前用户自己的项目（否则 404）。
+- `POST /api/story` 在同一事务里建故事并取主项目，返回 `projectId`；`/api/trial/claim` 返回 `projectId`；`convert-to-comic` 返回 `project_id`。智能导入、注册领取体验作品、小说转漫画直接跳转 `/projects/[projectId]`。
+- `/api/gallery/[id]` 的风格改为读项目的 `comic_style_id` 关联。原来把自由文本 `projects.style`（如"日式漫画"）当 UUID 查 `comic_styles`，查不到或直接报错。
+- 设定字段的读取仍走 Story：阶段 2 的触发器保证主项目和故事一致，剧本编辑器继续通过 `/api/story/[id]` 读写，等阶段 4 章节改挂项目后再整体切换。
 **3c 项目角色引用校验（待做）**
 
 - `getProjectForUser`、`listProjectCharacters`、`assertCharacterInProject`、`assertPanelInProject`；分镜绑定、参考图选择、角色识别只接受项目角色。

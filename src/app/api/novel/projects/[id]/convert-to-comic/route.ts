@@ -9,6 +9,7 @@ import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { logInfo, logError } from "@/lib/api-logger";
+import { ensureStoryProject } from "@/lib/project";
 
 interface SceneSelection {
   chapter_number: number;
@@ -294,9 +295,12 @@ export async function POST(
       durationMs: Date.now() - startedAt,
     });
 
+    const comicProject = await ensureStoryProject(prisma, story.id);
+
     return NextResponse.json({
       success: true,
       story_id: story.id,
+      project_id: comicProject.id,
       story_title: story.title,
       is_new_story: isNewStory,
       chapters_created: chaptersCreated.length,
