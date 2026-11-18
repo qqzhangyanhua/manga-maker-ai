@@ -113,6 +113,7 @@ model Character {
 
   // Phase 2: New relations
   story_characters         StoryCharacter[]
+  project_characters       ProjectCharacter[]
   panels                   Panel[]
   chapter_character_states ChapterCharacterState[] // Phase 4: Character state tracking
   suggested_characters     SuggestedCharacter[] // Phase 3: AI-suggested characters before generation
@@ -186,6 +187,28 @@ model Project {
   created_at  DateTime @default(now()) @db.Timestamptz(6)
   updated_at  DateTime @default(now()) @db.Timestamptz(6)
 
+  // 设定：自 Story 迁入（ADR-0001），Story 废弃前两边并存
+  genre                 String?
+  premise               String? @db.Text
+  outline               Json?
+  template_id           String? @db.Uuid
+  comic_style_id        String? @db.Uuid
+  style_reference_image String?
+  is_serialized         Boolean @default(false)
+  serial_status         String? // ongoing/completed/hiatus
+  is_sample             Boolean @default(false)
+  sample_category       String?
+  source_type           String? // "original" | "novel_adaptation"
+  // 一部小说可以改编成多个项目（ADR-0003），不加唯一约束
+  source_novel_id       String? @db.Uuid
+
+  comic_style          ComicStyle?          @relation(fields: [comic_style_id], references: [id], onDelete: SetNull)
+  source_novel         NovelProject?        @relation(fields: [source_novel_id], references: [id], onDelete: SetNull)
+  chapters             Chapter[]
+  project_characters   ProjectCharacter[]
+  suggested_characters SuggestedCharacter[]
+  canvas_timelines     CanvasTimeline[]
+
   panels          Panel[]
   script          StoryScript?
   Story           Story?           @relation(fields: [story_id], references: [id])
@@ -198,6 +221,8 @@ model Project {
 
   @@index([user_id, status], map: "idx_projects_user_status")
   @@index([story_id], map: "idx_projects_story")
+  @@index([comic_style_id], map: "idx_projects_comic_style")
+  @@index([source_novel_id], map: "idx_projects_source_novel")
   @@map("projects")
 }
 
@@ -347,6 +372,8 @@ model ComicStyle {
 
   // Reverse relation for stories using this style
   stories Story[]
+
+  projects Project[]
 
   // Reverse relation for timeline chapters using this style
   timeline_chapters TimelineChapter[]
@@ -508,6 +535,8 @@ model Story {
 model Chapter {
   id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   story_id      String  @db.Uuid
+  // 迁移期可空且删除项目时置空，避免删除项目连带删除仍归属于 Story 的章节；阶段 4 改为必填
+  project_id    String? @db.Uuid
   title         String // Chapter title (e.g., "第一章：相遇")
   summary       String? @db.Text // Chapter summary for AI panel generation
   chapter_order Int // Display order in story
@@ -534,12 +563,14 @@ model Chapter {
   updated_at DateTime @default(now()) @db.Timestamptz(6)
 
   story            Story                   @relation(fields: [story_id], references: [id], onDelete: Cascade)
+  project          Project?                @relation(fields: [project_id], references: [id], onDelete: SetNull)
   scene            Scene?                  @relation(fields: [scene_id], references: [id], onDelete: SetNull)
   panels           Panel[]
   character_states ChapterCharacterState[] // Character states at end of chapter
   suggested_scenes SuggestedScene[] // AI-suggested scenes for background generation
 
   @@index([story_id, chapter_order], map: "idx_chapters_story_order")
+  @@index([project_id, chapter_order], map: "idx_chapters_project_order")
   @@index([story_id, is_key_chapter], map: "idx_chapters_key")
   @@index([story_id, publish_status], map: "idx_chapters_publish_status")
   @@index([scene_id], map: "idx_chapters_scene")
@@ -571,15 +602,36 @@ model StoryCharacter {
   @@map("story_characters")
 }
 
+// ProjectCharacter - 角色库中的角色在某个项目中的出演身份（ADR-0002），替代 StoryCharacter
+model ProjectCharacter {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id    String   @db.Uuid
+  character_id  String   @db.Uuid
+  role          String   @default("supporting") // protagonist, antagonist, supporting, minor
+  character_arc String?  @db.Text
+  display_order Int      @default(0)
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  project   Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  character Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
+
+  @@unique([project_id, character_id], map: "unique_project_character")
+  @@index([project_id], map: "idx_project_characters_project")
+  @@index([character_id], map: "idx_project_characters_character")
+  @@map("project_characters")
+}
+
 // SuggestedCharacter - AI-suggested characters for stories (two-step generation)
 // Replaces Story.suggested_characters JSONB field with normalized table structure
 model SuggestedCharacter {
-  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  story_id    String @db.Uuid
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  story_id    String  @db.Uuid
+  project_id  String? @db.Uuid
   name        String // Character name suggested by AI
-  description String @db.Text // Chinese description (50-120 chars)
-  appearance  String @db.Text // English appearance for AI image generation (80-160 chars)
-  role        String @default("supporting") // protagonist, antagonist, supporting, minor
+  description String  @db.Text // Chinese description (50-120 chars)
+  appearance  String  @db.Text // English appearance for AI image generation (80-160 chars)
+  role        String  @default("supporting") // protagonist, antagonist, supporting, minor
 
   // Generation tracking
   generated        Boolean   @default(false) // Whether image has been generated
@@ -594,9 +646,11 @@ model SuggestedCharacter {
   updated_at    DateTime @default(now()) @db.Timestamptz(6)
 
   story     Story      @relation(fields: [story_id], references: [id], onDelete: Cascade)
+  project   Project?   @relation(fields: [project_id], references: [id], onDelete: SetNull)
   character Character? @relation(fields: [character_id], references: [id], onDelete: SetNull)
 
   @@index([story_id, generated], map: "idx_suggested_characters_story_generated")
+  @@index([project_id], map: "idx_suggested_characters_project")
   @@index([character_id], map: "idx_suggested_characters_character")
   @@map("suggested_characters")
 }
@@ -1030,8 +1084,9 @@ model NovelProject {
   updated_at DateTime @default(now()) @db.Timestamptz(6)
 
   // Relations
-  chapters NovelChapter[]
-  prompts  NovelPromptTemplate[]
+  chapters         NovelChapter[]
+  prompts          NovelPromptTemplate[]
+  adapted_projects Project[]
 
   @@index([user_id, status], map: "idx_novel_projects_user_status")
   @@index([user_id, updated_at], map: "idx_novel_projects_user_time")
@@ -1226,11 +1281,13 @@ model NineGridImage {
 
 // 无限画布时间线项目
 model CanvasTimeline {
-  id               String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  novel_project_id String @db.Uuid
-  user_id          String @db.Uuid
+  id               String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  novel_project_id String  @db.Uuid
+  // 一部小说可对应多个项目，时间线需直接指向所属项目（ADR-0003）
+  project_id       String? @db.Uuid
+  user_id          String  @db.Uuid
   title            String
-  status           String @default("draft") // draft, generating, completed, error
+  status           String  @default("draft") // draft, generating, completed, error
 
   // 配置
   config Json @default("{\"auto_generate\":true,\"use_character_library\":true,\"use_scene_library\":true}")
@@ -1246,8 +1303,10 @@ model CanvasTimeline {
 
   // Relations
   chapters TimelineChapter[]
+  project  Project?          @relation(fields: [project_id], references: [id], onDelete: SetNull)
 
   @@index([user_id], map: "idx_canvas_timeline_user")
+  @@index([project_id], map: "idx_canvas_timeline_project_ref")
   @@index([novel_project_id], map: "idx_canvas_timeline_project")
   @@map("canvas_timelines")
 }
