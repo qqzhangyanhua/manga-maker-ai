@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { ApiError, parseWithSchema, withAuth } from "@/lib/api-helpers";
+import { ensureStoryProject, findStoryProject } from "@/lib/project";
 
 const projectStatusSchema = z.enum(["draft", "in_progress", "completed", "archived"]);
 
@@ -44,7 +45,14 @@ export async function POST(req: Request) {
     );
     const { title, description, style, story_id, status, cover_image } = body;
 
-    // 如果提供了 story_id，验证 Story 是否存在且属于当前用户
+    const fields = {
+      title: title.trim(),
+      description: description?.trim() || null,
+      style: style || null,
+      status: status || "draft",
+      cover_image: cover_image || null,
+    };
+
     if (story_id) {
       const story = await prisma.story.findUnique({
         where: { id: story_id },
@@ -57,19 +65,23 @@ export async function POST(req: Request) {
       if (story.user_id !== userId) {
         throw new ApiError("无权关联该故事", 403, "FORBIDDEN");
       }
+
+      // 一个故事只有一个项目，已存在时直接返回，调用方据此继续创作
+      const existing = await findStoryProject(prisma, story_id);
+      if (existing) {
+        return { project: existing, message: "该故事已有项目" };
+      }
+
+      const created = await ensureStoryProject(prisma, story_id);
+      const project = await prisma.project.update({
+        where: { id: created.id },
+        data: { ...fields, updated_at: new Date() },
+      });
+      return { project, message: "项目创建成功" };
     }
 
-    // 创建项目
     const project = await prisma.project.create({
-      data: {
-        user_id: userId,
-        title: title.trim(),
-        description: description?.trim() || null,
-        style: style || null,
-        story_id: story_id || null,
-        status: status || "draft",
-        cover_image: cover_image || null,
-      },
+      data: { ...fields, user_id: userId, story_id: null },
     });
 
     return {

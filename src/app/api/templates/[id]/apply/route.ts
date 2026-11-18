@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { ensureStoryProject } from "@/lib/project";
 import type { SuccessResponse } from "@/types/template";
 
 interface RouteParams {
@@ -122,28 +123,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       });
     }
 
-    // Step 2: Find or create associated Project
-    let project = await prisma.project.findFirst({
-      where: {
-        story_id: story.id,
-        user_id: payload.userId
-      },
-      select: { id: true, user_id: true }
-    });
-
-    if (!project) {
-      // Auto-create project for this story
-      project = await prisma.project.create({
-        data: {
-          story_id: story.id,
-          user_id: payload.userId,
-          title: story.title,
-          status: "draft"
-        },
-        select: { id: true, user_id: true }
-      });
-    }
-
+    // Step 2: 故事的主项目（新建故事时由数据库触发器创建）
+    const project = await ensureStoryProject(prisma, story.id);
     const projectId = project.id;
 
     // Check template exists

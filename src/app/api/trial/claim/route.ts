@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { ensureStoryProject } from "@/lib/project";
 import { getTrialResult, markTrialClaimed } from "@/lib/trial-store";
 
 interface ClaimRequest {
@@ -93,15 +94,15 @@ export async function POST(
         },
       });
 
-      // 2. 创建项目
-      const project = await tx.project.create({
+      // 2. 故事的主项目（新建故事时由数据库触发器创建），补上体验结果的描述和画风
+      const storyProject = await ensureStoryProject(tx, story.id);
+      const project = await tx.project.update({
+        where: { id: storyProject.id },
         data: {
-          user_id: payload.userId,
-          story_id: story.id,
-          title: story.title,
           description: trialResult.prompt,
           style: styleName,
           status: "draft",
+          updated_at: new Date(),
         },
       });
 

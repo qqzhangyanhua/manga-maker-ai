@@ -5,6 +5,7 @@ import { Prisma, prisma } from "@/lib/db";
 import { callChatCompletionByType } from "@/lib/llm-provider";
 import { QuotaExceededError, assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
+import { findStoryProject } from "@/lib/project";
 
 const systemPrompt = `你是一位资深的漫画分镜导演和AI绘画专家。
 
@@ -107,6 +108,19 @@ export async function POST(req: Request) {
 
     if (!story || typeof story !== "string") {
       return NextResponse.json({ error: "缺少故事描述 story" }, { status: 400 });
+    }
+
+    if (storyId) {
+      const linkedStory = await prisma.story.findUnique({
+        where: { id: storyId },
+        select: { user_id: true },
+      });
+      if (!linkedStory) {
+        return NextResponse.json({ error: "关联的故事不存在" }, { status: 404 });
+      }
+      if (linkedStory.user_id !== userId) {
+        return NextResponse.json({ error: "无权关联该故事" }, { status: 403 });
+      }
     }
 
     // 配额校验
@@ -240,31 +254,50 @@ export async function POST(req: Request) {
         };
       });
 
-      const project = await prisma.project.create({
-        data: {
-          user_id: payload.userId,
-          title: projectTitle,
-          description: story,
-          style: storyboardStyle ?? style ?? null,
-          status: "draft",
-          story_id: storyId || null, // Link to Story if provided
-          panels: {
-            create: normalizedPanels,
-          },
-          script: scriptSegments ? {
-            create: {
-              content: story,
-              segments: scriptSegments as Prisma.InputJsonValue,
+      const scriptCreate = scriptSegments
+        ? { create: { content: story, segments: scriptSegments as Prisma.InputJsonValue } }
+        : undefined;
+      const include = {
+        panels: { orderBy: { panel_order: "asc" as const } },
+        script: true,
+      };
+
+      // 一个故事只有一个主项目（ADR-0004）：主项目还是空的就把分镜写进去；
+      // 已经有分镜或剧本时另建一个不关联故事的独立项目，不覆盖已有创作
+      const storyProject = storyId ? await findStoryProject(prisma, storyId) : null;
+      const fillStoryProject =
+        storyProject !== null &&
+        (await prisma.project.findFirst({
+          where: { id: storyProject.id, panels: { none: {} }, script: { is: null } },
+          select: { id: true },
+        })) !== null;
+
+      const project = fillStoryProject && storyProject
+        ? await prisma.project.update({
+            where: { id: storyProject.id },
+            data: {
+              description: storyProject.description ?? story,
+              style: storyProject.style ?? storyboardStyle ?? style ?? null,
+              updated_at: new Date(),
+              panels: { create: normalizedPanels },
+              script: scriptCreate,
             },
-          } : undefined,
-        },
-        include: {
-          panels: {
-            orderBy: { panel_order: "asc" },
-          },
-          script: true,
-        },
-      });
+            include,
+          })
+        : await prisma.project.create({
+            data: {
+              user_id: payload.userId,
+              title: projectTitle,
+              description: story,
+              style: storyboardStyle ?? style ?? null,
+              status: "draft",
+              // 只有故事还没有主项目时（触发器未部署的库）才关联故事
+              story_id: storyId && !storyProject ? storyId : null,
+              panels: { create: normalizedPanels },
+              script: scriptCreate,
+            },
+            include,
+          });
 
       await recordGenerationLog({
         userId,

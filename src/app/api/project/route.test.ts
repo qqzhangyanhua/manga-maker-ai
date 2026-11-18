@@ -19,7 +19,9 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     project: {
       findMany: vi.fn(),
+      findFirst: vi.fn(),
       create: vi.fn(),
+      update: vi.fn(),
       findUnique: vi.fn(),
       delete: vi.fn(),
     },
@@ -101,6 +103,77 @@ describe("API /api/project", () => {
 
     expect(response.status).toBe(403);
     expect(data.error).toContain("无权关联该故事");
+  });
+
+  it("POST 故事已有项目时应返回该项目，不再新建", async () => {
+    (prisma.story.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: storyId,
+      user_id: authUserId,
+    });
+    (prisma.project.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: projectId,
+      story_id: storyId,
+    });
+
+    const request = new Request("http://localhost/api/project", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "测试项目", story_id: storyId }),
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.project.id).toBe(projectId);
+    expect(prisma.project.create).not.toHaveBeenCalled();
+    expect(prisma.project.update).not.toHaveBeenCalled();
+  });
+
+  it("POST 故事还没有项目时应新建主项目并写入请求字段", async () => {
+    (prisma.story.findUnique as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({ id: storyId, user_id: authUserId })
+      .mockResolvedValueOnce({
+        user_id: authUserId,
+        title: "故事标题",
+        genre: "daily",
+        premise: "梗概",
+        outline: {},
+        template_id: null,
+        comic_style_id: null,
+        style_reference_image: null,
+        is_serialized: false,
+        serial_status: null,
+        is_sample: false,
+        sample_category: null,
+        source_type: null,
+        source_novel_id: null,
+      });
+    (prisma.project.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.project.create as ReturnType<typeof vi.fn>).mockResolvedValue({ id: projectId });
+    (prisma.project.update as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: projectId,
+      title: "测试项目",
+    });
+
+    const request = new Request("http://localhost/api/project", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "测试项目", story_id: storyId }),
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.project.id).toBe(projectId);
+    expect(prisma.project.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ story_id: storyId, genre: "daily", premise: "梗概" }),
+    });
+    expect(prisma.project.update).toHaveBeenCalledWith({
+      where: { id: projectId },
+      data: expect.objectContaining({ title: "测试项目", status: "draft" }),
+    });
   });
 
   it("DELETE 缺少 id 参数时应返回 400", async () => {

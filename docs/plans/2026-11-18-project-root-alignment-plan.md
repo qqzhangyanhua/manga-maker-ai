@@ -1,7 +1,7 @@
 # 项目根对齐：迁移计划
 
 日期：2026-11-18
-相关决策：[ADR-0001](../adr/0001-project-as-single-root.md)、[ADR-0002](../adr/0002-character-library-with-project-characters.md)、[ADR-0003](../adr/0003-novel-as-project-source.md)
+相关决策：[ADR-0001](../adr/0001-project-as-single-root.md)、[ADR-0002](../adr/0002-character-library-with-project-characters.md)、[ADR-0003](../adr/0003-novel-as-project-source.md)、[ADR-0004](../adr/0004-story-to-project-sync-triggers.md)
 术语：见根目录 [CONTEXT.md](../../CONTEXT.md)
 
 ## 1. 目标
@@ -80,7 +80,7 @@ User
 
 新增（全部可空或带默认值）：
 
-- `projects`：`genre`、`premise`、`outline`(Json)、`template_id`、`comic_style_id`(FK)、`style_reference_image`、`is_serialized`、`serial_status`、`is_sample`、`sample_category`、`source_type`、`source_novel_id`(FK -> novel_projects，`ON DELETE SET NULL`，不唯一)。Story 到 Project 的映射直接沿用已有的 `projects.story_id`，不另加追踪列；`story_id` 不加唯一约束，因为模板应用、工作流引擎等现有流程仍可能为同一个 Story 新建 Project。
+- `projects`：`genre`、`premise`、`outline`(Json)、`template_id`、`comic_style_id`(FK)、`style_reference_image`、`is_serialized`、`serial_status`、`is_sample`、`sample_category`、`source_type`、`source_novel_id`(FK -> novel_projects，`ON DELETE SET NULL`，不唯一)。Story 到 Project 的映射直接沿用已有的 `projects.story_id`，不另加追踪列。阶段 1 中 `story_id` 不加唯一约束，因为模板应用、工作流引擎等现有流程仍可能为同一个 Story 新建 Project；阶段 2 收口这些流程后加了唯一索引。
 - 注意 `projects.style` 是自由文本的画风描述（如"日式漫画"），不是 `comic_styles` 的 ID，和新的 `comic_style_id` 是两回事。`/api/gallery/[id]` 用 `project.style` 去查 `comic_styles`，结果永远为空，属于已有问题，留到阶段 3 统一处理。
 - `chapters.project_id`(FK，可空，`ON DELETE SET NULL`)。迁移期删除项目时不能连带删除仍属于 Story 的章节，阶段 4 再改为 `CASCADE`。
 - 新表 `project_characters`：`project_id`、`character_id`、`role`、`character_arc`、`display_order`，唯一约束 `(project_id, character_id)`。
@@ -110,10 +110,23 @@ User
 
 ### 阶段 2：服务层收口与双写
 
-- 新增 `src/lib/project/`：`getProjectForUser`、`listProjectCharacters`、`assertCharacterInProject`、`assertPanelInProject` 等函数，作为唯一入口。
-- 写 Story 的 API（`/api/story/**`、`convert-to-comic`、`templates/[id]/apply`、`workflow-engine.ts`、`/api/storyboard`）同时写主 Project 和 ProjectCharacter。
-- 角色引用校验：分镜绑定、参考图选择、角色识别只接受项目角色。
-- 测试：为回填脚本和 `src/lib/project/*` 补 Vitest；跑现有 `storyboard/route.test.ts`、`project/route.test.ts`。
+- 双写用数据库触发器完成（[ADR-0004](../adr/0004-story-to-project-sync-triggers.md)），方向只有 Story -> 主项目：
+  - `stories` 插入时创建主项目，更新时同步设定（改名时同步标题）；
+  - `chapters`、`suggested_characters` 按 `story_id` 自动填 `project_id`；
+  - `story_characters` 增删改同步到 `project_characters`；删除故事引起的级联删除不同步，项目保留为独立项目。
+  - `projects.story_id` 加唯一索引 `unique_projects_story`，一个故事最多一个主项目。
+- 新增 `src/lib/project/`：`findStoryProject`、`ensureStoryProject`。所有为故事创建项目的地方改为取主项目：`POST /api/project`（故事已有项目时直接返回）、`templates/[id]/apply`、`trial/claim`、`workflow-engine.ts`、`prisma/seed.ts`。
+- `/api/storyboard` 带 `storyId` 时：主项目没有分镜和剧本就写入主项目，否则新建不关联故事的独立项目；同时补了故事归属校验（其他用户的故事返回 403，且不扣配额）。
+- 待做：`getProjectForUser`、`listProjectCharacters`、`assertCharacterInProject`、`assertPanelInProject`；角色引用校验（分镜绑定、参考图选择、角色识别只接受项目角色）。这些改动会改变现有接口行为，和阶段 3 的读切换一起做。
+
+配套文件：
+- 迁移：`prisma/migrations/manual/20261119_project_root_phase2.sql`（幂等，单事务；存在一个故事多个项目时报错退出）
+- 回滚：`prisma/migrations/manual/20261119_project_root_phase2_rollback.sql`（只删触发器、函数和唯一索引，已同步的数据保留）。回滚阶段 1 之前必须先回滚阶段 2。
+
+**部署顺序**：迁移和代码哪个先上线都可以。代码先上线时 `ensureStoryProject` 会自己创建主项目；迁移先上线时旧代码的 `project.create`（带 `story_id`）会因为唯一索引失败，所以建议先部署代码再执行迁移。
+
+**执行记录（2026-11-19）**：
+- 本地沙箱库（远端数据只读复制）演练 24 项检查全部通过：迁移执行两次；新故事自动建主项目并复制设定；`ensureStoryProject` 取到同一个项目；重复建项目被唯一索引拒绝；设定与改名同步、只改 `updated_at` 不同步；章节与建议角色自动归属；故事角色增、改、换人、删同步；删除故事后项目和项目角色保留；事务内建故事再取主项目；回滚后触发器与索引删除、`ensureStoryProject` 自行建项目；重新迁移成功。演练后回填预演全为 0（跳过的时间线除外）。
 
 ### 阶段 3：读切换与前端路由
 

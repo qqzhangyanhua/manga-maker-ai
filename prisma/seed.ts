@@ -13,6 +13,7 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { PREDEFINED_TEMPLATES } from '../src/lib/story-templates';
+import { ensureStoryProject } from '../src/lib/project/story-project';
 import { seedGenres } from './seeds/genres-seed';
 
 const prisma = new PrismaClient();
@@ -697,11 +698,11 @@ async function main() {
       }
     });
 
-    // Create project
-    const project = await prisma.project.create({
+    // 故事的主项目（新建故事时由数据库触发器创建）
+    const storyProject = await ensureStoryProject(prisma, story.id);
+    const project = await prisma.project.update({
+      where: { id: storyProject.id },
       data: {
-        user_id: systemUser.id,
-        story_id: story.id,
         title: sample.project.title,
         description: sample.project.description,
         style: sample.project.style,

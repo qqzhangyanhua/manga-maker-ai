@@ -7,6 +7,7 @@ import { prisma, Prisma } from "./db";
 import { generateStoryOutline } from "./story-generator";
 import { callChatCompletionByType } from "./llm-provider";
 import { generateImageBatch } from "./unified-image-generation";
+import { ensureStoryProject } from "./project";
 import type { StoryOutline, StoryboardData, WorkflowConfig, WorkflowResult, WorkflowStatus, WorkflowStep } from "./type";
 
 export type { WorkflowConfig, WorkflowResult, WorkflowStatus, WorkflowStep } from "./type";
@@ -179,15 +180,15 @@ ${act.summary || ""}
             ? (storyboardData.script_segments as Prisma.InputJsonValue)
             : undefined;
 
-        // Create project with panels
-        const project = (await prisma.project.create({
+        // 分镜写入故事的主项目（新建故事时由数据库触发器创建）
+        const storyProject = await ensureStoryProject(prisma, storyId);
+        const project = (await prisma.project.update({
+            where: { id: storyProject.id },
             data: {
-                user_id: this.userId,
-                story_id: storyId,
-                title: story.title,
                 description: story.premise,
                 style: this.config.style || storyboardData.style || "manga",
                 status: "in_progress",
+                updated_at: new Date(),
                 panels: {
                     create: storyboardPanels.map((panel, index) => ({
                         panel_order: panel.panel_order ?? index + 1,
