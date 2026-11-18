@@ -254,3 +254,17 @@ graph TD
 - 2025-03-27 00:20:00: 第九轮深扫核心 API 路由（+35 文件），覆盖 Panel API（6 端点）、Canvas API（6 端点）、GenerationTasks（2 端点）、User/Payment/SSE（4 端点）、api-helpers 服务层；覆盖率 37.29% -> 39.88%。
 - 2025-03-26 23:31:34: 第八轮深扫基础设施完善（+31 文件），覆盖 InfiniteCanvas nodes（5 文件）、image-generation providers（6 文件）、common 组件（10 文件）；覆盖率 34.99% -> 37.29%。
 - 2026-03-01 19:15:00: 第七轮深扫核心共享层（+50 文件），覆盖 lib 服务层（20 文件）、Zustand stores（2 文件）、全局 hooks（8 文件）；覆盖率 31.28% -> 34.99%。
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs live as GitHub issues on `qqzhangyanhua/manga-maker-ai`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
