@@ -1,1 +1,6 @@
-export { ensureStoryProject, findStoryProject } from "./story-project";
+export {
+  deleteProjectWithStory,
+  deleteStoryWithProject,
+  ensureStoryProject,
+  findStoryProject,
+} from "./story-project";

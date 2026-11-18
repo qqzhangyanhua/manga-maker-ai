@@ -18,14 +18,13 @@ import { cn } from "@/lib/utils";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-helpers";
 
-interface RecentStory {
+interface RecentProject {
   id: string;
   title: string;
-  premise?: string | null;
-  style?: string | null;
-  created_at: string;
-  updated_at?: string | null;
-  _count?: { panels: number };
+  description: string | null;
+  updated_at: string;
+  panelCount: number;
+  hasStory: boolean;
 }
 
 const QUICK_ACTIONS = [
@@ -60,42 +59,39 @@ const QUICK_ACTIONS = [
 
 export const dynamic = "force-dynamic";
 
-async function getRecentStories(): Promise<RecentStory[]> {
+async function getRecentProjects(): Promise<RecentProject[]> {
   const user = await getCurrentUser();
   if (!user?.userId) {
     return [];
   }
 
-  const storiesRaw = await prisma.story.findMany({
+  const projects = await prisma.project.findMany({
     where: { user_id: user.userId },
-    orderBy: {
-      updated_at: "desc",
-    },
+    orderBy: { updated_at: "desc" },
     take: 6,
-    include: {
-      chapters: {
-        include: {
-          _count: { select: { panels: true } },
-        },
-      },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      premise: true,
+      story_id: true,
+      updated_at: true,
+      _count: { select: { panels: true } },
     },
   });
 
-  return storiesRaw.map(({ chapters, ...rest }) => ({
-    id: rest.id,
-    title: rest.title,
-    premise: rest.premise,
-    style: null,
-    created_at: rest.created_at.toISOString(),
-    updated_at: rest.updated_at?.toISOString() ?? null,
-    _count: {
-      panels: chapters.reduce((acc, chapter) => acc + chapter._count.panels, 0),
-    },
+  return projects.map((project) => ({
+    id: project.id,
+    title: project.title,
+    description: project.description || project.premise,
+    updated_at: project.updated_at.toISOString(),
+    panelCount: project._count.panels,
+    hasStory: project.story_id !== null,
   }));
 }
 
 export default async function WorkspacePage() {
-  const stories = await getRecentStories();
+  const projects = await getRecentProjects();
 
   return (
     <div className="min-h-screen bg-[#0f0f13] text-white">
@@ -111,7 +107,7 @@ export default async function WorkspacePage() {
           {/* Hero */}
           <div className="mb-10">
             <h1 className="text-3xl font-bold text-white mb-2">创作工作台</h1>
-            <p className="text-zinc-400">所有作品、一站管理。选择一种方式开始创作。</p>
+            <p className="text-zinc-400">每个作品都是一个项目。选择一种方式新建项目。</p>
           </div>
 
           {/* Quick Actions */}
@@ -144,8 +140,8 @@ export default async function WorkspacePage() {
           {/* Recent Works */}
           <div className="mb-12">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-white">最近作品</h2>
-              <Link href="/scripts">
+              <h2 className="text-xl font-semibold text-white">最近项目</h2>
+              <Link href="/projects">
                 <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white">
                   查看全部
                   <ArrowRight className="w-4 h-4 ml-1" />
@@ -153,38 +149,36 @@ export default async function WorkspacePage() {
               </Link>
             </div>
 
-            {stories.length === 0 ? (
+            {projects.length === 0 ? (
               <GlassCard className="p-12 text-center">
                 <Sparkles className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-zinc-300 mb-2">还没有作品</h3>
-                <p className="text-sm text-zinc-500 mb-6">选择上方的创作方式，开始你的第一个作品</p>
+                <h3 className="text-lg font-medium text-zinc-300 mb-2">还没有项目</h3>
+                <p className="text-sm text-zinc-500 mb-6">选择上方的创作方式，开始你的第一个项目</p>
                 <Link href="/story">
                   <Button className="bg-orange-500 hover:bg-orange-600">
                     <Plus className="w-4 h-4 mr-2" />
-                    创建新作品
+                    新建项目
                   </Button>
                 </Link>
               </GlassCard>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {stories.map((story) => (
-                  <Link key={story.id} href={`/scripts/${story.id}`}>
+                {projects.map((project) => (
+                  <Link key={project.id} href={`/projects/${project.id}`}>
                     <GlassCard className="group p-5 cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:border-orange-500/30">
                       <h3 className="font-semibold text-zinc-100 line-clamp-1 mb-2 group-hover:text-orange-400 transition-colors">
-                        {story.title || "未命名作品"}
+                        {project.title || "未命名项目"}
                       </h3>
                       <p className="text-sm text-zinc-500 line-clamp-2 mb-3 min-h-[2.5rem]">
-                        {story.premise || "暂无描述"}
+                        {project.description || "暂无描述"}
                       </p>
                       <div className="flex items-center justify-between text-xs text-zinc-600">
                         <span>
-                          {story.updated_at
-                            ? format(new Date(story.updated_at), "MM-dd HH:mm", { locale: zhCN })
-                            : format(new Date(story.created_at), "MM-dd HH:mm", { locale: zhCN })}
+                          {format(new Date(project.updated_at), "MM-dd HH:mm", { locale: zhCN })}
                         </span>
-                        {story._count?.panels !== undefined && (
-                          <span>{story._count.panels} 分镜</span>
-                        )}
+                        <span>
+                          {project.hasStory ? "剧本" : "分镜"} · {project.panelCount} 分镜
+                        </span>
                       </div>
                     </GlassCard>
                   </Link>
@@ -196,7 +190,7 @@ export default async function WorkspacePage() {
           {/* Quick Links */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { icon: FolderOpen, label: "作品项目", href: "/projects" },
+              { icon: FolderOpen, label: "我的项目", href: "/projects" },
               { icon: Users, label: "角色库", href: "/assets?tab=characters" },
               { icon: Sparkles, label: "一键生成", href: "/workflow" },
               { icon: FileText, label: "小说创作", href: "/novel" },

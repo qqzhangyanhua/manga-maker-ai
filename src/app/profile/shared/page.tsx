@@ -134,7 +134,7 @@ export default function ProfileSharedPage(): JSX.Element {
         <Card>
           <CardContent className="flex min-h-[300px] flex-col items-center justify-center p-12">
             <p className="mb-4 text-muted-foreground">还没有分享任何作品</p>
-            <Link href="/scripts">
+            <Link href="/projects">
               <Button>前往创作</Button>
             </Link>
           </CardContent>

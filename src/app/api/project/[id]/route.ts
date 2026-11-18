@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { ApiError, parseWithSchema, withAuth } from "@/lib/api-helpers";
+import { deleteProjectWithStory } from "@/lib/project";
 
 const projectStatusSchema = z.enum(["draft", "in_progress", "completed", "archived"]);
 
@@ -116,9 +117,7 @@ export async function DELETE(
       throw new ApiError("无权限", 403, "FORBIDDEN");
     }
 
-    await prisma.project.delete({
-      where: { id },
-    });
+    await deleteProjectWithStory(prisma, id);
 
     return { success: true, message: "项目已删除" };
   });

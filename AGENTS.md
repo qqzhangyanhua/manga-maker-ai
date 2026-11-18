@@ -10,9 +10,10 @@
 - **`src/app`** - Next.js App Router 入口
   - `auth/` - 登录/注册页面
   - `admin/` - 后台管理(LLM 提供商配置、使用统计)
-  - `storyboard/` - 分镜编辑器(`editor/[projectId]`, `layout/[projectId]`)
+  - `projects/[projectId]` - 项目主页（剧本编辑器）及 `focus`、`storyboard`、`storyboard/layout`、`layout` 子页面；作品一律按 projectId 寻址
+  - `storyboard/` - 快速分镜工具（旧的 `editor/[projectId]`、`layout/[projectId]` 只做重定向）
   - `assets/` - 资产库(角色、场景、姿态实验室)
-  - `story/`, `scripts/` - 故事与剧本创作
+  - `story/` - 新建项目（故事构思）；`scripts/[id]/` 存放剧本编辑器组件，路由本身只做重定向
   - `workflow/` - 工作流编排
   - `editor/` - 画面精炼工作台
   - `api/` - **所有后端 API 路由**，命名为 `route.ts`

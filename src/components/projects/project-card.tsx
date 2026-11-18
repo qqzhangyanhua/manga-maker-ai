@@ -46,7 +46,7 @@ export function ProjectCard({ project, onRename, onDelete }: ProjectCardProps) {
             </div>
             <div>
               <h3 className="font-semibold text-zinc-100 line-clamp-1 group-hover:text-orange-400 transition-colors">
-                {project.title || "未命名作品"}
+                {project.title || "未命名项目"}
               </h3>
               <div className="flex items-center gap-2 text-xs text-zinc-500 mt-1">
                 <span className={cn(
@@ -54,6 +54,9 @@ export function ProjectCard({ project, onRename, onDelete }: ProjectCardProps) {
                   project.status === 'completed' ? "bg-green-500/10 text-green-400 border-green-500/20" : "bg-zinc-800/50"
                 )}>
                   {project.status === 'draft' ? '草稿' : project.status}
+                </span>
+                <span className="px-1.5 py-0.5 rounded-md border border-white/5 bg-zinc-800/50">
+                  {project.story_id ? "剧本" : "分镜"}
                 </span>
                 <span>•</span>
                 <span className="flex items-center">
@@ -89,7 +92,7 @@ export function ProjectCard({ project, onRename, onDelete }: ProjectCardProps) {
                   onDelete?.(project.id);
                 }}
               >
-                删除作品
+                删除项目
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -98,7 +101,7 @@ export function ProjectCard({ project, onRename, onDelete }: ProjectCardProps) {
         {/* 描述区域 */}
         <div className="flex-1 min-h-[3rem]">
           <p className="text-sm text-zinc-400 line-clamp-2 leading-relaxed">
-            {project.description || "暂无作品描述..."}
+            {project.description || project.premise || "暂无项目描述..."}
           </p>
         </div>
 
@@ -124,13 +127,13 @@ export function ProjectCard({ project, onRename, onDelete }: ProjectCardProps) {
 
         {/* 操作按钮 */}
         <div className="grid grid-cols-2 gap-2 mt-2 pt-4 border-t border-white/5">
-          <Link href={`/storyboard/editor/${project.id}`} className="w-full">
+          <Link href={`/projects/${project.id}`} className="w-full">
             <Button className="w-full bg-zinc-800 hover:bg-orange-500 hover:text-white text-zinc-300 border border-zinc-700 hover:border-orange-500 transition-all shadow-none" size="sm">
               <BookOpen className="w-4 h-4 mr-2" />
               编辑
             </Button>
           </Link>
-          <Link href={`/layout-editor/${project.id}`} className="w-full">
+          <Link href={`/projects/${project.id}/layout`} className="w-full">
             <Button variant="outline" className="w-full bg-transparent border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-800" size="sm">
               <LayoutPanelTop className="w-4 h-4 mr-2" />
               排版

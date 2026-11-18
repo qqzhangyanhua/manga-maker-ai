@@ -19,7 +19,7 @@ const items = [
     },
     {
         title: "小说创作",
-        description: "从灵感生成章节和大纲，再进入工作台继续创作。",
+        description: "从灵感生成章节和大纲，再改编成漫画项目。",
         href: "/novel",
         icon: PenLine,
         span: "md:col-span-1",
@@ -30,9 +30,9 @@ const items = [
         iconBg: "bg-stone-500/10",
     },
     {
-        title: "剧本记录",
-        description: "查看历史剧本，继续派生。",
-        href: "/scripts",
+        title: "我的项目",
+        description: "剧本、角色、分镜都在项目里。",
+        href: "/projects",
         icon: FileText,
         span: "md:col-span-1",
         theme: "stone",

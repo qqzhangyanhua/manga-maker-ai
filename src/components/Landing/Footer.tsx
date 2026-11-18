@@ -16,7 +16,7 @@ const footerLinks = [
         title: "产品",
         items: [
             { label: "小说生成", href: "/novel" },
-            { label: "漫画编辑器", href: "/projects" },
+            { label: "我的项目", href: "/projects" },
             { label: "图库", href: "/generated" },
             { label: "价格方案", href: "#pricing" },
         ],

@@ -73,7 +73,7 @@ User
   - `panel.chapter_id` 非空但 `chapter.story_id != project.story_id` 的分镜数量；
   - 同一个 Character 被多个 Story 引用的数量。
 - 根据结果确定"一个 Story 对应多个 Project"的处理规则（见第 5 节待定项）。
-- 修复 `gallery/[id]` 的跳转错误。（已完成：有故事时跳转剧本编辑页，没有故事时跳转分镜编辑器）
+- 修复 `gallery/[id]` 的跳转错误。（已完成；阶段 3a 改为直接跳转分镜所属项目 `/projects/[projectId]`）
 - 审计脚本：`scripts/audit-project-root.ts`（只读事务），结果见 2.1 节。
 
 ### 阶段 1：增量 schema 与数据回填
@@ -131,15 +131,29 @@ User
 
 ### 阶段 3：读切换与前端路由
 
-- 新路由 `/projects/[projectId]` 作为项目主页，按创作顺序分标签：设定 -> 角色 -> 剧本 -> 分镜 -> 排版导出。
-- 现有页面迁到项目下：
-  - `/scripts/[storyId]` -> `/projects/[projectId]/script`
-  - `/storyboard/editor/[projectId]` -> `/projects/[projectId]/storyboard`
-  - `/layout-editor/[projectId]` -> `/projects/[projectId]/layout`
-- 旧 URL 保留为重定向（通过 `projects.story_id` 把 storyId 映射到 projectId，取最近更新的一个，与现有剧本页行为一致）。
-- 导航改为：工作台 / 我的项目 / 小说 / 角色库 / 场景库 / 模板。"创作新故事"改为"新建项目"。
-- API 读路径切到 Project；`/api/story/**` 变成转发到项目服务的兼容层。
+分三步上线：3a 页面路由与导航，3b API 读切换，3c 项目角色引用校验。
 
+**3a 页面路由与导航（已完成，2026-11-19）**
+
+- 新路由 `/projects/[projectId]` 是项目主页：故事主项目显示剧本编辑器，没有故事的独立项目（25 个，阶段 4 补章节之前没有剧本可编辑）直接重定向到分镜编辑器。原计划的"设定 -> 角色 -> 剧本 -> 分镜 -> 排版导出"标签页留到阶段 4 之后，现在的剧本编辑器已经带有阶段条。
+- 子路由：`/projects/[projectId]/focus`（专注模式）、`/storyboard`（分镜编辑器）、`/storyboard/layout`（分镜排版）、`/layout`（排版编辑器）。剧本编辑器和专注模式的组件仍放在 `src/app/scripts/[id]/`（约 15 个模块从这里 import），改为接收 `storyId`、`routeProjectId` 的命名导出组件，页面链接都用 `projectId`。
+- 旧 URL 改为服务端重定向，保留查询参数：`/scripts` -> `/projects`；`/scripts/[storyId]`、`/scripts/[storyId]/focus` 通过 `ensureStoryProject` 换成主项目；`/storyboard/editor/[id]`、`/storyboard/layout/[id]`、`/layout-editor/[id]` 换到项目下的对应路径。未登录跳登录页，ID 非法或无权访问跳 `/projects`。
+- 站内链接改到新路由：项目卡片、工作台、画廊详情（直接用分镜的 `project_id`）、快速分镜、故事生成器、个人中心。注册领取体验作品、智能导入、小说转漫画仍拿到 `storyId`，暂时经旧 URL 重定向，3b 让这些接口直接返回 `projectId`。
+- 项目列表改名"我的项目"，卡片标出"剧本 / 分镜"两类；工作台"最近作品"改为列出最近项目。
+- 删除：删除故事主项目时连同故事一起删除（`deleteProjectWithStory`），删除故事时连同主项目一起删除（`deleteStoryWithProject`），都在一个事务里，先删故事再删项目。
+- 导航：创作（工作台 / 我的项目 / 新建项目 / 小说）、资产库（角色库 / 场景库 / 模板）、工具（快速分镜 / 生成图库 / 一键生成 / 画面精炼）。命令面板、首页快速入口、页脚同步修改。
+
+已知情况：有些故事的分镜在阶段 2 之前生成在别的项目上，所以故事主项目在列表里显示 0 个分镜，同名的独立项目里才有分镜。是否把它们合并到主项目，留到阶段 4 和"第一章"回填一起决定。
+
+**3b API 读切换（待做）**
+
+- API 读路径切到 Project；`/api/story/**` 变成转发到项目服务的兼容层。`/api/story/[id]` 与 `/api/story/[id]/panels` 目前用 `projects take:1`，改为取主项目。
+- `POST /api/story`、`/api/trial/claim`、`convert-to-comic` 的返回值加上 `projectId`，前端直接跳转项目页。
+- `projects.style` 是自由文本，`/api/gallery/[id]` 用它查 `comic_styles` 永远为空，改为用 `comic_style_id`。
+
+**3c 项目角色引用校验（待做）**
+
+- `getProjectForUser`、`listProjectCharacters`、`assertCharacterInProject`、`assertPanelInProject`；分镜绑定、参考图选择、角色识别只接受项目角色。
 ### 阶段 4：收紧约束
 
 - 没有章节的项目自动创建"第一章"，再把这些项目的分镜挂到该章节上。

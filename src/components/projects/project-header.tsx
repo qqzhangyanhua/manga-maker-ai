@@ -23,19 +23,24 @@ export function ProjectHeader({ onSearchChange, onRefresh, isRefreshing }: Proje
             返回工作台
           </Link>
           <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
-            我的作品
+            我的项目
             <span className="text-orange-500">.</span>
           </h1>
           <p className="text-zinc-400 text-sm max-w-md">
-            管理您所有的作品，支持编辑、导出及多人协作
+            每个作品都是一个项目：剧本、角色、分镜和排版都在项目里
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <Link href="/storyboard">
+            <Button variant="outline" className="border-zinc-700 bg-zinc-900/50 text-zinc-300 hover:text-white hover:bg-zinc-800">
+              快速分镜
+            </Button>
+          </Link>
+          <Link href="/story">
             <Button className="bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20">
               <Plus className="w-4 h-4 mr-2" />
-              新建分镜
+              新建项目
             </Button>
           </Link>
         </div>
@@ -46,7 +51,7 @@ export function ProjectHeader({ onSearchChange, onRefresh, isRefreshing }: Proje
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
           <Input 
-            placeholder="搜索作品名称..." 
+            placeholder="搜索项目名称..." 
             className="pl-9 bg-zinc-900/50 border-zinc-800 focus:border-orange-500/50 focus:ring-orange-500/20 transition-all text-sm"
             onChange={(e) => onSearchChange?.(e.target.value)}
           />

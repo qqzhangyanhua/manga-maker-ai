@@ -315,9 +315,9 @@ export function StoryGenerator({
 
             toast({
                 title: "✅ 故事已保存",
-                description: "可以在「剧本管理」中查看和管理",
+                description: "可以在「我的项目」中查看和管理",
                 action: (
-                    <ToastAction altText="查看列表" onClick={() => router.push("/scripts")}>
+                    <ToastAction altText="查看列表" onClick={() => router.push("/projects")}>
                         查看列表
                     </ToastAction>
                 ),
@@ -406,7 +406,7 @@ export function StoryGenerator({
                             onNavigateToStoryboard={() => {
                                 router.push(`/storyboard?story_id=${generatedStory.id}`);
                             }}
-                            onNavigateToScripts={() => router.push("/scripts")}
+                            onNavigateToScripts={() => router.push("/projects")}
                         />
                     )}
                 </>

@@ -188,7 +188,7 @@ const StoryboardEditorPageContent = ({ initialPanelTemplates }: StoryboardPageCl
 
   const handleEnterEditor = useCallback(() => {
     if (!currentProject) return;
-    router.push(`/storyboard/editor/${currentProject.id}`);
+    router.push(`/projects/${currentProject.id}/storyboard`);
   }, [currentProject, router]);
 
   const selectedPanelData = useMemo(

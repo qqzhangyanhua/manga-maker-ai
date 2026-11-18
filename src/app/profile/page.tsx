@@ -394,8 +394,8 @@ export default function ProfilePage() {
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {[
-                      { icon: FileCode, color: "text-orange-500", label: "作品记录", href: "/scripts" },
-                      { icon: FolderOpen, color: "text-blue-500", label: "分镜项目", href: "/projects" },
+                      { icon: FolderOpen, color: "text-orange-500", label: "我的项目", href: "/projects" },
+                      { icon: FileCode, color: "text-blue-500", label: "小说", href: "/novel" },
                       { icon: Image, color: "text-purple-500", label: "生成图库", href: "/generated" },
                       { icon: Palette, color: "text-emerald-500", label: "资产库", href: "/assets" },
                     ].map((item, i) => (

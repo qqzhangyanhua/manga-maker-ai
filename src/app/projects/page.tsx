@@ -38,6 +38,8 @@ async function getInitialProjects(): Promise<Project[]> {
     created_at: project.created_at.toISOString(),
     updated_at: project.updated_at.toISOString(),
     cover_image: project.cover_image,
+    story_id: project.story_id,
+    premise: project.premise,
     panels: project.panels.map((panel) => ({
       id: panel.id,
       generated_image: panel.generated_image,
@@ -58,7 +60,7 @@ export default async function ProjectListPage() {
 
       <main className="pt-24 px-4 sm:px-6 lg:px-8 pb-16 relative z-10">
         <div className="max-w-[1400px] mx-auto">
-          <PageBreadcrumb segments={[{ label: "分镜项目" }]} className="mb-4" />
+          <PageBreadcrumb segments={[{ label: "我的项目" }]} className="mb-4" />
           <ProjectsPageClient initialProjects={initialProjects} />
         </div>
       </main>

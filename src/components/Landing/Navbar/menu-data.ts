@@ -4,7 +4,6 @@ import {
   BookOpen,
   BookText,
   Sparkles,
-  FileCode,
   FolderOpen,
   Image,
   UserCircle,
@@ -40,66 +39,31 @@ export const solutionsMenuItems: MenuItem[] = [
 
 export const workspaceMenuItems: MenuCategory[] = [
   {
-    category: "创作中心",
+    category: "创作",
     items: [
       {
         icon: LayoutDashboard,
         title: "创作工作台",
-        description: "统一创作入口与最近作品",
+        description: "统一创作入口与最近项目",
         href: "/workspace",
       },
       {
-        icon: Sparkles,
-        title: "创作新故事",
-        description: "从零开始创作漫画",
-        href: "/story",
-      },
-      {
-        icon: FileCode,
-        title: "剧本管理",
-        description: "查看和编辑剧本",
-        href: "/scripts",
-      },
-      {
-        icon: BookOpen,
-        title: "分镜编辑",
-        description: "编辑分镜和面板",
-        href: "/storyboard",
-      },
-      {
-        icon: BookText,
-        title: "小说创作",
-        description: "AI 辅助小说写作与管理",
-        href: "/novel",
-      },
-    ],
-  },
-  {
-    category: "项目管理",
-    items: [
-      {
         icon: FolderOpen,
-        title: "分镜项目",
-        description: "管理所有分镜项目",
+        title: "我的项目",
+        description: "剧本、角色、分镜都在项目里",
         href: "/projects",
       },
       {
-        icon: Image,
-        title: "生成图库",
-        description: "浏览生成的图片",
-        href: "/generated",
+        icon: Sparkles,
+        title: "新建项目",
+        description: "从故事构思开始一个新项目",
+        href: "/story",
       },
       {
-        icon: Workflow,
-        title: "一键生成",
-        description: "自动化工作流程",
-        href: "/workflow",
-      },
-      {
-        icon: Palette,
-        title: "画面精炼",
-        description: "图像编辑和优化",
-        href: "/editor",
+        icon: BookText,
+        title: "小说",
+        description: "AI 辅助小说写作，可改编为项目",
+        href: "/novel",
       },
     ],
   },
@@ -123,6 +87,35 @@ export const workspaceMenuItems: MenuCategory[] = [
         title: "模板市场",
         description: "浏览和使用模板",
         href: "/templates",
+      },
+    ],
+  },
+  {
+    category: "工具",
+    items: [
+      {
+        icon: BookOpen,
+        title: "快速分镜",
+        description: "粘贴文本直接生成分镜项目",
+        href: "/storyboard",
+      },
+      {
+        icon: Image,
+        title: "生成图库",
+        description: "浏览生成的图片",
+        href: "/generated",
+      },
+      {
+        icon: Workflow,
+        title: "一键生成",
+        description: "自动化工作流程",
+        href: "/workflow",
+      },
+      {
+        icon: Palette,
+        title: "画面精炼",
+        description: "图像编辑和优化",
+        href: "/editor",
       },
     ],
   },

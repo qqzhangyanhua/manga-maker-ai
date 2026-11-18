@@ -13,15 +13,15 @@ export function ProjectEmptyState() {
           <Grid3X3 className="w-10 h-10 text-zinc-600 group-hover:text-orange-500 transition-colors duration-500" />
         </div>
         
-        <h3 className="text-xl font-bold text-white mb-2">暂无分镜项目</h3>
+        <h3 className="text-xl font-bold text-white mb-2">还没有项目</h3>
         <p className="text-zinc-400 mb-8 max-w-sm leading-relaxed">
-          您的创意工坊空空如也。立即创建一个新项目，开始您的漫画创作之旅吧！
+          新建一个项目，从故事构思开始；也可以在工具里用快速分镜直接从文本生成。
         </p>
         
-        <Link href="/storyboard">
+        <Link href="/story">
           <Button size="lg" className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-0 shadow-lg shadow-orange-500/20 px-8">
             <Sparkles className="w-4 h-4 mr-2" />
-            开始创作
+            新建项目
           </Button>
         </Link>
       </div>

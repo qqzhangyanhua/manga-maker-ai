@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "@prisma/client";
-import { ensureStoryProject, findStoryProject } from "./story-project";
+import {
+  deleteProjectWithStory,
+  deleteStoryWithProject,
+  ensureStoryProject,
+  findStoryProject,
+} from "./story-project";
 
 function createDb() {
   return {
@@ -88,5 +93,52 @@ describe("故事主项目", () => {
 
     await expect(ensureStoryProject(asClient(db), "missing")).rejects.toThrow("故事不存在");
     expect(db.project.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("删除项目与故事", () => {
+  function createDeleteDb() {
+    const db = {
+      project: { findUnique: vi.fn(), findFirst: vi.fn(), delete: vi.fn() },
+      story: { delete: vi.fn() },
+      $transaction: vi.fn(),
+    };
+    db.$transaction.mockImplementation(async (fn: (tx: typeof db) => Promise<unknown>) => fn(db));
+    return db;
+  }
+  const asDeleteClient = (db: ReturnType<typeof createDeleteDb>) => db as unknown as PrismaClient;
+
+  it("删除故事主项目时先删故事再删项目", async () => {
+    const db = createDeleteDb();
+    db.project.findUnique.mockResolvedValue({ story_id: "s1" });
+    const order: string[] = [];
+    db.story.delete.mockImplementation(async () => order.push("story"));
+    db.project.delete.mockImplementation(async () => order.push("project"));
+
+    await deleteProjectWithStory(asDeleteClient(db), "p1");
+
+    expect(db.story.delete).toHaveBeenCalledWith({ where: { id: "s1" } });
+    expect(db.project.delete).toHaveBeenCalledWith({ where: { id: "p1" } });
+    expect(order).toEqual(["story", "project"]);
+  });
+
+  it("独立项目只删项目", async () => {
+    const db = createDeleteDb();
+    db.project.findUnique.mockResolvedValue({ story_id: null });
+
+    await deleteProjectWithStory(asDeleteClient(db), "p1");
+
+    expect(db.story.delete).not.toHaveBeenCalled();
+    expect(db.project.delete).toHaveBeenCalledWith({ where: { id: "p1" } });
+  });
+
+  it("删除故事时一并删除主项目", async () => {
+    const db = createDeleteDb();
+    db.project.findFirst.mockResolvedValue({ id: "p1", story_id: "s1" });
+
+    await deleteStoryWithProject(asDeleteClient(db), "s1");
+
+    expect(db.story.delete).toHaveBeenCalledWith({ where: { id: "s1" } });
+    expect(db.project.delete).toHaveBeenCalledWith({ where: { id: "p1" } });
   });
 });

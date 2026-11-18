@@ -25,8 +25,13 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+vi.mock("@/lib/project", () => ({
+  deleteProjectWithStory: vi.fn(),
+}));
+
 import { verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { deleteProjectWithStory } from "@/lib/project";
 import { DELETE, GET, PATCH } from "./route";
 
 const authUserId = "3f2dfbe8-2e2f-4487-8d98-2611c87fca20";
@@ -166,13 +171,10 @@ describe("API /api/project/[id]", () => {
     expect(data.error).toContain("项目不存在");
   });
 
-  it("DELETE 成功时应删除项目", async () => {
+  it("DELETE 成功时应删除项目（含故事主项目的故事）", async () => {
     (prisma.project.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: projectId,
       user_id: authUserId,
-    });
-    (prisma.project.delete as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: projectId,
     });
 
     const response = await DELETE(new Request(`http://localhost/api/project/${projectId}`), {
@@ -183,8 +185,20 @@ describe("API /api/project/[id]", () => {
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
     expect(data.message).toBe("项目已删除");
-    expect(prisma.project.delete).toHaveBeenCalledWith({
-      where: { id: projectId },
+    expect(deleteProjectWithStory).toHaveBeenCalledWith(prisma, projectId);
+  });
+
+  it("DELETE 他人项目时应返回 403 且不删除", async () => {
+    (prisma.project.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: projectId,
+      user_id: anotherUserId,
     });
+
+    const response = await DELETE(new Request(`http://localhost/api/project/${projectId}`), {
+      params: { id: projectId },
+    });
+
+    expect(response.status).toBe(403);
+    expect(deleteProjectWithStory).not.toHaveBeenCalled();
   });
 });

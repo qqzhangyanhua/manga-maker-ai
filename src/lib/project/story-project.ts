@@ -54,3 +54,32 @@ export async function ensureStoryProject(db: Db, storyId: string): Promise<Proje
     },
   });
 }
+
+/**
+ * 删除项目；若是故事的主项目，连同故事一起删除（章节、故事角色随故事级联删除）。
+ * 先删故事：章节先于项目消失，避免项目删除时 chapters.project_id 置空再被触发器回填。
+ */
+export async function deleteProjectWithStory(db: PrismaClient, projectId: string): Promise<void> {
+  await db.$transaction(async (tx) => {
+    const project = await tx.project.findUnique({
+      where: { id: projectId },
+      select: { story_id: true },
+    });
+    if (!project) return;
+    if (project.story_id) {
+      await tx.story.delete({ where: { id: project.story_id } });
+    }
+    await tx.project.delete({ where: { id: projectId } });
+  });
+}
+
+/** 删除故事及其主项目（项目是作品根，故事删除后主项目不再单独保留） */
+export async function deleteStoryWithProject(db: PrismaClient, storyId: string): Promise<void> {
+  await db.$transaction(async (tx) => {
+    const project = await findStoryProject(tx, storyId);
+    await tx.story.delete({ where: { id: storyId } });
+    if (project) {
+      await tx.project.delete({ where: { id: project.id } });
+    }
+  });
+}

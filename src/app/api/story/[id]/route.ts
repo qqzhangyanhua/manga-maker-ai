@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { ApiError, withAuth } from "@/lib/api-helpers";
+import { deleteStoryWithProject } from "@/lib/project";
 
 /**
  * GET /api/story/[id]
@@ -182,10 +183,7 @@ export async function DELETE(
             throw new ApiError("无权删除", 403, "FORBIDDEN");
         }
 
-        // Delete story
-        await prisma.story.delete({
-            where: { id },
-        });
+        await deleteStoryWithProject(prisma, id);
 
         return {
             message: "故事删除成功",

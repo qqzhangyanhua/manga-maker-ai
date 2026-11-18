@@ -14,4 +14,7 @@ export type Project = {
   updated_at?: string;
   panels: Panel[];
   cover_image?: string | null;
+  premise?: string | null;
+  /** 有值表示故事主项目（打开剧本编辑器），否则是独立分镜项目 */
+  story_id?: string | null;
 };

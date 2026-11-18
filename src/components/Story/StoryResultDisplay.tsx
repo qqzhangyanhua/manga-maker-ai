@@ -230,7 +230,7 @@ export function StoryResultDisplay({
                                         className="flex-1"
                                     >
                                         <List className="w-4 h-4 mr-2" />
-                                        查看我的故事
+                                        查看我的项目
                                     </Button>
                                 </div>
 
