@@ -68,6 +68,9 @@ export interface GalleryDetail extends GalleryItem {
   // 表情类型
   expression_type: string | null;
 
+  // 所属故事，剧本编辑页以故事 ID 寻址；为空时项目只能在分镜编辑器中打开
+  story_id: string | null;
+
   // 服装信息
   outfit: {
     id: string;

@@ -1,0 +1,157 @@
+# 项目根对齐：迁移计划
+
+日期：2026-11-18
+相关决策：[ADR-0001](../adr/0001-project-as-single-root.md)、[ADR-0002](../adr/0002-character-library-with-project-characters.md)、[ADR-0003](../adr/0003-novel-as-project-source.md)
+术语：见根目录 [CONTEXT.md](../../CONTEXT.md)
+
+## 1. 目标
+
+```
+User
+├── 角色库 Character（用户级，可跨项目复用）
+├── 场景库 Scene（用户级）
+├── 小说 NovelProject（独立，可作为项目来源）
+└── 项目 Project（唯一作品根）
+    ├── 设定：genre / premise / outline / comic_style_id / style_reference_image / 连载状态
+    ├── 来源：source_novel_id -> NovelProject（真实外键）
+    ├── 项目角色 ProjectCharacter -> Character
+    ├── 建议角色 SuggestedCharacter
+    ├── 章节 Chapter（project_id 必填）
+    │   ├── 剧本 / 剧本片段
+    │   ├── 章节角色状态 ChapterCharacterState
+    │   └── 分镜 Panel（chapter_id 必填）
+    │       └── 候选图 PanelVariant
+    ├── 页面 ComicPage / 导出 ExportHistory
+    └── 版本 ProjectVersion / 生成任务 GenerationTask
+```
+
+不变量：
+
+1. `Panel.project_id == Panel.chapter.project_id`。
+2. 分镜绑定的 `character_id` 必须在该项目的 ProjectCharacter 中。
+3. 前端所有创作页面都以 `projectId` 寻址，不再出现 `storyId`。
+
+## 2. 现状要点（2026-11-18 扫描）
+
+| 问题 | 证据 |
+|---|---|
+| 作品被拆成 Story 和 Project 两半 | `Project.story_id` 可选，Story 对 Project 是一对多 |
+| 系统实际默认一对一 | `src/app/api/story/[id]/route.ts` 只取 `projects` 中最近更新的 1 个 |
+| 角色不属于项目 | `Character` 只有 `user_id`，与作品的关系只经 `StoryCharacter` |
+| Panel 双上级且无一致性约束 | `Panel.project_id`（必填）+ `Panel.chapter_id`（可选，章节属于 Story） |
+| 剧本三套表示 | `Story.outline`、`StoryScript`（挂在 Project 上，`/api/storyboard`、`/api/project/[id]`、版本恢复、导出在用）、`ScriptSegment` |
+| 分镜两套表示 | `Panel` 与 `ShotDesign` |
+| 跨线软关联 | `Story.source_novel_id`、`Chapter.source_novel_chapter_id`、`CanvasTimeline.novel_project_id` 均无外键 |
+| 路由错位 bug | `src/app/gallery/[id]/page.tsx:281` 用 `project_id` 跳转 `/scripts/[storyId]` |
+| 导航无先后 | `menu-data.ts` 把"创作新故事 / 剧本管理 / 分镜编辑 / 分镜项目"并列 |
+
+影响面（`src/` 中直接访问 Prisma 的文件数）：`prisma.story` 39、`prisma.project` 33、`prisma.chapter` 30、`prisma.panel` 49、`prisma.character` 50、`prisma.storyCharacter` 9。Python 服务只读写 `novel_*`、`world_*` 等表，不受 Story/Project 合并影响。
+
+## 2.1 阶段 0 审计结果（2026-11-18，`npx tsx scripts/audit-project-root.ts`）
+
+| 指标 | 数值 | 对方案的影响 |
+|---|---|---|
+| Story / Project / Chapter / Panel | 8 / 32 / 18 / 436 | 数据量小，回填可以单事务完成 |
+| Story 拥有的 Project 数量 | 0 个：1；1 个：7；多个：0 | 不存在一对多，待定项 1 不需要处理；1 个 Story 需要新建 Project |
+| 没有 story_id 的 Project | 25 个，共 295 个分镜 | 这些是独立分镜项目，本身已经是 Project，只需补设定字段为空 |
+| 章节归属与项目不一致的分镜 | 0 | 不变量 1 在现有数据上成立，可以直接加约束 |
+| 没有 chapter_id 的分镜 | 319（全部在没有章节的项目里） | 阶段 4 需要为这些项目自动建"第一章" |
+| 角色被 Story 引用的次数 | 0 次：25；1 次：15；多次：0 | 25 个角色只在角色库中，不属于任何作品；回填后仍留在角色库 |
+| 分镜绑定的角色不在故事角色中 | 无故事项目 13；有故事项目 0 | 这 13 个分镜所在的项目回填时要补对应的项目角色 |
+| 悬空的软关联 | 1 个 canvas_timeline 指向已删除的小说 | 阶段 5 加外键前先清理或置空 |
+| 同一部小说被转成多个 Story | 1 部小说，2 个 Story | 已确认允许一部小说对应多个项目，`source_novel_id` 不加唯一约束 |
+
+## 3. 分阶段方案
+
+每个阶段都可以单独上线、单独回滚。阶段 1 到 3 不删除任何旧列或旧表。
+
+### 阶段 0：数据审计与小修（不改 schema）
+
+- 执行预检查 SQL，统计：
+  - Story 拥有 0 / 1 / 多个 Project 的数量；
+  - 没有 story_id 的 Project 数量；
+  - `panel.chapter_id` 非空但 `chapter.story_id != project.story_id` 的分镜数量；
+  - 同一个 Character 被多个 Story 引用的数量。
+- 根据结果确定"一个 Story 对应多个 Project"的处理规则（见第 5 节待定项）。
+- 修复 `gallery/[id]` 的跳转错误。（已完成：有故事时跳转剧本编辑页，没有故事时跳转分镜编辑器）
+- 审计脚本：`scripts/audit-project-root.ts`（只读事务），结果见 2.1 节。
+
+### 阶段 1：增量 schema 与数据回填
+
+新增（全部可空或带默认值）：
+
+- `projects`：`genre`、`premise`、`outline`(Json)、`template_id`、`comic_style_id`(FK)、`style_reference_image`、`is_serialized`、`serial_status`、`is_sample`、`sample_category`、`source_type`、`source_novel_id`(FK -> novel_projects，`ON DELETE SET NULL`，不唯一)。Story 到 Project 的映射直接沿用已有的 `projects.story_id`，不另加追踪列；`story_id` 不加唯一约束，因为模板应用、工作流引擎等现有流程仍可能为同一个 Story 新建 Project。
+- 注意 `projects.style` 是自由文本的画风描述（如"日式漫画"），不是 `comic_styles` 的 ID，和新的 `comic_style_id` 是两回事。`/api/gallery/[id]` 用 `project.style` 去查 `comic_styles`，结果永远为空，属于已有问题，留到阶段 3 统一处理。
+- `chapters.project_id`(FK，可空，`ON DELETE SET NULL`)。迁移期删除项目时不能连带删除仍属于 Story 的章节，阶段 4 再改为 `CASCADE`。
+- 新表 `project_characters`：`project_id`、`character_id`、`role`、`character_arc`、`display_order`，唯一约束 `(project_id, character_id)`。
+- `suggested_characters.project_id`(FK，可空)。
+- `canvas_timelines.project_id`(FK，可空)。回填时只处理无歧义的情况：同一用户下以该小说为来源的项目恰好只有一个；其余的列入报告，留到阶段 5 由用户在画布中选择。
+
+回填脚本 `scripts/migrate-story-to-project.ts`（单事务、幂等、可重复执行）：
+
+1. 每个 Story 确定主 Project：已有则取最近更新的，没有则新建；把 Story 字段写到主 Project 上（新建的 Project 写入 `story_id`）。阶段 1 中 Story 仍是权威来源，重复执行会用 Story 的值覆盖 Project。审计显示当前没有一个 Story 对应多个 Project 的情况，脚本遇到这种情况时直接报错退出，不做自动合并。
+2. `chapters.project_id` = 主 Project。
+3. `story_characters` 复制为 `project_characters`；再把各项目分镜中已绑定、但不在项目角色里的角色补进去（role 记为 `minor`）。
+4. `suggested_characters.project_id` = 主 Project。
+5. `canvas_timelines.project_id`：同一用户下以该小说为来源的项目恰好只有一个时才关联，其余列入报告。
+6. 事务末尾校验不变量（分镜与章节的项目一致、所有章节已归属项目），不成立则整体回滚。
+
+配套文件：
+- 迁移：`prisma/migrations/manual/20261118_project_root_phase1.sql`（幂等，单事务）
+- 回滚：`prisma/migrations/manual/20261118_project_root_phase1_rollback.sql`
+- 回填：`npx tsx scripts/migrate-story-to-project.ts`（预演），加 `--apply` 写入
+
+**部署顺序**：必须先对数据库执行迁移 SQL，再部署用新 schema 生成的 Prisma Client。新 Client 默认会查询全部列，库里缺列时 Project、Chapter、SuggestedCharacter、CanvasTimeline 的查询都会报错。旧 Client 访问已迁移的库不受影响。
+
+**执行记录（2026-11-18）**：
+- 本地沙箱库（远端数据只读复制）演练：迁移执行 2 次；回填写入后预演全为 0；第二次写入无变更；回滚后结构恢复、旧数据完整；重新迁移再回填结果一致。
+- 远端库 `cartoon` 已执行迁移和回填：新建 1 个项目，更新 7 个项目设定，18 个章节、5 个建议角色关联到项目，写入 17 个项目角色（15 个来自故事角色，2 个来自分镜绑定）。独立核对 SQL 各项不一致计数均为 0。
+- 画布时间线：15 个属于同一部被改编成 2 个项目的小说，需要在阶段 5 由用户选择项目；8 个对应的小说还没有改编成项目。
+
+### 阶段 2：服务层收口与双写
+
+- 新增 `src/lib/project/`：`getProjectForUser`、`listProjectCharacters`、`assertCharacterInProject`、`assertPanelInProject` 等函数，作为唯一入口。
+- 写 Story 的 API（`/api/story/**`、`convert-to-comic`、`templates/[id]/apply`、`workflow-engine.ts`、`/api/storyboard`）同时写主 Project 和 ProjectCharacter。
+- 角色引用校验：分镜绑定、参考图选择、角色识别只接受项目角色。
+- 测试：为回填脚本和 `src/lib/project/*` 补 Vitest；跑现有 `storyboard/route.test.ts`、`project/route.test.ts`。
+
+### 阶段 3：读切换与前端路由
+
+- 新路由 `/projects/[projectId]` 作为项目主页，按创作顺序分标签：设定 -> 角色 -> 剧本 -> 分镜 -> 排版导出。
+- 现有页面迁到项目下：
+  - `/scripts/[storyId]` -> `/projects/[projectId]/script`
+  - `/storyboard/editor/[projectId]` -> `/projects/[projectId]/storyboard`
+  - `/layout-editor/[projectId]` -> `/projects/[projectId]/layout`
+- 旧 URL 保留为重定向（通过 `projects.story_id` 把 storyId 映射到 projectId，取最近更新的一个，与现有剧本页行为一致）。
+- 导航改为：工作台 / 我的项目 / 小说 / 角色库 / 场景库 / 模板。"创作新故事"改为"新建项目"。
+- API 读路径切到 Project；`/api/story/**` 变成转发到项目服务的兼容层。
+
+### 阶段 4：收紧约束
+
+- 没有章节的项目自动创建"第一章"，再把这些项目的分镜挂到该章节上。
+- `chapters.project_id`、`panels.chapter_id` 改为 NOT NULL，`chapters.project_id` 外键改为 `ON DELETE CASCADE`。
+- 增加检查（触发器或服务层断言），保证 `panel.project_id` 与章节一致。
+- `Chapter.story_id` 改为可空，停止写入。
+
+### 阶段 5：小说线对齐
+
+- `convert-to-comic` 改为创建或更新 Project（`source_novel_id`），小说人物生成角色并加入项目角色。
+- `CanvasTimeline` 按 `project_id` 关联，画布角色来源改为项目角色。
+- `ScriptSegment`/`ShotDesign` 与项目的剧本片段和分镜合并，单独出设计文档后再动手。
+
+### 阶段 6：清理
+
+在线上稳定运行至少一个发布周期后：删除 `Story`、`StoryCharacter`、`StoryScript`、`Chapter.story_id`、`Project.story_id`、`/api/story/**` 兼容层和旧路由重定向。删除前先导出备份。
+
+## 4. 每个阶段的验证
+
+- `npm run type-check`、`npm run lint`、`npm test` 全部通过。
+- 回填脚本在生产数据副本上演练：重复执行结果不变，审计计数前后一致（章节数、项目角色数、分镜数）。
+- 手动走一遍主链路：新建项目 -> 添加角色 -> 生成剧本 -> 生成分镜 -> 生成图片 -> 排版导出；小说转漫画后能在同一个项目里继续创作。
+
+## 5. 待定项
+
+1. ~~一个 Story 对应多个 Project 时如何处理~~：阶段 0 审计显示没有这种数据，回填脚本遇到时报错退出即可。
+2. ~~一部小说是否允许对应多个项目~~：允许（2026-11-18 确认）。
+3. 场景是否也采用"场景库 + 项目场景"模式，还是继续只挂用户。目前倾向于和角色保持一致，但优先级低于角色。
+4. 旧的 `/api/story/**` 兼容层保留多久，是否有外部调用方（`example/` 客户端、Swagger 文档）。

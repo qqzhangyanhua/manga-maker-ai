@@ -43,6 +43,7 @@ export async function GET(
             title: true,
             style: true,
             user_id: true,
+            story_id: true,
           },
         },
 
@@ -136,6 +137,7 @@ export async function GET(
       shared_at: panel.shared_at,
       show_prompt: panel.show_prompt,
       expression_type: panel.expression_type,
+      story_id: panel.project.story_id,
       project: {
         id: panel.project.id,
         title: panel.project.title,

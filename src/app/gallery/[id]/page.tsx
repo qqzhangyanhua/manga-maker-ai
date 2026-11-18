@@ -278,7 +278,13 @@ export default function GalleryDetailPage(): JSX.Element {
           )}
 
           {/* 查看项目 */}
-          <Link href={`/scripts/${detail.project_id}`}>
+          <Link
+            href={
+              detail.story_id
+                ? `/scripts/${detail.story_id}`
+                : `/storyboard/editor/${detail.project_id}`
+            }
+          >
             <Button variant="outline" className="w-full">
               查看完整项目
             </Button>
