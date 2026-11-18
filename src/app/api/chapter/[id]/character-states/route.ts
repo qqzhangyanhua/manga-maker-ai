@@ -27,11 +27,11 @@ export async function GET(
 
     const { id: chapterId } = await context.params;
 
-    // Get chapter with story to verify ownership
+    // 通过所属项目校验章节归属
     const chapter = await prisma.chapter.findUnique({
       where: { id: chapterId },
       include: {
-        story: {
+        project: {
           select: { user_id: true },
         },
       },
@@ -42,7 +42,7 @@ export async function GET(
     }
 
     // Verify ownership
-    if (chapter.story.user_id !== payload.userId) {
+    if (chapter.project.user_id !== payload.userId) {
       return NextResponse.json({ error: "无权访问此章节" }, { status: 403 });
     }
 

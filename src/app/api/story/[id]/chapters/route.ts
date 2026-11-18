@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { ApiError, withAuth } from "@/lib/api-helpers";
+import { ensureStoryProject } from "@/lib/project";
 
 /**
  * GET /api/story/[id]/chapters
@@ -82,9 +83,11 @@ export async function POST(
 
     const newChapterOrder = (lastChapter?.chapter_order ?? 0) + 1;
 
+    const project = await ensureStoryProject(prisma, storyId);
     const chapter = await prisma.chapter.create({
       data: {
         story_id: storyId,
+        project_id: project.id,
         title,
         summary: summary || null,
         chapter_order: newChapterOrder

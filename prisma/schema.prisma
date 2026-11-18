@@ -261,8 +261,8 @@ model Panel {
   outfit_id       String? @db.Uuid // FK to CharacterOutfit
   scene_id        String? @db.Uuid // FK to Scene
 
-  // Chapter grouping (optional, for story-based projects)
-  chapter_id String? @db.Uuid // FK to Chapter
+  // 分镜必须属于项目内的某个章节（不变量：panel.project_id == chapter.project_id，由数据库触发器校验）
+  chapter_id String @db.Uuid
 
   // Phase 3: Layout grouping for multi-panel layouts (2闀?4闀?6闀?
   // null = independent panel (1闀?
@@ -287,7 +287,7 @@ model Panel {
   character Character?       @relation(fields: [character_id], references: [id], onDelete: SetNull)
   outfit    CharacterOutfit? @relation(fields: [outfit_id], references: [id], onDelete: SetNull)
   scene     Scene?           @relation(fields: [scene_id], references: [id], onDelete: SetNull)
-  chapter   Chapter?         @relation(fields: [chapter_id], references: [id], onDelete: SetNull)
+  chapter   Chapter          @relation(fields: [chapter_id], references: [id], onDelete: Cascade)
 
   @@index([project_id, panel_order], map: "idx_panels_project_order")
   @@index([character_id], map: "idx_panels_character")
@@ -534,9 +534,9 @@ model Story {
 // Chapter - Story chapters for structured storytelling
 model Chapter {
   id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  story_id      String  @db.Uuid
-  // 迁移期可空且删除项目时置空，避免删除项目连带删除仍归属于 Story 的章节；阶段 4 改为必填
-  project_id    String? @db.Uuid
+  // 兼容层：故事主项目的章节仍写入，独立项目的章节为空；阶段 6 删除
+  story_id      String? @db.Uuid
+  project_id    String  @db.Uuid
   title         String // Chapter title (e.g., "第一章：相遇")
   summary       String? @db.Text // Chapter summary for AI panel generation
   chapter_order Int // Display order in story
@@ -562,8 +562,8 @@ model Chapter {
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
 
-  story            Story                   @relation(fields: [story_id], references: [id], onDelete: Cascade)
-  project          Project?                @relation(fields: [project_id], references: [id], onDelete: SetNull)
+  story            Story?                  @relation(fields: [story_id], references: [id], onDelete: SetNull)
+  project          Project                 @relation(fields: [project_id], references: [id], onDelete: Cascade)
   scene            Scene?                  @relation(fields: [scene_id], references: [id], onDelete: SetNull)
   panels           Panel[]
   character_states ChapterCharacterState[] // Character states at end of chapter

@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { ApiError, parseWithSchema, withAuth } from "@/lib/api-helpers";
-import { ensureStoryProject, findStoryProject } from "@/lib/project";
+import { deleteProjectWithStory, ensureStoryProject, findStoryProject } from "@/lib/project";
 
 const projectStatusSchema = z.enum(["draft", "in_progress", "completed", "archived"]);
 
@@ -114,10 +114,8 @@ export async function DELETE(req: Request) {
       throw new ApiError("项目不存在或无权限", 403, "FORBIDDEN");
     }
 
-    // 删除项目（panels会级联删除）
-    await prisma.project.delete({
-      where: { id: projectId },
-    });
+    // 删除项目（章节、分镜级联删除）；故事主项目连同故事一起删除
+    await deleteProjectWithStory(prisma, projectId);
 
     return { message: "项目已删除" };
   });

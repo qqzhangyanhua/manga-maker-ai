@@ -78,7 +78,7 @@ describe("POST /api/chapter/[id]/generate-panels 项目校验", () => {
         story_id: "story-1",
         title: "第一章",
         summary: "梗概",
-        story: { user_id: userId, title: "故事", genre: "daily" },
+        project: { user_id: userId, title: "故事", genre: "daily" },
       })
       .mockResolvedValueOnce({ id: chapterId, project_id: "project-other", story_id: "story-1" });
 

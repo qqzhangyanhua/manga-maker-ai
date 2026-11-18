@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { logInfo, logError } from "@/lib/api-logger";
+import { ensureStoryProject } from "@/lib/project";
 
 /**
  * POST /api/chapter/create
@@ -79,10 +80,12 @@ export async function POST(request: Request) {
       chapter_order: nextOrder,
     });
 
-    // 5. 创建章节
+    // 5. 创建章节（挂在故事主项目上）
+    const project = await ensureStoryProject(prisma, story_id);
     const chapter = await prisma.chapter.create({
       data: {
         story_id,
+        project_id: project.id,
         title,
         summary: summary || "",
         content: content || null,

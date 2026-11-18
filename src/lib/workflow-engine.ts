@@ -7,7 +7,7 @@ import { prisma, Prisma } from "./db";
 import { generateStoryOutline } from "./story-generator";
 import { callChatCompletionByType } from "./llm-provider";
 import { generateImageBatch } from "./unified-image-generation";
-import { ensureStoryProject } from "./project";
+import { ensureDefaultChapter, ensureStoryProject } from "./project";
 import type { StoryOutline, StoryboardData, WorkflowConfig, WorkflowResult, WorkflowStatus, WorkflowStep } from "./type";
 
 export type { WorkflowConfig, WorkflowResult, WorkflowStatus, WorkflowStep } from "./type";
@@ -182,6 +182,7 @@ ${act.summary || ""}
 
         // 分镜写入故事的主项目（新建故事时由数据库触发器创建）
         const storyProject = await ensureStoryProject(prisma, storyId);
+        const chapterId = await ensureDefaultChapter(prisma, storyProject.id);
         const project = (await prisma.project.update({
             where: { id: storyProject.id },
             data: {
@@ -191,6 +192,7 @@ ${act.summary || ""}
                 updated_at: new Date(),
                 panels: {
                     create: storyboardPanels.map((panel, index) => ({
+                        chapter_id: chapterId,
                         panel_order: panel.panel_order ?? index + 1,
                         panel_type: panel.panel_type ?? null,
                         importance: panel.importance ?? null,

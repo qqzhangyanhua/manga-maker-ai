@@ -63,7 +63,7 @@ export async function POST(
     const chapter = await prisma.chapter.findUnique({
       where: { id: chapterId },
       include: {
-        story: {
+        project: {
           select: {
             user_id: true,
             title: true,
@@ -77,7 +77,7 @@ export async function POST(
       return NextResponse.json({ error: "章节不存在" }, { status: 404 });
     }
 
-    if (chapter.story.user_id !== userId) {
+    if (chapter.project.user_id !== userId) {
       return NextResponse.json({ error: "无权访问此章节" }, { status: 403 });
     }
 
@@ -171,8 +171,8 @@ export async function POST(
       panels: orderedPanels,
       stylePrompt: style_prompt,
       referenceImage: reference_image,
-      storyTitle: chapter.story.title,
-      genre: chapter.story.genre,
+      storyTitle: chapter.project.title,
+      genre: chapter.project.genre || undefined,
     }, userId);
 
     // 上传到 MinIO

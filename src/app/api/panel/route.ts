@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ApiError } from "@/lib/api-helpers";
-import { ensureProjectCharacters } from "@/lib/project";
+import { ensureProjectCharacters, resolvePanelChapter } from "@/lib/project";
 
 /**
  * POST /api/panel
@@ -27,6 +27,7 @@ export async function POST(req: Request) {
         const body = await req.json();
         const {
             project_id,
+            chapter_id,
             description,
             panel_type = "medium",
             importance = "medium",
@@ -84,6 +85,8 @@ export async function POST(req: Request) {
             characterIds: [resolvedCharacterId],
         });
 
+        const chapterId = await resolvePanelChapter(prisma, project_id, chapter_id);
+
         // Determine order
         let newOrder = panel_order;
         if (newOrder === undefined) {
@@ -109,6 +112,7 @@ export async function POST(req: Request) {
         const panel = await prisma.panel.create({
             data: {
                 project_id,
+                chapter_id: chapterId,
                 panel_order: newOrder,
                 description: description || "",
                 panel_type,

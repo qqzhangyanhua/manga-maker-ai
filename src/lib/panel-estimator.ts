@@ -164,11 +164,11 @@ export async function estimatePanelCount(
 ): Promise<PanelEstimation> {
   const { chapterId, densityMode = "standard" } = params;
 
-  // 1. 加载章节数据（包含 story 关联）
+  // 1. 加载章节数据（包含 project 关联）
   const chapter = await prisma.chapter.findUnique({
     where: { id: chapterId },
     include: {
-      story: {
+      project: {
         select: {
           genre: true,
         },
@@ -186,7 +186,7 @@ export async function estimatePanelCount(
 
   // 2. 计算章节字数
   const wordCount = chapter.summary.length;
-  const genre = chapter.story.genre;
+  const genre = chapter.project.genre || "default";
 
   // 3. 计算预估镜头数
   const estimatedCount = calculatePanelCount(wordCount, genre, densityMode);

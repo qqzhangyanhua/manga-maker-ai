@@ -216,6 +216,8 @@ export async function POST(req: Request) {
       const created = await tx.panel.create({
         data: {
           project_id,
+          // 融合后的分镜留在前一个分镜的章节
+          chapter_id: panels[0].chapter_id,
           panel_order: newOrder,
           panel_type: mergedData.panel_type,
           importance: mergedData.importance,

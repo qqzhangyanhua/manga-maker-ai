@@ -67,11 +67,11 @@ export async function POST(
       scene_type,
     });
 
-    // Verify chapter exists and belongs to user's story
+    // 校验章节存在且属于当前用户的项目
     const chapter = await prisma.chapter.findUnique({
       where: { id: chapterId },
       include: {
-        story: {
+        project: {
           select: {
             user_id: true,
             genre: true,
@@ -85,7 +85,7 @@ export async function POST(
       return NextResponse.json({ error: "章节不存在" }, { status: 404 });
     }
 
-    if (chapter.story.user_id !== userId) {
+    if (chapter.project.user_id !== userId) {
       return NextResponse.json({ error: "无权限" }, { status: 403 });
     }
 
@@ -106,7 +106,7 @@ export async function POST(
       };
 
       const sceneDesc = sceneTypeMap[scene_type] || "场景";
-      backgroundPrompt = `${sceneDesc}, ${chapter.story.genre || "漫画"} 风格, ${chapter.title}背景`;
+      backgroundPrompt = `${sceneDesc}, ${chapter.project.genre || "漫画"} 风格, ${chapter.title}背景`;
 
       if (chapter.summary) {
         backgroundPrompt += `, ${chapter.summary.substring(0, 100)}`;

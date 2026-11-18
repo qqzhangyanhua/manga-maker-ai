@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { NextResponse } from "next/server";
-import { extractCharacterStates, batchExtractStoryStates } from "@/lib/character-state-extractor";
+import { extractCharacterStates, batchExtractProjectStates } from "@/lib/character-state-extractor";
 import { logInfo, logError } from "@/lib/api-logger";
 
 /**
@@ -41,7 +41,7 @@ export async function POST(
     const chapter = await prisma.chapter.findUnique({
       where: { id: chapterId },
       include: {
-        story: {
+        project: {
           select: {
             user_id: true,
           },
@@ -53,7 +53,7 @@ export async function POST(
       return NextResponse.json({ error: "章节不存在" }, { status: 404 });
     }
 
-    if (chapter.story.user_id !== userId) {
+    if (chapter.project.user_id !== userId) {
       return NextResponse.json({ error: "无权访问此章节" }, { status: 403 });
     }
 
@@ -91,7 +91,7 @@ export async function POST(
 
 /**
  * POST /api/chapter/[id]/extract-states?batch=true
- * 批量提取整个故事的所有章节状态
+ * 批量提取整个项目的所有章节状态
  */
 export async function GET(
   request: Request,
@@ -117,12 +117,12 @@ export async function GET(
 
     const { id: chapterId } = await context.params;
 
-    // 获取章节对应的故事ID
+    // 获取章节对应的项目ID
     const { prisma } = await import("@/lib/db");
     const chapter = await prisma.chapter.findUnique({
       where: { id: chapterId },
       include: {
-        story: {
+        project: {
           select: {
             id: true,
             user_id: true,
@@ -135,7 +135,7 @@ export async function GET(
       return NextResponse.json({ error: "章节不存在" }, { status: 404 });
     }
 
-    if (chapter.story.user_id !== userId) {
+    if (chapter.project.user_id !== userId) {
       return NextResponse.json({ error: "无权访问此章节" }, { status: 403 });
     }
 
@@ -146,16 +146,16 @@ export async function GET(
       logInfo("Starting batch state extraction", {
         endpoint: "/api/chapter/[id]/extract-states",
         userId,
-        storyId: chapter.story.id,
+        projectId: chapter.project.id,
       });
 
-      // 批量提取整个故事
-      await batchExtractStoryStates(chapter.story.id, userId);
+      // 批量提取整个项目
+      await batchExtractProjectStates(chapter.project.id, userId);
 
       logInfo("Batch state extraction completed", {
         endpoint: "/api/chapter/[id]/extract-states",
         userId,
-        storyId: chapter.story.id,
+        projectId: chapter.project.id,
         durationMs: Date.now() - startedAt,
       });
 

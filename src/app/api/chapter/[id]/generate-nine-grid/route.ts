@@ -77,11 +77,11 @@ export async function POST(
       );
     }
 
-    // 获取章节及其关联的故事
+    // 获取章节及其所属项目
     const chapter = await prisma.chapter.findUnique({
       where: { id: chapterId },
       include: {
-        story: {
+        project: {
           select: {
             user_id: true,
             title: true,
@@ -96,7 +96,7 @@ export async function POST(
     }
 
     // 验证所有权
-    if (chapter.story.user_id !== userId) {
+    if (chapter.project.user_id !== userId) {
       return NextResponse.json({ error: "无权访问此章节" }, { status: 403 });
     }
 
@@ -160,8 +160,8 @@ export async function POST(
         theme: theme || undefined,
         stylePrompt: style_prompt || undefined,
         referenceImage: reference_image || undefined,
-        storyTitle: chapter.story.title,
-        genre: chapter.story.genre,
+        storyTitle: chapter.project.title,
+        genre: chapter.project.genre || undefined,
       },
       userId
     );

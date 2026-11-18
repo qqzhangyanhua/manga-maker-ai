@@ -103,11 +103,11 @@ export async function POST(
       force_regenerate
     });
 
-    // Fetch chapter with story info
+    // 获取章节及所属项目信息
     const chapter = await prisma.chapter.findUnique({
       where: { id: chapterId },
       include: {
-        story: {
+        project: {
           select: {
             id: true,
             user_id: true,
@@ -135,7 +135,7 @@ export async function POST(
       return NextResponse.json({ error: "章节不存在" }, { status: 404 });
     }
 
-    if (chapter.story.user_id !== userId) {
+    if (chapter.project.user_id !== userId) {
       return NextResponse.json({ error: "无权限" }, { status: 403 });
     }
 
@@ -184,7 +184,7 @@ export async function POST(
       panelCount: chapter.panels.length,
       panelPromptsLength: panelPrompts.length,
       totalContentLength,
-      genre: chapter.story.genre
+      genre: chapter.project.genre
     });
 
     if (totalContentLength < 200) {
@@ -221,7 +221,7 @@ export async function POST(
 <chapter_summary>${chapter.summary || "未提供摘要"}</chapter_summary>
 ${chapter.content ? `<chapter_content>${chapter.content.slice(0, 3000)}</chapter_content>` : ""}
 ${hasPanelPrompts ? `<panel_visual_prompts>\n${panelPrompts.slice(0, 2000)}\n</panel_visual_prompts>` : ""}
-${chapter.story.genre ? `<story_genre>${chapter.story.genre}</story_genre>` : ""}
+${chapter.project.genre ? `<story_genre>${chapter.project.genre}</story_genre>` : ""}
 
 请生成 ${count} 个场景，只输出上方格式的 JSON 数组，不要任何解释。`;
 

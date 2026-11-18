@@ -143,7 +143,7 @@ User
 - 删除：删除故事主项目时连同故事一起删除（`deleteProjectWithStory`），删除故事时连同主项目一起删除（`deleteStoryWithProject`），都在一个事务里，先删故事再删项目。
 - 导航：创作（工作台 / 我的项目 / 新建项目 / 小说）、资产库（角色库 / 场景库 / 模板）、工具（快速分镜 / 生成图库 / 一键生成 / 画面精炼）。命令面板、首页快速入口、页脚同步修改。
 
-已知情况：有些故事的分镜在阶段 2 之前生成在别的项目上，所以故事主项目在列表里显示 0 个分镜，同名的独立项目里才有分镜。是否把它们合并到主项目，留到阶段 4 和"第一章"回填一起决定。
+已知情况：有些故事的分镜在阶段 2 之前生成在别的项目上，所以故事主项目在列表里显示 0 个分镜，同名的独立项目里才有分镜。阶段 4 已决定不合并（见"同名项目候选不合并"）。
 
 **3b API 读切换（已完成，2026-11-19）**
 
@@ -162,12 +162,41 @@ User
 - 已在 dev server 上实测：绑定他人角色 400、绑定本人角色自动加入项目角色且不重复、跨项目移动分镜 400、项目内移动正常、他人修改分镜 403；临时数据已清理。
 - 前端可见变化：如果旧章节没有 `project_id`，章节生成和移动分镜会被拒绝。远端库已回填全部章节，审计没有未归属的章节。
 
-### 阶段 4：收紧约束
+### 阶段 4：收紧约束（已完成，2026-11-20）
 
-- 没有章节的项目自动创建"第一章"，再把这些项目的分镜挂到该章节上。
-- `chapters.project_id`、`panels.chapter_id` 改为 NOT NULL，`chapters.project_id` 外键改为 `ON DELETE CASCADE`。
-- 增加检查（触发器或服务层断言），保证 `panel.project_id` 与章节一致。
-- `Chapter.story_id` 改为可空，停止写入。
+**迁移（`prisma/migrations/manual/20261120_project_root_phase4.sql`，已在远端库执行）**
+
+- 前置检查：不存在 story_id 和 project_id 同时为空、或归属两个不同项目的章节。
+- `chapters.story_id` 改为可空（外键 `ON DELETE SET NULL`），停止写入；`chapters.project_id`、`panels.chapter_id` 回填后改 NOT NULL。
+- 没有章节的项目自动创建"第一章"（共 28 个，其中 25 个是独立项目），再把项目里未挂章节的分镜挂到该章节上（全部归属，0 遗留）。
+- 触发器 `trg_project_root_fill_panel_chapter`：分镜写入不带 `chapter_id` 时自动取/建项目默认章节（advisory lock 防并发重复建章）；带 `chapter_id` 时校验与 `project_id` 同属一个项目。
+- 触发器 `trg_project_root_check_chapter_project`：章节写库时校验 `story_id` 与 `project_id` 属于同一个项目（故事主项目）。
+- 外键：`chapters.project_id` 改 `ON DELETE CASCADE`，`panels.chapter_id` 为 `ON DELETE CASCADE`。
+- 执行结果：章节 18 -> 46（新建 28 个"第一章"），436 个分镜全部挂章节，story/project 归属不一致 0。
+- 事务内预演 21/21 通过后正式执行；回滚脚本 `20261120_project_root_phase4_rollback.sql` 已留存。
+
+**代码**
+
+- `src/lib/project/chapter.ts`：`ensureDefaultChapter` / `resolvePanelChapter` / `DEFAULT_CHAPTER_TITLE`，含单元测试。
+- 新建分镜（`POST /api/panel`、`insert`、`split`、`merge`、storyboard 保存、模板套用、trial 领取、workflow-engine、版本恢复）统一走 `resolvePanelChapter`，不传章节时落到默认章节。
+- 章节子路由（`/api/chapter/[id]/**`）所有权与上下文改读 `chapter.project`；`panel-estimator`、`character-state-extractor`、`chapter-context-loader` 等按 `project_id` 查询，修掉了按 `story_id = null` 查询会串数据的 bug。
+- 删除项目走 `deleteProjectWithStory`（含 admin 端点）；删除章节级联删除分镜；删除故事时章节保留在项目上（story_id 置空）。
+
+**同名项目候选不合并**
+
+审计出 11 对"故事主项目 + 同名独立项目"候选，其中 10 对两边都有分镜（合并会产生重复分镜），只有 1 对主项目为空。决定保留两个项目不动，用户可在界面上自行整理。
+
+**验证**
+
+- type-check 仅剩 2 个既有错误，lint 通过，vitest 回到基线 8 个失败文件。
+- dev server 实测 12/12 API 检查（建项目自动建第一章、旧路径不带 chapter_id 由触发器挂默认章节、跨项目章节写入被拒、删除章节级联删分镜、删除项目级联清理）。
+- SSR 路由实测：独立项目 `/projects/[id]` 307 到分镜编辑器（200），故事主项目渲染剧本编辑器（200），未登录跳登录页。
+
+**行为变化（需要周知）**
+
+- `Chapter.story_id` 不再写入，读取侧一律以 `project_id` 为准。
+- 删除章节会级联删除其分镜；删除故事不再删除章节与分镜。
+- 旧代码路径写入分镜不带 `chapter_id` 也能成功，由数据库触发器自动挂默认章节。
 
 ### 阶段 5：小说线对齐
 

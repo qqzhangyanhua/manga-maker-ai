@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ApiError } from "@/lib/api-helpers";
-import { ensureProjectCharacters, filterOwnedCharacterIds } from "@/lib/project";
+import { ensureDefaultChapter, ensureProjectCharacters, filterOwnedCharacterIds } from "@/lib/project";
 import { callChatCompletionStreamByType } from "@/lib/llm-provider";
 
 const insertSystemPrompt = `你是一位专业的漫画分镜编辑。
@@ -155,6 +155,12 @@ ${contextInfo}
         characterIds: [characterId],
       });
 
+      // 新分镜跟随前一个分镜所在章节；插在最前面时跟随后一个分镜
+      const chapterId =
+        contextPanels.find((p) => p.panel_order === insert_after_order)?.chapter_id ??
+        contextPanels[0]?.chapter_id ??
+        (await ensureDefaultChapter(tx, project_id));
+
       // 后续 panels 的 order 都要 +1
       await tx.$executeRaw`
         UPDATE panels
@@ -167,6 +173,7 @@ ${contextInfo}
       const created = await tx.panel.create({
         data: {
           project_id,
+          chapter_id: chapterId,
           panel_order: insert_after_order + 1,
           panel_type: panelData.panel_type,
           importance: panelData.importance,

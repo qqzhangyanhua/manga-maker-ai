@@ -37,7 +37,14 @@ vi.mock("@/lib/generation-log", () => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    $transaction: vi.fn(),
+    $executeRaw: vi.fn(),
+    chapter: {
+      findFirst: vi.fn(),
+      create: vi.fn(),
+    },
     project: {
+      findUnique: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       findFirst: vi.fn(),
@@ -76,7 +83,19 @@ describe("POST /api/storyboard", () => {
       count: 1,
       limit: 10,
     });
+
+    // 事务直接在同一个 mock 客户端上执行；项目已有"第一章"
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+      (fn: (tx: typeof prisma) => unknown) => fn(prisma)
+    );
+    (prisma.chapter.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "chapter-1" });
+    (prisma.project.update as ReturnType<typeof vi.fn>).mockImplementation(
+      ({ where }: { where: { id: string } }) => Promise.resolve({ id: where.id, panels: [] })
+    );
   });
+
+  const panelsWritten = () =>
+    (prisma.project.update as ReturnType<typeof vi.fn>).mock.calls[0][0].data.panels.create;
 
   it("should handle missing panel_type by inferring from context", async () => {
     // Mock LLM response with undefined panel_type
@@ -142,9 +161,7 @@ describe("POST /api/storyboard", () => {
     // Verify that prisma.project.create was called
     expect(prisma.project.create).toHaveBeenCalled();
 
-    const createCall = (prisma.project.create as ReturnType<typeof vi.fn>).mock
-      .calls[0][0];
-    const panels = createCall.data.panels.create;
+    const panels = panelsWritten();
 
     // Panel 1: undefined panel_type + dialogue should become "dialogue"
     expect(panels[0].panel_type).toBe("dialogue");
@@ -201,9 +218,7 @@ describe("POST /api/storyboard", () => {
 
     expect(response.status).toBe(200);
 
-    const createCall = (prisma.project.create as ReturnType<typeof vi.fn>).mock
-      .calls[0][0];
-    const panels = createCall.data.panels.create;
+    const panels = panelsWritten();
 
     // Should infer "closeup" from shot_size "特写"
     expect(panels[0].panel_type).toBe("closeup");
@@ -255,9 +270,7 @@ describe("POST /api/storyboard", () => {
     const response = await POST(request);
     expect(response.status).toBe(200);
 
-    const createCall = (prisma.project.create as ReturnType<typeof vi.fn>).mock
-      .calls[0][0];
-    const panels = createCall.data.panels.create;
+    const panels = panelsWritten();
 
     // First panel (index 0) should default to "wide"
     expect(panels[0].panel_type).toBe("wide");
@@ -308,9 +321,7 @@ describe("POST /api/storyboard", () => {
     const response = await POST(request);
     expect(response.status).toBe(200);
 
-    const createCall = (prisma.project.create as ReturnType<typeof vi.fn>).mock
-      .calls[0][0];
-    const panels = createCall.data.panels.create;
+    const panels = panelsWritten();
 
     // Should default to "medium" importance
     expect(panels[0].importance).toBe("medium");
@@ -363,7 +374,6 @@ describe("POST /api/storyboard", () => {
       (callChatCompletionByType as ReturnType<typeof vi.fn>).mockResolvedValue({
         content: JSON.stringify(llmResponse),
       });
-      (prisma.project.update as ReturnType<typeof vi.fn>).mockResolvedValue({ id: storyProject.id, panels: [] });
       (prisma.project.create as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "standalone", panels: [] });
     });
 
@@ -395,10 +405,12 @@ describe("POST /api/storyboard", () => {
 
       expect(response.status).toBe(200);
       expect(data.project.id).toBe("standalone");
-      expect(prisma.project.update).not.toHaveBeenCalled();
       const createCall = (prisma.project.create as ReturnType<typeof vi.fn>).mock.calls[0][0];
       expect(createCall.data.story_id).toBeNull();
       expect(createCall.data.title).toBe("生成标题");
+      const updateCall = (prisma.project.update as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(updateCall.where).toEqual({ id: "standalone" });
+      expect(updateCall.data.description).toBeUndefined();
     });
 
     it("故事还没有主项目时，新项目关联故事", async () => {
@@ -444,13 +456,38 @@ describe("POST /api/storyboard", () => {
     );
 
     expect(response.status).toBe(200);
-    const panels = (prisma.project.create as ReturnType<typeof vi.fn>).mock.calls[0][0].data.panels.create;
+    const panels = panelsWritten();
     expect(panels[0].character_id).toBe("my-character");
     expect(panels[1].character_id).toBeNull();
     expect(prisma.projectCharacter.createMany).toHaveBeenCalledWith({
       data: [{ project_id: "project-123", character_id: "my-character", role: "minor" }],
       skipDuplicates: true,
     });
+  });
+
+  it("分镜挂在项目的第一个章节上，没有章节时建\"第一章\"", async () => {
+    (callChatCompletionByType as ReturnType<typeof vi.fn>).mockResolvedValue({
+      content: JSON.stringify({ project_title: "测试项目", panels: [{ panel_order: 1, description: "a" }] }),
+    });
+    (prisma.project.create as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "project-123", panels: [] });
+    (prisma.chapter.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.project.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ story_id: null });
+    (prisma.chapter.create as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "new-chapter" });
+
+    const response = await POST(
+      new Request("http://localhost/api/storyboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ story: "故事", saveToDb: true }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(prisma.chapter.create).toHaveBeenCalledWith({
+      data: { project_id: "project-123", story_id: null, title: "第一章", chapter_order: 1 },
+      select: { id: true },
+    });
+    expect(panelsWritten()[0].chapter_id).toBe("new-chapter");
   });
 
   it("should return 400 when story is missing", async () => {

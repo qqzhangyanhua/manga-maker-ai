@@ -47,7 +47,7 @@ export async function POST(
     const currentChapter = await prisma.chapter.findUnique({
       where: { id: chapterId },
       include: {
-        story: {
+        project: {
           select: {
             user_id: true,
             title: true,
@@ -61,14 +61,14 @@ export async function POST(
       return NextResponse.json({ error: "章节不存在" }, { status: 404 });
     }
 
-    if (currentChapter.story.user_id !== userId) {
+    if (currentChapter.project.user_id !== userId) {
       return NextResponse.json({ error: "无权访问此章节" }, { status: 403 });
     }
 
     // 3. 获取前一章节
     const previousChapter = await prisma.chapter.findFirst({
       where: {
-        story_id: currentChapter.story_id,
+        project_id: currentChapter.project_id,
         chapter_order: currentChapter.chapter_order - 1,
       },
     });
@@ -143,8 +143,8 @@ export async function POST(
     const analysisPrompt = `你是一个专业的故事编辑，擅长分析章节间的过渡和衔接问题。
 
 故事背景：
-标题：${currentChapter.story.title}
-设定：${currentChapter.story.premise || "未提供"}
+标题：${currentChapter.project.title}
+设定：${currentChapter.project.premise || "未提供"}
 
 前一章节结尾（${previousChapter.title}）：
 ${previousEnding}

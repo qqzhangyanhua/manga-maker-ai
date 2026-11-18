@@ -162,6 +162,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
           orderBy: { panel_order: "asc" },
           select: {
             id: true,
+            chapter_id: true,
             panel_order: true,
             description: true,
             panel_type: true,
@@ -211,6 +212,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       },
       panels: project.panels.map(panel => ({
         id: panel.id,
+        chapter_id: panel.chapter_id,
         panel_order: panel.panel_order,
         description: panel.description,
         panel_type: panel.panel_type,

@@ -94,11 +94,11 @@ export async function POST(
           return;
         }
 
-        // 获取章节及其关联的故事
+        // 获取章节及其所属项目
         const chapter = await prisma.chapter.findUnique({
           where: { id: chapterId },
           include: {
-            story: {
+            project: {
               select: {
                 user_id: true,
                 title: true,
@@ -126,7 +126,7 @@ export async function POST(
         }
 
         // 验证所有权
-        if (chapter.story.user_id !== userId) {
+        if (chapter.project.user_id !== userId) {
           sendEvent(controller, {
             stage: "error",
             current: 0,
@@ -256,12 +256,12 @@ export async function POST(
           {
             chapterTitle: chapter.title,
             chapterSummary: chapter.summary || "",
-            storyTitle: chapter.story.title,
-            genre: chapter.story.genre,
+            storyTitle: chapter.project.title,
+            genre: chapter.project.genre || "",
             panelCount: panel_count,
             styleConfig: {
-              style_reference_image: chapter.story.style_reference_image,
-              comic_style_prompt: chapter.story.comic_style?.prompt_prefix || null,
+              style_reference_image: chapter.project.style_reference_image,
+              comic_style_prompt: chapter.project.comic_style?.prompt_prefix || null,
             },
             // Phase 4: Pass chapterId for enhanced context loading
             chapterId: chapterId,

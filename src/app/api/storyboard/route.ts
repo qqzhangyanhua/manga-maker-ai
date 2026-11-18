@@ -5,7 +5,7 @@ import { Prisma, prisma } from "@/lib/db";
 import { callChatCompletionByType } from "@/lib/llm-provider";
 import { QuotaExceededError, assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
-import { ensureProjectCharacters, filterOwnedCharacterIds, findStoryProject } from "@/lib/project";
+import { ensureDefaultChapter, ensureProjectCharacters, filterOwnedCharacterIds, findStoryProject } from "@/lib/project";
 
 const systemPrompt = `你是一位资深的漫画分镜导演和AI绘画专家。
 
@@ -280,32 +280,39 @@ export async function POST(req: Request) {
           select: { id: true },
         })) !== null;
 
-      const project = fillStoryProject && storyProject
-        ? await prisma.project.update({
-            where: { id: storyProject.id },
-            data: {
-              description: storyProject.description ?? story,
-              style: storyProject.style ?? storyboardStyle ?? style ?? null,
-              updated_at: new Date(),
-              panels: { create: normalizedPanels },
-              script: scriptCreate,
-            },
-            include,
-          })
-        : await prisma.project.create({
-            data: {
-              user_id: payload.userId,
-              title: projectTitle,
-              description: story,
-              style: storyboardStyle ?? style ?? null,
-              status: "draft",
-              // 只有故事还没有主项目时（触发器未部署的库）才关联故事
-              story_id: storyId && !storyProject ? storyId : null,
-              panels: { create: normalizedPanels },
-              script: scriptCreate,
-            },
-            include,
-          });
+      const project = await prisma.$transaction(async (tx) => {
+        const target = fillStoryProject && storyProject
+          ? storyProject
+          : await tx.project.create({
+              data: {
+                user_id: payload.userId,
+                title: projectTitle,
+                description: story,
+                style: storyboardStyle ?? style ?? null,
+                status: "draft",
+                // 只有故事还没有主项目时（触发器未部署的库）才关联故事
+                story_id: storyId && !storyProject ? storyId : null,
+              },
+            });
+        // 分镜必须挂在章节上：用项目的第一个章节，没有就建"第一章"
+        const chapterId = await ensureDefaultChapter(tx, target.id);
+
+        return tx.project.update({
+          where: { id: target.id },
+          data: {
+            ...(fillStoryProject && storyProject
+              ? {
+                  description: storyProject.description ?? story,
+                  style: storyProject.style ?? storyboardStyle ?? style ?? null,
+                }
+              : {}),
+            updated_at: new Date(),
+            panels: { create: normalizedPanels.map((panel) => ({ ...panel, chapter_id: chapterId })) },
+            script: scriptCreate,
+          },
+          include,
+        });
+      });
 
       await ensureProjectCharacters(prisma, {
         projectId: project.id,

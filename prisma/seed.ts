@@ -710,11 +710,17 @@ async function main() {
       }
     });
 
+    // 分镜必须挂在章节上
+    const chapter = await prisma.chapter.create({
+      data: { project_id: project.id, story_id: story.id, title: '第一章', chapter_order: 1 }
+    });
+
     // Create panels
     for (const panel of sample.panels) {
       await prisma.panel.create({
         data: {
           project_id: project.id,
+          chapter_id: chapter.id,
           panel_order: panel.panel_order,
           panel_type: panel.panel_type,
           importance: panel.importance,

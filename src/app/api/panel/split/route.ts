@@ -164,6 +164,7 @@ export async function POST(req: Request) {
       const created1 = await tx.panel.create({
         data: {
           project_id: panel.project_id,
+          chapter_id: panel.chapter_id,
           panel_order: panel.panel_order,
           panel_type: splitData.panel1.panel_type,
           importance: splitData.panel1.importance,
@@ -185,6 +186,7 @@ export async function POST(req: Request) {
       const created2 = await tx.panel.create({
         data: {
           project_id: panel.project_id,
+          chapter_id: panel.chapter_id,
           panel_order: panel.panel_order + 1,
           panel_type: splitData.panel2.panel_type,
           importance: splitData.panel2.importance,

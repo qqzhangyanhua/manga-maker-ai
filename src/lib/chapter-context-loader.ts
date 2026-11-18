@@ -21,7 +21,7 @@ export interface ChapterContext {
     chapter_order: number;
   };
 
-  // Story information
+  // 故事设定信息（来源于章节所属项目）
   story: {
     id: string;
     title: string;
@@ -93,11 +93,11 @@ export async function loadChapterContext(
     includeCharacterStates = true,
   } = options;
 
-  // 1. Get current chapter with story
+  // 1. 获取当前章节及所属项目
   const currentChapter = await prisma.chapter.findUnique({
     where: { id: chapterId },
     include: {
-      story: {
+      project: {
         select: {
           id: true,
           user_id: true,
@@ -115,12 +115,12 @@ export async function loadChapterContext(
     throw new Error(`Chapter not found: ${chapterId}`);
   }
 
-  const { chapter_order, story_id, story } = currentChapter;
+  const { chapter_order, project_id, project } = currentChapter;
 
   // 2. Load recent chapters (last N before current)
   const recentChapters = await prisma.chapter.findMany({
     where: {
-      story_id,
+      project_id,
       chapter_order: {
         gte: Math.max(1, chapter_order - recentChaptersCount),
         lt: chapter_order,
@@ -139,7 +139,7 @@ export async function loadChapterContext(
   let firstChapter: ChapterContext["firstChapter"] = null;
   if (includeFirstChapter && chapter_order > recentChaptersCount + 1) {
     firstChapter = await prisma.chapter.findFirst({
-      where: { story_id, chapter_order: 1 },
+      where: { project_id, chapter_order: 1 },
       select: {
         title: true,
         summary: true,
@@ -154,7 +154,7 @@ export async function loadChapterContext(
   if (includeKeyChapters) {
     keyChapters = await prisma.chapter.findMany({
       where: {
-        story_id,
+        project_id,
         is_key_chapter: true,
         chapter_order: { lt: chapter_order }, // Only chapters before current
       },
@@ -174,7 +174,7 @@ export async function loadChapterContext(
   if (includeCharacterStates && chapter_order > 1) {
     const previousChapter = await prisma.chapter.findFirst({
       where: {
-        story_id,
+        project_id,
         chapter_order: chapter_order - 1,
       },
       select: { id: true },
@@ -213,12 +213,12 @@ export async function loadChapterContext(
       chapter_order: currentChapter.chapter_order,
     },
     story: {
-      id: story.id,
-      title: story.title,
-      premise: story.premise,
-      genre: story.genre,
-      outline: story.outline as Record<string, unknown>,
-      comic_style_id: story.comic_style_id,
+      id: project.id,
+      title: project.title,
+      premise: project.premise || "",
+      genre: project.genre || "",
+      outline: (project.outline ?? {}) as Record<string, unknown>,
+      comic_style_id: project.comic_style_id,
     },
     firstChapter,
     recentChapters,

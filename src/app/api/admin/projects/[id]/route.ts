@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/db";
+import { deleteProjectWithStory } from "@/lib/project";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -34,10 +35,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // 删除项目（级联删除面板、脚本等）
-    await prisma.project.delete({
-      where: { id },
-    });
+    // 删除项目（级联删除章节、面板、脚本等）；故事主项目连同故事一起删除
+    await deleteProjectWithStory(prisma, id);
 
     return NextResponse.json({
       success: true,

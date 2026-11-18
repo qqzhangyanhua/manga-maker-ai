@@ -43,7 +43,7 @@ export async function POST(
     const chapter = await prisma.chapter.findUnique({
       where: { id: chapterId },
       include: {
-        story: {
+        project: {
           select: {
             user_id: true,
             is_serialized: true,
@@ -56,7 +56,7 @@ export async function POST(
       return NextResponse.json({ error: "章节不存在" }, { status: 404 });
     }
 
-    if (chapter.story.user_id !== userId) {
+    if (chapter.project.user_id !== userId) {
       return NextResponse.json({ error: "无权访问此章节" }, { status: 403 });
     }
 
@@ -67,10 +67,10 @@ export async function POST(
       );
     }
 
-    if (chapter.story.is_serialized) {
+    if (chapter.project.is_serialized) {
       const publishedCount = await prisma.chapter.count({
         where: {
-          story_id: chapter.story_id,
+          project_id: chapter.project_id,
           publish_status: "published",
         },
       });
@@ -177,7 +177,7 @@ export async function DELETE(
     const chapter = await prisma.chapter.findUnique({
       where: { id: chapterId },
       include: {
-        story: {
+        project: {
           select: {
             user_id: true,
           },
@@ -189,7 +189,7 @@ export async function DELETE(
       return NextResponse.json({ error: "章节不存在" }, { status: 404 });
     }
 
-    if (chapter.story.user_id !== userId) {
+    if (chapter.project.user_id !== userId) {
       return NextResponse.json({ error: "无权访问此章节" }, { status: 403 });
     }
 

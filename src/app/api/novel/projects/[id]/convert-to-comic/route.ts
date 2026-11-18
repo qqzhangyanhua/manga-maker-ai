@@ -168,6 +168,8 @@ export async function POST(
       isNewStory,
     });
 
+    const comicProject = await ensureStoryProject(prisma, story.id);
+
     // 创建 Chapters（基于选中的场景）
     const chaptersCreated: Array<{ id: string; title: string; order: number }> = [];
     // ✅ 如果是追加模式，从现有章节的最大 order + 1 开始
@@ -198,6 +200,7 @@ export async function POST(
       const chapter = await prisma.chapter.create({
         data: {
           story_id: story.id,
+          project_id: comicProject.id,
           title: novelChapter?.title || outline?.title || `第${sceneSelection.chapter_number}章`,
           summary,
           chapter_order: chapterOrder,
@@ -294,8 +297,6 @@ export async function POST(
       charactersLinked,
       durationMs: Date.now() - startedAt,
     });
-
-    const comicProject = await ensureStoryProject(prisma, story.id);
 
     return NextResponse.json({
       success: true,

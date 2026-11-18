@@ -17,6 +17,7 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    $transaction: vi.fn(),
     project: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
@@ -27,6 +28,7 @@ vi.mock("@/lib/db", () => ({
     },
     story: {
       findUnique: vi.fn(),
+      delete: vi.fn(),
     },
   },
 }));
@@ -189,6 +191,9 @@ describe("API /api/project", () => {
   });
 
   it("DELETE 成功时应删除项目", async () => {
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+      (fn: (tx: typeof prisma) => unknown) => fn(prisma)
+    );
     (prisma.project.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: projectId,
       user_id: authUserId,
@@ -210,5 +215,25 @@ describe("API /api/project", () => {
     expect(prisma.project.delete).toHaveBeenCalledWith({
       where: { id: projectId },
     });
+    expect(prisma.story.delete).not.toHaveBeenCalled();
+  });
+
+  it("DELETE 故事主项目时连同故事一起删除", async () => {
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+      (fn: (tx: typeof prisma) => unknown) => fn(prisma)
+    );
+    (prisma.project.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: projectId,
+      user_id: authUserId,
+      story_id: storyId,
+    });
+
+    const response = await DELETE(
+      new Request(`http://localhost/api/project?id=${projectId}`, { method: "DELETE" })
+    );
+
+    expect(response.status).toBe(200);
+    expect(prisma.story.delete).toHaveBeenCalledWith({ where: { id: storyId } });
+    expect(prisma.project.delete).toHaveBeenCalledWith({ where: { id: projectId } });
   });
 });

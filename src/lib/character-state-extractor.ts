@@ -59,9 +59,9 @@ export async function extractCharacterStates(
   const chapter = await prisma.chapter.findUnique({
     where: { id: chapterId },
     include: {
-      story: {
+      project: {
         include: {
-          story_characters: {
+          project_characters: {
             include: {
               character: {
                 select: {
@@ -114,9 +114,8 @@ export async function extractCharacterStates(
   }
 
   // 3. 准备角色列表
-  const storyCharacters = chapter.story.story_characters.map(
-    (sc) => sc.character.name
-  );
+  const projectCharacters = chapter.project.project_characters;
+  const storyCharacters = projectCharacters.map((pc) => pc.character.name);
 
   const userPrompt = `
 章节标题：${chapter.title}
@@ -169,7 +168,7 @@ ${chapterContent}
 
   for (const charData of extractedData.characters) {
     // 查找角色ID
-    const storyChar = chapter.story.story_characters.find(
+    const storyChar = projectCharacters.find(
       (sc) => sc.character.name === charData.characterName
     );
 
@@ -253,14 +252,14 @@ ${chapterContent}
 }
 
 /**
- * 批量提取故事所有章节的角色状态
+ * 批量提取项目所有章节的角色状态
  */
-export async function batchExtractStoryStates(
-  storyId: string,
+export async function batchExtractProjectStates(
+  projectId: string,
   userId?: string
 ): Promise<void> {
   const chapters = await prisma.chapter.findMany({
-    where: { story_id: storyId },
+    where: { project_id: projectId },
     orderBy: { chapter_order: "asc" },
     select: { id: true, title: true },
   });

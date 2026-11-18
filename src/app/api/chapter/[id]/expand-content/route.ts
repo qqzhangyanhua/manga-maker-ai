@@ -79,7 +79,7 @@ export async function POST(
     const chapter = await prisma.chapter.findUnique({
       where: { id: chapterId },
       include: {
-        story: {
+        project: {
           select: {
             id: true,
             user_id: true,
@@ -99,7 +99,7 @@ export async function POST(
       );
     }
 
-    if (chapter.story.user_id !== userId) {
+    if (chapter.project.user_id !== userId) {
       return NextResponse.json(
         { error: "无权限访问此章节" },
         { status: 403 }
@@ -144,7 +144,7 @@ export async function POST(
 
     const previousChapters = await prisma.chapter.findMany({
       where: {
-        story_id: chapter.story_id,
+        project_id: chapter.project_id,
         chapter_order: { lt: chapter.chapter_order },
       },
       orderBy: { chapter_order: "asc" },
@@ -159,12 +159,12 @@ export async function POST(
     // 6. Build prompt
     const contextParts = [
       `【故事背景】`,
-      `标题: ${chapter.story.title}`,
-      `类型: ${chapter.story.genre}`,
-      `前提: ${chapter.story.premise}`,
+      `标题: ${chapter.project.title}`,
+      `类型: ${chapter.project.genre || "未设定"}`,
+      `前提: ${chapter.project.premise || "未设定"}`,
       ``,
       `【故事大纲】`,
-      JSON.stringify(chapter.story.outline, null, 2),
+      JSON.stringify(chapter.project.outline, null, 2),
     ];
 
     if (previousChapters.length > 0) {

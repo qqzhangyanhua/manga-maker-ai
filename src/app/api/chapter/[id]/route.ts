@@ -38,7 +38,11 @@ export async function GET(
     const chapter = await prisma.chapter.findUnique({
       where: { id: chapterId },
       include: {
+        // story 仅为响应兼容保留，独立项目的章节为 null
         story: {
+          select: { user_id: true },
+        },
+        project: {
           select: { user_id: true },
         },
         panels: {
@@ -51,7 +55,7 @@ export async function GET(
       return NextResponse.json({ error: "章节不存在" }, { status: 404 });
     }
 
-    if (chapter.story.user_id !== userId) {
+    if (chapter.project.user_id !== userId) {
       return NextResponse.json({ error: "无权访问此章节" }, { status: 403 });
     }
 
@@ -119,7 +123,7 @@ export async function PATCH(
     const chapter = await prisma.chapter.findUnique({
       where: { id: chapterId },
       include: {
-        story: {
+        project: {
           select: {
             user_id: true,
           },
@@ -131,7 +135,7 @@ export async function PATCH(
       return NextResponse.json({ error: "章节不存在" }, { status: 404 });
     }
 
-    if (chapter.story.user_id !== userId) {
+    if (chapter.project.user_id !== userId) {
       return NextResponse.json({ error: "无权修改此章节" }, { status: 403 });
     }
 
@@ -207,7 +211,7 @@ export async function DELETE(
     const chapter = await prisma.chapter.findUnique({
       where: { id: chapterId },
       include: {
-        story: {
+        project: {
           select: { user_id: true },
         },
       },
@@ -217,7 +221,7 @@ export async function DELETE(
       return NextResponse.json({ error: "章节不存在" }, { status: 404 });
     }
 
-    if (chapter.story.user_id !== userId) {
+    if (chapter.project.user_id !== userId) {
       return NextResponse.json({ error: "无权删除此章节" }, { status: 403 });
     }
 

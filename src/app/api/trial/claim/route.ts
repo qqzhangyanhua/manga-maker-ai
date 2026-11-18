@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { ensureStoryProject } from "@/lib/project";
+import { ensureDefaultChapter, ensureStoryProject } from "@/lib/project";
 import { getTrialResult, markTrialClaimed } from "@/lib/trial-store";
 
 interface ClaimRequest {
@@ -107,11 +107,13 @@ export async function POST(
         },
       });
 
-      // 3. 创建分镜
+      // 3. 创建分镜（挂在项目的第一章）
+      const chapterId = await ensureDefaultChapter(tx, project.id);
       const panelPromises = trialResult.panels.map((panel, index) =>
         tx.panel.create({
           data: {
             project_id: project.id,
+            chapter_id: chapterId,
             panel_order: index + 1,
             panel_type: "medium",
             importance: "medium",

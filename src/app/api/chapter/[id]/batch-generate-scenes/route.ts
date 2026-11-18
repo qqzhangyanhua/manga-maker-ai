@@ -88,7 +88,7 @@ export async function POST(
     const chapter = await prisma.chapter.findUnique({
       where: { id: chapterId },
       include: {
-        story: {
+        project: {
           select: {
             id: true,
             user_id: true,
@@ -115,7 +115,7 @@ export async function POST(
       return NextResponse.json({ error: "章节不存在" }, { status: 404 });
     }
 
-    if (chapter.story.user_id !== userId) {
+    if (chapter.project.user_id !== userId) {
       return NextResponse.json({ error: "无权限" }, { status: 403 });
     }
 
@@ -156,7 +156,7 @@ export async function POST(
     });
 
     // Get comic style prompt
-    const styleId = comic_style_id || chapter.story.comic_style_id;
+    const styleId = comic_style_id || chapter.project.comic_style_id;
     let comicStylePrompt: string | null = null;
 
     // Custom prompt takes priority

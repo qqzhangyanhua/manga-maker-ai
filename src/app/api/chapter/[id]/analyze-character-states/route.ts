@@ -93,7 +93,7 @@ export async function POST(
     const chapter = await prisma.chapter.findUnique({
       where: { id: chapterId },
       include: {
-        story: {
+        project: {
           select: {
             id: true,
             user_id: true,
@@ -110,7 +110,7 @@ export async function POST(
       );
     }
 
-    if (chapter.story.user_id !== userId) {
+    if (chapter.project.user_id !== userId) {
       return NextResponse.json(
         { error: "无权限访问此章节" },
         { status: 403 }
@@ -124,9 +124,9 @@ export async function POST(
       );
     }
 
-    // 3. Get story characters (from story_characters relation)
-    const storyCharacters = await prisma.storyCharacter.findMany({
-      where: { story_id: chapter.story_id },
+    // 3. 获取项目角色（故事主项目的角色由触发器与故事角色同步）
+    const storyCharacters = await prisma.projectCharacter.findMany({
+      where: { project_id: chapter.project_id },
       include: {
         character: {
           select: {
@@ -148,7 +148,7 @@ export async function POST(
     // 4. Get previous chapter states for context
     const previousChapter = await prisma.chapter.findFirst({
       where: {
-        story_id: chapter.story_id,
+        project_id: chapter.project_id,
         chapter_order: chapter.chapter_order - 1,
       },
       include: {
@@ -166,7 +166,7 @@ export async function POST(
     const characterList = storyCharacters.map((sc) => sc.character.name).join("、");
 
     const contextParts = [
-      `【故事标题】${chapter.story.title}`,
+      `【故事标题】${chapter.project.title}`,
       ``,
       `【章节信息】`,
       `${chapter.title}`,

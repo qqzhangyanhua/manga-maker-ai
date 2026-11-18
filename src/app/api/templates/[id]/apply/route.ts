@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { ensureStoryProject } from "@/lib/project";
+import { ensureDefaultChapter, ensureStoryProject } from "@/lib/project";
 import type { SuccessResponse } from "@/types/template";
 
 interface RouteParams {
@@ -182,7 +182,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       // Get existing panels to reorder
       const existingPanels = await prisma.panel.findMany({
         where: { project_id: projectId },
-        select: { id: true, panel_order: true },
+        select: { id: true, panel_order: true, chapter_id: true },
         orderBy: { panel_order: "asc" }
       });
 
@@ -204,12 +204,17 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
           });
         }
 
-        // 2. Create new panels from template
+        // 2. Create new panels from template（跟随插入位置前一个分镜的章节，插在最前面时跟随后一个）
+        const chapterId =
+          existingPanels.find(p => p.panel_order === insertPosition)?.chapter_id ??
+          existingPanels.find(p => p.panel_order > insertPosition)?.chapter_id ??
+          (await ensureDefaultChapter(tx, projectId));
         const newPanels = await Promise.all(
           templateData.panels.map((panelConfig, index) =>
             tx.panel.create({
               data: {
                 project_id: projectId,
+                chapter_id: chapterId,
                 panel_order: insertPosition + 1 + index,
                 panel_type: panelConfig.panel_type || "medium",
                 camera_angle: panelConfig.camera_angle,
@@ -251,7 +256,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
           id: { in: targetPanelIds },
           project_id: projectId
         },
-        select: { id: true, panel_order: true },
+        select: { id: true, panel_order: true, chapter_id: true },
         orderBy: { panel_order: "asc" }
       });
 
@@ -292,6 +297,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             tx.panel.create({
               data: {
                 project_id: projectId,
+                // 替换后的分镜放在被替换的第一个分镜所在章节
+                chapter_id: targetPanels[0].chapter_id,
                 panel_order: minOrder + index,
                 panel_type: panelConfig.panel_type || "medium",
                 camera_angle: panelConfig.camera_angle,

@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { Prisma, prisma } from "@/lib/db";
+import { ensureDefaultChapter } from "@/lib/project";
 import type { SuccessResponse, RestoreVersionInput } from "@/types/template";
 
 interface RouteParams {
@@ -128,6 +129,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             orderBy: { panel_order: "asc" },
             select: {
               id: true,
+              chapter_id: true,
               panel_order: true,
               description: true,
               panel_type: true,
@@ -160,6 +162,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
           },
           panels: currentProject.panels.map(p => ({
             id: p.id,
+            chapter_id: p.chapter_id,
             panel_order: p.panel_order,
             description: p.description,
             panel_type: p.panel_type,
@@ -213,6 +216,12 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       // 3. Recreate panels from version
       if (panelItems.length > 0) {
         const asString = (value: unknown) => (typeof value === "string" ? value : null);
+        // 版本里记录的章节还在项目里就放回原章节，否则放到默认章节
+        const projectChapterIds = new Set(
+          (await tx.chapter.findMany({ where: { project_id: projectId }, select: { id: true } })).map((c) => c.id)
+        );
+        const needsDefault = panelItems.some((panel) => !projectChapterIds.has(asString(panel.chapter_id) ?? ""));
+        const defaultChapterId = needsDefault ? await ensureDefaultChapter(tx, projectId) : null;
         await tx.panel.createMany({
           data: panelItems.map((panel, index) => {
             const panelOrder = typeof panel.panel_order === "number" ? panel.panel_order : index + 1;
@@ -220,8 +229,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             const importance = typeof panel.importance === "string" ? panel.importance : "medium";
             const description = typeof panel.description === "string" ? panel.description : "无描述";
 
+            const savedChapterId = asString(panel.chapter_id);
+
             return {
               project_id: projectId,
+              chapter_id: savedChapterId && projectChapterIds.has(savedChapterId) ? savedChapterId : defaultChapterId,
               panel_order: panelOrder,
               description,
               panel_type: panelType,

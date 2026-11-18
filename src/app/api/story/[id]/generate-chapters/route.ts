@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { generateChapters } from "@/lib/chapter-generator";
 import { assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
+import { ensureStoryProject } from "@/lib/project";
 
 /**
  * POST /api/story/[id]/generate-chapters
@@ -111,12 +112,14 @@ export async function POST(
       });
     }
 
-    // 批量创建章节
+    // 批量创建章节（挂在故事主项目上）
+    const project = await ensureStoryProject(prisma, storyId);
     const chapters = await prisma.$transaction(
       generatedChapters.map((chapter) =>
         prisma.chapter.create({
           data: {
             story_id: storyId,
+            project_id: project.id,
             title: chapter.title,
             summary: chapter.summary,
             chapter_order: chapter.chapter_order,
