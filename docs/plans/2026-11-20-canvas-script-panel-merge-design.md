@@ -1,7 +1,7 @@
 # 画布剧本片段/镜头设计与项目剧本、分镜合并：设计文档
 
 - 日期：2026-11-20
-- 状态：已确认（2026-11-20，用户选择方案 A；第 6 节待定项已决策）；5c-1 已完成（2026-11-21）
+- 状态：已确认（2026-11-20，用户选择方案 A；第 6 节待定项已决策）；5c-1 至 5c-4 已完成（2026-11-26），画布读写已全部切换到项目分镜
 - 关联：ADR-0001（项目吸收故事）、ADR-0002（角色库 + 项目角色）、ADR-0003（小说作为项目来源）、`docs/plans/2026-11-18-project-root-alignment-plan.md`
 
 ## 1. 问题
@@ -104,6 +104,16 @@
 
 - 画布 API 逐个改为读 `Panel`/`PanelVariant`/`panel_pipeline_states`，前端 `ShotDesign` 类型换成分镜类型。按接口分批（详情面板 -> 生成镜头 -> 生成图片/九宫格 -> 最终漫画）。
 - 全部切换并稳定一个发布周期后，在阶段 6 删除 `shot_designs`、`comic_panel_results` 及双写代码。
+- 2026-11-25 用户确认：
+  - 未归属项目的时间线先在画布上创建或选择项目才能使用画布（不保留两套读取路径，也不自动建项目）。锚定时触发器把已有镜头、流程状态、候选图物化到项目侧，不丢数据。
+  - 5c-4 做完整切换：画布读写都改到分镜、分镜角色、流程状态、候选图，接口按分镜 ID 寻址；切换后去掉镜头 -> 分镜的同步触发器，`shot_designs`、`comic_panel_results` 冻结，阶段 6 删除。读写不能混用，分多次提交、一起推送。
+- 已实现（2026-11-26）：
+  - 迁移 `20261126_canvas_panel_switch_phase5c4.sql`（远端已执行，含回滚）：`panel_characters` 支持待绑定小说角色（`pending_character_key`，画布的 unbound-xxx 临时 ID），提示词合成与九宫格记录可直接挂分镜，删除剧本片段级联删除其画布分镜。5c-3 的镜头 -> 分镜触发器保留，只用于未归属时间线锚定时把旧镜头导入为分镜。
+  - 数据层 `src/lib/canvas/*`：context（未归属抛 409）、shot-store（镜头/最终漫画的分镜读写 + 计数刷新）、pending-characters（待绑定角色转正）、shot-mapping、route-error（409 响应）。
+  - 接口全部按分镜 ID 寻址：镜头/最终漫画详情、镜头设计 PATCH/update-image/generate-image、compose-prompt、refine-prompt、generate-nine-grid、generate-shots、generate-finals、timeline chapters、novel images、角色升级（升级时待绑定角色一并转正）。未归属时间线一律 409 `PROJECT_REQUIRED`。
+  - 前端：DetailPanel 类型换成 `CanvasShotJson`/`CanvasFinalJson`，画布页面对未归属时间线显示"请先创建或选择漫画项目"占位，不再渲染画布。
+  - 顺带修复：画布页面根容器 `min-h-screen` 改 `h-screen`，否则 `flex-1` 子级高度不确定，ReactFlow 的 `h-full` 解析为 0，画布整片不渲染（origin/main 已有问题）。
+  - 验证：tsc 仅基线 2 错误、lint 通过、vitest 与基线同一批失败、接口实测 23/23、浏览器实测（镜头分组/最终漫画面板/未归属门槛）通过。
 
 ## 5. 验证
 

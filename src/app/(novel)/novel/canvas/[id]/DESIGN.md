@@ -2,6 +2,7 @@
 
 > 文件路径: `src/app/(novel)/novel/canvas/[id]/page.tsx`
 > 生成日期: 2026-01-24
+> 更新: 2026-11-26 阶段 5c-4 后，画布读写切换到项目分镜（`panels`/`panel_characters`/`panel_pipeline_states`/`panel_variants`），镜头即分镜；`shot_designs`、`comic_panel_results` 冻结待删。场景图阶段已移除，本文部分流程描述以此为背景，细节以代码为准。
 
 ---
 
@@ -137,7 +138,7 @@ interface ChapterSummary {
 [Stage 2: 镜头规划] POST /api/canvas/chapter/[id]/generate-shots
     → novel-backend: POST /canvas/plan-shots
     → LLM: 为每个片段设计 2-5 个镜头
-    ← ShotDesign[]
+    ← Panel[]（画布分镜，segment_id 关联剧本片段）
     ↓
 [Stage 3: 场景图] POST /api/canvas/chapter/[id]/generate-scenes
     → novel-backend: POST /canvas/generate-scenes (提示词优化)
@@ -306,7 +307,7 @@ generateImage("panel", finalPrompt, userId, {
   width: 1024,
   height: 768,
   metadata: {
-    shot_design_id: string,
+    panel_id: string,
     script_segment_id: string,
     chapter_id: string,
     type: "canvas_shot",
@@ -348,7 +349,7 @@ interface ComicStyle {
 
 1. **项目级别**: 从 Novel Project 绑定的角色库选择
 2. **章节级别**: TimelineChapter 存储 `character_ids[]`
-3. **镜头级别**: ShotDesign 存储 `character_ids[]`
+3. **镜头级别**: 画布分镜通过 `panel_characters` 关联角色（支持待绑定小说角色，加入角色库时转正）
 
 ### 8.2 参考图获取流程
 
