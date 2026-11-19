@@ -256,7 +256,7 @@ export function GenerateShotImageDialog({
             <Label className="text-sm font-medium text-zinc-300">镜头信息</Label>
             <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3 space-y-2">
               <div className="text-sm text-white">
-                镜头 {shotInfo?.shot_order ?? "-"}
+                镜头 {shotInfo?.panel_order ?? "-"}
               </div>
               <div className="flex flex-wrap gap-1.5">
                 <span className="px-2 py-0.5 bg-blue-900/30 border border-blue-800/50 rounded text-xs text-blue-300">
@@ -270,7 +270,7 @@ export function GenerateShotImageDialog({
                 </span>
               </div>
               <div className="text-xs text-zinc-400 line-clamp-2">
-                {shotInfo?.shot_description || "暂无镜头描述"}
+                {shotInfo?.description || "暂无分镜描述"}
               </div>
             </div>
           </div>

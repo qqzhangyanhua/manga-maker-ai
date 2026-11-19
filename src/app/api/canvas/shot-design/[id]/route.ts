@@ -9,7 +9,8 @@ import { z } from "zod";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getCanvasShotForUser, updateCanvasShot } from "@/lib/canvas";
-import type { CanvasShotPatch } from "@/lib/canvas";
+import type { CanvasShotPatch, PanelCastWrite } from "@/lib/canvas";
+import { ApiError } from "@/lib/api-helpers";
 import { canvasErrorResponse } from "@/lib/canvas/route-error";
 
 interface RouteParams {
@@ -22,20 +23,24 @@ const nonEmpty = z
   .optional()
   .transform((value) => (value ? value : undefined));
 const stringList = z.array(z.string()).optional();
+const castMember = z.object({
+  project_character_id: z.string().uuid(),
+  outfit_id: z.string().uuid().nullable().optional(),
+  expression: z.string().nullable().optional(),
+});
 
 const ShotPatchSchema = z.object({
   camera_angle: nonEmpty,
   shot_size: nonEmpty,
   panel_type: nonEmpty,
-  shot_description: nonEmpty,
+  description: nonEmpty,
   composition_hint: nonEmpty,
   location_key: z.string().optional(),
   prompt: nonEmpty,
   negative_prompt: z.string().nullable().optional(),
   scene_id: z.string().nullable().optional(),
-  character_ids: stringList,
-  expression_types: stringList,
-  outfit_ids: stringList,
+  /** 传了就整体替换出场角色。只接受项目角色。 */
+  characters: z.array(castMember).optional(),
   character_prompt_template_ids: stringList,
   character_prompt_status: nonEmpty,
   final_prompt_status: nonEmpty,
@@ -69,7 +74,18 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     }
 
     const context = await getCanvasShotForUser(prisma, id, payload.userId);
-    const patch: CanvasShotPatch = parsed.data;
+    const data = parsed.data;
+    const characters: PanelCastWrite[] | undefined = data.characters?.map((row) => {
+      if (!row.project_character_id) {
+        throw new ApiError("出场角色必须是项目角色", 400, "PROJECT_CHARACTER_REQUIRED");
+      }
+      return {
+        project_character_id: row.project_character_id,
+        outfit_id: row.outfit_id ?? null,
+        expression: row.expression ?? null,
+      };
+    });
+    const patch: CanvasShotPatch = { ...data, characters };
     await updateCanvasShot(prisma, context, payload.userId, patch);
     const { shot } = await getCanvasShotForUser(prisma, id, payload.userId);
 

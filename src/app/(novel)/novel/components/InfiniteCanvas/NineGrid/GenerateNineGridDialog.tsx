@@ -62,7 +62,7 @@ function ShotPreviewCard({
         </Badge>
       </div>
       <p className="text-zinc-400 line-clamp-2">
-        {shot.shot_description || shot.prompt || "无描述"}
+        {shot.description || shot.prompt || "无描述"}
       </p>
     </div>
   );

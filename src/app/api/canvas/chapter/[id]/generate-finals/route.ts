@@ -21,7 +21,7 @@ import { checkRateLimit } from "@/lib/security/rate-limiter";
 import { ApiError } from "@/lib/api-helpers";
 import { canvasErrorResponse } from "@/lib/canvas/route-error";
 import type { ShotInput } from "./helpers";
-import { fetchChapterData, processComicPanels, updateChapterStatus } from "./helpers";
+import { fetchChapterData, libraryCharacterIds, processComicPanels, updateChapterStatus } from "./helpers";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -70,7 +70,15 @@ export async function POST(req: Request, { params }: RouteParams) {
 
     // 1. 获取章节数据
     const chapterData = await fetchChapterData(chapterId, payload.userId);
-    const { timelineChapter, allShots, segmentMap, characterMap, characterImageMap, chapterCharacterIds } = chapterData;
+    const {
+      timelineChapter,
+      allShots,
+      segmentMap,
+      characterMap,
+      characterImageMap,
+      chapterCharacterIds,
+      libraryIdByProjectCharacter,
+    } = chapterData;
 
     logInfo("章节数据获取成功", {
       chapterId,
@@ -104,12 +112,12 @@ export async function POST(req: Request, { params }: RouteParams) {
 
     for (const shot of allShots) {
       // 如果镜头没有预设角色，需要 LLM 识别
-      if (shot.character_ids.length === 0) {
-        const segment = segmentMap.get(shot.script_segment_id);
+      if (libraryCharacterIds(shot, libraryIdByProjectCharacter).length === 0) {
+        const segment = segmentMap.get(shot.segment_id);
         shotsNeedingIdentification.push({
           shotId: shot.id,
           dialogue: segment?.dialogue ?? null,
-          description: shot.shot_description || segment?.scene_description || "",
+          description: shot.description || segment?.scene_description || "",
         });
       }
     }
@@ -164,9 +172,9 @@ export async function POST(req: Request, { params }: RouteParams) {
 
     // 3.3 构建镜头输入数据（直接从画布镜头生成，不依赖场景图）
     const shotInputs: ShotInput[] = allShots.map((shot) => {
-      const segment = segmentMap.get(shot.script_segment_id);
+      const segment = segmentMap.get(shot.segment_id);
       // 优先使用预设的角色，否则使用 LLM 识别的角色
-      let effectiveCharacterIds = shot.character_ids;
+      let effectiveCharacterIds = libraryCharacterIds(shot, libraryIdByProjectCharacter);
       if (effectiveCharacterIds.length === 0) {
         effectiveCharacterIds = identifiedCharactersMap.get(shot.id) || [];
       }
@@ -188,7 +196,7 @@ export async function POST(req: Request, { params }: RouteParams) {
 
       return {
         shot_id: shot.id,
-        shot_prompt: shot.prompt || shot.shot_description || segment?.scene_description || "",
+        shot_prompt: shot.prompt || shot.description || segment?.scene_description || "",
         dialogue: segment?.dialogue ?? null,
         character_names: shotCharacterNames,
         character_reference_images: allReferenceImages,

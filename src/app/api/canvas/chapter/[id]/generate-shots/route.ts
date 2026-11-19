@@ -13,7 +13,7 @@ import {
   resolveCharactersForTimeline,
   formatForPlanShots,
 } from "@/lib/canvas/character-resolver";
-import { createCanvasShots, getAnchoredCanvasChapter, isUuid, refreshCanvasCounters } from "@/lib/canvas";
+import { createCanvasShots, getAnchoredCanvasChapter, refreshCanvasCounters } from "@/lib/canvas";
 import type { AnchoredCanvasChapter, NewCanvasShot } from "@/lib/canvas";
 import { canvasErrorResponse } from "@/lib/canvas/route-error";
 
@@ -263,7 +263,16 @@ export async function POST(req: Request, { params }: RouteParams) {
       pendingNames,
     });
     const totalShots = allShots.length;
-    const allChapterCharacterIds = new Set(allShots.flatMap((shot) => shot.character_ids).filter(isUuid));
+    const projectCharacterIds = Array.from(new Set(allShots.flatMap((shot) => (
+      shot.characters.flatMap((row) => (row.project_character_id ? [row.project_character_id] : []))
+    ))));
+    const linkedCharacters = projectCharacterIds.length
+      ? await prisma.projectCharacter.findMany({
+          where: { id: { in: projectCharacterIds } },
+          select: { character_id: true },
+        })
+      : [];
+    const allChapterCharacterIds = new Set(linkedCharacters.map((row) => row.character_id));
 
     // 更新章节状态与统计
     await prisma.timelineChapter.update({

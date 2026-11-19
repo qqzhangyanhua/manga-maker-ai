@@ -63,10 +63,10 @@ interface FinalDialogState {
  * 单镜头生成弹窗状态
  */
 export interface ShotGenerateDialogShotInfo {
-  shot_order: number;
+  panel_order: number;
   camera_angle: string;
   shot_size: string;
-  shot_description: string;
+  description: string;
   panel_type?: string;
 }
 

@@ -106,8 +106,8 @@ export const UpdateShotDesignRequestSchema = z.object({
   camera_angle: CameraAngleSchema.optional(),
   shot_size: ShotSizeSchema.optional(),
   panel_type: PanelTypeSchema.optional(),
-  shot_description: z.string().max(500).optional().openapi({
-    description: "镜头描述",
+  description: z.string().max(500).optional().openapi({
+    description: "分镜描述",
   }),
   composition_hint: z.string().max(500).optional().openapi({
     description: "构图提示",
@@ -115,17 +115,15 @@ export const UpdateShotDesignRequestSchema = z.object({
   location_key: z.string().optional().openapi({
     description: "场景地点标识",
   }),
-  character_ids: z.array(z.string()).optional().openapi({
-    description: "角色库角色 ID，或待绑定小说角色的临时 ID（unbound-xxx）；传了即整体替换镜头角色",
+  characters: z.array(z.object({
+    project_character_id: z.string().uuid().openapi({ description: "项目角色 ID" }),
+    outfit_id: z.string().uuid().nullable().optional().openapi({ description: "这一格的服装 ID" }),
+    expression: z.string().nullable().optional().openapi({ description: "这一格的表情" }),
+  })).optional().openapi({
+    description: "有序的出场项目角色。传了即整体替换；空数组清空出场角色。不接受待绑定。",
   }),
   scene_id: z.string().uuid().nullable().optional().openapi({
     description: "关联场景 ID",
-  }),
-  expression_types: z.array(z.string()).optional().openapi({
-    description: "角色表情，与 character_ids 按位置一一对应",
-  }),
-  outfit_ids: z.array(z.string()).optional().openapi({
-    description: "角色服装 ID，与 character_ids 按位置一一对应",
   }),
   prompt: z.string().max(2000).optional().openapi({
     description: "AI 生成提示词",
@@ -315,12 +313,12 @@ export const GenerateScriptResponseSchema = z.object({
   }),
 });
 
-/** 画布镜头：即项目分镜（Panel），id 为分镜 ID */
+/** 画布上的一格分镜。出场角色按顺序排列，角色库 id 不在这里。 */
 export const ShotDesignSchema = z.object({
   id: z.string().uuid().openapi({ description: "分镜 ID" }),
-  script_segment_id: z.string().uuid(),
-  shot_order: z.number().int().openapi({
-    description: "在剧本片段内的顺序，从 1 开始",
+  segment_id: z.string().openapi({ description: "剧本片段 ID" }),
+  panel_order: z.number().int().openapi({
+    description: "这一章里的分镜编号",
   }),
   camera_angle: z.string().openapi({
     description: "摄像机角度",
@@ -331,18 +329,20 @@ export const ShotDesignSchema = z.object({
   panel_type: z.string().openapi({
     description: "分镜类型",
   }),
-  shot_description: z.string(),
+  description: z.string().openapi({ description: "分镜描述" }),
   composition_hint: z.string(),
   location_key: z.string(),
-  character_ids: z.array(z.string()).openapi({
-    description: "角色库角色 ID，或待绑定小说角色的临时 ID（unbound-xxx）",
-  }),
-  outfit_ids: z.array(z.string()).openapi({
-    description: "角色服装 ID，与 character_ids 一一对应（无则为空串）",
-  }),
-  expression_types: z.array(z.string()).openapi({
-    description: "角色表情，与 character_ids 一一对应（无则为空串）",
-  }),
+  characters: z.array(z.object({
+    project_character_id: z.string().uuid().nullable().openapi({
+      description: "项目角色 ID；已有待绑定行时为空",
+    }),
+    outfit_id: z.string().uuid().nullable(),
+    expression: z.string().nullable(),
+    pending_character_key: z.string().nullable().openapi({
+      description: "已有待绑定行的临时键。写入不接受这个字段。",
+    }),
+    pending_character_name: z.string().nullable(),
+  })).openapi({ description: "有序的出场角色" }),
   scene_id: z.string().uuid().nullable(),
   prompt: z.string(),
   negative_prompt: z.string().nullable(),

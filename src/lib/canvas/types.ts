@@ -1,22 +1,34 @@
 /**
- * 画布镜头（CanvasShot）：画布界面里的"镜头"就是项目分镜（Panel）。
- * 字段沿用画布原来的命名，id 是分镜 ID，script_segment_id 是剧本片段 ID。
+ * 画布上的一格分镜。id 是分镜 ID，segment_id 是剧本片段 ID。
+ * 出场角色按顺序排列，角色库 id 不在这条 interface 上。
  */
+export interface PanelCastMember {
+  project_character_id: string | null;
+  outfit_id: string | null;
+  expression: string | null;
+  pending_character_key: string | null;
+  pending_character_name: string | null;
+}
+
+/** 画布写入的一格出场角色。只接受项目角色，不接受待绑定。 */
+export interface PanelCastWrite {
+  project_character_id: string;
+  outfit_id?: string | null;
+  expression?: string | null;
+}
+
 export interface CanvasShot {
   id: string;
-  script_segment_id: string;
-  /** 在剧本片段内的顺序，从 1 开始，按分镜编号计算 */
-  shot_order: number;
+  segment_id: string;
+  /** 这一章里的分镜编号 */
+  panel_order: number;
   camera_angle: string;
   shot_size: string;
   panel_type: string;
-  shot_description: string;
+  description: string;
   composition_hint: string;
   location_key: string;
-  /** 角色库角色 ID，或待绑定小说角色的临时 ID（unbound-xxx）；与 outfit_ids、expression_types 一一对应 */
-  character_ids: string[];
-  outfit_ids: string[];
-  expression_types: string[];
+  characters: PanelCastMember[];
   scene_id: string | null;
   prompt: string;
   negative_prompt: string | null;
@@ -66,7 +78,7 @@ export interface CanvasShotPatch extends CanvasShotPipelineFields {
   camera_angle?: string;
   shot_size?: string;
   panel_type?: string;
-  shot_description?: string;
+  description?: string;
   composition_hint?: string;
   location_key?: string;
   scene_id?: string | null;
@@ -74,9 +86,8 @@ export interface CanvasShotPatch extends CanvasShotPipelineFields {
   negative_prompt?: string | null;
   generated_image_url?: string | null;
   generation_status?: string;
-  character_ids?: string[];
-  outfit_ids?: string[];
-  expression_types?: string[];
+  /** 传了就整体替换出场角色。空数组清空出场角色和主角色。 */
+  characters?: PanelCastWrite[];
 }
 
 /** 接口返回给前端的画布镜头（日期序列化为字符串） */

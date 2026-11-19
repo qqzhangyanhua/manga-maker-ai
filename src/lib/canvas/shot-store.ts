@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { ApiError } from "@/lib/api-helpers";
 import { filterOwnedCharacterIds } from "@/lib/project";
+import { preparePanelCast } from "./panel-cast";
 import { canvasShotInclude, isUuid, planPanelCharacters, toCanvasFinal, toCanvasShots } from "./shot-mapping";
 import type { AnchoredCanvasChapter, CanvasShotContext } from "./context";
 import type {
@@ -285,18 +286,18 @@ export async function createCanvasShots(
   return createdIds.map((id) => byId.get(id)).filter((s): s is CanvasShot => s !== undefined);
 }
 
-/** 更新画布镜头；只写传了的字段。角色三个数组任一传了就整体替换角色 */
+/** 更新画布上的一格分镜；只写传了的字段。传了出场角色就整体替换，并同步主角色。 */
 export async function updateCanvasShot(
   db: PrismaClient,
   context: CanvasShotContext,
-  userId: string,
-  patch: CanvasShotPatch & { pendingNames?: Map<string, string> }
+  _userId: string,
+  patch: CanvasShotPatch
 ): Promise<void> {
   const data: Prisma.PanelUncheckedUpdateInput = {};
   if (patch.camera_angle !== undefined) data.camera_angle = emptyToNull(patch.camera_angle);
   if (patch.shot_size !== undefined) data.shot_size = emptyToNull(patch.shot_size);
   if (patch.panel_type !== undefined) data.panel_type = emptyToNull(patch.panel_type) ?? "medium";
-  if (patch.shot_description !== undefined) data.description = patch.shot_description;
+  if (patch.description !== undefined) data.description = patch.description;
   if (patch.composition_hint !== undefined) data.composition_hint = emptyToNull(patch.composition_hint);
   if (patch.location_key !== undefined) data.location_key = emptyToNull(patch.location_key);
   if (patch.prompt !== undefined) data.visual_prompt = patch.prompt;
@@ -304,8 +305,15 @@ export async function updateCanvasShot(
   if (patch.generated_image_url !== undefined) data.generated_image = patch.generated_image_url;
   if (patch.generation_status !== undefined) data.generation_status = patch.generation_status;
 
-  const charactersChanged =
-    patch.character_ids !== undefined || patch.outfit_ids !== undefined || patch.expression_types !== undefined;
+  const cast =
+    patch.characters !== undefined
+      ? await preparePanelCast(db, context.projectId, patch.characters)
+      : null;
+  if (cast) {
+    data.character_id = cast.leadCharacterId;
+    data.outfit_id = cast.leadOutfitId;
+    data.expression_type = cast.leadExpression;
+  }
 
   await db.$transaction(async (tx) => {
     if (patch.scene_id !== undefined) {
@@ -318,18 +326,13 @@ export async function updateCanvasShot(
     if (Object.keys(data).length > 0) {
       await tx.panel.update({ where: { id: context.panel.id }, data });
     }
-    if (charactersChanged) {
-      await replacePanelCharacters(tx, {
-        panelId: context.panel.id,
-        projectId: context.projectId,
-        userId,
-        characters: {
-          character_ids: patch.character_ids ?? context.shot.character_ids,
-          outfit_ids: patch.outfit_ids ?? context.shot.outfit_ids,
-          expression_types: patch.expression_types ?? context.shot.expression_types,
-          pendingNames: patch.pendingNames,
-        },
-      });
+    if (cast) {
+      await tx.panelCharacter.deleteMany({ where: { panel_id: context.panel.id } });
+      if (cast.rows.length > 0) {
+        await tx.panelCharacter.createMany({
+          data: cast.rows.map((row) => ({ panel_id: context.panel.id, ...row })),
+        });
+      }
     }
     if (hasPipelineFields(patch)) {
       await upsertPipelineState(tx, context.panel.id, patch);

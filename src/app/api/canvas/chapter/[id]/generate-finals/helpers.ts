@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { logInfo, logError } from "@/lib/api-logger";
 import { addCanvasFinal, getAnchoredCanvasChapter, listChapterShots, refreshCanvasCounters } from "@/lib/canvas";
+import type { CanvasShot } from "@/lib/canvas";
 import { ApiError } from "@/lib/api-helpers";
 import { addSpeechBubbles } from "@/lib/comic-panel-composer";
 import { minioClient, MINIO_BUCKET, getPublicUrl } from "@/lib/minio";
@@ -44,7 +45,17 @@ export async function fetchChapterData(chapterId: string, userId: string) {
   }
 
   const segmentMap = new Map(segments.map((s) => [s.id, s]));
-  const shotCharacterIds = allShots.flatMap((shot) => shot.character_ids);
+  const projectCharacterIds = Array.from(new Set(allShots.flatMap((shot) => (
+    shot.characters.flatMap((row) => (row.project_character_id ? [row.project_character_id] : []))
+  ))));
+  const projectCharacters = projectCharacterIds.length
+    ? await prisma.projectCharacter.findMany({
+        where: { id: { in: projectCharacterIds } },
+        select: { id: true, character_id: true },
+      })
+    : [];
+  const libraryIdByProjectCharacter = new Map(projectCharacters.map((row) => [row.id, row.character_id]));
+  const shotCharacterIds = projectCharacters.map((row) => row.character_id);
   const chapterCharacterIds = timelineChapter.character_ids || [];
   const allCharacterIds = Array.from(new Set([...shotCharacterIds, ...chapterCharacterIds]));
 
@@ -60,7 +71,27 @@ export async function fetchChapterData(chapterId: string, userId: string) {
       .map((c) => [c.id, c.base_image_url as string])
   );
 
-  return { chapter, timelineChapter, allShots, segmentMap, characterMap, characterImageMap, chapterCharacterIds };
+  return {
+    chapter,
+    timelineChapter,
+    allShots,
+    segmentMap,
+    characterMap,
+    characterImageMap,
+    chapterCharacterIds,
+    libraryIdByProjectCharacter,
+  };
+}
+
+/** 这一格分镜能对上角色库的 id。待绑定行没有角色库 id。 */
+export function libraryCharacterIds(shot: CanvasShot, libraryIdByProjectCharacter: Map<string, string>): string[] {
+  const ids: string[] = [];
+  for (const row of shot.characters) {
+    if (!row.project_character_id) continue;
+    const libraryId = libraryIdByProjectCharacter.get(row.project_character_id);
+    if (libraryId) ids.push(libraryId);
+  }
+  return ids;
 }
 
 export async function processComicPanels(

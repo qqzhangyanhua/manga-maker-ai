@@ -231,6 +231,14 @@ export async function POST(
   }
 }
 
+/** TextEncoder 的 buffer 类型是 ArrayBufferLike，复制成真正的 ArrayBuffer。 */
+function textToArrayBuffer(content: string): ArrayBuffer {
+  const bytes = new TextEncoder().encode(content);
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  return buffer;
+}
+
 /**
  * 导出为纯文本格式
  */
@@ -268,9 +276,7 @@ async function exportToTxt(
     }
   }
 
-  // 转换为 ArrayBuffer
-  const encoder = new TextEncoder();
-  return encoder.encode(content).buffer;
+  return textToArrayBuffer(content);
 }
 
 /**
@@ -305,8 +311,7 @@ async function exportToMarkdown(
     }
   }
 
-  const encoder = new TextEncoder();
-  return encoder.encode(content).buffer;
+  return textToArrayBuffer(content);
 }
 
 /**

@@ -48,6 +48,8 @@ import type { CanvasShotJson } from "@/lib/canvas/types";
 import type { ShotDetailListResponse, GenerateShotImagePayloadLocal } from "../detail-panel-types";
 import { readCanvasError } from "../utils/canvas-api";
 
+const EMPTY_SHOTS: CanvasShotJson[] = [];
+
 interface ShotDetailPanelProps {
   chapterId: string;
 }
@@ -107,7 +109,7 @@ function ShotCard({
               {isSelected ? (
                 <Check className="w-4 h-4" />
               ) : (
-                <span className="text-xs font-mono">{shot.shot_order}</span>
+                <span className="text-xs font-mono">{shot.panel_order}</span>
               )}
             </div>
           </div>
@@ -117,7 +119,7 @@ function ShotCard({
           <>
             <img
               src={shot.generated_image_url || ""}
-              alt={`镜头 ${shot.shot_order}`}
+              alt={`镜头 ${shot.panel_order}`}
               className="w-full h-full object-cover"
               onClick={(e) => {
                 if (!isSelectMode) {
@@ -148,7 +150,7 @@ function ShotCard({
         ) : (
           <div className="text-center">
             <Camera className="w-12 h-12 text-zinc-600 mx-auto mb-2" />
-            <div className="text-xs text-zinc-500">镜头 {shot.shot_order}</div>
+            <div className="text-xs text-zinc-500">镜头 {shot.panel_order}</div>
           </div>
         )}
         {isGenerating && !hasImage && (
@@ -179,7 +181,7 @@ function ShotCard({
 
         {/* 镜头描述 */}
         <div className="text-xs text-zinc-400 line-clamp-2">
-          {shot.shot_description}
+          {shot.description}
         </div>
 
         {/* 构图提示 */}
@@ -288,12 +290,7 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
       },
     });
 
-  // 接口已按剧本片段、分镜编号排好序，shot_order 是片段内序号；
-  // 详情面板与九宫格按整章连续编号，所以这里改成章节内序号
-  const chapterShots = useMemo<CanvasShotJson[]>(
-    () => (data?.shots ?? []).map((shot, index) => ({ ...shot, shot_order: index + 1 })),
-    [data?.shots]
-  );
+  const chapterShots = data?.shots ?? EMPTY_SHOTS;
 
   // 计算镜头分组（依赖 data，必须在 useQuery 之后）
   useEffect(() => {
@@ -309,11 +306,11 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
       .filter((shot) => currentSelectedShotIds.includes(shot.id))
       .map((shot) => ({
         id: shot.id,
-        shot_order: shot.shot_order,
+        panel_order: shot.panel_order,
         camera_angle: shot.camera_angle,
         shot_size: shot.shot_size,
         panel_type: shot.panel_type,
-        shot_description: shot.shot_description,
+        description: shot.description,
         composition_hint: shot.composition_hint,
         prompt: shot.prompt,
         generated_image_url: shot.generated_image_url,
@@ -446,10 +443,10 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
     openShotGenerateDialog(
       shot.id,
       {
-        shot_order: shot.shot_order,
+        panel_order: shot.panel_order,
         camera_angle: shot.camera_angle,
         shot_size: shot.shot_size,
-        shot_description: shot.shot_description,
+        description: shot.description,
         panel_type: shot.panel_type,
       },
       chapterId,
@@ -641,8 +638,8 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
         open={viewerOpen}
         onOpenChange={setViewerOpen}
         imageUrl={selectedShot?.generated_image_url || ""}
-        title={`镜头 ${selectedShot?.shot_order || ""}`}
-        description={selectedShot?.shot_description}
+        title={`镜头 ${selectedShot?.panel_order || ""}`}
+        description={selectedShot?.description}
       />
 
       {/* 九宫格图片查看器对话框 */}

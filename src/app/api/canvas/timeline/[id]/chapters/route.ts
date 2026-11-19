@@ -66,7 +66,7 @@ export async function GET(req: Request, { params }: RouteParams) {
           script_segments: chapter.script_segments.map((segment) => ({
             ...segment,
             shots: shots
-              .filter((shot) => shot.script_segment_id === segment.id)
+              .filter((shot) => shot.segment_id === segment.id)
               .map((shot) => ({ ...shot, finals: finalsByShot.get(shot.id) ?? [] })),
           })),
         };

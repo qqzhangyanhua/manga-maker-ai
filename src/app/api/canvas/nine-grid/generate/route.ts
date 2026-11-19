@@ -29,10 +29,10 @@ interface NineGridGenerateRequestBody {
  */
 interface ShotData {
   id: string;
-  shot_order: number;
+  panel_order: number;
   camera_angle: string;
   shot_size: string;
-  shot_description: string | null;
+  description: string | null;
   prompt: string | null;
 }
 
@@ -55,14 +55,14 @@ function buildNineGridPrompt(
   plotSummary: string,
   characterReferences?: { characterId: string; referenceImageUrls: string[] }[]
 ): string {
-  // 按 shot_order 排序
-  const sortedShots = [...shots].sort((a, b) => a.shot_order - b.shot_order);
+  // 按分镜编号排序
+  const sortedShots = [...shots].sort((a, b) => a.panel_order - b.panel_order);
 
   // 构建镜头描述
   const shotLines = sortedShots
     .map((shot, index) => {
       const num = String(index + 1).padStart(2, "0");
-      const desc = truncateText(shot.shot_description || shot.prompt || "无描述", 100);
+      const desc = truncateText(shot.description || shot.prompt || "无描述", 100);
       const params = [shot.camera_angle, shot.shot_size].filter(Boolean).join("，");
       if (params) {
         return `镜头${num}：${desc}（${params}）`;
@@ -248,10 +248,10 @@ export async function POST(req: Request) {
     // 按分镜编号排序（章节内连续）
     const shotData: ShotData[] = shots.map((s) => ({
       id: s.id,
-      shot_order: s.panel_order,
+      panel_order: s.panel_order,
       camera_angle: s.camera_angle ?? "",
       shot_size: s.shot_size ?? "",
-      shot_description: s.description,
+      description: s.description,
       prompt: s.visual_prompt,
     }));
 

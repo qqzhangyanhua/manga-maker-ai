@@ -26,7 +26,7 @@ function formatShotNumber(index: number): string {
  */
 function buildShotLine(shot: ShotDesignBasic, index: number): string {
   const num = formatShotNumber(index);
-  const desc = truncateText(shot.shot_description || shot.prompt || '无描述', 100);
+  const desc = truncateText(shot.description || shot.prompt || '无描述', 100);
 
   // 可选：添加镜头参数
   const params = [shot.camera_angle, shot.shot_size]
@@ -120,14 +120,14 @@ export function checkShotsConsecutive(
     return { consecutive: true, gaps: [] };
   }
 
-  // 按 shot_order 排序
-  const sorted = [...selectedShots].sort((a, b) => a.shot_order - b.shot_order);
+  // 按分镜编号排序
+  const sorted = [...selectedShots].sort((a, b) => a.panel_order - b.panel_order);
   const gaps: number[] = [];
 
   for (let i = 1; i < sorted.length; i++) {
-    const diff = sorted[i].shot_order - sorted[i - 1].shot_order;
+    const diff = sorted[i].panel_order - sorted[i - 1].panel_order;
     if (diff > 1) {
-      gaps.push(sorted[i - 1].shot_order);
+      gaps.push(sorted[i - 1].panel_order);
     }
   }
 

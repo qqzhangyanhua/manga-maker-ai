@@ -7,7 +7,7 @@ describe("shot-grouping", () => {
     it("应该正确分组完整的9个镜头", () => {
       const shots = Array.from({ length: 9 }, (_, i) => ({
         id: `shot-${i + 1}`,
-        shot_order: i + 1,
+        panel_order: i + 1,
       })) as CanvasShotJson[];
 
       const groups = groupShotsIntoNineGrids(shots);
@@ -22,7 +22,7 @@ describe("shot-grouping", () => {
     it("应该正确处理30个镜头（4组）", () => {
       const shots = Array.from({ length: 30 }, (_, i) => ({
         id: `shot-${i + 1}`,
-        shot_order: i + 1,
+        panel_order: i + 1,
       })) as CanvasShotJson[];
 
       const groups = groupShotsIntoNineGrids(shots);

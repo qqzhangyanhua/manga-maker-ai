@@ -136,13 +136,13 @@ export function ShotGroupSection({
             {shot.generated_image_url ? (
               <img
                 src={shot.generated_image_url}
-                alt={`镜头 ${shot.shot_order}`}
+                alt={`镜头 ${shot.panel_order}`}
                 className="w-full h-full object-cover"
               />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center bg-muted text-muted-foreground p-2">
                 <span className="text-[10px] text-center line-clamp-3">
-                  {shot.shot_description || '无描述'}
+                  {shot.description || '无描述'}
                 </span>
               </div>
             )}
@@ -227,7 +227,7 @@ export function ShotGroupSection({
             )}
             
             <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs px-2 py-1">
-              #{shot.shot_order}
+              #{shot.panel_order}
             </div>
           </Card>
         ))}
@@ -271,7 +271,7 @@ export function ShotGroupSection({
           open={bindingPanelOpen}
           onOpenChange={setBindingPanelOpen}
           shotId={selectedShotForBinding.id}
-          shotDescription={selectedShotForBinding.shot_description}
+          shotDescription={selectedShotForBinding.description}
           novelProjectId={novelProjectId}
           existingBindings={
             selectedShotForBinding.character_prompt_template_ids?.map((id) => ({
@@ -291,7 +291,7 @@ export function ShotGroupSection({
           open={nineGridDialogOpen}
           onOpenChange={setNineGridDialogOpen}
           shotId={selectedShotForNineGrid.id}
-          shotDescription={selectedShotForNineGrid.shot_description}
+          shotDescription={selectedShotForNineGrid.description}
           promptCompositionId={selectedShotForNineGrid.prompt_composition_id || undefined}
           onSuccess={() => {
             setNineGridDialogOpen(false);

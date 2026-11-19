@@ -74,7 +74,7 @@ export interface ShotDetailListResponse {
   novelProjectId?: string | null;
   projectId: string;
   status: string;
-  /** 按剧本片段、分镜编号排好序；shot_order 是片段内序号 */
+  /** 按剧本片段、分镜编号排好序 */
   shots: CanvasShotJson[];
   totalCount: number;
 }

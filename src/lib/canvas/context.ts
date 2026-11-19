@@ -104,17 +104,7 @@ export async function getAnchoredCanvasChapter(
   return requireAnchoredChapter(db, await getCanvasChapter(db, timelineChapterId, userId), userId);
 }
 
-/** 剧本片段内的镜头序号（从 1 开始） */
-async function shotOrderInSegment(db: Db, panelId: string, segmentId: string): Promise<number> {
-  const siblings = await db.panel.findMany({
-    where: { segment_id: segmentId },
-    select: { id: true },
-    orderBy: [{ panel_order: "asc" }, { created_at: "asc" }, { id: "asc" }],
-  });
-  return siblings.findIndex((p) => p.id === panelId) + 1;
-}
-
-/** 按分镜 ID 取画布镜头；不是画布分镜（没有剧本片段）的按不存在处理 */
+/** 按分镜 ID 取画布上的一格分镜；没有剧本片段的按不存在处理 */
 export async function getCanvasShotForUser(db: Db, panelId: string, userId: string): Promise<CanvasShotContext> {
   const panel = isUuid(panelId)
     ? await db.panel.findUnique({
@@ -132,10 +122,9 @@ export async function getCanvasShotForUser(db: Db, panelId: string, userId: stri
   if (panel.project.user_id !== userId) {
     throw new ApiError("无权操作", 403, "FORBIDDEN");
   }
-  const order = await shotOrderInSegment(db, panel.id, panel.segment.id);
   return {
     panel,
-    shot: toCanvasShot(panel, order),
+    shot: toCanvasShot(panel),
     projectId: panel.project_id,
     timelineChapterId: panel.segment.timeline_chapter.id,
     timelineId: panel.segment.timeline_chapter.timeline_id,

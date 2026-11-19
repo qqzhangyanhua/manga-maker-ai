@@ -3,7 +3,7 @@ import type { ShotGroup, LocationGroup } from "../DetailPanel/types";
 
 /**
  * 将镜头数组按每9个一组进行分组
- * @param shots 镜头数组（需按 shot_order 排序）
+ * @param shots 镜头数组（需按 panel_order 排序）
  * @returns 分组后的数组
  */
 export function groupShotsIntoNineGrids(shots: CanvasShotJson[]): ShotGroup[] {
@@ -25,8 +25,8 @@ export function groupShotsIntoNineGrids(shots: CanvasShotJson[]): ShotGroup[] {
 
     groups.push({
       groupIndex: i,
-      startOrder: groupShots[0]?.shot_order || (i * 9 + 1),
-      endOrder: groupShots[groupShots.length - 1]?.shot_order || (i * 9 + 9),
+      startOrder: groupShots[0]?.panel_order || (i * 9 + 1),
+      endOrder: groupShots[groupShots.length - 1]?.panel_order || (i * 9 + 9),
       shots: groupShots,
       isComplete: groupShots.length === 9,
       placeholderCount,

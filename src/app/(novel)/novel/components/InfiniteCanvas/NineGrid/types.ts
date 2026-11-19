@@ -3,15 +3,15 @@
  */
 
 /**
- * 画布镜头基础信息（id 为分镜 ID，shot_order 为章节内序号）
+ * 画布镜头基础信息（id 为分镜 ID，panel_order 为分镜编号）
  */
 export interface ShotDesignBasic {
   id: string;
-  shot_order: number;
+  panel_order: number;
   camera_angle: string;
   shot_size: string;
   panel_type: string;
-  shot_description: string;
+  description: string;
   composition_hint: string;
   prompt: string;
   generated_image_url?: string | null;

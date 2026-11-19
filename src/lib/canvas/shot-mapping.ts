@@ -18,29 +18,29 @@ export const canvasShotInclude = {
 
 export type CanvasPanelRecord = Prisma.PanelGetPayload<{ include: typeof canvasShotInclude }>;
 
-export function toCanvasShot(panel: CanvasPanelRecord, shotOrder: number): CanvasShot {
-  const characters = panel.panel_characters
+export function toCanvasShot(panel: CanvasPanelRecord): CanvasShot {
+  const characters = [...panel.panel_characters]
+    .sort((a, b) => a.sort_order - b.sort_order)
     .map((pc) => ({
-      id: pc.project_character?.character_id ?? pc.pending_character_key,
-      outfit: pc.outfit_id ?? "",
-      expression: pc.expression_type ?? "",
-    }))
-    .filter((c): c is { id: string; outfit: string; expression: string } => typeof c.id === "string");
+      project_character_id: pc.project_character_id,
+      outfit_id: pc.outfit_id,
+      expression: pc.expression_type,
+      pending_character_key: pc.pending_character_key,
+      pending_character_name: pc.pending_character_name,
+    }));
   const state = panel.pipeline_state;
 
   return {
     id: panel.id,
-    script_segment_id: panel.segment_id ?? "",
-    shot_order: shotOrder,
+    segment_id: panel.segment_id ?? "",
+    panel_order: panel.panel_order,
     camera_angle: panel.camera_angle ?? "",
     shot_size: panel.shot_size ?? "",
     panel_type: panel.panel_type,
-    shot_description: panel.description,
+    description: panel.description,
     composition_hint: panel.composition_hint ?? "",
     location_key: panel.location_key ?? "",
-    character_ids: characters.map((c) => c.id),
-    outfit_ids: characters.map((c) => c.outfit),
-    expression_types: characters.map((c) => c.expression),
+    characters,
     scene_id: panel.scene_id,
     prompt: panel.visual_prompt ?? "",
     negative_prompt: panel.negative_prompt,
@@ -57,17 +57,9 @@ export function toCanvasShot(panel: CanvasPanelRecord, shotOrder: number): Canva
   };
 }
 
-/**
- * 按（剧本片段顺序、分镜编号）排好的分镜列表转为镜头，shot_order 为片段内序号。
- */
+/** 分镜列表转为画布读取结果。顺序用分镜自己的 panel_order，不再另算片段内序号。 */
 export function toCanvasShots(panels: CanvasPanelRecord[]): CanvasShot[] {
-  const counters = new Map<string, number>();
-  return panels.map((panel) => {
-    const key = panel.segment_id ?? "";
-    const order = (counters.get(key) ?? 0) + 1;
-    counters.set(key, order);
-    return toCanvasShot(panel, order);
-  });
+  return panels.map((panel) => toCanvasShot(panel));
 }
 
 function readDimension(params: Prisma.JsonValue, key: "width" | "height", fallback: number): number {
