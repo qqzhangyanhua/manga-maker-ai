@@ -168,7 +168,8 @@ model CharacterOutfit {
   character Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
 
   // Phase 2: Reverse relation
-  panels Panel[]
+  panels           Panel[]
+  panel_characters PanelCharacter[]
 
   @@index([character_id, is_default], map: "idx_outfits_character_default")
   @@map("character_outfits")
@@ -272,6 +273,13 @@ model Panel {
   // "group_member" = belongs to previous group
   layout_hint String?
 
+  // 画布镜头物化来的字段（阶段 5c-3）。script_segment_id 是剧本编辑器 JSON 片段 ID，segment_id 指向剧本片段表
+  segment_id        String? @db.Uuid
+  composition_hint  String?
+  location_key      String?
+  negative_prompt   String?
+  generation_status String?
+
   // Gallery sharing fields
   is_shared   Boolean   @default(false) // 鏄惁鍒嗕韩鍒扮敾寤?
   shared_at   DateTime? @db.Timestamptz(6) // 鍒嗕韩鏃堕棿
@@ -288,14 +296,38 @@ model Panel {
   outfit    CharacterOutfit? @relation(fields: [outfit_id], references: [id], onDelete: SetNull)
   scene     Scene?           @relation(fields: [scene_id], references: [id], onDelete: SetNull)
   chapter   Chapter          @relation(fields: [chapter_id], references: [id], onDelete: Cascade)
+  segment   ScriptSegment?   @relation(fields: [segment_id], references: [id], onDelete: SetNull)
+
+  // 分镜多角色；character_id 保留为主角色兼容字段
+  panel_characters PanelCharacter[]
 
   @@index([project_id, panel_order], map: "idx_panels_project_order")
+  @@index([segment_id], map: "idx_panels_segment")
   @@index([character_id], map: "idx_panels_character")
   @@index([scene_id], map: "idx_panels_scene")
   @@index([outfit_id], map: "idx_panels_outfit")
   @@index([chapter_id], map: "idx_panels_chapter")
   @@index([is_shared, shared_at], map: "idx_panels_shared")
   @@map("panels")
+}
+
+// 分镜中的角色（一个分镜可有多个角色），只能引用分镜所属项目的项目角色
+model PanelCharacter {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  panel_id             String   @db.Uuid
+  project_character_id String   @db.Uuid
+  outfit_id            String?  @db.Uuid
+  expression_type      String?
+  sort_order           Int      @default(0)
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+
+  panel             Panel            @relation(fields: [panel_id], references: [id], onDelete: Cascade)
+  project_character ProjectCharacter @relation(fields: [project_character_id], references: [id], onDelete: Cascade)
+  outfit            CharacterOutfit? @relation(fields: [outfit_id], references: [id], onDelete: SetNull)
+
+  @@unique([panel_id, project_character_id], map: "unique_panel_character")
+  @@index([project_character_id], map: "idx_panel_characters_project_character")
+  @@map("panel_characters")
 }
 
 // Story Script - Store original script and segmentation info for script editor
@@ -615,8 +647,9 @@ model ProjectCharacter {
   created_at    DateTime @default(now()) @db.Timestamptz(6)
   updated_at    DateTime @default(now()) @db.Timestamptz(6)
 
-  project   Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
-  character Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
+  project          Project          @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  character        Character        @relation(fields: [character_id], references: [id], onDelete: Cascade)
+  panel_characters PanelCharacter[]
 
   @@unique([project_id, character_id], map: "unique_project_character")
   @@index([project_id], map: "idx_project_characters_project")
@@ -1384,6 +1417,7 @@ model ScriptSegment {
   timeline_chapter TimelineChapter @relation(fields: [timeline_chapter_id], references: [id], onDelete: Cascade)
   chapter          Chapter?        @relation(fields: [chapter_id], references: [id], onDelete: SetNull)
   shot_designs     ShotDesign[]
+  panels           Panel[]
 
   @@index([timeline_chapter_id], map: "idx_script_segment_chapter")
   @@index([chapter_id], map: "idx_script_segment_project_chapter")
@@ -1435,6 +1469,9 @@ model ShotDesign {
   final_prompt_status     String @default("pending") // pending | generating | completed | error
   nine_grid_status        String @default("pending") // pending | generating | completed | error
   selection_status        String @default("pending") // pending | selected | refined
+
+  // 同步出的项目分镜（阶段 5c-3），由数据库触发器维护，应用代码不写。不建外键，删除规则见迁移说明
+  panel_id String? @unique(map: "unique_shot_designs_panel") @db.Uuid
 
   created_at DateTime @default(now()) @db.Timestamptz(6)
 

@@ -6,7 +6,7 @@
  *   npx tsx scripts/backfill-timeline-anchors.ts --apply   写入
  *
  * 前置：prisma/migrations/manual/20261121_canvas_anchor_phase5c1.sql 已执行。可重复执行。
- * 阶段 5c-2 迁移执行后，锚定会由触发器同步剧本片段的 chapter_id，脚本末尾输出一致性审计。
+ * 阶段 5c-2、5c-3a 迁移执行后，锚定会由触发器同步剧本片段的 chapter_id 和镜头对应的分镜，脚本末尾输出一致性审计。
  */
 import { PrismaClient } from "@prisma/client";
 import { anchorTimelineChapters } from "../src/lib/project/timeline-anchor";
@@ -72,6 +72,30 @@ async function main() {
     { 项: "剧本片段总数", 数量: Number(segments.total) },
     { 项: "已挂到项目章节", 数量: Number(segments.linked) },
     { 项: "与时间线章节锚点不一致（应为 0）", 数量: Number(segments.mismatched) },
+  ]);
+
+  const [shots] = await prisma.$queryRaw<Array<{ total: bigint; linked: bigint; missing: bigint; mismatched: bigint }>>`
+    SELECT COUNT(*)::bigint AS total,
+           COUNT(p.id)::bigint AS linked,
+           COUNT(*) FILTER (WHERE seg.chapter_id IS NOT NULL AND p.id IS NULL)::bigint AS missing,
+           COUNT(*) FILTER (
+             WHERE p.id IS NOT NULL AND (
+               p.chapter_id IS DISTINCT FROM seg.chapter_id
+               OR p.description IS DISTINCT FROM sd.shot_description
+               OR p.visual_prompt IS DISTINCT FROM sd.prompt
+               OR p.generated_image IS DISTINCT FROM sd.generated_image_url
+               OR p.segment_id IS DISTINCT FROM sd.script_segment_id
+             )
+           )::bigint AS mismatched
+    FROM shot_designs sd
+    JOIN script_segments seg ON seg.id = sd.script_segment_id
+    LEFT JOIN panels p ON p.id = sd.panel_id`;
+  console.log("镜头 -> 分镜审计（当前库，不含预演变更）：");
+  console.table([
+    { 项: "镜头总数", 数量: Number(shots.total) },
+    { 项: "已同步为分镜", 数量: Number(shots.linked) },
+    { 项: "剧本片段已挂章节但没有分镜（应为 0）", 数量: Number(shots.missing) },
+    { 项: "分镜与镜头字段不一致（应为 0）", 数量: Number(shots.mismatched) },
   ]);
 }
 

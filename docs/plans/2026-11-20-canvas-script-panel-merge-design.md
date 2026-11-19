@@ -82,6 +82,15 @@
 - `shot_designs` 新增 `panel_id uuid unique null`。双写期：画布创建/更新镜头设计时由服务层同步写对应 `Panel`（不用数据库触发器，因为要拆数组、映射项目角色，逻辑放 `src/lib/project/` 更好测）。
 - 画布特有的流水线状态（`character_prompt_status`、`final_prompt_status`、`nine_grid_status`、`selection_status`、`prompt_composition_id`、`nine_grid_generation_id`）不进 `Panel`，迁到附属表 `panel_pipeline_states`（`panel_id` 主键），`ShotPromptComposition`/`NineGridGeneration` 增加 `panel_id` 并回填。
 - 候选图：`ComicPanelResult` 回填为 `PanelVariant`（`variant_type = 'canvas_final'`，生成参数放新增的 `generation_params jsonb`），双写期两边都写。
+- 拆为三步：5c-3a 镜头物化为分镜 + 分镜角色；5c-3b 流程状态表 + 九宫格/提示词合成关联分镜；5c-3c 最终漫画结果 -> 候选图。
+- 5c-3a 已实现（迁移 `20261123_shot_panel_phase5c3a.sql`），与上面的设计有这些调整（2026-11-23 用户确认前两项）：
+  - 同步改用数据库触发器，不在服务层写：镜头写入点有 9 个文件 19 处，另有删除剧本片段、时间线章节、时间线时的级联删除，服务层容易漏。触发器在镜头新增/修改映射字段/删除、剧本片段换章节或调序时同步分镜和分镜角色；只改流程状态字段不触发。
+  - 在项目里直接删除分镜时连带删除画布镜头；项目或章节被删除连带删除分镜时只解除关联，画布镜头保留。所以 `shot_designs.panel_id` 不建外键（外键的 SET NULL 会先于触发器清掉关联，无法区分两种删除）。
+  - `panels.script_segment_id` 现存的是剧本编辑器 JSON 片段 ID（远端 58 条，如 `seg_1`），不能改成外键；另加 `segment_id uuid` 外键指向 `script_segments`。另补 `composition_hint`。
+  - 画布分镜排在本章节原有分镜之后，按（时间线章节、剧本片段顺序、镜头顺序）编号，同章节加咨询锁串行编号。
+  - 分镜角色只同步属于项目所有者角色库的角色，跳过未绑定的临时 ID（`unbound-xxx`），不在项目里的角色自动加入项目角色（`minor`）。
+  - 过渡期以画布为准：画布修改镜头时覆盖分镜上的映射字段，项目侧对非映射字段（如重要度）的修改保留。项目侧整章替换分镜的操作（按章节重新生成分镜、应用模板、恢复版本、批量删除、合并/拆分）会删除对应画布镜头，5c-4 读切换后不再有两份数据。
+  - Prisma 的 `create` 返回值不含触发器回写的 `panel_id`，需要时重新查询。
 
 ### 5c-4 读切换与删除
 
