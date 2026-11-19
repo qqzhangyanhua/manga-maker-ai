@@ -9,6 +9,7 @@ import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getNovelBackendClient, NovelBackendError } from "@/lib/novel-backend-client";
 import { logInfo, logError } from "@/lib/api-logger";
+import { ApiError } from "@/lib/api-helpers";
 import {
   birthChapterPanels,
   getAnchoredCanvasChapter,
@@ -150,6 +151,10 @@ export async function POST(req: Request, { params }: RouteParams) {
         { error: "分镜生成失败", detail: error.message },
         { status: 502 }
       );
+    }
+
+    if (error instanceof ApiError) {
+      return canvasErrorResponse(error, "生成分镜失败");
     }
 
     return NextResponse.json(

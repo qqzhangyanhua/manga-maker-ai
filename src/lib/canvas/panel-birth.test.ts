@@ -436,6 +436,23 @@ describe("从一章小说生成分镜", () => {
     });
   });
 
+  it("剧本片段不属于这一章时整次拒绝，不调用规划器", async () => {
+    const db = createDb();
+    db.scriptSegment.count.mockResolvedValue(0);
+    const plan = vi.fn();
+
+    await expect(birthChapterPanels(asClient(db), {
+      chapter: chapter(),
+      userId: USER_ID,
+      segments: [segment()],
+      plan,
+    })).rejects.toMatchObject({ statusCode: 400, code: "SEGMENT_CHAPTER_MISMATCH" });
+
+    expect(plan).not.toHaveBeenCalled();
+    expect(db.character.findMany).not.toHaveBeenCalled();
+    expect(db.$transaction).not.toHaveBeenCalled();
+  });
+
   it("规划调用失败时整次失败，不写分镜", async () => {
     const db = createDb();
     const plan = vi.fn().mockRejectedValue(new Error("规划服务不可用"));
