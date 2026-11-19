@@ -14,12 +14,19 @@ export class CanvasProjectRequiredError extends Error {
   }
 }
 
-/** 把生成结果里被跳过的格子说给人看 */
+/** 把生成结果里被跳过的格子说给人看。跨片段时带上片段序号。 */
 export function skippedPanelMessage(
-  skipped: Array<{ shot_order: number; reason: string }> | undefined
+  skipped: Array<{ segment_id?: string; shot_order: number; reason: string }> | undefined
 ): string | undefined {
   if (!skipped || skipped.length === 0) return undefined;
-  return skipped.map((item) => `第 ${item.shot_order} 格：${item.reason}`).join("；");
+  const segments = Array.from(new Set(skipped.flatMap((item) => (item.segment_id ? [item.segment_id] : []))));
+  return skipped.map((item) => {
+    const segmentNo = item.segment_id ? segments.indexOf(item.segment_id) + 1 : 0;
+    const where = segments.length > 1 && segmentNo > 0
+      ? `第 ${segmentNo} 段第 ${item.shot_order} 格`
+      : `第 ${item.shot_order} 格`;
+    return `${where}：${item.reason}`;
+  }).join("；");
 }
 
 /** 读取画布接口的错误信息；未归属项目时抛 CanvasProjectRequiredError */

@@ -69,7 +69,7 @@ export const ShotNode = memo(({ data }: ShotNodeProps) => {
       }
       return response.json() as Promise<{
         metadata?: { shot_count?: number };
-        skipped?: Array<{ shot_order: number; reason: string }>;
+        skipped?: Array<{ segment_id?: string; shot_order: number; reason: string }>;
       }>;
     },
     onMutate: async () => {

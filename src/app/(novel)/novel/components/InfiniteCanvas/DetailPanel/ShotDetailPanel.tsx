@@ -495,7 +495,7 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
         throw new Error(await readCanvasError(response, "重新生成失败"));
       }
       return response.json() as Promise<{
-        skipped?: Array<{ shot_order: number; reason: string }>;
+        skipped?: Array<{ segment_id?: string; shot_order: number; reason: string }>;
       }>;
     },
     onSuccess: (data) => {

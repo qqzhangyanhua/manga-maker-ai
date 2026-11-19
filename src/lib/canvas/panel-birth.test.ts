@@ -266,6 +266,11 @@ describe("从一章小说生成分镜", () => {
 
   it("对不上角色库的人不入镜；有故事时同一个名字只留一条建议角色", async () => {
     const db = createDb();
+    db.panel.create.mockResolvedValueOnce({ id: PANEL_A }).mockResolvedValueOnce({ id: PANEL_B });
+    db.panel.findMany.mockResolvedValue([
+      storedPanel(PANEL_A, [{ project_character_id: PC1, expression: "happy" }]),
+      storedPanel(PANEL_B, []),
+    ]);
     const plan = vi.fn().mockResolvedValue([
       planned({ character_ids: [LIB1, "路人甲", UNKNOWN_ID], expression_types: ["happy", "sad", "angry"] }),
       planned({ shot_order: 2, character_ids: ["路人甲", "路人乙"], expression_types: [] }),
@@ -278,7 +283,8 @@ describe("从一章小说生成分镜", () => {
       plan,
     });
 
-    expect(result.panels).toHaveLength(0);
+    expect(result.panels.map((panel) => panel.characters.map((row) => row.project_character_id))).toEqual([[PC1], []]);
+    expect(JSON.stringify(result.panels)).not.toContain(UNKNOWN_ID);
     expect(db.panel.create).toHaveBeenCalledTimes(2);
     expect(db.suggestedCharacter.create).toHaveBeenCalledTimes(2);
     expect(db.suggestedCharacter.create).toHaveBeenNthCalledWith(1, {
@@ -361,6 +367,7 @@ describe("从一章小说生成分镜", () => {
           ...planned({ shot_order: 3, shot_description: "有描述", panel_type: "establishing" }),
           shot_type: "dialogue",
         },
+        planned({ shot_order: 4, shot_description: "", panel_type: "wide-shot" }),
       ])
       .mockResolvedValueOnce([
         planned({
@@ -386,6 +393,7 @@ describe("从一章小说生成分镜", () => {
     expect(result.skipped).toEqual([
       { segment_id: SEGMENT_ID, shot_order: 2, reason: "没有描述" },
       { segment_id: SEGMENT_ID, shot_order: 3, reason: "格子类型「establishing」不在分镜已有取值里" },
+      { segment_id: SEGMENT_ID, shot_order: 4, reason: "没有描述；格子类型「wide-shot」不在分镜已有取值里" },
     ]);
     expect(db.panel.create).toHaveBeenCalledTimes(1);
     expect(db.panel.create).toHaveBeenCalledWith({
@@ -407,33 +415,6 @@ describe("从一章小说生成分镜", () => {
       return arg.data.panel_type;
     });
     expect(writtenTypes).toEqual(["closeup"]);
-  });
-
-  it("描述和格子类型同时不合法时一起说明原因", async () => {
-    const db = createDb();
-    const plan = vi.fn().mockResolvedValue([
-      planned({ shot_order: 4, shot_description: "", panel_type: "wide-shot" }),
-      planned({ shot_order: 5, panel_type: "action", shot_description: "挥拳" }),
-    ]);
-
-    const result = await birthChapterPanels(asClient(db), {
-      chapter: chapter(),
-      userId: USER_ID,
-      segments: [segment()],
-      plan,
-    });
-
-    expect(result.skipped).toEqual([
-      {
-        segment_id: SEGMENT_ID,
-        shot_order: 4,
-        reason: "没有描述；格子类型「wide-shot」不在分镜已有取值里",
-      },
-    ]);
-    expect(db.panel.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ panel_type: "action", description: "挥拳" }),
-      select: { id: true },
-    });
   });
 
   it("剧本片段不属于这一章时整次拒绝，不调用规划器", async () => {
