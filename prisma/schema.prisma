@@ -848,11 +848,16 @@ model PanelVariant {
   panel_id     String   @db.Uuid
   image_url    String
   prompt       String   @db.Text
-  variant_type String // "original" | "composition" | "lighting" | "angle"
+  variant_type String // "original" | "composition" | "lighting" | "angle" | "canvas_final"
   is_selected  Boolean  @default(false)
   created_at   DateTime @default(now()) @db.Timestamptz(6)
 
-  panel Panel @relation(fields: [panel_id], references: [id], onDelete: Cascade)
+  // 阶段 5c-3c：画布最终漫画结果由触发器同步为候选图，应用代码不写这两列
+  generation_params     Json    @default("{}")
+  comic_panel_result_id String? @unique(map: "unique_panel_variants_comic_panel_result") @db.Uuid
+
+  panel              Panel             @relation(fields: [panel_id], references: [id], onDelete: Cascade)
+  comic_panel_result ComicPanelResult? @relation(fields: [comic_panel_result_id], references: [id], onDelete: Cascade)
 
   @@index([panel_id], map: "idx_panel_variants_panel")
   @@index([is_selected], map: "idx_panel_variants_selected")
@@ -1546,7 +1551,8 @@ model ComicPanelResult {
   created_at DateTime @default(now()) @db.Timestamptz(6)
 
   // Relations
-  shot_design ShotDesign @relation(fields: [shot_design_id], references: [id], onDelete: Cascade)
+  shot_design   ShotDesign    @relation(fields: [shot_design_id], references: [id], onDelete: Cascade)
+  panel_variant PanelVariant?
 
   @@index([shot_design_id], map: "idx_comic_panel_shot")
   @@map("comic_panel_results")

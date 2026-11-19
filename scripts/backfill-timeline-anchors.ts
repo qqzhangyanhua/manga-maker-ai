@@ -6,7 +6,7 @@
  *   npx tsx scripts/backfill-timeline-anchors.ts --apply   写入
  *
  * 前置：prisma/migrations/manual/20261121_canvas_anchor_phase5c1.sql 已执行。可重复执行。
- * 阶段 5c-2、5c-3a、5c-3b 迁移执行后，锚定会由触发器同步剧本片段的 chapter_id、镜头对应的分镜及其流程状态，
+ * 阶段 5c-2、5c-3a、5c-3b、5c-3c 迁移执行后，锚定会由触发器同步剧本片段的 chapter_id、镜头对应的分镜及其流程状态、候选图，
  * 脚本末尾输出一致性审计。
  */
 import { PrismaClient } from "@prisma/client";
@@ -123,6 +123,34 @@ async function main() {
     { 项: "流程状态与镜头不一致", 数量: Number(pipeline.mismatched) },
     { 项: "流程状态没有对应镜头", 数量: Number(pipeline.orphan) },
     { 项: "合成/九宫格记录的分镜与镜头不一致", 数量: Number(pipeline.records) },
+  ]);
+
+  const [variants] = await prisma.$queryRaw<
+    Array<{ synced: bigint; detached: bigint; missing: bigint; mismatched: bigint; ineligible: bigint }>
+  >`
+    WITH r AS (
+      SELECT r.id, r.status, r.image_url, r.generation_prompt, p.id AS panel
+      FROM comic_panel_results r
+      JOIN shot_designs sd ON sd.id = r.shot_design_id
+      LEFT JOIN panels p ON p.id = sd.panel_id
+    )
+    SELECT
+      (SELECT COUNT(*) FROM panel_variants WHERE comic_panel_result_id IS NOT NULL)::bigint AS synced,
+      (SELECT COUNT(*) FROM panel_variants WHERE variant_type = 'canvas_final' AND comic_panel_result_id IS NULL)::bigint AS detached,
+      (SELECT COUNT(*) FROM r WHERE r.status = 'completed' AND r.image_url <> '' AND r.panel IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM panel_variants v WHERE v.comic_panel_result_id = r.id))::bigint AS missing,
+      (SELECT COUNT(*) FROM r JOIN panel_variants v ON v.comic_panel_result_id = r.id
+        WHERE (v.panel_id, v.image_url, v.prompt, v.variant_type)
+          IS DISTINCT FROM (r.panel, r.image_url, r.generation_prompt, 'canvas_final'))::bigint AS mismatched,
+      (SELECT COUNT(*) FROM r JOIN panel_variants v ON v.comic_panel_result_id = r.id
+        WHERE r.status <> 'completed' OR r.image_url = '' OR r.panel IS NULL)::bigint AS ineligible`;
+  console.log("最终漫画结果 -> 候选图审计（当前库，不含预演变更）：");
+  console.table([
+    { 项: "同步来的候选图", 数量: Number(variants.synced) },
+    { 项: "镜头换分镜后留在原分镜的普通候选图", 数量: Number(variants.detached) },
+    { 项: "已完成结果缺候选图（应为 0）", 数量: Number(variants.missing) },
+    { 项: "候选图与结果不一致（应为 0）", 数量: Number(variants.mismatched) },
+    { 项: "未完成或镜头无分镜的结果仍有候选图（应为 0）", 数量: Number(variants.ineligible) },
   ]);
 }
 

@@ -178,7 +178,7 @@ export interface PanelVariant {
   panel_id: string;
   image_url: string;
   prompt: string;
-  variant_type: "original" | "composition" | "lighting" | "angle";
+  variant_type: "original" | "composition" | "lighting" | "angle" | "canvas_final";
   is_selected: boolean;
   created_at: Date;
 }

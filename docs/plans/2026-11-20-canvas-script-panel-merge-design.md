@@ -92,6 +92,13 @@
   - 过渡期以画布为准：画布修改镜头时覆盖分镜上的映射字段，项目侧对非映射字段（如重要度）的修改保留。项目侧整章替换分镜的操作（按章节重新生成分镜、应用模板、恢复版本、批量删除、合并/拆分）会删除对应画布镜头，5c-4 读切换后不再有两份数据。
   - Prisma 的 `create` 返回值不含触发器回写的 `panel_id`，需要时重新查询。
 - 5c-3b 已实现（迁移 `20261124_panel_pipeline_phase5c3b.sql`）：新表 `panel_pipeline_states`（`panel_id` 主键，随分镜删除），由触发器在镜头流程字段变化或镜头关联的分镜变化时同步；`shot_prompt_compositions.panel_id`（唯一）、`nine_grid_generations.panel_id` 外键分镜 `ON DELETE SET NULL`，写入时按镜头当前的分镜填值，镜头换分镜时跟随。分镜被删除、镜头解除关联后，合成与九宫格记录保留但解除关联（与原来删除镜头后这些记录保留的行为一致）。
+- 5c-3c 已实现（迁移 `20261125_comic_result_variant_phase5c3c.sql`）：`panel_variants` 新增 `generation_params jsonb`（结果的 `generation_params` 合并宽高、参考图、垫图、模型、LoRA）和 `comic_panel_result_id`（唯一，外键结果 `ON DELETE CASCADE`）。与上面的设计有这些调整：
+  - 不做双向双写，只由触发器从结果单向同步：结果写入 1 处（`generate-finals/helpers.ts`），触发器在结果新增/修改、镜头换分镜时同步。
+  - 只同步 `status = 'completed'` 且有图的结果；失败结果（远端 52 条，图片为空）不进候选图，结果变为失败时删除对应候选图。
+  - 同步来的候选图不自动选中，分镜主图仍由镜头 `generated_image_url` 同步（5c-3a），远端没有结果图与镜头图相同的数据，自动选中会改掉现有主图。项目侧选中后，画布再改这条结果时保留选中。
+  - 镜头解除关联或换分镜时，原分镜上的候选图解除来源、作为普通候选图保留（与原分镜作为普通分镜保留一致），新分镜下重新生成。
+  - `comic_panel_results.exported_to_panel_id` 不写，阶段 6 随表删除。
+  - 同步函数先 `FOR SHARE` 锁镜头行再查分镜，与镜头换分镜互斥，避免并发时写到旧分镜或漏同步。
 
 ### 5c-4 读切换与删除
 

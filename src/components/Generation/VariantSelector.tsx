@@ -50,7 +50,8 @@ export function VariantSelector({
       original: "原始版本",
       composition: "构图变体",
       lighting: "光线变体",
-      angle: "角度变体"
+      angle: "角度变体",
+      canvas_final: "画布成图"
     };
     return labels[type] || type;
   };
@@ -60,7 +61,8 @@ export function VariantSelector({
       original: "bg-blue-500/10 text-blue-700 border-blue-300",
       composition: "bg-green-500/10 text-green-700 border-green-300",
       lighting: "bg-yellow-500/10 text-yellow-700 border-yellow-300",
-      angle: "bg-purple-500/10 text-purple-700 border-purple-300"
+      angle: "bg-purple-500/10 text-purple-700 border-purple-300",
+      canvas_final: "bg-pink-500/10 text-pink-700 border-pink-300"
     };
     return colors[type] || "bg-gray-500/10 text-gray-700 border-gray-300";
   };
