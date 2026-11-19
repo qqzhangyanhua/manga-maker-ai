@@ -9,7 +9,7 @@ import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { logInfo, logError } from "@/lib/api-logger";
-import { ensureStoryProject } from "@/lib/project";
+import { ensureStoryProject, mapNovelGenreToStoryGenre } from "@/lib/project";
 
 interface SceneSelection {
   chapter_number: number;
@@ -164,7 +164,7 @@ export async function POST(
     // 创建 Chapters（基于选中的场景）
     const chaptersCreated: Array<{ id: string; title: string; order: number }> = [];
     // ✅ 如果是追加模式，从项目现有章节的最大 order + 1 开始
-    // 章节按 project_id 归属（阶段 4 起 story_id 停止写入），不能再用 story.chapters 计算
+    // 章节按 project_id 归属，独立创建的章节没有 story_id，不能再用 story.chapters 计算
     const lastChapter = await prisma.chapter.findFirst({
       where: { project_id: comicProject.id },
       orderBy: { chapter_order: "desc" },
@@ -323,18 +323,6 @@ export async function POST(
       { status: 500 }
     );
   }
-}
-
-function mapNovelGenreToStoryGenre(novelGenre: string | null): string {
-  const genreMap: Record<string, string> = {
-    suspense: "suspense",
-    romance: "romance",
-    adventure: "adventure",
-    scifi: "scifi",
-    fantasy: "fantasy",
-    other: "daily",
-  };
-  return genreMap[novelGenre || "other"] || "daily";
 }
 
 function mapNovelRoleToStoryRole(novelRole: string | undefined): string {

@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { anchorTimelineChapters } from "@/lib/project";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -255,6 +256,11 @@ export async function POST(req: Request, { params }: RouteParams) {
         updated_at: new Date(),
       },
     });
+
+    // 已归属项目的时间线，新章节同时落到项目章节上
+    if (timeline.project_id) {
+      await anchorTimelineChapters(prisma, timelineId);
+    }
 
     return NextResponse.json({ success: true, chapter });
   } catch (error) {

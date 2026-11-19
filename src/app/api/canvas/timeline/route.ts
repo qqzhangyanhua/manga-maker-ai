@@ -8,7 +8,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { findUnambiguousNovelProject } from "@/lib/project";
+import { anchorTimelineChapters, findUnambiguousNovelProject } from "@/lib/project";
 
 export async function POST(req: Request) {
   const cookieStore = await cookies();
@@ -55,6 +55,7 @@ export async function POST(req: Request) {
             where: { id: existingTimeline.id },
             data: { project_id: linked.id },
           });
+          await anchorTimelineChapters(prisma, healed.id);
           return NextResponse.json({ success: true, timeline: healed });
         }
       }

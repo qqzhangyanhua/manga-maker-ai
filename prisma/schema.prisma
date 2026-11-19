@@ -562,12 +562,13 @@ model Chapter {
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
 
-  story            Story?                  @relation(fields: [story_id], references: [id], onDelete: SetNull)
-  project          Project                 @relation(fields: [project_id], references: [id], onDelete: Cascade)
-  scene            Scene?                  @relation(fields: [scene_id], references: [id], onDelete: SetNull)
-  panels           Panel[]
-  character_states ChapterCharacterState[] // Character states at end of chapter
-  suggested_scenes SuggestedScene[] // AI-suggested scenes for background generation
+  story             Story?                  @relation(fields: [story_id], references: [id], onDelete: SetNull)
+  project           Project                 @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  scene             Scene?                  @relation(fields: [scene_id], references: [id], onDelete: SetNull)
+  panels            Panel[]
+  character_states  ChapterCharacterState[] // Character states at end of chapter
+  suggested_scenes  SuggestedScene[] // AI-suggested scenes for background generation
+  timeline_chapters TimelineChapter[] // 锚定到本章节的画布时间线章节
 
   @@index([story_id, chapter_order], map: "idx_chapters_story_order")
   @@index([project_id, chapter_order], map: "idx_chapters_project_order")
@@ -1313,10 +1314,13 @@ model CanvasTimeline {
 
 // 时间线章节节点
 model TimelineChapter {
-  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  timeline_id    String @db.Uuid
-  chapter_id     String @db.Uuid
-  chapter_number Int
+  id                 String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  timeline_id        String  @db.Uuid
+  // 来源小说章节（novel_chapters，无外键）
+  chapter_id         String  @db.Uuid
+  // 时间线所属项目中对应的章节，时间线归属项目后建立
+  project_chapter_id String? @db.Uuid
+  chapter_number     Int
 
   // 生成状态（每个阶段独立追踪）
   script_status String @default("pending") // pending, generating, completed, error
@@ -1341,9 +1345,11 @@ model TimelineChapter {
   // Relations
   timeline        CanvasTimeline  @relation(fields: [timeline_id], references: [id], onDelete: Cascade)
   comic_style     ComicStyle?     @relation(fields: [comic_style_id], references: [id], onDelete: SetNull)
+  project_chapter Chapter?        @relation(fields: [project_chapter_id], references: [id], onDelete: SetNull)
   script_segments ScriptSegment[]
 
   @@index([timeline_id], map: "idx_timeline_chapter_timeline")
+  @@index([project_chapter_id], map: "idx_timeline_chapter_project_chapter")
   @@index([chapter_id], map: "idx_timeline_chapter_chapter")
   @@index([comic_style_id], map: "idx_timeline_chapter_style")
   @@map("timeline_chapters")

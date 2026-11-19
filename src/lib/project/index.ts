@@ -12,6 +12,10 @@ export {
   listNovelComicProjects,
 } from "./novel-link";
 export type { NovelComicProject } from "./novel-link";
+export { ensureNovelAdaptationProject, mapNovelGenreToStoryGenre } from "./novel-adaptation";
+export type { NovelSource } from "./novel-adaptation";
+export { anchorTimelineChapters } from "./timeline-anchor";
+export type { TimelineAnchorResult } from "./timeline-anchor";
 export {
   deleteProjectWithStory,
   deleteStoryWithProject,

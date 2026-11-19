@@ -1,7 +1,7 @@
 # 画布剧本片段/镜头设计与项目剧本、分镜合并：设计文档
 
 - 日期：2026-11-20
-- 状态：已确认（2026-11-20，用户选择方案 A；第 6 节待定项已决策）
+- 状态：已确认（2026-11-20，用户选择方案 A；第 6 节待定项已决策）；5c-1 已完成（2026-11-21）
 - 关联：ADR-0001（项目吸收故事）、ADR-0002（角色库 + 项目角色）、ADR-0003（小说作为项目来源）、`docs/plans/2026-11-18-project-root-alignment-plan.md`
 
 ## 1. 问题
@@ -65,6 +65,7 @@
 - 时间线已归属项目时：按 `chapters.project_id = timeline.project_id and chapters.source_novel_chapter_id = timeline_chapters.chapter_id` 找项目章节；找不到就按小说章节创建项目章节（复用 convert-to-comic 的章节创建逻辑，抽到 `src/lib/project/chapter.ts`）。
 - 触发时机：时间线归属项目时（PATCH `project_id`、POST 自动归属）、画布新增章节时；另提供回填脚本。
 - 未归属项目的时间线保持现状，不创建任何项目数据。
+- 已实现：`anchorTimelineChapters`（`src/lib/project/timeline-anchor.ts`）；画布"创建漫画项目"入口 `POST /api/canvas/timeline/[id]/project` 复用小说转漫画的建项目路径（来源故事 + 主项目），所以章节创建逻辑没有从 convert-to-comic 抽出，两边只共用题材映射。
 
 ### 5c-2 剧本片段挂到项目章节
 

@@ -171,7 +171,7 @@ export default function CanvasPage() {
         </div>
       </div>
 
-      {!timeline.project_id && (timeline.candidate_projects?.length ?? 0) > 0 && (
+      {!timeline.project_id && (
         <ProjectLinkBanner
           timelineId={timelineId}
           candidates={timeline.candidate_projects ?? []}

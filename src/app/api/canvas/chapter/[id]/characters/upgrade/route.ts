@@ -9,6 +9,7 @@ import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 import { logInfo, logError } from "@/lib/api-logger";
+import { ensureProjectCharacters } from "@/lib/project";
 import { generateCharacterBaseImage } from "./image-generation";
 import type {
   UpgradeNovelCharacterRequest,
@@ -68,6 +69,7 @@ export async function POST(req: Request, { params }: RouteParams) {
           select: {
             user_id: true,
             novel_project_id: true,
+            project_id: true,
           },
         },
       },
@@ -111,6 +113,13 @@ export async function POST(req: Request, { params }: RouteParams) {
           data: {
             character_ids: [...currentCharacterIds, existingCharacter.id],
           },
+        });
+      }
+      if (chapter.timeline.project_id) {
+        await ensureProjectCharacters(prisma, {
+          projectId: chapter.timeline.project_id,
+          userId: payload.userId,
+          characterIds: [existingCharacter.id],
         });
       }
 
@@ -168,7 +177,7 @@ export async function POST(req: Request, { params }: RouteParams) {
       },
     });
 
-    // 7. 关联到章节
+    // 7. 关联到章节；时间线已归属项目时同时加入项目角色
     const currentCharacterIds = chapter.character_ids || [];
     await prisma.timelineChapter.update({
       where: { id: chapterId },
@@ -176,6 +185,13 @@ export async function POST(req: Request, { params }: RouteParams) {
         character_ids: [...currentCharacterIds, newCharacter.id],
       },
     });
+    if (chapter.timeline.project_id) {
+      await ensureProjectCharacters(prisma, {
+        projectId: chapter.timeline.project_id,
+        userId: payload.userId,
+        characterIds: [newCharacter.id],
+      });
+    }
 
     // 8. 可选：生成基础图片
     let imageGenerated = false;

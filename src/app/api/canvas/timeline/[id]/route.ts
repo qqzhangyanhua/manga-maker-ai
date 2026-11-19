@@ -11,7 +11,7 @@ import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { logInfo, logError } from "@/lib/api-logger";
 import { UpdateTimelineConfigRequestSchema } from "@/lib/api-schemas/canvas.schemas";
-import { listNovelComicProjects } from "@/lib/project";
+import { anchorTimelineChapters, listNovelComicProjects } from "@/lib/project";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -267,6 +267,11 @@ export async function PATCH(req: Request, { params }: RouteParams) {
         updated_at: new Date(),
       },
     });
+
+    if (project_id) {
+      const anchor = await anchorTimelineChapters(prisma, id);
+      logInfo("时间线章节锚定项目章节", { timelineId: id, projectId: project_id, ...anchor });
+    }
 
     logInfo("时间线配置更新成功", {
       timelineId: id,

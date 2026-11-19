@@ -219,6 +219,7 @@ User
 - 5b（2026-11-20）：POST 时间线在无歧义时自动写 `project_id`；GET 返回 `project_id` 和候选项目；PATCH 支持选择归属（只能选本人且来源小说一致的项目）；画布角色接口在已归属时返回项目角色，未归属时回退小说人物；画布页在未归属且有候选项目时显示归属选择横幅（无头浏览器实测：横幅显示、点击关联、横幅消失、数据库写入正确）。回填脚本重跑 dry-run：可自动关联 0 条，15 条多候选等用户在画布上选择，8 条对应的小说还没有改编项目，无需 apply。
 - 已知遗留：九宫格角色参考 `useProjectCharacters` 仍读小说人物接口，随 5c 一起切换。
 - 5c：设计文档见 `docs/plans/2026-11-20-canvas-script-panel-merge-design.md`，用户已确认方案 A（数据收敛到项目侧，分 5c-1 至 5c-4 四步）、分镜多角色用关联表、画布上提供"创建漫画项目"入口。
+- 5c-1（2026-11-21）：迁移 `20261121_canvas_anchor_phase5c1.sql` 已在远端库执行（`timeline_chapters.project_chapter_id`，外键 `ON DELETE SET NULL`，重复执行无变化），回滚脚本已留存。`src/lib/project/timeline-anchor.ts` 的 `anchorTimelineChapters` 按来源小说章节匹配或新建项目章节；在 PATCH 选择归属、POST 复用时间线自动归属、画布新增章节时调用。新增 `POST /api/canvas/timeline/[id]/project`：小说还没有改编项目时，走与小说转漫画相同的路径（建来源故事 -> 触发器建主项目）新建项目并归属，之后再执行小说转漫画会追加到这个项目。画布角色列表在归属后返回项目角色 + 尚未升级的小说人物；画布升级角色时同时加入项目角色。回填脚本 `scripts/backfill-timeline-anchors.ts` 预演为 0（远端还没有已归属的时间线，锚定随用户选择归属自动发生）。dev server 实测 19/19（含无头浏览器点击"创建漫画项目"），临时数据已清理。
 
 ### 阶段 6：清理
 
