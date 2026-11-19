@@ -181,8 +181,8 @@ export function ShotCharacterBindingPanel({
     },
     onSuccess: (data) => {
       toast.success("Prompt 合成成功");
-      // 刷新分镜数据
-      queryClient.invalidateQueries({ queryKey: ["shot-design", shotId] });
+      // 刷新镜头列表（绑定状态显示在镜头卡片上）
+      queryClient.invalidateQueries({ queryKey: ["shot-detail"] });
       onSuccess?.();
       onOpenChange(false);
     },

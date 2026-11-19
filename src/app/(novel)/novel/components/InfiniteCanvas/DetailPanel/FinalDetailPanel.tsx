@@ -14,12 +14,11 @@ import { BookImage, RefreshCw, Loader2, AlertCircle, Download, Eye } from 'lucid
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import type { FinalDetailListResponse } from '../detail-panel-types';
+import { readCanvasError } from '../utils/canvas-api';
 
 interface FinalDetailPanelProps {
   chapterId: string;
 }
-
-type ComicPanel = FinalDetailListResponse['panels'][number];
 
 export function FinalDetailPanel({ chapterId }: FinalDetailPanelProps) {
   const queryClient = useQueryClient();
@@ -28,7 +27,7 @@ export function FinalDetailPanel({ chapterId }: FinalDetailPanelProps) {
     queryKey: ['final-detail', chapterId],
     queryFn: async () => {
       const response = await fetch(`/api/canvas/chapter/${chapterId}/final`);
-      if (!response.ok) throw new Error('获取漫画详情失败');
+      if (!response.ok) throw new Error(await readCanvasError(response, '获取漫画详情失败'));
       return response.json();
     },
     staleTime: 1000 * 60 * 5,
@@ -39,7 +38,7 @@ export function FinalDetailPanel({ chapterId }: FinalDetailPanelProps) {
       const response = await fetch(`/api/canvas/chapter/${chapterId}/generate-finals`, {
         method: 'POST',
       });
-      if (!response.ok) throw new Error('重新生成失败');
+      if (!response.ok) throw new Error(await readCanvasError(response, '重新生成失败'));
       return response.json();
     },
     onSuccess: () => {
@@ -141,7 +140,7 @@ export function FinalDetailPanel({ chapterId }: FinalDetailPanelProps) {
 
       {/* 漫画网格 */}
       <div className="space-y-3">
-        {data.panels.map((panel) => (
+        {data.panels.map((panel, index) => (
           <div
             key={panel.id}
             className="bg-zinc-800/50 border border-zinc-700 rounded-lg overflow-hidden hover:border-zinc-600 transition-colors group"
@@ -151,11 +150,11 @@ export function FinalDetailPanel({ chapterId }: FinalDetailPanelProps) {
                 <>
                   <img
                     src={panel.image_url}
-                    alt={`Panel ${panel.panel_order}`}
+                    alt={`漫画 ${index + 1}`}
                     className="w-full h-full object-contain"
                   />
                   <div className="absolute top-2 left-2 bg-black/80 px-2 py-1 rounded text-xs text-white">
-                    #{panel.panel_order}
+                    #{index + 1}
                   </div>
                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                     <Button size="sm" variant="ghost" className="text-white">

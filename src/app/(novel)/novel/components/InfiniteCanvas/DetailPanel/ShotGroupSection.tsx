@@ -6,26 +6,17 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Grid3x3, AlertCircle, Users, CheckCircle, Sparkles, Image, MapPin } from "lucide-react";
 import type { ShotGroup, LocationGroup } from "./types";
-import type { ShotDesign } from "@prisma/client";
+import type { CanvasShotJson } from "@/lib/canvas/types";
 import { generatePlaceholders } from "../utils/shot-grouping";
 import { ShotCharacterBindingPanel } from "../ShotCharacterBindingPanel";
 import { ShotNineGridDialog } from "../ShotNineGridDialog";
 import { novelTheme } from "../../../theme";
 import { cn } from "@/lib/utils";
 
-type ShotLike = ShotDesign | { 
-  id: string; 
-  shot_order: number; 
-  generated_image_url?: string | null; 
-  shot_description: string; 
-  created_at: Date | string; 
-  [key: string]: unknown;
-};
-
 interface ShotGroupSectionProps {
   group: ShotGroup;
   onGenerate: (group: ShotGroup) => void;
-  onShotClick?: (shot: ShotLike) => void;
+  onShotClick?: (shot: CanvasShotJson) => void;
   novelProjectId?: string;
 }
 
@@ -39,40 +30,40 @@ export function ShotGroupSection({
 
   // 角色绑定面板状态
   const [bindingPanelOpen, setBindingPanelOpen] = useState(false);
-  const [selectedShotForBinding, setSelectedShotForBinding] = useState<ShotDesign | null>(null);
+  const [selectedShotForBinding, setSelectedShotForBinding] = useState<CanvasShotJson | null>(null);
 
   // 九宫格生成对话框状态
   const [nineGridDialogOpen, setNineGridDialogOpen] = useState(false);
-  const [selectedShotForNineGrid, setSelectedShotForNineGrid] = useState<ShotDesign | null>(null);
+  const [selectedShotForNineGrid, setSelectedShotForNineGrid] = useState<CanvasShotJson | null>(null);
 
   // 检查分镜是否已绑定角色 Prompt
-  const hasBoundCharacters = (shot: ShotDesign) => {
+  const hasBoundCharacters = (shot: CanvasShotJson) => {
     return shot.character_prompt_template_ids && shot.character_prompt_template_ids.length > 0;
   };
 
   // 检查分镜是否已合成 Prompt
-  const hasComposedPrompt = (shot: ShotDesign) => {
+  const hasComposedPrompt = (shot: CanvasShotJson) => {
     return shot.final_prompt_status === "completed";
   };
 
   // 检查分镜是否有九宫格候选图
-  const hasNineGridGeneration = (shot: ShotDesign) => {
+  const hasNineGridGeneration = (shot: CanvasShotJson) => {
     return shot.nine_grid_status === "completed";
   };
 
   // 检查分镜是否已选择图片
-  const hasSelectedImage = (shot: ShotDesign) => {
+  const hasSelectedImage = (shot: CanvasShotJson) => {
     return shot.selection_status === "selected" || shot.selection_status === "refined";
   };
 
   // 处理角色绑定点击
-  const handleBindCharacter = (shot: ShotDesign) => {
+  const handleBindCharacter = (shot: CanvasShotJson) => {
     setSelectedShotForBinding(shot);
     setBindingPanelOpen(true);
   };
 
   // 处理九宫格生成点击
-  const handleOpenNineGridDialog = (shot: ShotDesign) => {
+  const handleOpenNineGridDialog = (shot: CanvasShotJson) => {
     setSelectedShotForNineGrid(shot);
     setNineGridDialogOpen(true);
   };

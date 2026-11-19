@@ -1,4 +1,4 @@
-import type { ShotDesign } from "@prisma/client";
+import type { CanvasShotJson } from "@/lib/canvas/types";
 import type { ShotGroup, LocationGroup } from "../DetailPanel/types";
 
 /**
@@ -6,7 +6,7 @@ import type { ShotGroup, LocationGroup } from "../DetailPanel/types";
  * @param shots 镜头数组（需按 shot_order 排序）
  * @returns 分组后的数组
  */
-export function groupShotsIntoNineGrids(shots: ShotDesign[]): ShotGroup[] {
+export function groupShotsIntoNineGrids(shots: CanvasShotJson[]): ShotGroup[] {
   if (!shots || shots.length === 0) {
     return [];
   }
@@ -52,7 +52,7 @@ export function generatePlaceholders(count: number, startOrder: number): number[
  * @param shots 镜头数组
  * @returns 场景统计信息
  */
-export function getLocationStats(shots: ShotDesign[]): LocationGroup[] {
+export function getLocationStats(shots: CanvasShotJson[]): LocationGroup[] {
   const locationMap = new Map<string, { count: number; shotIds: string[] }>();
   
   for (const shot of shots) {
@@ -83,8 +83,8 @@ export function getLocationStats(shots: ShotDesign[]): LocationGroup[] {
  * @param shots 镜头数组
  * @returns 按场景分组的结果
  */
-export function groupShotsByLocation(shots: ShotDesign[]): Map<string, ShotDesign[]> {
-  const groups = new Map<string, ShotDesign[]>();
+export function groupShotsByLocation(shots: CanvasShotJson[]): Map<string, CanvasShotJson[]> {
+  const groups = new Map<string, CanvasShotJson[]>();
   
   for (const shot of shots) {
     const locationKey = shot.location_key || "unknown";

@@ -3,7 +3,7 @@
  */
 
 /**
- * 镜头设计基础信息
+ * 画布镜头基础信息（id 为分镜 ID，shot_order 为章节内序号）
  */
 export interface ShotDesignBasic {
   id: string;

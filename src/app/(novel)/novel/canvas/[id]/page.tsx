@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Palette, Users, Images } from "lucide-react";
+import { ArrowLeft, FolderKanban, Palette, Users, Images } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InfiniteCanvasView } from "../../components/InfiniteCanvas";
 import { useTimelineWindow } from "@/hooks/useTimelineWindow";
@@ -110,7 +110,8 @@ export default function CanvasPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0f0f13] flex flex-col text-zinc-100 novel-theme-scope pt-20">
+    // h-screen 而非 min-h-screen：flex-1 子级需要确定的父高度，ReactFlow 的 h-full 才能生效
+    <div className="h-screen bg-[#0f0f13] flex flex-col text-zinc-100 novel-theme-scope pt-20">
       <Navbar />
       {/* Header */}
       <div className="flex items-center gap-4 p-4 border-b border-purple-500/10 bg-[#0f0f13]/80 backdrop-blur-md sticky top-20 z-40">
@@ -178,20 +179,31 @@ export default function CanvasPage() {
         />
       )}
 
-      <div className="flex-1 overflow-hidden min-h-0">
-        <InfiniteCanvasView
-          timeline={timeline}
-          windowState={windowState}
-          chapterSummaries={chapterSummaries}
-          onRefresh={refresh}
-          onNavigate={navigateTo}
-          onPrev={navigatePrev}
-          onNext={navigateNext}
-          onJumpFirst={jumpToFirst}
-          onJumpLast={jumpToLast}
-          isLoading={isLoading}
-        />
-      </div>
+      {/* 镜头、漫画都存为项目分镜，画布必须先归属漫画项目 */}
+      {timeline.project_id ? (
+        <div className="flex-1 overflow-hidden min-h-0">
+          <InfiniteCanvasView
+            timeline={timeline}
+            windowState={windowState}
+            chapterSummaries={chapterSummaries}
+            onRefresh={refresh}
+            onNavigate={navigateTo}
+            onPrev={navigatePrev}
+            onNext={navigateNext}
+            onJumpFirst={jumpToFirst}
+            onJumpLast={jumpToLast}
+            isLoading={isLoading}
+          />
+        </div>
+      ) : (
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 p-8 text-center">
+          <FolderKanban className="w-12 h-12 text-purple-400/50" />
+          <p className="text-base text-zinc-200">请先创建或选择漫画项目</p>
+          <p className="text-sm text-zinc-500 max-w-md">
+            画布生成的镜头和漫画会保存到漫画项目的分镜里。在上方创建或选择项目后即可使用画布。
+          </p>
+        </div>
+      )}
 
       {/* 角色库抽屉 */}
       <CharacterLibraryDrawer

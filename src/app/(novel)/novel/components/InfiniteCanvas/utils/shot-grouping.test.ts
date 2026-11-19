@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { groupShotsIntoNineGrids, generatePlaceholders } from "./shot-grouping";
-import type { ShotDesign } from "@prisma/client";
+import type { CanvasShotJson } from "@/lib/canvas/types";
 
 describe("shot-grouping", () => {
   describe("groupShotsIntoNineGrids", () => {
@@ -8,7 +8,7 @@ describe("shot-grouping", () => {
       const shots = Array.from({ length: 9 }, (_, i) => ({
         id: `shot-${i + 1}`,
         shot_order: i + 1,
-      })) as ShotDesign[];
+      })) as CanvasShotJson[];
 
       const groups = groupShotsIntoNineGrids(shots);
 
@@ -23,7 +23,7 @@ describe("shot-grouping", () => {
       const shots = Array.from({ length: 30 }, (_, i) => ({
         id: `shot-${i + 1}`,
         shot_order: i + 1,
-      })) as ShotDesign[];
+      })) as CanvasShotJson[];
 
       const groups = groupShotsIntoNineGrids(shots);
 

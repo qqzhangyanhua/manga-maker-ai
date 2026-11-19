@@ -44,8 +44,9 @@ import type { NineGridTaskStatus } from "../NineGrid";
 import { groupShotsIntoNineGrids } from "../utils/shot-grouping";
 import { ShotGroupSection } from "./ShotGroupSection";
 import type { ShotGroup } from "./types";
-import type { ShotDesign } from "@prisma/client";
+import type { CanvasShotJson } from "@/lib/canvas/types";
 import type { ShotDetailListResponse, GenerateShotImagePayloadLocal } from "../detail-panel-types";
+import { readCanvasError } from "../utils/canvas-api";
 
 interface ShotDetailPanelProps {
   chapterId: string;
@@ -63,9 +64,9 @@ function ShotCard({
   isSelected,
   onSelectToggle,
 }: {
-  shot: ShotDesign;
-  onGenerate: (shot: ShotDesign) => void;
-  onImageClick: (shot: ShotDesign) => void;
+  shot: CanvasShotJson;
+  onGenerate: (shot: CanvasShotJson) => void;
+  onImageClick: (shot: CanvasShotJson) => void;
   isSelectMode: boolean;
   isSelected: boolean;
   onSelectToggle: (shotId: string) => void;
@@ -231,7 +232,7 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
   const closeNineGridDialog = useCloseNineGridDialog();
 
   const [viewerOpen, setViewerOpen] = useState(false);
-  const [selectedShot, setSelectedShot] = useState<ShotDesign | null>(null);
+  const [selectedShot, setSelectedShot] = useState<CanvasShotJson | null>(null);
 
   // 分组状态
   const [shotGroups, setShotGroups] = useState<ShotGroup[]>([]);
@@ -247,7 +248,7 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
     queryFn: async () => {
       const response = await fetch(`/api/canvas/chapter/${chapterId}/shot`);
       if (!response.ok) {
-        throw new Error("获取镜头详情失败");
+        throw new Error(await readCanvasError(response, "获取镜头详情失败"));
       }
       return response.json();
     },
@@ -287,53 +288,25 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
       },
     });
 
+  // 接口已按剧本片段、分镜编号排好序，shot_order 是片段内序号；
+  // 详情面板与九宫格按整章连续编号，所以这里改成章节内序号
+  const chapterShots = useMemo<CanvasShotJson[]>(
+    () => (data?.shots ?? []).map((shot, index) => ({ ...shot, shot_order: index + 1 })),
+    [data?.shots]
+  );
+
   // 计算镜头分组（依赖 data，必须在 useQuery 之后）
   useEffect(() => {
-    if (data?.shots && data.shots.length > 0) {
-      const sortedShots = [...data.shots].sort((a, b) => a.shot_order - b.shot_order);
-      // 将 ShotDesign 转换为 Prisma ShotDesign 类型（添加缺失字段）
-      const prismaShots = sortedShots.map(shot => ({
-        ...shot,
-        script_segment_id: '',
-        location_key: '',
-        character_ids: [] as string[],
-        scene_id: null as string | null,
-        atmosphere: null as string | null,
-        lighting: null as string | null,
-        weather: null as string | null,
-        time_of_day: null as string | null,
-        special_effects: null as string | null,
-        expression_types: [] as string[],
-        outfit_ids: [] as string[],
-        shared_scene_id: null as string | null,
-        negative_prompt: null as string | null,
-        generated_image_url: shot.generated_image_url ?? '',
-        generation_status: shot.generation_status ?? 'pending',
-        created_at: new Date(shot.created_at),
-        // 新增: 角色身份证与九宫格工作流字段
-        character_prompt_template_ids: [] as string[],
-        prompt_composition_id: null as string | null,
-        nine_grid_generation_id: null as string | null,
-        character_prompt_status: 'pending',
-        final_prompt_status: 'pending',
-        nine_grid_status: 'pending',
-        selection_status: 'pending',
-      }));
-      const groups = groupShotsIntoNineGrids(prismaShots);
-      setShotGroups(groups);
-    } else {
-      setShotGroups([]);
-    }
-  }, [data?.shots]);
+    setShotGroups(chapterShots.length > 0 ? groupShotsIntoNineGrids(chapterShots) : []);
+  }, [chapterShots]);
 
   // 当前选中的镜头数据（用于九宫格生成）
   const [currentSelectedShotIds, setCurrentSelectedShotIds] = useState<string[]>([]);
 
   const selectedShots = useMemo<ShotDesignBasic[]>(() => {
-    if (!data?.shots || currentSelectedShotIds.length === 0) return [];
-    return data.shots
+    if (currentSelectedShotIds.length === 0) return [];
+    return chapterShots
       .filter((shot) => currentSelectedShotIds.includes(shot.id))
-      .sort((a, b) => a.shot_order - b.shot_order)
       .map((shot) => ({
         id: shot.id,
         shot_order: shot.shot_order,
@@ -346,7 +319,7 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
         generated_image_url: shot.generated_image_url,
         generation_status: shot.generation_status,
       }));
-  }, [data?.shots, currentSelectedShotIds]);
+  }, [chapterShots, currentSelectedShotIds]);
 
   // 处理分组生成按钮点击
   const handleGenerateGroup = useCallback((group: ShotGroup) => {
@@ -465,7 +438,7 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
     },
   });
 
-  const handleOpenGenerateDialog = (shot: ShotDesign) => {
+  const handleOpenGenerateDialog = (shot: CanvasShotJson) => {
     if (!data?.timelineId) {
       toast.error("缺少时间线信息，无法生成图片");
       return;
@@ -504,9 +477,8 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
     });
   };
 
-  const handleImageClick = (shot: { id: string; shot_order: number; generated_image_url?: string | null; shot_description: string; [key: string]: unknown }) => {
-    // 从 data.shots 中找到完整的镜头数据
-    const fullShot = data?.shots.find(s => s.id === shot.id);
+  const handleImageClick = (shot: CanvasShotJson) => {
+    const fullShot = chapterShots.find((s) => s.id === shot.id);
     if (fullShot) {
       setSelectedShot(fullShot);
       setViewerOpen(true);
@@ -523,7 +495,7 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
         }
       );
       if (!response.ok) {
-        throw new Error("重新生成失败");
+        throw new Error(await readCanvasError(response, "重新生成失败"));
       }
       return response.json();
     },

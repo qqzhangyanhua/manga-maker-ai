@@ -2,7 +2,7 @@
  * Detail Panel 业务数据类型定义
  */
 
-import type { ShotDesign } from "@prisma/client";
+import type { CanvasFinalJson, CanvasShotJson } from "@/lib/canvas/types";
 import type { ShotImageCharacterInput } from "./shared-types";
 
 /**
@@ -57,7 +57,7 @@ export function getEmotionToneConfig(tone: string) {
  * 分镜详情 API 响应（单个）
  */
 export interface ShotDetailResponse {
-  shot: ShotDesign;
+  shot: CanvasShotJson;
   metadata?: {
     chapter_title?: string;
     chapter_number?: number;
@@ -72,7 +72,10 @@ export interface ShotDetailListResponse {
   chapterNumber: number;
   timelineId: string;
   novelProjectId?: string | null;
-  shots: ShotDesign[];
+  projectId: string;
+  status: string;
+  /** 按剧本片段、分镜编号排好序；shot_order 是片段内序号 */
+  shots: CanvasShotJson[];
   totalCount: number;
 }
 
@@ -214,11 +217,7 @@ export interface FinalDetailResponse {
 export interface FinalDetailListResponse {
   chapterId: string;
   chapterNumber: number;
-  panels: Array<{
-    id: string;
-    image_url: string;
-    panel_order: number;
-    created_at: string;
-  }>;
+  status: string;
+  panels: CanvasFinalJson[];
   totalCount: number;
 }
