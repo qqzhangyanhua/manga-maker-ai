@@ -6,7 +6,8 @@
  *   npx tsx scripts/backfill-timeline-anchors.ts --apply   写入
  *
  * 前置：prisma/migrations/manual/20261121_canvas_anchor_phase5c1.sql 已执行。可重复执行。
- * 阶段 5c-2、5c-3a 迁移执行后，锚定会由触发器同步剧本片段的 chapter_id 和镜头对应的分镜，脚本末尾输出一致性审计。
+ * 阶段 5c-2、5c-3a、5c-3b 迁移执行后，锚定会由触发器同步剧本片段的 chapter_id、镜头对应的分镜及其流程状态，
+ * 脚本末尾输出一致性审计。
  */
 import { PrismaClient } from "@prisma/client";
 import { anchorTimelineChapters } from "../src/lib/project/timeline-anchor";
@@ -96,6 +97,32 @@ async function main() {
     { 项: "已同步为分镜", 数量: Number(shots.linked) },
     { 项: "剧本片段已挂章节但没有分镜（应为 0）", 数量: Number(shots.missing) },
     { 项: "分镜与镜头字段不一致（应为 0）", 数量: Number(shots.mismatched) },
+  ]);
+
+  const [pipeline] = await prisma.$queryRaw<
+    Array<{ missing: bigint; mismatched: bigint; orphan: bigint; records: bigint }>
+  >`
+    SELECT
+      (SELECT COUNT(*) FROM shot_designs sd JOIN panels p ON p.id = sd.panel_id
+        WHERE NOT EXISTS (SELECT 1 FROM panel_pipeline_states st WHERE st.panel_id = p.id))::bigint AS missing,
+      (SELECT COUNT(*) FROM shot_designs sd JOIN panel_pipeline_states st ON st.panel_id = sd.panel_id
+        WHERE (st.character_prompt_template_ids, st.prompt_composition_id, st.nine_grid_generation_id,
+               st.character_prompt_status, st.final_prompt_status, st.nine_grid_status, st.selection_status)
+          IS DISTINCT FROM
+              (sd.character_prompt_template_ids, sd.prompt_composition_id, sd.nine_grid_generation_id,
+               sd.character_prompt_status, sd.final_prompt_status, sd.nine_grid_status, sd.selection_status))::bigint AS mismatched,
+      (SELECT COUNT(*) FROM panel_pipeline_states st
+        WHERE NOT EXISTS (SELECT 1 FROM shot_designs sd WHERE sd.panel_id = st.panel_id))::bigint AS orphan,
+      ((SELECT COUNT(*) FROM shot_prompt_compositions c LEFT JOIN shot_designs sd ON sd.id = c.shot_design_id
+          LEFT JOIN panels p ON p.id = sd.panel_id WHERE c.panel_id IS DISTINCT FROM p.id)
+       + (SELECT COUNT(*) FROM nine_grid_generations n LEFT JOIN shot_designs sd ON sd.id = n.shot_design_id
+          LEFT JOIN panels p ON p.id = sd.panel_id WHERE n.panel_id IS DISTINCT FROM p.id))::bigint AS records`;
+  console.log("分镜流程状态审计（当前库，不含预演变更，均应为 0）：");
+  console.table([
+    { 项: "画布分镜缺流程状态", 数量: Number(pipeline.missing) },
+    { 项: "流程状态与镜头不一致", 数量: Number(pipeline.mismatched) },
+    { 项: "流程状态没有对应镜头", 数量: Number(pipeline.orphan) },
+    { 项: "合成/九宫格记录的分镜与镜头不一致", 数量: Number(pipeline.records) },
   ]);
 }
 

@@ -301,6 +301,11 @@ model Panel {
   // 分镜多角色；character_id 保留为主角色兼容字段
   panel_characters PanelCharacter[]
 
+  // 画布流程状态与记录（阶段 5c-3b），由数据库触发器从镜头设计同步
+  pipeline_state     PanelPipelineState?
+  prompt_composition ShotPromptComposition?
+  nine_grids         NineGridGeneration[]
+
   @@index([project_id, panel_order], map: "idx_panels_project_order")
   @@index([segment_id], map: "idx_panels_segment")
   @@index([character_id], map: "idx_panels_character")
@@ -309,6 +314,27 @@ model Panel {
   @@index([chapter_id], map: "idx_panels_chapter")
   @@index([is_shared, shared_at], map: "idx_panels_shared")
   @@map("panels")
+}
+
+// 画布来的分镜的流程状态（角色提示词、最终提示词、九宫格、选图），由数据库触发器从镜头设计同步
+model PanelPipelineState {
+  panel_id                      String   @id @db.Uuid
+  character_prompt_template_ids String[] @default([]) @db.Uuid
+  prompt_composition_id         String?  @db.Uuid
+  nine_grid_generation_id       String?  @db.Uuid
+  character_prompt_status       String   @default("pending")
+  final_prompt_status           String   @default("pending")
+  nine_grid_status              String   @default("pending")
+  selection_status              String   @default("pending")
+  updated_at                    DateTime @default(now()) @db.Timestamptz(6)
+
+  panel              Panel                  @relation(fields: [panel_id], references: [id], onDelete: Cascade)
+  prompt_composition ShotPromptComposition? @relation(fields: [prompt_composition_id], references: [id], onDelete: SetNull)
+  nine_grid          NineGridGeneration?    @relation(fields: [nine_grid_generation_id], references: [id], onDelete: SetNull)
+
+  @@index([prompt_composition_id], map: "idx_panel_pipeline_composition")
+  @@index([nine_grid_generation_id], map: "idx_panel_pipeline_nine_grid")
+  @@map("panel_pipeline_states")
 }
 
 // 分镜中的角色（一个分镜可有多个角色），只能引用分镜所属项目的项目角色
@@ -1645,8 +1671,13 @@ model ShotPromptComposition {
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
 
+  // 所属分镜，始终等于镜头当前的分镜，由数据库触发器维护
+  panel_id String? @unique(map: "unique_shot_prompt_compositions_panel") @db.Uuid
+
   // Relations
-  shot_designs ShotDesign[]
+  shot_designs    ShotDesign[]
+  panel           Panel?               @relation(fields: [panel_id], references: [id], onDelete: SetNull)
+  pipeline_states PanelPipelineState[]
 
   @@index([user_id], map: "idx_shot_prompt_compositions_user")
   @@map("shot_prompt_compositions")
@@ -1678,10 +1709,16 @@ model NineGridGeneration {
   created_at   DateTime  @default(now()) @db.Timestamptz(6)
   completed_at DateTime? @db.Timestamptz(6)
 
+  // 所属分镜，始终等于镜头当前的分镜，由数据库触发器维护
+  panel_id String? @db.Uuid
+
   // Relations
-  shot_designs ShotDesign[]
+  shot_designs    ShotDesign[]
+  panel           Panel?               @relation(fields: [panel_id], references: [id], onDelete: SetNull)
+  pipeline_states PanelPipelineState[]
 
   @@index([shot_design_id], map: "idx_nine_grid_generations_shot")
+  @@index([panel_id], map: "idx_nine_grid_generations_panel")
   @@index([user_id], map: "idx_nine_grid_generations_user")
   @@index([status], map: "idx_nine_grid_generations_status")
   @@map("nine_grid_generations")
