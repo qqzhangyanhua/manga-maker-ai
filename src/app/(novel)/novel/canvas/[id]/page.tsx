@@ -11,6 +11,7 @@ import { useUpdateTimelineStyle, getSafeConfig } from "@/hooks/useTimelineConfig
 import { toast } from "sonner";
 import { CanvasSkeleton } from "./components/CanvasSkeleton";
 import { ErrorState } from "./components/ErrorState";
+import { ProjectLinkBanner } from "./components/ProjectLinkBanner";
 import { CharacterLibraryDrawer } from "../../components/InfiniteCanvas/CharacterLibraryDrawer";
 import { ImageGalleryDialog } from "../../components/ImageGallery/ImageGalleryDialog";
 import { novelTheme } from "../../theme";
@@ -169,6 +170,13 @@ export default function CanvasPage() {
           </div>
         </div>
       </div>
+
+      {!timeline.project_id && (timeline.candidate_projects?.length ?? 0) > 0 && (
+        <ProjectLinkBanner
+          timelineId={timelineId}
+          candidates={timeline.candidate_projects ?? []}
+        />
+      )}
 
       <div className="flex-1 overflow-hidden min-h-0">
         <InfiniteCanvasView

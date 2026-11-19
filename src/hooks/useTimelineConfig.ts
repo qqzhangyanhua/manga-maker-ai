@@ -31,6 +31,7 @@ export interface UpdateConfigPayload {
   title?: string;
   status?: string;
   config?: Partial<CanvasTimelineConfig>;
+  project_id?: string;
 }
 
 /**

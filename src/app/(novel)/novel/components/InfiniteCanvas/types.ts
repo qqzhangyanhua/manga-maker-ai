@@ -16,9 +16,18 @@ export interface CanvasTimelineConfig {
   language?: "zh-CN" | "en-US";
 }
 
+export interface CandidateProject {
+  id: string;
+  title: string;
+}
+
 export interface CanvasTimeline {
   id: string;
   novel_project_id: string;
+  /** 归属的漫画项目，未归属时为 null */
+  project_id?: string | null;
+  /** 未归属时，同一小说对应的可选漫画项目 */
+  candidate_projects?: CandidateProject[];
   user_id: string;
   title: string;
   status: "draft" | "generating" | "completed" | "error";
