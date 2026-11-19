@@ -296,7 +296,7 @@ model Panel {
   outfit    CharacterOutfit? @relation(fields: [outfit_id], references: [id], onDelete: SetNull)
   scene     Scene?           @relation(fields: [scene_id], references: [id], onDelete: SetNull)
   chapter   Chapter          @relation(fields: [chapter_id], references: [id], onDelete: Cascade)
-  segment   ScriptSegment?   @relation(fields: [segment_id], references: [id], onDelete: SetNull)
+  segment   ScriptSegment?   @relation(fields: [segment_id], references: [id], onDelete: Cascade)
 
   // 分镜多角色；character_id 保留为主角色兼容字段
   panel_characters PanelCharacter[]
@@ -337,19 +337,23 @@ model PanelPipelineState {
   @@map("panel_pipeline_states")
 }
 
-// 分镜中的角色（一个分镜可有多个角色），只能引用分镜所属项目的项目角色
+// 分镜中的角色（一个分镜可有多个角色），只能引用分镜所属项目的项目角色。
+// 画布识别出的小说角色还没加入角色库时是"待绑定"：project_character_id 为空，用画布临时 ID（unbound-xxx）
+// 和名称记录，两者必须二选一（数据库约束 panel_characters_reference_check）
 model PanelCharacter {
-  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  panel_id             String   @db.Uuid
-  project_character_id String   @db.Uuid
-  outfit_id            String?  @db.Uuid
-  expression_type      String?
-  sort_order           Int      @default(0)
-  created_at           DateTime @default(now()) @db.Timestamptz(6)
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  panel_id               String   @db.Uuid
+  project_character_id   String?  @db.Uuid
+  pending_character_key  String?
+  pending_character_name String?
+  outfit_id              String?  @db.Uuid
+  expression_type        String?
+  sort_order             Int      @default(0)
+  created_at             DateTime @default(now()) @db.Timestamptz(6)
 
-  panel             Panel            @relation(fields: [panel_id], references: [id], onDelete: Cascade)
-  project_character ProjectCharacter @relation(fields: [project_character_id], references: [id], onDelete: Cascade)
-  outfit            CharacterOutfit? @relation(fields: [outfit_id], references: [id], onDelete: SetNull)
+  panel             Panel             @relation(fields: [panel_id], references: [id], onDelete: Cascade)
+  project_character ProjectCharacter? @relation(fields: [project_character_id], references: [id], onDelete: Cascade)
+  outfit            CharacterOutfit?  @relation(fields: [outfit_id], references: [id], onDelete: SetNull)
 
   @@unique([panel_id, project_character_id], map: "unique_panel_character")
   @@index([project_character_id], map: "idx_panel_characters_project_character")
@@ -1657,7 +1661,7 @@ model CharacterPromptTemplate {
 // 分镜 Prompt 合成记录
 model ShotPromptComposition {
   id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  shot_design_id String @unique @db.Uuid // 一对一关联到 ShotDesign
+  shot_design_id String? @unique @db.Uuid // 旧镜头导入的记录才有；画布新写入的记录只有 panel_id
   user_id        String @db.Uuid
 
   // 角色 Prompt 引用（JSON 数组）
@@ -1677,7 +1681,7 @@ model ShotPromptComposition {
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
 
-  // 所属分镜，始终等于镜头当前的分镜，由数据库触发器维护
+  // 所属分镜。旧镜头导入的记录由数据库触发器按镜头维护，画布新写入的记录由应用写入
   panel_id String? @unique(map: "unique_shot_prompt_compositions_panel") @db.Uuid
 
   // Relations
@@ -1692,7 +1696,7 @@ model ShotPromptComposition {
 // 九宫格生成记录（为单个分镜生成 9 张候选图）
 model NineGridGeneration {
   id                    String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  shot_design_id        String @db.Uuid // 关联到 ShotDesign（可能有多次生成）
+  shot_design_id        String? @db.Uuid // 旧镜头导入的记录才有；画布新写入的记录只有 panel_id
   prompt_composition_id String @db.Uuid // 关联到使用的 Prompt 合成记录
   user_id               String @db.Uuid
 
@@ -1715,7 +1719,7 @@ model NineGridGeneration {
   created_at   DateTime  @default(now()) @db.Timestamptz(6)
   completed_at DateTime? @db.Timestamptz(6)
 
-  // 所属分镜，始终等于镜头当前的分镜，由数据库触发器维护
+  // 所属分镜。旧镜头导入的记录由数据库触发器按镜头维护，画布新写入的记录由应用写入
   panel_id String? @db.Uuid
 
   // Relations
