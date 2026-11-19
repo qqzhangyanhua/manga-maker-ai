@@ -69,7 +69,10 @@
 
 ### 5c-2 剧本片段挂到项目章节
 
-- `script_segments` 新增 `chapter_id uuid null`（外键 `chapters`，级联删除），由 5c-1 的锚点回填；画布写入剧本片段时同时写 `chapter_id`。
+- `script_segments` 新增 `chapter_id uuid null`（外键 `chapters`），由 5c-1 的锚点回填；画布写入剧本片段时同时写 `chapter_id`。
+- 已实现（迁移 `20261122_script_segment_chapter_phase5c2.sql`），与上面的设计有两处调整：
+  - 外键改为 `ON DELETE SET NULL`，不级联删除。过渡期剧本片段仍归时间线章节所有，删除项目或项目章节时时间线只是解除归属，级联会连带删掉画布上的剧本和镜头。阶段 6 剧本片段只归项目章节所有时再改为级联。
+  - `chapter_id` 由数据库触发器维护（沿用 ADR-0004），不在服务层写：插入片段时取时间线章节的 `project_chapter_id`（`FOR SHARE` 与锚定互斥），时间线章节锚点变化时同步其全部片段。这样锚定、改归属、项目章节被删除置空都不需要改调用方，应用代码写入的值也会被纠正为锚点值。阶段 6 去掉 `timeline_chapters` 时改为服务层写入。
 - 剧本编辑器的 `StoryScript.segments` JSON 暂不改，阶段 6 前保持兼容；新代码以 `script_segments` 表作为"剧本片段"的规范存储。剧本编辑器改读表单独排期（它按项目而非章节存，需要先拆分到章节）。
 
 ### 5c-3 分镜收敛：ShotDesign 物化为 Panel

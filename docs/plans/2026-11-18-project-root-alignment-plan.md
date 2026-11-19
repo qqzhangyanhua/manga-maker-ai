@@ -220,6 +220,7 @@ User
 - 已知遗留：九宫格角色参考 `useProjectCharacters` 仍读小说人物接口，随 5c 一起切换。
 - 5c：设计文档见 `docs/plans/2026-11-20-canvas-script-panel-merge-design.md`，用户已确认方案 A（数据收敛到项目侧，分 5c-1 至 5c-4 四步）、分镜多角色用关联表、画布上提供"创建漫画项目"入口。
 - 5c-1（2026-11-21）：迁移 `20261121_canvas_anchor_phase5c1.sql` 已在远端库执行（`timeline_chapters.project_chapter_id`，外键 `ON DELETE SET NULL`，重复执行无变化），回滚脚本已留存。`src/lib/project/timeline-anchor.ts` 的 `anchorTimelineChapters` 按来源小说章节匹配或新建项目章节；在 PATCH 选择归属、POST 复用时间线自动归属、画布新增章节时调用。新增 `POST /api/canvas/timeline/[id]/project`：小说还没有改编项目时，走与小说转漫画相同的路径（建来源故事 -> 触发器建主项目）新建项目并归属，之后再执行小说转漫画会追加到这个项目。画布角色列表在归属后返回项目角色 + 尚未升级的小说人物；画布升级角色时同时加入项目角色。回填脚本 `scripts/backfill-timeline-anchors.ts` 预演为 0（远端还没有已归属的时间线，锚定随用户选择归属自动发生）。dev server 实测 19/19（含无头浏览器点击"创建漫画项目"），临时数据已清理。
+- 5c-2（2026-11-22）：迁移 `20261122_script_segment_chapter_phase5c2.sql` 已在远端库执行（重复执行、回滚后重新执行均验证），新增 `script_segments.chapter_id`（外键 `ON DELETE SET NULL`）和两个触发器：插入片段时按时间线章节锚点填值，锚点变化时同步片段。应用代码不写这个字段。回填为迁移内的一条 UPDATE，远端 117 条片段全部为空（还没有已归属的时间线），不一致行数 0；`scripts/backfill-timeline-anchors.ts` 末尾增加了剧本片段一致性审计。实测 16/16：走 `anchorTimelineChapters` 锚定后已有片段跟随、新片段自动填值、错误写入被纠正、改锚点跟随、删除项目章节后片段保留并置空、重新锚定恢复，以及两种并发顺序（锚定未提交时插入会等待并读到新锚点；插入先持锁时锚定提交后片段跟随）。
 
 ### 阶段 6：清理
 

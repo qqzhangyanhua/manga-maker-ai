@@ -569,6 +569,7 @@ model Chapter {
   character_states  ChapterCharacterState[] // Character states at end of chapter
   suggested_scenes  SuggestedScene[] // AI-suggested scenes for background generation
   timeline_chapters TimelineChapter[] // 锚定到本章节的画布时间线章节
+  script_segments   ScriptSegment[] // 画布剧本片段，由触发器按时间线章节锚点维护
 
   @@index([story_id, chapter_order], map: "idx_chapters_story_order")
   @@index([project_id, chapter_order], map: "idx_chapters_project_order")
@@ -1357,8 +1358,10 @@ model TimelineChapter {
 
 // 剧本片段
 model ScriptSegment {
-  id                  String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  timeline_chapter_id String @db.Uuid
+  id                  String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  timeline_chapter_id String  @db.Uuid
+  // 所属项目章节，始终等于时间线章节的 project_chapter_id，由数据库触发器维护，应用代码不写
+  chapter_id          String? @db.Uuid
   segment_order       Int
 
   // 剧本内容
@@ -1379,9 +1382,11 @@ model ScriptSegment {
 
   // Relations
   timeline_chapter TimelineChapter @relation(fields: [timeline_chapter_id], references: [id], onDelete: Cascade)
+  chapter          Chapter?        @relation(fields: [chapter_id], references: [id], onDelete: SetNull)
   shot_designs     ShotDesign[]
 
   @@index([timeline_chapter_id], map: "idx_script_segment_chapter")
+  @@index([chapter_id], map: "idx_script_segment_project_chapter")
   @@map("script_segments")
 }
 

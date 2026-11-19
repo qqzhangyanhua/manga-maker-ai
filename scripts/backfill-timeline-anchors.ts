@@ -6,6 +6,7 @@
  *   npx tsx scripts/backfill-timeline-anchors.ts --apply   写入
  *
  * 前置：prisma/migrations/manual/20261121_canvas_anchor_phase5c1.sql 已执行。可重复执行。
+ * 阶段 5c-2 迁移执行后，锚定会由触发器同步剧本片段的 chapter_id，脚本末尾输出一致性审计。
  */
 import { PrismaClient } from "@prisma/client";
 import { anchorTimelineChapters } from "../src/lib/project/timeline-anchor";
@@ -59,6 +60,19 @@ async function main() {
   for (const r of rows.filter((x) => x.anchored + x.skipped > 0)) {
     console.log(`  ${r.timelineId} -> 项目 ${r.projectId}：锚定 ${r.anchored}，新建 ${r.created}，跳过 ${r.skipped}`);
   }
+
+  const [segments] = await prisma.$queryRaw<Array<{ total: bigint; linked: bigint; mismatched: bigint }>>`
+    SELECT COUNT(*)::bigint AS total,
+           COUNT(s.chapter_id)::bigint AS linked,
+           COUNT(*) FILTER (WHERE s.chapter_id IS DISTINCT FROM tc.project_chapter_id)::bigint AS mismatched
+    FROM script_segments s
+    JOIN timeline_chapters tc ON tc.id = s.timeline_chapter_id`;
+  console.log("剧本片段审计（当前库，不含预演变更）：");
+  console.table([
+    { 项: "剧本片段总数", 数量: Number(segments.total) },
+    { 项: "已挂到项目章节", 数量: Number(segments.linked) },
+    { 项: "与时间线章节锚点不一致（应为 0）", 数量: Number(segments.mismatched) },
+  ]);
 }
 
 main()
