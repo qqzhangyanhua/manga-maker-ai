@@ -34,6 +34,19 @@ describe("shot-grouping", () => {
       expect(groups[3].isComplete).toBe(false);
     });
 
+    it("按 panel_order 分组，不按传入顺序", () => {
+      const shots = [3, 1, 2].map((panel_order) => ({
+        id: `shot-${panel_order}`,
+        panel_order,
+      })) as CanvasShotJson[];
+
+      const groups = groupShotsIntoNineGrids(shots);
+
+      expect(groups[0].shots.map((shot) => shot.panel_order)).toEqual([1, 2, 3]);
+      expect(groups[0].startOrder).toBe(1);
+      expect(groups[0].endOrder).toBe(3);
+    });
+
     it("应该处理空数组", () => {
       const groups = groupShotsIntoNineGrids([]);
       expect(groups).toHaveLength(0);

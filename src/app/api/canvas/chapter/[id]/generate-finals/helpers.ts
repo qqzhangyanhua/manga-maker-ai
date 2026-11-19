@@ -1,6 +1,12 @@
 import { prisma } from "@/lib/db";
 import { logInfo, logError } from "@/lib/api-logger";
-import { addCanvasFinal, getAnchoredCanvasChapter, listChapterShots, refreshCanvasCounters } from "@/lib/canvas";
+import {
+  addCanvasFinal,
+  getAnchoredCanvasChapter,
+  listChapterShots,
+  projectCharacterIdsOf,
+  refreshCanvasCounters,
+} from "@/lib/canvas";
 import type { CanvasShot } from "@/lib/canvas";
 import { ApiError } from "@/lib/api-helpers";
 import { addSpeechBubbles } from "@/lib/comic-panel-composer";
@@ -45,9 +51,7 @@ export async function fetchChapterData(chapterId: string, userId: string) {
   }
 
   const segmentMap = new Map(segments.map((s) => [s.id, s]));
-  const projectCharacterIds = Array.from(new Set(allShots.flatMap((shot) => (
-    shot.characters.flatMap((row) => (row.project_character_id ? [row.project_character_id] : []))
-  ))));
+  const projectCharacterIds = projectCharacterIdsOf(allShots);
   const projectCharacters = projectCharacterIds.length
     ? await prisma.projectCharacter.findMany({
         where: { id: { in: projectCharacterIds } },

@@ -228,7 +228,7 @@ export async function GET(req: Request, { params }: RouteParams) {
       prompt_info: {
         current_prompt: currentPrompt,
         negative_prompt: negativePrompt,
-        description: shot.description,
+        shot_description: shot.description,
         current_image_url: shot.generated_image_url,
         selected_nine_grid_image: selectedImage,
         composition_id: promptComposition?.id,

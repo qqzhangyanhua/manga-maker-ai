@@ -119,7 +119,7 @@ export const UpdateShotDesignRequestSchema = z.object({
     project_character_id: z.string().uuid().openapi({ description: "项目角色 ID" }),
     outfit_id: z.string().uuid().nullable().optional().openapi({ description: "这一格的服装 ID" }),
     expression: z.string().nullable().optional().openapi({ description: "这一格的表情" }),
-  })).optional().openapi({
+  }).strict()).optional().openapi({
     description: "有序的出场项目角色。传了即整体替换；空数组清空出场角色。不接受待绑定。",
   }),
   scene_id: z.string().uuid().nullable().optional().openapi({

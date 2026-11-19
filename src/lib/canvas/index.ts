@@ -4,6 +4,7 @@ export {
   canvasShotInclude,
   isUuid,
   planPanelCharacters,
+  projectCharacterIdsOf,
   toCanvasFinal,
   toCanvasShot,
   toCanvasShots,

@@ -100,4 +100,17 @@ describe("PATCH /api/canvas/shot-design/[id] 出场角色", () => {
     expect(mocked.panel.update).not.toHaveBeenCalled();
     expect(mocked.panelCharacter.createMany).not.toHaveBeenCalled();
   });
+
+  it("出场行再交待绑定标识时返回 400，并且不读库也不写库", async () => {
+    const response = await patch({
+      characters: [{
+        project_character_id: foreignProjectCharacterId,
+        pending_character_key: "unbound-n1",
+      }],
+    });
+
+    expect(response.status).toBe(400);
+    expect(mocked.panel.findUnique).not.toHaveBeenCalled();
+    expect(mocked.$transaction).not.toHaveBeenCalled();
+  });
 });

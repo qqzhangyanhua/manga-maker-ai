@@ -62,6 +62,13 @@ export function toCanvasShots(panels: CanvasPanelRecord[]): CanvasShot[] {
   return panels.map((panel) => toCanvasShot(panel));
 }
 
+/** 这些分镜里的项目角色 id。待绑定行没有项目角色，不计入。 */
+export function projectCharacterIdsOf(shots: CanvasShot[]): string[] {
+  return Array.from(new Set(shots.flatMap((shot) => (
+    shot.characters.flatMap((row) => (row.project_character_id ? [row.project_character_id] : []))
+  ))));
+}
+
 function readDimension(params: Prisma.JsonValue, key: "width" | "height", fallback: number): number {
   if (params && typeof params === "object" && !Array.isArray(params)) {
     const value = params[key];

@@ -147,7 +147,7 @@ export interface PromptInfo {
 export interface PromptInfoDetailed {
   current_prompt: string;
   negative_prompt: string;
-  description: string;
+  shot_description: string;
   current_image_url: string | null;
   selected_nine_grid_image: {
     grid_position: number;

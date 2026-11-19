@@ -17,6 +17,11 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+function charactersField(body: unknown): unknown {
+  if (!body || typeof body !== "object" || !("characters" in body)) return undefined;
+  return body.characters;
+}
+
 // 空字符串视为不修改（与原接口一致）
 const nonEmpty = z
   .string()
@@ -27,7 +32,25 @@ const castMember = z.object({
   project_character_id: z.string().uuid(),
   outfit_id: z.string().uuid().nullable().optional(),
   expression: z.string().nullable().optional(),
-});
+}).strict();
+const CastListSchema = z.array(castMember).optional();
+
+/** Zod 在这里把必填的项目角色 id 推成可选，收窄回写入类型。校验不过的请求到不了这里。 */
+function toPanelCast(
+  rows: { project_character_id?: string; outfit_id?: string | null; expression?: string | null }[] | undefined
+): PanelCastWrite[] | undefined {
+  if (!rows) return undefined;
+  return rows.map((row) => {
+    if (!row.project_character_id) {
+      throw new ApiError("出场角色必须是项目角色", 400, "PROJECT_CHARACTER_REQUIRED");
+    }
+    return {
+      project_character_id: row.project_character_id,
+      outfit_id: row.outfit_id ?? null,
+      expression: row.expression ?? null,
+    };
+  });
+}
 
 const ShotPatchSchema = z.object({
   camera_angle: nonEmpty,
@@ -39,8 +62,6 @@ const ShotPatchSchema = z.object({
   prompt: nonEmpty,
   negative_prompt: z.string().nullable().optional(),
   scene_id: z.string().nullable().optional(),
-  /** 传了就整体替换出场角色。只接受项目角色。 */
-  characters: z.array(castMember).optional(),
   character_prompt_template_ids: stringList,
   character_prompt_status: nonEmpty,
   final_prompt_status: nonEmpty,
@@ -66,26 +87,19 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   try {
     const body: unknown = await req.json();
     const parsed = ShotPatchSchema.safeParse(body);
-    if (!parsed.success) {
+    const castParsed = CastListSchema.safeParse(charactersField(body));
+    if (!parsed.success || !castParsed.success) {
       return NextResponse.json(
-        { error: "请求参数验证失败", details: parsed.error.flatten().fieldErrors },
+        {
+          error: "请求参数验证失败",
+          details: parsed.success ? castParsed.error.flatten().fieldErrors : parsed.error.flatten().fieldErrors,
+        },
         { status: 400 }
       );
     }
 
     const context = await getCanvasShotForUser(prisma, id, payload.userId);
-    const data = parsed.data;
-    const characters: PanelCastWrite[] | undefined = data.characters?.map((row) => {
-      if (!row.project_character_id) {
-        throw new ApiError("出场角色必须是项目角色", 400, "PROJECT_CHARACTER_REQUIRED");
-      }
-      return {
-        project_character_id: row.project_character_id,
-        outfit_id: row.outfit_id ?? null,
-        expression: row.expression ?? null,
-      };
-    });
-    const patch: CanvasShotPatch = { ...data, characters };
+    const patch: CanvasShotPatch = { ...parsed.data, characters: toPanelCast(castParsed.data) };
     await updateCanvasShot(prisma, context, payload.userId, patch);
     const { shot } = await getCanvasShotForUser(prisma, id, payload.userId);
 

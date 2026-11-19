@@ -11,13 +11,14 @@ export function groupShotsIntoNineGrids(shots: CanvasShotJson[]): ShotGroup[] {
     return [];
   }
 
+  const ordered = [...shots].sort((a, b) => a.panel_order - b.panel_order);
   const groups: ShotGroup[] = [];
-  const totalGroups = Math.ceil(shots.length / 9);
+  const totalGroups = Math.ceil(ordered.length / 9);
 
   for (let i = 0; i < totalGroups; i++) {
     const startIndex = i * 9;
-    const endIndex = Math.min(startIndex + 9, shots.length);
-    const groupShots = shots.slice(startIndex, endIndex);
+    const endIndex = Math.min(startIndex + 9, ordered.length);
+    const groupShots = ordered.slice(startIndex, endIndex);
     const placeholderCount = 9 - groupShots.length;
 
     // P3-1: 统计该组的场景分布
