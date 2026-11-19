@@ -8,6 +8,7 @@ import { useOpenDetail, useCanvasStore } from '@/stores/canvas-store';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { ShotNodeData } from '../nodes-types';
+import { skippedPanelMessage } from '../utils/canvas-api';
 
 interface ShotNodeProps {
   data: ShotNodeData;
@@ -66,7 +67,10 @@ export const ShotNode = memo(({ data }: ShotNodeProps) => {
         const errorData = await response.json();
         throw new Error(errorData.error || '生成失败');
       }
-      return response.json();
+      return response.json() as Promise<{
+        metadata?: { shot_count?: number };
+        skipped?: Array<{ shot_order: number; reason: string }>;
+      }>;
     },
     onMutate: async () => {
       // 乐观更新: 立即显示 generating 状态
@@ -98,7 +102,10 @@ export const ShotNode = memo(({ data }: ShotNodeProps) => {
       return { previousDataMap };
     },
     onSuccess: async (responseData) => {
-      toast.success('镜头生成成功');
+      const skippedText = skippedPanelMessage(responseData.skipped);
+      toast.success(skippedText ? "分镜已生成，有的格子被跳过" : "分镜生成成功", {
+        description: skippedText,
+      });
 
       // 立即更新缓存为最终状态
       queryClient.setQueriesData(

@@ -64,18 +64,21 @@ export interface PlanShotsRequest {
 }
 
 /**
- * 镜头设计输出
+ * 镜头规划器实际返回的一格。
+ * 格子类型、镜头描述、构图、角色、表情、提示词、负面提示词、地点。
  */
 export interface ShotDesignOutput {
   shot_order: number;
-  shot_type: string;
   camera_angle: string;
   shot_size: string;
-  character_focus: string | null;
-  action_description: string;
-  dialogue: string | null;
-  visual_notes: string | null;
-  estimated_duration: number;
+  panel_type: string;
+  shot_description: string;
+  composition_hint: string;
+  character_ids: string[];
+  expression_types: string[];
+  prompt: string;
+  negative_prompt: string;
+  location_key: string;
 }
 
 /**

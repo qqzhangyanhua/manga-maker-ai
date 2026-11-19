@@ -46,7 +46,7 @@ import { ShotGroupSection } from "./ShotGroupSection";
 import type { ShotGroup } from "./types";
 import type { CanvasShotJson } from "@/lib/canvas/types";
 import type { ShotDetailListResponse, GenerateShotImagePayloadLocal } from "../detail-panel-types";
-import { readCanvasError } from "../utils/canvas-api";
+import { readCanvasError, skippedPanelMessage } from "../utils/canvas-api";
 
 const EMPTY_SHOTS: CanvasShotJson[] = [];
 
@@ -494,10 +494,15 @@ export function ShotDetailPanel({ chapterId }: ShotDetailPanelProps) {
       if (!response.ok) {
         throw new Error(await readCanvasError(response, "重新生成失败"));
       }
-      return response.json();
+      return response.json() as Promise<{
+        skipped?: Array<{ shot_order: number; reason: string }>;
+      }>;
     },
-    onSuccess: () => {
-      toast.success("开始重新生成镜头");
+    onSuccess: (data) => {
+      const skippedText = skippedPanelMessage(data.skipped);
+      toast.success(skippedText ? "分镜已生成，有的格子被跳过" : "分镜生成成功", {
+        description: skippedText,
+      });
       queryClient.invalidateQueries({ queryKey: ["shot-detail", chapterId] });
       queryClient.invalidateQueries({ queryKey: ["timeline"] });
     },
