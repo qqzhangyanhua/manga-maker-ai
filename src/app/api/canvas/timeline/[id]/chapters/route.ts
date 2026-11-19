@@ -1,6 +1,8 @@
 /**
  * Canvas Timeline Chapters API
  * GET /api/canvas/timeline/[id]/chapters - 获取时间线的所有章节
+ *   每个剧本片段带 shots（画布镜头，即项目分镜），每个镜头带 finals（最终漫画）；
+ *   时间线未归属漫画项目时 shots 为空
  * POST /api/canvas/timeline/[id]/chapters - 添加章节到时间线
  */
 
@@ -9,6 +11,8 @@ import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { anchorTimelineChapters } from "@/lib/project";
+import { listChapterFinals, listChapterShots } from "@/lib/canvas";
+import type { CanvasFinal, CanvasShot } from "@/lib/canvas";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -38,25 +42,38 @@ export async function GET(req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "时间线不存在" }, { status: 404 });
     }
 
-    const chapters = await prisma.timelineChapter.findMany({
+    const rawChapters = await prisma.timelineChapter.findMany({
       where: { timeline_id: timelineId },
       orderBy: { chapter_number: "asc" },
       include: {
         script_segments: {
           orderBy: { segment_order: "asc" },
-          include: {
-            shot_designs: {
-              orderBy: { shot_order: "asc" },
-              include: {
-                comic_panels: true,
-              },
-            },
-          },
         },
       },
     });
 
-    return NextResponse.json({ success: true, chapters });
+    const chapters = await Promise.all(
+      rawChapters.map(async (chapter) => {
+        const [shots, finals]: [CanvasShot[], CanvasFinal[]] = timeline.project_id
+          ? await Promise.all([listChapterShots(prisma, chapter.id), listChapterFinals(prisma, chapter.id)])
+          : [[], []];
+        const finalsByShot = new Map<string, CanvasFinal[]>();
+        for (const final of finals) {
+          finalsByShot.set(final.panel_id, [...(finalsByShot.get(final.panel_id) ?? []), final]);
+        }
+        return {
+          ...chapter,
+          script_segments: chapter.script_segments.map((segment) => ({
+            ...segment,
+            shots: shots
+              .filter((shot) => shot.script_segment_id === segment.id)
+              .map((shot) => ({ ...shot, finals: finalsByShot.get(shot.id) ?? [] })),
+          })),
+        };
+      })
+    );
+
+    return NextResponse.json({ success: true, projectId: timeline.project_id, chapters });
   } catch (error) {
     console.error("获取章节列表失败:", error);
     return NextResponse.json({ error: "获取章节列表失败" }, { status: 500 });

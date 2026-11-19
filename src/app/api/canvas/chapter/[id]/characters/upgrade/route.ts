@@ -10,6 +10,7 @@ import { prisma } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 import { logInfo, logError } from "@/lib/api-logger";
 import { ensureProjectCharacters } from "@/lib/project";
+import { pendingCharacterKey, promotePendingCharactersForNovel } from "@/lib/canvas";
 import { generateCharacterBaseImage } from "./image-generation";
 import type {
   UpgradeNovelCharacterRequest,
@@ -122,6 +123,13 @@ export async function POST(req: Request, { params }: RouteParams) {
           characterIds: [existingCharacter.id],
         });
       }
+      await promotePendingCharactersForNovel(prisma, {
+        novelProjectId: chapter.timeline.novel_project_id,
+        userId: payload.userId,
+        characterId: existingCharacter.id,
+        pendingKeys: [novelCharacter.tempId, pendingCharacterKey({ name: novelCharacter.name })],
+        name: novelCharacter.name,
+      });
 
       const response: UpgradeNovelCharacterResponse = {
         success: true,
@@ -192,6 +200,14 @@ export async function POST(req: Request, { params }: RouteParams) {
         characterIds: [newCharacter.id],
       });
     }
+    // 镜头里这个人物的待绑定条目转为正式角色
+    await promotePendingCharactersForNovel(prisma, {
+      novelProjectId: chapter.timeline.novel_project_id,
+      userId: payload.userId,
+      characterId: newCharacter.id,
+      pendingKeys: [novelCharacter.tempId, pendingCharacterKey({ name: novelCharacter.name })],
+      name: novelCharacter.name,
+    });
 
     // 8. 可选：生成基础图片
     let imageGenerated = false;

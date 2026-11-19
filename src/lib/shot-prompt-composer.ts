@@ -7,6 +7,7 @@
 import { prisma } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 import { DEFAULT_NEGATIVE_PROMPT } from "@/types/character-prompt";
+import { updateShotPipeline } from "@/lib/canvas";
 
 // 角色 Prompt 引用
 export interface CharacterPromptRef {
@@ -17,7 +18,8 @@ export interface CharacterPromptRef {
 
 // 合成参数
 export interface ComposePromptParams {
-  shotDesignId: string;
+  /** 画布镜头（分镜）ID */
+  panelId: string;
   characterTemplateIds: string[];
   characterPositions?: Record<string, "left" | "center" | "right" | "foreground" | "background">;
   manualAdjustments?: string;
@@ -172,13 +174,13 @@ async function getStyleNegativePrompt(_comicStyleId: string | null): Promise<str
 export async function composeShotPrompt(
   params: ComposePromptParams
 ): Promise<ComposedPrompt> {
-  const { shotDesignId, characterTemplateIds, characterPositions, manualAdjustments, userId } = params;
+  const { panelId, characterTemplateIds, characterPositions, manualAdjustments, userId } = params;
 
-  // 1. 获取分镜设计信息
-  const shotDesign = await prisma.shotDesign.findUnique({
-    where: { id: shotDesignId },
+  // 1. 获取分镜信息
+  const panel = await prisma.panel.findUnique({
+    where: { id: panelId },
     include: {
-      script_segment: {
+      segment: {
         include: {
           timeline_chapter: {
             include: {
@@ -190,7 +192,7 @@ export async function composeShotPrompt(
     },
   });
 
-  if (!shotDesign) {
+  if (!panel) {
     throw new Error("分镜不存在");
   }
 
@@ -215,24 +217,24 @@ export async function composeShotPrompt(
 
   // 4. 构建各部分 Prompt
   const cameraPrompt = buildCameraPrompt(
-    shotDesign.camera_angle,
-    shotDesign.shot_size,
-    shotDesign.panel_type
+    panel.camera_angle ?? "",
+    panel.shot_size ?? "",
+    panel.panel_type
   );
 
   const actionPrompt = extractActionPrompt(
-    shotDesign.shot_description,
-    shotDesign.composition_hint
+    panel.description,
+    panel.composition_hint ?? ""
   );
 
-  // 获取场景描述（从 script_segment）
-  const scenePrompt = shotDesign.script_segment?.scene_description || "";
+  // 获取场景描述（从剧本片段）
+  const scenePrompt = panel.segment?.scene_description || "";
 
   // 获取氛围描述
-  const atmospherePrompt = shotDesign.script_segment?.emotion_tone || "";
+  const atmospherePrompt = panel.segment?.emotion_tone || "";
 
   // 5. 获取风格 Prompt
-  const timelineConfig = shotDesign.script_segment?.timeline_chapter?.timeline?.config as Record<string, string> | null;
+  const timelineConfig = panel.segment?.timeline_chapter?.timeline?.config as Record<string, string> | null;
   const defaultStyleId = timelineConfig?.default_comic_style_id || null;
   const stylePrompt = await getStylePrompt(defaultStyleId);
   const styleNegativePrompt = await getStyleNegativePrompt(defaultStyleId);
@@ -308,73 +310,36 @@ export async function composeShotPrompt(
 }
 
 /**
- * 保存 Prompt 合成记录到数据库
+ * 保存分镜的 Prompt 合成记录（每个分镜一条），并把流程状态标为最终提示词已完成
  */
 export async function saveShotPromptComposition(
-  shotDesignId: string,
+  panelId: string,
   userId: string,
   composed: ComposedPrompt
 ): Promise<string> {
-  // 创建或更新 Prompt 合成记录
-  const existing = await prisma.shotPromptComposition.findFirst({
-    where: { shot_design_id: shotDesignId },
+  const fields = {
+    character_prompts: composed.character_prompts as unknown as Prisma.InputJsonValue,
+    scene_prompt: composed.scene_prompt,
+    action_prompt: composed.action_prompt,
+    atmosphere_prompt: composed.atmosphere_prompt,
+    camera_prompt: composed.camera_prompt,
+    final_prompt: composed.final_prompt,
+    final_negative_prompt: composed.final_negative_prompt,
+  };
+  const composition = await prisma.shotPromptComposition.upsert({
+    where: { panel_id: panelId },
+    update: { ...fields, updated_at: new Date() },
+    create: { ...fields, panel_id: panelId, user_id: userId },
+    select: { id: true },
   });
 
-  if (existing) {
-    // 更新现有记录
-    await prisma.shotPromptComposition.update({
-      where: { id: existing.id },
-      data: {
-        character_prompts: composed.character_prompts as unknown as Prisma.InputJsonValue,
-        scene_prompt: composed.scene_prompt,
-        action_prompt: composed.action_prompt,
-        atmosphere_prompt: composed.atmosphere_prompt,
-        camera_prompt: composed.camera_prompt,
-        final_prompt: composed.final_prompt,
-        final_negative_prompt: composed.final_negative_prompt,
-        updated_at: new Date(),
-      },
-    });
+  await updateShotPipeline(prisma, panelId, {
+    prompt_composition_id: composition.id,
+    final_prompt_status: "completed",
+    character_prompt_template_ids: composed.character_prompts.map((cp) => cp.template_id),
+  });
 
-    // 更新分镜状态
-    await prisma.shotDesign.update({
-      where: { id: shotDesignId },
-      data: {
-        prompt_composition_id: existing.id,
-        final_prompt_status: "completed",
-        character_prompt_template_ids: composed.character_prompts.map((cp) => cp.template_id),
-      },
-    });
-
-    return existing.id;
-  } else {
-    // 创建新记录
-    const composition = await prisma.shotPromptComposition.create({
-      data: {
-        shot_design_id: shotDesignId,
-        user_id: userId,
-        character_prompts: composed.character_prompts as unknown as Prisma.InputJsonValue,
-        scene_prompt: composed.scene_prompt,
-        action_prompt: composed.action_prompt,
-        atmosphere_prompt: composed.atmosphere_prompt,
-        camera_prompt: composed.camera_prompt,
-        final_prompt: composed.final_prompt,
-        final_negative_prompt: composed.final_negative_prompt,
-      },
-    });
-
-    // 更新分镜关联
-    await prisma.shotDesign.update({
-      where: { id: shotDesignId },
-      data: {
-        prompt_composition_id: composition.id,
-        final_prompt_status: "completed",
-        character_prompt_template_ids: composed.character_prompts.map((cp) => cp.template_id),
-      },
-    });
-
-    return composition.id;
-  }
+  return composition.id;
 }
 
 /**

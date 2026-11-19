@@ -82,15 +82,12 @@ export async function POST(req: Request, { params }: RouteParams) {
     }
 
     // 3. 验证角色确实在此章节中使用
-    const shotWithCharacter = await prisma.shotDesign.findFirst({
+    const shotWithCharacter = await prisma.panelCharacter.findFirst({
       where: {
-        script_segment: {
-          timeline_chapter_id: chapterId,
-        },
-        character_ids: {
-          has: characterId,
-        },
+        panel: { segment: { timeline_chapter_id: chapterId } },
+        project_character: { character_id: characterId },
       },
+      select: { id: true },
     });
 
     if (!shotWithCharacter) {

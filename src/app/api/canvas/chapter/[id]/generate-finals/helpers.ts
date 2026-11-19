@@ -1,8 +1,13 @@
 import { prisma } from "@/lib/db";
 import { logInfo, logError } from "@/lib/api-logger";
+import { addCanvasFinal, getAnchoredCanvasChapter, listChapterShots, refreshCanvasCounters } from "@/lib/canvas";
+import { ApiError } from "@/lib/api-helpers";
 import { addSpeechBubbles } from "@/lib/comic-panel-composer";
 import { minioClient, MINIO_BUCKET, getPublicUrl } from "@/lib/minio";
 import { PERFORMANCE } from "@/lib/config/comic-constants";
+
+const FINAL_WIDTH = 800;
+const FINAL_HEIGHT = 600;
 
 export interface ShotInput {
   shot_id: string;
@@ -14,59 +19,37 @@ export interface ShotInput {
 
 interface PanelProcessResult {
   success: boolean;
-  panelId?: string;
+  finalId?: string;
   shotId: string;
   error?: string;
 }
 
+/** 章节的画布镜头（项目分镜）、所在剧本片段和角色信息；时间线未归属漫画项目时抛 409 */
 export async function fetchChapterData(chapterId: string, userId: string) {
-  const timelineChapter = await prisma.timelineChapter.findUnique({
-    where: { id: chapterId },
-    include: {
-      timeline: true,
-      script_segments: {
-        include: {
-          shot_designs: {
-            include: {
-              script_segment: true,
-            },
-          },
-        },
-      },
-    },
-  });
-
-  if (!timelineChapter) {
-    throw new Error("章节不存在");
-  }
-
-  if (timelineChapter.timeline.user_id !== userId) {
-    throw new Error("无权操作");
-  }
-
-  // 检查是否有镜头设计（不再依赖场景图）
-  const allShots = timelineChapter.script_segments.flatMap((s) => s.shot_designs);
+  const chapter = await getAnchoredCanvasChapter(prisma, chapterId, userId);
+  const [timelineChapter, segments, allShots] = await Promise.all([
+    prisma.timelineChapter.findUniqueOrThrow({
+      where: { id: chapterId },
+      select: { id: true, timeline_id: true, character_ids: true },
+    }),
+    prisma.scriptSegment.findMany({
+      where: { timeline_chapter_id: chapterId },
+      select: { id: true, dialogue: true, scene_description: true },
+    }),
+    listChapterShots(prisma, chapterId),
+  ]);
 
   if (allShots.length === 0) {
-    throw new Error("请先生成镜头设计");
+    throw new ApiError("请先生成镜头设计", 400, "NO_SHOTS");
   }
 
-  const shotCharacterIds = Array.from(
-    new Set(
-      timelineChapter.script_segments.flatMap((s) =>
-        s.shot_designs.flatMap((d) => d.character_ids || [])
-      )
-    )
-  );
-
+  const segmentMap = new Map(segments.map((s) => [s.id, s]));
+  const shotCharacterIds = allShots.flatMap((shot) => shot.character_ids);
   const chapterCharacterIds = timelineChapter.character_ids || [];
-
-  const allCharacterIds = Array.from(
-    new Set([...shotCharacterIds, ...chapterCharacterIds])
-  );
+  const allCharacterIds = Array.from(new Set([...shotCharacterIds, ...chapterCharacterIds]));
 
   const characters = await prisma.character.findMany({
-    where: { id: { in: allCharacterIds } },
+    where: { id: { in: allCharacterIds.filter((id) => !id.startsWith("unbound-")) }, user_id: userId },
     select: { id: true, name: true, base_image_url: true },
   });
 
@@ -77,7 +60,7 @@ export async function fetchChapterData(chapterId: string, userId: string) {
       .map((c) => [c.id, c.base_image_url as string])
   );
 
-  return { timelineChapter, allShots, characterMap, characterImageMap, chapterCharacterIds };
+  return { chapter, timelineChapter, allShots, segmentMap, characterMap, characterImageMap, chapterCharacterIds };
 }
 
 export async function processComicPanels(
@@ -123,21 +106,16 @@ export async function updateChapterStatus(
   await prisma.$transaction(async (tx) => {
     await tx.timelineChapter.update({
       where: { id: chapterId },
-      data: {
-        final_status: successCount > 0 ? "completed" : "error",
-        final_image_count: successCount,
-      },
+      data: { final_status: successCount > 0 ? "completed" : "error" },
     });
-
-    if (successCount > 0) {
-      await tx.canvasTimeline.update({
-        where: { id: timelineId },
-        data: {
-          total_images: { increment: successCount },
-          completed_chapters: { increment: 1 },
-        },
-      });
-    }
+    await refreshCanvasCounters(tx, chapterId);
+    const completedChapters = await tx.timelineChapter.count({
+      where: { timeline_id: timelineId, final_status: "completed" },
+    });
+    await tx.canvasTimeline.update({
+      where: { id: timelineId },
+      data: { completed_chapters: completedChapters },
+    });
   });
 
   logInfo("章节状态更新完成", {
@@ -187,12 +165,12 @@ async function processSinglePanel(
       compositionPrompt,
       userId,
       {
-        width: 800,
-        height: 600,
+        width: FINAL_WIDTH,
+        height: FINAL_HEIGHT,
         negativePrompt: "blurry, low quality, distorted, deformed, ugly, disfigured, bad anatomy",
         referenceImages,
         metadata: {
-          shot_id: panel.shot_id,
+          panel_id: panel.shot_id,
           chapter_id: chapterId,
           type: "canvas_final",
           has_characters: referenceImages.length > 0,
@@ -252,32 +230,24 @@ async function processSinglePanel(
       });
     }
 
-    const comicPanel = await prisma.comicPanelResult.create({
-      data: {
-        shot_design_id: panel.shot_id,
-        image_url: finalImageUrl,
-        generation_prompt: panel.generation_prompt,
-        status: "completed",
-      },
+    const final = await addCanvasFinal(prisma, {
+      panelId: panel.shot_id,
+      imageUrl: finalImageUrl,
+      prompt: panel.generation_prompt,
+      width: FINAL_WIDTH,
+      height: FINAL_HEIGHT,
+      generationParams: { source: "generate_finals", chapter_id: chapterId },
     });
 
     return {
       success: true,
-      panelId: comicPanel.id,
+      finalId: final.id,
       shotId: panel.shot_id,
     };
   } catch (error) {
+    // 失败不落记录，最终漫画只保存成功的图
     logError("漫画图处理失败", error, {
       shot_id: panel.shot_id,
-    });
-
-    await prisma.comicPanelResult.create({
-      data: {
-        shot_design_id: panel.shot_id,
-        image_url: "",
-        generation_prompt: panel.generation_prompt,
-        status: "error",
-      },
     });
 
     return {

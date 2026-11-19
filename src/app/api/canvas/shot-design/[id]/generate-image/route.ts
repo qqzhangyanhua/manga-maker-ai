@@ -9,6 +9,8 @@ import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { generateImage, getImageGenerationQueue } from "@/lib/unified-image-generation";
 import type { TaskStatus } from "@/lib/unified-image-generation";
+import { getCanvasShotForUser } from "@/lib/canvas";
+import { canvasErrorResponse } from "@/lib/canvas/route-error";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -75,34 +77,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     typeof body.comic_style_id === "string" ? body.comic_style_id : undefined;
 
   try {
-    const shot = await prisma.shotDesign.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        prompt: true,
-        camera_angle: true,
-        shot_size: true,
-        script_segment: {
-          select: {
-            id: true,
-            timeline_chapter_id: true,
-            timeline_chapter: {
-              select: {
-                timeline: { select: { user_id: true } },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!shot) {
-      return NextResponse.json({ error: "镜头设计不存在" }, { status: 404 });
-    }
-
-    if (shot.script_segment.timeline_chapter.timeline.user_id !== payload.userId) {
-      return NextResponse.json({ error: "无权操作" }, { status: 403 });
-    }
+    const { shot, segmentId, timelineChapterId } = await getCanvasShotForUser(prisma, id, payload.userId);
 
     let stylePromptPrefix = "";
     if (comicStyleId) {
@@ -151,9 +126,9 @@ export async function POST(req: Request, { params }: RouteParams) {
       width: 1024,
       height: 768,
       metadata: {
-        shot_design_id: shot.id,
-        script_segment_id: shot.script_segment.id,
-        chapter_id: shot.script_segment.timeline_chapter_id,
+        panel_id: shot.id,
+        script_segment_id: segmentId,
+        chapter_id: timelineChapterId,
         type: "canvas_shot",
       },
       ...(referenceImages.length > 0 ? { referenceImages } : {}),
@@ -169,10 +144,10 @@ export async function POST(req: Request, { params }: RouteParams) {
           console.log(`[Shot Image Callback] Updating shot ${id} with imageUrl:`, result.imageUrl.substring(0, 50) + '...');
 
           // Update database with generated image URL
-          await prisma.shotDesign.update({
-            where: { id },
+          await prisma.panel.update({
+            where: { id: shot.id },
             data: {
-              generated_image_url: result.imageUrl,
+              generated_image: result.imageUrl,
               generation_status: "completed",
             },
           });
@@ -182,8 +157,8 @@ export async function POST(req: Request, { params }: RouteParams) {
           console.error(`[Shot Image Callback] ❌ Task ${taskId} failed:`, result.error);
 
           // Update status to error
-          await prisma.shotDesign.update({
-            where: { id },
+          await prisma.panel.update({
+            where: { id: shot.id },
             data: {
               generation_status: "error",
             },
@@ -208,8 +183,8 @@ export async function POST(req: Request, { params }: RouteParams) {
       }
     });
 
-    const updated = await prisma.shotDesign.update({
-      where: { id },
+    const updated = await prisma.panel.update({
+      where: { id: shot.id },
       data: { generation_status: "generating" },
       select: { id: true, generation_status: true },
     });
@@ -220,7 +195,6 @@ export async function POST(req: Request, { params }: RouteParams) {
       shot: updated,
     });
   } catch (error) {
-    console.error("[POST /api/canvas/shot-design/[id]/generate-image]", error);
-    return NextResponse.json({ error: "生成失败" }, { status: 500 });
+    return canvasErrorResponse(error, "生成失败");
   }
 }

@@ -13,6 +13,9 @@ import {
   resolveCharactersForTimeline,
   formatForPlanShots,
 } from "@/lib/canvas/character-resolver";
+import { createCanvasShots, getAnchoredCanvasChapter, isUuid, refreshCanvasCounters } from "@/lib/canvas";
+import type { AnchoredCanvasChapter, NewCanvasShot } from "@/lib/canvas";
+import { canvasErrorResponse } from "@/lib/canvas/route-error";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -34,6 +37,14 @@ export async function POST(req: Request, { params }: RouteParams) {
 
   const { id: chapterId } = await params;
 
+  // 镜头直接写成项目分镜：时间线必须已归属漫画项目
+  let anchored: AnchoredCanvasChapter;
+  try {
+    anchored = await getAnchoredCanvasChapter(prisma, chapterId, payload.userId);
+  } catch (error) {
+    return canvasErrorResponse(error, "生成镜头失败");
+  }
+
   try {
     logInfo("开始生成镜头", {
       endpoint: "/api/canvas/chapter/[id]/generate-shots",
@@ -41,21 +52,12 @@ export async function POST(req: Request, { params }: RouteParams) {
       userId: payload.userId,
     });
 
-    const timelineChapter = await prisma.timelineChapter.findUnique({
+    const timelineChapter = await prisma.timelineChapter.findUniqueOrThrow({
       where: { id: chapterId },
       include: {
-        timeline: true,
         script_segments: { orderBy: { segment_order: "asc" } },
       },
     });
-
-    if (!timelineChapter) {
-      return NextResponse.json({ error: "章节不存在" }, { status: 404 });
-    }
-
-    if (timelineChapter.timeline.user_id !== payload.userId) {
-      return NextResponse.json({ error: "无权操作" }, { status: 403 });
-    }
 
     if (timelineChapter.script_segments.length === 0) {
       return NextResponse.json(
@@ -89,8 +91,8 @@ export async function POST(req: Request, { params }: RouteParams) {
 
     // 调用 novel-backend 的镜头规划服务（并行优化）
     const client = getNovelBackendClient();
-    let totalShots = 0;
-    const allShots: Array<{ id: string; script_segment_id: string; shot_description: string }> = [];
+    // 先在内存里整理全部镜头（临时 key 用于角色识别），识别完再一次写入分镜
+    const plannedShots: Array<NewCanvasShot & { key: string }> = [];
 
     logInfo("开始并行生成镜头", {
       chapterId,
@@ -148,91 +150,80 @@ export async function POST(req: Request, { params }: RouteParams) {
      * 此阶段仅创建初始 prompt，后续可被覆盖
      */
     for (const { segment, shots } of shotResults) {
-      if (shots.length === 0) continue;
+      shots.forEach((shot, index) => {
+        const shotData = shot as unknown as Record<string, unknown>;
 
-      const createdShots = await Promise.all(
-        shots.map((shot) => {
-          const shotData = shot as unknown as Record<string, unknown>;
-          
-          // P3-3: 描述字段优先级
-          const shotDescription =
-            (typeof shotData.shot_description === "string" ? shotData.shot_description : undefined) ||
-            (typeof shotData.action_description === "string" ? shotData.action_description : undefined) ||
-            segment.scene_description ||
-            `${typeof shotData.camera_angle === "string" ? shotData.camera_angle : ""} ${typeof shotData.shot_size === "string" ? shotData.shot_size : ""}`.trim();
+        // P3-3: 描述字段优先级
+        const shotDescription =
+          (typeof shotData.shot_description === "string" ? shotData.shot_description : undefined) ||
+          (typeof shotData.action_description === "string" ? shotData.action_description : undefined) ||
+          segment.scene_description ||
+          `${typeof shotData.camera_angle === "string" ? shotData.camera_angle : ""} ${typeof shotData.shot_size === "string" ? shotData.shot_size : ""}`.trim();
 
-          const locationKey = typeof shotData.location_key === "string" ? shotData.location_key : "";
-          const descriptionSource = typeof shotData.shot_description === "string"
-            ? "llm_shot_description"
-            : typeof shotData.action_description === "string"
-              ? "llm_action_description"
-              : segment.scene_description
-                ? "segment_scene_description"
-                : "default_fallback";
+        const locationKey = typeof shotData.location_key === "string" ? shotData.location_key : "";
+        const descriptionSource = typeof shotData.shot_description === "string"
+          ? "llm_shot_description"
+          : typeof shotData.action_description === "string"
+            ? "llm_action_description"
+            : segment.scene_description
+              ? "segment_scene_description"
+              : "default_fallback";
 
-          const shotOrder = typeof shotData.shot_order === "number" ? shotData.shot_order : 0;
-          const cameraAngle = typeof shotData.camera_angle === "string" ? shotData.camera_angle : "";
-          const shotSize = typeof shotData.shot_size === "string" ? shotData.shot_size : "";
-          const compositionHint = typeof shotData.composition_hint === "string"
-            ? shotData.composition_hint
-            : typeof shotData.visual_notes === "string"
-              ? shotData.visual_notes
-              : "";
-          
-          // P3-3: 初始 prompt 来自 LLM 生成（优先级 3）
-          const prompt = typeof shotData.prompt === "string" 
-            ? shotData.prompt 
-            : `${cameraAngle}, ${shotSize}`.trim();
-          const negativePrompt = typeof shotData.negative_prompt === "string" 
-            ? shotData.negative_prompt 
-            : "blurry, low quality, distorted, text, watermark";
-          const characterFocus = typeof shotData.character_focus === "string" ? shotData.character_focus : null;
+        const shotOrder = typeof shotData.shot_order === "number" ? shotData.shot_order : index + 1;
+        const cameraAngle = typeof shotData.camera_angle === "string" ? shotData.camera_angle : "";
+        const shotSize = typeof shotData.shot_size === "string" ? shotData.shot_size : "";
+        const compositionHint = typeof shotData.composition_hint === "string"
+          ? shotData.composition_hint
+          : typeof shotData.visual_notes === "string"
+            ? shotData.visual_notes
+            : "";
 
-          logInfo("P3-3: 创建镜头记录", {
-            segmentId: segment.id,
-            shotOrder,
-            hasDescription: !!shotDescription,
-            locationKey,
-            descriptionSource, // 记录数据来源便于调试
-            promptSource: typeof shotData.prompt === "string" ? "llm_generated" : "default_fallback",
-          });
+        // P3-3: 初始 prompt 来自 LLM 生成（优先级 3）
+        const prompt = typeof shotData.prompt === "string"
+          ? shotData.prompt
+          : `${cameraAngle}, ${shotSize}`.trim();
+        const negativePrompt = typeof shotData.negative_prompt === "string"
+          ? shotData.negative_prompt
+          : "blurry, low quality, distorted, text, watermark";
+        const characterFocus = typeof shotData.character_focus === "string" ? shotData.character_focus : null;
 
-          return prisma.shotDesign.create({
-            data: {
-              script_segment_id: segment.id,
-              shot_order: shotOrder,
-              camera_angle: cameraAngle,
-              shot_size: shotSize,
-              panel_type: "medium",
-              shot_description: shotDescription,
-              composition_hint: compositionHint,
-              location_key: locationKey,
-              prompt,
-              negative_prompt: negativePrompt,
-              character_ids: characterFocus ? [characterFocus] : [],
-            },
-          });
-        })
-      );
+        logInfo("P3-3: 整理镜头", {
+          segmentId: segment.id,
+          shotOrder,
+          hasDescription: !!shotDescription,
+          locationKey,
+          descriptionSource, // 记录数据来源便于调试
+          promptSource: typeof shotData.prompt === "string" ? "llm_generated" : "default_fallback",
+        });
 
-      allShots.push(...createdShots);
-      totalShots += createdShots.length;
+        plannedShots.push({
+          key: `${segment.id}:${index}`,
+          segmentId: segment.id,
+          camera_angle: cameraAngle,
+          shot_size: shotSize,
+          panel_type: "medium",
+          shot_description: shotDescription,
+          composition_hint: compositionHint,
+          location_key: locationKey,
+          prompt,
+          negative_prompt: negativePrompt,
+          character_ids: characterFocus ? [characterFocus] : [],
+        });
+      });
     }
 
     // 批量识别角色：为每个镜头识别在场角色
-    const allChapterCharacterIds = new Set<string>();
-
-    if (availableCharacters.length > 0 && allShots.length > 0) {
+    if (availableCharacters.length > 0 && plannedShots.length > 0) {
       logInfo("开始批量识别角色", {
         chapterId,
-        shotCount: allShots.length,
+        shotCount: plannedShots.length,
         characterCount: availableCharacters.length,
       });
 
       try {
         const identificationResult = await client.batchIdentifyCharacters({
-          shots: allShots.map((shot) => ({
-            shot_id: shot.id,
+          shots: plannedShots.map((shot) => ({
+            shot_id: shot.key,
             dialogue: null,
             description: shot.shot_description || "",
           })),
@@ -243,18 +234,11 @@ export async function POST(req: Request, { params }: RouteParams) {
           })),
         });
 
-        // 更新每个镜头的 character_ids
-        for (const [shotId, result] of Object.entries(identificationResult.results)) {
-          if (result.matched_character_ids.length > 0) {
-            await prisma.shotDesign.update({
-              where: { id: shotId },
-              data: { character_ids: result.matched_character_ids },
-            });
-
-            // 收集所有角色 ID
-            for (const charId of result.matched_character_ids) {
-              allChapterCharacterIds.add(charId);
-            }
+        const byKey = new Map(plannedShots.map((shot) => [shot.key, shot]));
+        for (const [key, result] of Object.entries(identificationResult.results)) {
+          const shot = byKey.get(key);
+          if (shot && result.matched_character_ids.length > 0) {
+            shot.character_ids = result.matched_character_ids;
           }
         }
 
@@ -262,30 +246,34 @@ export async function POST(req: Request, { params }: RouteParams) {
           chapterId,
           totalShots: identificationResult.summary.total_shots,
           shotsWithCharacters: identificationResult.summary.shots_with_characters,
-          uniqueCharacterCount: allChapterCharacterIds.size,
         });
       } catch (error) {
         logError("批量角色识别失败，继续流程", error, { chapterId });
       }
     }
 
-    // 更新章节状态
+    // 写入项目分镜。未加入角色库的小说人物（unbound-xxx）记为待绑定，加入角色库后自动换成真实角色
+    const pendingNames = new Map(
+      resolvedCharacters.filter((c) => !c.isBound).map((c) => [c.id, c.name])
+    );
+    const allShots = await createCanvasShots(prisma, {
+      chapter: anchored,
+      userId: payload.userId,
+      shots: plannedShots.map(({ key: _key, ...shot }) => shot),
+      pendingNames,
+    });
+    const totalShots = allShots.length;
+    const allChapterCharacterIds = new Set(allShots.flatMap((shot) => shot.character_ids).filter(isUuid));
+
+    // 更新章节状态与统计
     await prisma.timelineChapter.update({
       where: { id: chapterId },
       data: {
         shot_status: "completed",
-        shot_count: totalShots,
         character_ids: Array.from(allChapterCharacterIds),
       },
     });
-
-    // 更新时间线统计
-    await prisma.canvasTimeline.update({
-      where: { id: timelineChapter.timeline_id },
-      data: {
-        total_shots: { increment: totalShots },
-      },
-    });
+    await refreshCanvasCounters(prisma, chapterId);
 
     const durationMs = Date.now() - startedAt;
     logInfo("镜头生成成功", {

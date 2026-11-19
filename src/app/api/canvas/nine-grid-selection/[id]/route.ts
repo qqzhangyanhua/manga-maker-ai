@@ -9,6 +9,8 @@ import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
+import { getCanvasShotForUser, updateCanvasShot, updateShotPipeline } from "@/lib/canvas";
+import { canvasErrorResponse } from "@/lib/canvas/route-error";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -92,6 +94,11 @@ export async function POST(req: Request, { params }: RouteParams) {
       );
     }
 
+    if (!nineGridGeneration.panel_id) {
+      return NextResponse.json({ error: "九宫格记录没有关联分镜" }, { status: 404 });
+    }
+    const context = await getCanvasShotForUser(prisma, nineGridGeneration.panel_id, payload.userId);
+
     // 更新九宫格选择
     await prisma.nineGridGeneration.update({
       where: { id: nineGridId },
@@ -102,27 +109,20 @@ export async function POST(req: Request, { params }: RouteParams) {
     });
 
     // 更新分镜状态
-    await prisma.shotDesign.update({
-      where: { id: nineGridGeneration.shot_design_id },
-      data: {
-        selection_status: "selected",
-        generated_image_url: selectedImage.image_url,
-        generation_status: "completed",
-      },
+    await updateCanvasShot(prisma, context, payload.userId, {
+      selection_status: "selected",
+      generated_image_url: selectedImage.image_url,
+      generation_status: "completed",
     });
 
     return NextResponse.json({
       success: true,
       selected_image_url: selectedImage.image_url,
-      shot_design_id: nineGridGeneration.shot_design_id,
+      panel_id: context.panel.id,
       message: `已选择位置 ${grid_position} 的图片`,
     });
   } catch (error) {
-    console.error("[NineGridSelection] Error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "选择失败" },
-      { status: 500 }
-    );
+    return canvasErrorResponse(error, "选择失败");
   }
 }
 
@@ -149,13 +149,7 @@ export async function GET(req: Request, { params }: RouteParams) {
     const nineGridGeneration = await prisma.nineGridGeneration.findUnique({
       where: { id: nineGridId },
       include: {
-        shot_designs: {
-          select: {
-            id: true,
-            shot_description: true,
-            shot_order: true,
-          },
-        },
+        panel: { select: { id: true, description: true, panel_order: true } },
       },
     });
 
@@ -172,7 +166,8 @@ export async function GET(req: Request, { params }: RouteParams) {
       success: true,
       generation: {
         id: nineGridGeneration.id,
-        shot_design_id: nineGridGeneration.shot_design_id,
+        panel_id: nineGridGeneration.panel_id,
+        shot_description: nineGridGeneration.panel?.description ?? null,
         status: nineGridGeneration.status,
         images: nineGridGeneration.images,
         selected_grid_position: nineGridGeneration.selected_grid_position,
@@ -234,14 +229,10 @@ export async function DELETE(req: Request, { params }: RouteParams) {
       },
     });
 
-    // 更新分镜状态
-    await prisma.shotDesign.update({
-      where: { id: nineGridGeneration.shot_design_id },
-      data: {
-        selection_status: "pending",
-        // 不清除 generated_image_url，保留之前的图片
-      },
-    });
+    // 更新分镜状态（不清除分镜图片，保留之前的图片）
+    if (nineGridGeneration.panel_id) {
+      await updateShotPipeline(prisma, nineGridGeneration.panel_id, { selection_status: "pending" });
+    }
 
     return NextResponse.json({
       success: true,

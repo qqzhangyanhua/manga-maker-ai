@@ -11,6 +11,8 @@ import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { logInfo, logError } from "@/lib/api-logger";
 import { z } from "zod";
+import { ApiError } from "@/lib/api-helpers";
+import { countChapterCharacters, getCanvasChapter } from "@/lib/canvas";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -55,38 +57,9 @@ export async function POST(req: Request, { params }: RouteParams) {
     // 默认生成所有类型的资产
     const typesToGenerate = validated.types || ["base_image", "views", "expressions"];
 
-    // 1. 获取章节和所有镜头的 character_ids
-    const chapter = await prisma.timelineChapter.findUnique({
-      where: { id: chapterId },
-      include: {
-        timeline: { select: { user_id: true } },
-        script_segments: {
-          include: {
-            shot_designs: {
-              select: { character_ids: true },
-            },
-          },
-        },
-      },
-    });
-
-    if (!chapter) {
-      return NextResponse.json({ error: "章节不存在" }, { status: 404 });
-    }
-
-    if (chapter.timeline.user_id !== payload.userId) {
-      return NextResponse.json({ error: "无权操作" }, { status: 403 });
-    }
-
-    // 2. 提取所有 character_ids
-    const allCharacterIds = new Set<string>();
-    for (const segment of chapter.script_segments) {
-      for (const shot of segment.shot_designs) {
-        for (const charId of shot.character_ids) {
-          allCharacterIds.add(charId);
-        }
-      }
-    }
+    // 1. 验证章节，2. 收集镜头里出现的已入库角色
+    await getCanvasChapter(prisma, chapterId, payload.userId);
+    const allCharacterIds = new Set((await countChapterCharacters(prisma, chapterId)).keys());
 
     // 如果指定了特定角色，则过滤
     let targetCharacterIds = Array.from(allCharacterIds);
@@ -240,6 +213,9 @@ export async function POST(req: Request, { params }: RouteParams) {
         { error: "数据验证失败", details: error.errors },
         { status: 400 }
       );
+    }
+    if (error instanceof ApiError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.statusCode });
     }
 
     const durationMs = Date.now() - startedAt;

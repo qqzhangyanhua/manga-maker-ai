@@ -18,6 +18,8 @@ import { getNovelBackendClient, NovelBackendError } from "@/lib/novel-backend-cl
 import { logInfo, logError } from "@/lib/api-logger";
 import { ensureBucketExists } from "@/lib/minio";
 import { checkRateLimit } from "@/lib/security/rate-limiter";
+import { ApiError } from "@/lib/api-helpers";
+import { canvasErrorResponse } from "@/lib/canvas/route-error";
 import type { ShotInput } from "./helpers";
 import { fetchChapterData, processComicPanels, updateChapterStatus } from "./helpers";
 
@@ -68,7 +70,7 @@ export async function POST(req: Request, { params }: RouteParams) {
 
     // 1. 获取章节数据
     const chapterData = await fetchChapterData(chapterId, payload.userId);
-    const { timelineChapter, allShots, characterMap, characterImageMap, chapterCharacterIds } = chapterData;
+    const { timelineChapter, allShots, segmentMap, characterMap, characterImageMap, chapterCharacterIds } = chapterData;
 
     logInfo("章节数据获取成功", {
       chapterId,
@@ -100,16 +102,15 @@ export async function POST(req: Request, { params }: RouteParams) {
       description: string;
     }> = [];
 
-    for (const segment of timelineChapter.script_segments) {
-      for (const shotDesign of segment.shot_designs) {
-        // 如果镜头没有预设角色，需要 LLM 识别
-        if (!shotDesign.character_ids || shotDesign.character_ids.length === 0) {
-          shotsNeedingIdentification.push({
-            shotId: shotDesign.id,
-            dialogue: segment.dialogue,
-            description: shotDesign.shot_description || segment.scene_description,
-          });
-        }
+    for (const shot of allShots) {
+      // 如果镜头没有预设角色，需要 LLM 识别
+      if (shot.character_ids.length === 0) {
+        const segment = segmentMap.get(shot.script_segment_id);
+        shotsNeedingIdentification.push({
+          shotId: shot.id,
+          dialogue: segment?.dialogue ?? null,
+          description: shot.shot_description || segment?.scene_description || "",
+        });
       }
     }
 
@@ -161,44 +162,43 @@ export async function POST(req: Request, { params }: RouteParams) {
       }
     }
 
-    // 3.3 构建镜头输入数据（直接从 ShotDesign 生成，不依赖场景图）
-    const shotInputs: ShotInput[] = timelineChapter.script_segments.flatMap((segment) =>
-      segment.shot_designs.map((shotDesign) => {
-        // 优先使用预设的角色，否则使用 LLM 识别的角色
-        let effectiveCharacterIds = shotDesign.character_ids || [];
-        if (effectiveCharacterIds.length === 0) {
-          effectiveCharacterIds = identifiedCharactersMap.get(shotDesign.id) || [];
-        }
+    // 3.3 构建镜头输入数据（直接从画布镜头生成，不依赖场景图）
+    const shotInputs: ShotInput[] = allShots.map((shot) => {
+      const segment = segmentMap.get(shot.script_segment_id);
+      // 优先使用预设的角色，否则使用 LLM 识别的角色
+      let effectiveCharacterIds = shot.character_ids;
+      if (effectiveCharacterIds.length === 0) {
+        effectiveCharacterIds = identifiedCharactersMap.get(shot.id) || [];
+      }
 
-        // 镜头指定的角色名称
-        const shotCharacterNames = effectiveCharacterIds
-          .map((id) => characterMap.get(id))
-          .filter(Boolean) as string[];
+      // 镜头指定的角色名称
+      const shotCharacterNames = effectiveCharacterIds
+        .map((id) => characterMap.get(id))
+        .filter(Boolean) as string[];
 
-        // 镜头角色的参考图（优先）+ 章节角色的参考图（补充）
-        const shotCharacterImages = effectiveCharacterIds
-          .map((id) => characterImageMap.get(id))
-          .filter(Boolean) as string[];
+      // 镜头角色的参考图（优先）+ 章节角色的参考图（补充）
+      const shotCharacterImages = effectiveCharacterIds
+        .map((id) => characterImageMap.get(id))
+        .filter(Boolean) as string[];
 
-        // 合并参考图：镜头角色 + 章节角色（去重）
-        const allReferenceImages = Array.from(
-          new Set([...shotCharacterImages, ...chapterCharacterReferenceImages])
-        );
+      // 合并参考图：镜头角色 + 章节角色（去重）
+      const allReferenceImages = Array.from(
+        new Set([...shotCharacterImages, ...chapterCharacterReferenceImages])
+      );
 
-        return {
-          shot_id: shotDesign.id,
-          shot_prompt: shotDesign.prompt || shotDesign.shot_description || segment.scene_description,
-          dialogue: segment.dialogue,
-          character_names: shotCharacterNames,
-          character_reference_images: allReferenceImages,
-        };
-      })
-    );
+      return {
+        shot_id: shot.id,
+        shot_prompt: shot.prompt || shot.shot_description || segment?.scene_description || "",
+        dialogue: segment?.dialogue ?? null,
+        character_names: shotCharacterNames,
+        character_reference_images: allReferenceImages,
+      };
+    });
 
     // 4. 调用 novel-backend 分析对话框布局（基于镜头信息）
     const dialogueLayoutResult = await client.generateFinals({
       scenes: shotInputs.map((shot) => ({
-        scene_id: shot.shot_id,  // 复用字段，实际是 shot_id
+        scene_id: shot.shot_id,  // 后端要求的字段，画布里放分镜 ID
         shot_id: shot.shot_id,
         image_url: "",  // 不需要场景图 URL
         dialogue: shot.dialogue,
@@ -265,6 +265,11 @@ export async function POST(req: Request, { params }: RouteParams) {
     });
   } catch (error) {
     const durationMs = Date.now() - startedAt;
+
+    // 章节不存在、无权、未归属项目、还没有镜头：不改章节状态
+    if (error instanceof ApiError) {
+      return canvasErrorResponse(error, "生成最终图失败");
+    }
 
     logError("生成最终图失败", error, {
       chapterId,

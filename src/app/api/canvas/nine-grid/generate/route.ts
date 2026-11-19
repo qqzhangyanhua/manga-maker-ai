@@ -8,6 +8,7 @@ import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { generateImage, getImageGenerationQueue } from "@/lib/unified-image-generation";
+import { isUuid } from "@/lib/canvas";
 
 /**
  * 请求体类型
@@ -143,19 +144,22 @@ export async function POST(req: Request) {
   const finalCharacterReferences = characterReferences || [];
 
   try {
-    // 查询所有镜头数据
-    const shots = await prisma.shotDesign.findMany({
+    // 查询所有镜头（画布分镜）数据
+    const uniqueShotIds = Array.from(new Set(shotIds)).filter(isUuid);
+    const panels = await prisma.panel.findMany({
       where: {
-        id: { in: shotIds },
+        id: { in: uniqueShotIds },
+        segment_id: { not: null },
       },
       select: {
         id: true,
-        shot_order: true,
+        panel_order: true,
         camera_angle: true,
         shot_size: true,
-        shot_description: true,
-        prompt: true,
-        script_segment: {
+        description: true,
+        visual_prompt: true,
+        project: { select: { user_id: true } },
+        segment: {
           select: {
             timeline_chapter: {
               select: {
@@ -163,7 +167,6 @@ export async function POST(req: Request) {
                 timeline: {
                   select: {
                     id: true,
-                    user_id: true,
                   },
                 },
               },
@@ -172,6 +175,7 @@ export async function POST(req: Request) {
         },
       },
     });
+    const shots = panels.flatMap((p) => (p.segment ? [{ ...p, script_segment: p.segment }] : []));
 
     // 验证镜头数量
     if (shots.length !== 9) {
@@ -182,9 +186,7 @@ export async function POST(req: Request) {
     }
 
     // 验证权限（所有镜头必须属于同一用户）
-    const userIds = new Set(
-      shots.map((s) => s.script_segment.timeline_chapter.timeline.user_id)
-    );
+    const userIds = new Set(shots.map((s) => s.project.user_id));
     if (userIds.size !== 1 || !userIds.has(payload.userId)) {
       return NextResponse.json({ error: "无权操作这些镜头" }, { status: 403 });
     }
@@ -243,13 +245,14 @@ export async function POST(req: Request) {
     }
 
     // 构建提示词
+    // 按分镜编号排序（章节内连续）
     const shotData: ShotData[] = shots.map((s) => ({
       id: s.id,
-      shot_order: s.shot_order,
-      camera_angle: s.camera_angle,
-      shot_size: s.shot_size,
-      shot_description: s.shot_description,
-      prompt: s.prompt,
+      shot_order: s.panel_order,
+      camera_angle: s.camera_angle ?? "",
+      shot_size: s.shot_size ?? "",
+      shot_description: s.description,
+      prompt: s.visual_prompt,
     }));
 
     const finalPrompt = buildNineGridPrompt(

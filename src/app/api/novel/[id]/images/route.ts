@@ -3,9 +3,8 @@
  * GET /api/novel/[id]/images
  *
  * 聚合查询项目下所有生成的图片：
- * - 镜头图 (ShotDesign.generated_image_url)
- * - 场景图 (SceneImage.image_url)
- * - 漫画图 (ComicPanelResult.image_url)
+ * - 镜头图（画布镜头即项目分镜，Panel.generated_image）
+ * - 漫画图（分镜上的 canvas_final 候选图）
  * - 九宫格 (NineGridImage.image_url)
  */
 
@@ -116,100 +115,84 @@ export async function GET(
     // 收集所有图片
     const allImages: ProjectImage[] = [];
 
-    // 2. 查询镜头图 (ShotDesign)
+    const chapterScope = chapterIdFilter ? { equals: chapterIdFilter } : { in: chapterIds };
+
+    // 2. 查询镜头图（画布分镜）
     if (!type || type === "all" || type === "shot") {
-      const shots = await prisma.shotDesign.findMany({
+      const shots = await prisma.panel.findMany({
         where: {
-          script_segment: {
-            timeline_chapter_id: chapterIdFilter
-              ? { equals: chapterIdFilter }
-              : { in: chapterIds },
-          },
-          generated_image_url: { not: null },
+          segment: { timeline_chapter_id: chapterScope },
+          generated_image: { not: null },
         },
         select: {
           id: true,
-          shot_order: true,
-          generated_image_url: true,
-          prompt: true,
+          panel_order: true,
+          generated_image: true,
+          visual_prompt: true,
           shot_size: true,
           camera_angle: true,
           created_at: true,
-          script_segment: {
-            select: {
-              timeline_chapter_id: true,
-            },
-          },
+          segment: { select: { timeline_chapter_id: true } },
         },
         orderBy: [{ created_at: "desc" }],
       });
 
       for (const shot of shots) {
-        const chapter = chapterMap.get(shot.script_segment.timeline_chapter_id);
-        if (chapter && shot.generated_image_url) {
+        const chapter = shot.segment ? chapterMap.get(shot.segment.timeline_chapter_id) : undefined;
+        if (chapter && shot.generated_image) {
           allImages.push({
             id: shot.id,
             type: "shot",
-            imageUrl: shot.generated_image_url,
+            imageUrl: shot.generated_image,
             chapterNumber: chapter.chapter_number,
-            shotOrder: shot.shot_order,
+            shotOrder: shot.panel_order,
             createdAt: shot.created_at.toISOString(),
             metadata: {
-              prompt: shot.prompt || undefined,
-              shotSize: shot.shot_size,
-              cameraAngle: shot.camera_angle,
+              prompt: shot.visual_prompt || undefined,
+              shotSize: shot.shot_size || undefined,
+              cameraAngle: shot.camera_angle || undefined,
             },
           });
         }
       }
     }
 
-    // 3. 查询漫画图 (ComicPanelResult)
+    // 3. 查询漫画图（canvas_final 候选图）
     if (!type || type === "all" || type === "comic") {
-      const comicPanels = await prisma.comicPanelResult.findMany({
+      const finals = await prisma.panelVariant.findMany({
         where: {
-          shot_design: {
-            script_segment: {
-              timeline_chapter_id: chapterIdFilter
-                ? { equals: chapterIdFilter }
-                : { in: chapterIds },
-            },
-          },
-          status: "completed",
+          variant_type: "canvas_final",
+          panel: { segment: { timeline_chapter_id: chapterScope } },
         },
         select: {
           id: true,
           image_url: true,
-          generation_prompt: true,
+          prompt: true,
           created_at: true,
-          shot_design: {
+          panel: {
             select: {
-              shot_order: true,
-              script_segment: {
-                select: {
-                  timeline_chapter_id: true,
-                },
-              },
+              panel_order: true,
+              segment: { select: { timeline_chapter_id: true } },
             },
           },
         },
         orderBy: [{ created_at: "desc" }],
       });
 
-      for (const panel of comicPanels) {
-        const chapter = chapterMap.get(
-          panel.shot_design.script_segment.timeline_chapter_id
-        );
+      for (const final of finals) {
+        const chapter = final.panel.segment
+          ? chapterMap.get(final.panel.segment.timeline_chapter_id)
+          : undefined;
         if (chapter) {
           allImages.push({
-            id: panel.id,
+            id: final.id,
             type: "comic",
-            imageUrl: panel.image_url,
+            imageUrl: final.image_url,
             chapterNumber: chapter.chapter_number,
-            shotOrder: panel.shot_design.shot_order,
-            createdAt: panel.created_at.toISOString(),
+            shotOrder: final.panel.panel_order,
+            createdAt: final.created_at.toISOString(),
             metadata: {
-              prompt: panel.generation_prompt || undefined,
+              prompt: final.prompt || undefined,
             },
           });
         }

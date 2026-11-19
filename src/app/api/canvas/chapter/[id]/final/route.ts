@@ -2,12 +2,16 @@
  * 获取章节最终漫画详情 API
  *
  * GET /api/canvas/chapter/[id]/final
+ *
+ * 最终漫画是画布镜头（项目分镜）上的 canvas_final 候选图；时间线未归属漫画项目时返回 409
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { verifyAuthToken, AUTH_COOKIE_NAME } from '@/lib/auth';
 import { cookies } from 'next/headers';
+import { getAnchoredCanvasChapter, listChapterFinals } from '@/lib/canvas';
+import { canvasErrorResponse } from '@/lib/canvas/route-error';
 
 export async function GET(
   request: NextRequest,
@@ -28,41 +32,14 @@ export async function GET(
 
     const { id: chapterId } = await params;
 
-    const timelineChapter = await prisma.timelineChapter.findUnique({
-      where: { id: chapterId },
-      select: {
-        id: true,
-        chapter_number: true,
-        final_status: true,
-        final_image_count: true,
-      },
-    });
-
-    if (!timelineChapter) {
-      return NextResponse.json({ error: '章节不存在' }, { status: 404 });
-    }
-
-    // 查询最终漫画 (通过 shot_design 关联)
-    const panels = await prisma.comicPanelResult.findMany({
-      where: {
-        shot_design: {
-          script_segment: {
-            timeline_chapter_id: chapterId,
-          },
-        },
-      },
-      select: {
-        id: true,
-        image_url: true,
-        width: true,
-        height: true,
-        status: true,
-        created_at: true,
-      },
-      orderBy: {
-        created_at: 'asc',
-      },
-    });
+    await getAnchoredCanvasChapter(prisma, chapterId, payload.userId);
+    const [timelineChapter, panels] = await Promise.all([
+      prisma.timelineChapter.findUniqueOrThrow({
+        where: { id: chapterId },
+        select: { id: true, chapter_number: true, final_status: true },
+      }),
+      listChapterFinals(prisma, chapterId),
+    ]);
 
     return NextResponse.json({
       chapterId: timelineChapter.id,
@@ -73,7 +50,6 @@ export async function GET(
     });
 
   } catch (error) {
-    console.error('[API] Get final detail error:', error);
-    return NextResponse.json({ error: '获取漫画详情失败' }, { status: 500 });
+    return canvasErrorResponse(error, '获取漫画详情失败');
   }
 }

@@ -11,6 +11,7 @@ import { Prisma } from "@prisma/client";
 import { callImageGenerationByType } from "@/lib/image-generation";
 import { uploadBase64Image } from "@/lib/upload-helpers";
 import { logInfo, logError } from "@/lib/api-logger";
+import { pendingCharacterKey, promotePendingCharactersForNovel } from "@/lib/canvas";
 import type {
   GenerateCharacterImageRequest,
   GenerateCharacterImageResponse,
@@ -234,6 +235,15 @@ export async function POST(req: Request) {
       data: {
         characters: updatedCharacters as unknown as Prisma.InputJsonValue,
       },
+    });
+
+    // 镜头里这个人物的待绑定条目转为正式角色
+    await promotePendingCharactersForNovel(prisma, {
+      novelProjectId,
+      userId: payload.userId,
+      characterId: assetCharacter.id,
+      pendingKeys: [pendingCharacterKey({ id: characterId, name: characterName })],
+      name: characterName,
     });
 
     // 12. 返回响应（包含完整的更新后角色数据）

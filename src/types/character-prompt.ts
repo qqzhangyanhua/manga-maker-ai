@@ -116,7 +116,8 @@ export interface ShotCharacterPromptRef {
 /** 分镜 Prompt 合成记录 */
 export interface ShotPromptComposition {
   id: string;
-  shot_design_id: string;
+  /** 画布镜头即项目分镜，这里是分镜 ID */
+  panel_id: string;
   user_id: string;
   
   /** 该分镜使用的角色 Prompt 引用列表 */
@@ -144,7 +145,8 @@ export interface ShotPromptComposition {
 
 /** 创建分镜 Prompt 合成的请求参数 */
 export interface ComposeShotPromptInput {
-  shot_design_id: string;
+  /** 画布镜头即项目分镜，这里是分镜 ID */
+  panel_id: string;
   character_template_ids: string[];
   character_positions?: Record<string, CharacterPositionHint>;
   manual_adjustments?: string;
@@ -184,7 +186,8 @@ export interface NineGridGenerationParams {
 /** 九宫格生成记录 */
 export interface NineGridGeneration {
   id: string;
-  shot_design_id: string;
+  /** 画布镜头即项目分镜，这里是分镜 ID */
+  panel_id: string;
   prompt_composition_id: string;
   user_id: string;
   
@@ -210,7 +213,8 @@ export interface NineGridGeneration {
 
 /** 生成九宫格的请求参数 */
 export interface GenerateNineGridInput {
-  shot_design_id: string;
+  /** 画布镜头即项目分镜，这里是分镜 ID */
+  panel_id: string;
   prompt_composition_id: string;
   generation_params?: Partial<NineGridGenerationParams>;
 }
@@ -223,63 +227,18 @@ export interface SelectNineGridImageInput {
 
 /** 微调 Prompt 并重新生成的请求参数 */
 export interface RefinePromptInput {
-  shot_design_id: string;
+  /** 画布镜头即项目分镜，这里是分镜 ID */
+  panel_id: string;
   refined_prompt: string;
   generation_params?: Partial<NineGridGenerationParams>;
 }
 
 // ============================================================
-// 增强的 ShotDesign 类型（包含新字段）
+// 画布镜头流程状态
 // ============================================================
 
 /** Prompt 生成状态 */
 export type PromptGenerationStatus = "pending" | "generating" | "completed" | "error";
-
-/** 增强的 ShotDesign（包含角色身份证和九宫格相关字段） */
-export interface EnhancedShotDesign {
-  id: string;
-  script_segment_id: string;
-  shot_order: number;
-  
-  // 镜头参数
-  camera_angle: string;
-  shot_size: string;
-  panel_type: string;
-  
-  // 内容描述
-  shot_description: string;
-  composition_hint: string;
-  location_key: string;
-  
-  // 资产绑定
-  character_ids: string[];
-  scene_id?: string | null;
-  expression_types: string[];
-  outfit_ids: string[];
-  
-  // 原有 Prompt 字段
-  prompt: string;
-  negative_prompt?: string | null;
-  generated_image_url?: string | null;
-  generation_status: string;
-  
-  // 新增: 角色身份证相关
-  character_prompt_template_ids: string[];
-  prompt_composition_id?: string | null;
-  nine_grid_generation_id?: string | null;
-  
-  // 新增: 生成状态细化
-  character_prompt_status: PromptGenerationStatus;
-  final_prompt_status: PromptGenerationStatus;
-  nine_grid_status: NineGridStatus;
-  selection_status: ShotSelectionStatus;
-  
-  created_at: string;
-  
-  // Relations (可选，根据查询 include 决定)
-  prompt_composition?: ShotPromptComposition | null;
-  nine_grid?: NineGridGeneration | null;
-}
 
 // ============================================================
 // SSE 事件类型（用于九宫格生成的流式响应）

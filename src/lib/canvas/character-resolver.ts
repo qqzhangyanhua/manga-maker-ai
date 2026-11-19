@@ -9,6 +9,7 @@
 
 import { prisma } from "@/lib/db";
 import { logInfo, logError } from "@/lib/api-logger";
+import { pendingCharacterKey } from "./pending-characters";
 
 /**
  * NovelProject.characters JSON 中的角色结构
@@ -147,8 +148,7 @@ export async function resolveCharactersForTimeline(
 
     // P1-2: 5.2 添加未绑定的角色（使用临时 ID 和描述作为 fallback）
     for (const nc of unboundCharacters) {
-      // 生成临时 ID（基于名称的哈希，确保一致性）
-      const tempId = `unbound-${nc.id || nc.name.toLowerCase().replace(/\s+/g, "-")}`;
+      const tempId = pendingCharacterKey(nc);
       
       // 组合描述信息
       const descParts: string[] = [];

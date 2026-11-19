@@ -10,6 +10,8 @@ import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { logInfo } from "@/lib/api-logger";
+import { countChapterCharacters, getCanvasChapter } from "@/lib/canvas";
+import { canvasErrorResponse } from "@/lib/canvas/route-error";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -111,42 +113,9 @@ export async function GET(req: Request, { params }: RouteParams) {
   const { id: chapterId } = await params;
 
   try {
-    // 1. 获取章节和所有镜头的 character_ids
-    const chapter = await prisma.timelineChapter.findUnique({
-      where: { id: chapterId },
-      include: {
-        timeline: { select: { user_id: true } },
-        script_segments: {
-          include: {
-            shot_designs: {
-              select: { id: true, character_ids: true },
-            },
-          },
-        },
-      },
-    });
-
-    if (!chapter) {
-      return NextResponse.json({ error: "章节不存在" }, { status: 404 });
-    }
-
-    if (chapter.timeline.user_id !== payload.userId) {
-      return NextResponse.json({ error: "无权操作" }, { status: 403 });
-    }
-
-    // 2. 提取所有 character_ids 并统计出现次数
-    const characterShotCount = new Map<string, number>();
-
-    for (const segment of chapter.script_segments) {
-      for (const shot of segment.shot_designs) {
-        for (const charId of shot.character_ids) {
-          characterShotCount.set(
-            charId,
-            (characterShotCount.get(charId) || 0) + 1
-          );
-        }
-      }
-    }
+    // 1. 验证章节，2. 统计镜头里出现的已入库角色（待绑定的小说人物不在其中）
+    await getCanvasChapter(prisma, chapterId, payload.userId);
+    const characterShotCount = await countChapterCharacters(prisma, chapterId);
 
     const characterIds = Array.from(characterShotCount.keys());
 
@@ -213,10 +182,6 @@ export async function GET(req: Request, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error("[GET /api/canvas/chapter/[id]/characters]", error);
-    return NextResponse.json(
-      { error: "获取角色列表失败" },
-      { status: 500 }
-    );
+    return canvasErrorResponse(error, "获取角色列表失败");
   }
 }

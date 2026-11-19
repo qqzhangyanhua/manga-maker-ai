@@ -1,12 +1,14 @@
 /**
- * Shot Design Update Image API
- * PATCH /api/canvas/shot-design/[id]/update-image - 更新镜头生成结果
+ * 画布镜头更新图片 API
+ * PATCH /api/canvas/shot-design/[id]/update-image - 更新镜头生成结果（id 为项目分镜 ID）
  */
 
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getCanvasShotForUser, updateCanvasShot } from "@/lib/canvas";
+import { canvasErrorResponse } from "@/lib/canvas/route-error";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -51,46 +53,17 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   }
 
   try {
-    const shot = await prisma.shotDesign.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        script_segment: {
-          select: {
-            timeline_chapter: {
-              select: {
-                timeline: { select: { user_id: true } },
-              },
-            },
-          },
-        },
-      },
+    const context = await getCanvasShotForUser(prisma, id, payload.userId);
+    await updateCanvasShot(prisma, context, payload.userId, {
+      generated_image_url: imageUrl,
+      generation_status: status,
     });
 
-    if (!shot) {
-      return NextResponse.json({ error: "镜头设计不存在" }, { status: 404 });
-    }
-
-    if (shot.script_segment.timeline_chapter.timeline.user_id !== payload.userId) {
-      return NextResponse.json({ error: "无权操作" }, { status: 403 });
-    }
-
-    const updated = await prisma.shotDesign.update({
-      where: { id },
-      data: {
-        generated_image_url: imageUrl,
-        generation_status: status,
-      },
-      select: {
-        id: true,
-        generated_image_url: true,
-        generation_status: true,
-      },
+    return NextResponse.json({
+      success: true,
+      shot: { id: context.panel.id, generated_image_url: imageUrl, generation_status: status },
     });
-
-    return NextResponse.json({ success: true, shot: updated });
   } catch (error) {
-    console.error("[PATCH /api/canvas/shot-design/[id]/update-image]", error);
-    return NextResponse.json({ error: "更新失败" }, { status: 500 });
+    return canvasErrorResponse(error, "更新失败");
   }
 }

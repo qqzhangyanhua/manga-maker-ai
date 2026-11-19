@@ -1,6 +1,9 @@
 /**
  * 分镜 Prompt 合成 API
  * POST /api/canvas/shot/[shotId]/compose-prompt - 为分镜合成最终 Prompt
+ * GET  /api/canvas/shot/[shotId]/compose-prompt - 获取分镜的 Prompt 合成记录
+ *
+ * shotId 是画布镜头（项目分镜）ID
  */
 
 import { NextResponse } from "next/server";
@@ -13,6 +16,8 @@ import {
   saveShotPromptComposition,
   incrementTemplateUsageCount,
 } from "@/lib/shot-prompt-composer";
+import { getCanvasShotForUser, updateShotPipeline } from "@/lib/canvas";
+import { canvasErrorResponse } from "@/lib/canvas/route-error";
 
 interface RouteParams {
   params: Promise<{ shotId: string }>;
@@ -63,40 +68,14 @@ export async function POST(req: Request, { params }: RouteParams) {
     const { character_template_ids, character_positions, manual_adjustments } = validation.data;
 
     // 验证分镜存在且属于当前用户
-    const shotDesign = await prisma.shotDesign.findUnique({
-      where: { id: shotId },
-      include: {
-        script_segment: {
-          include: {
-            timeline_chapter: {
-              include: {
-                timeline: true,
-              },
-            },
-          },
-        },
-      },
-    });
+    const { panel } = await getCanvasShotForUser(prisma, shotId, payload.userId);
 
-    if (!shotDesign) {
-      return NextResponse.json({ error: "分镜不存在" }, { status: 404 });
-    }
-
-    const timeline = shotDesign.script_segment?.timeline_chapter?.timeline;
-    if (!timeline || timeline.user_id !== payload.userId) {
-      return NextResponse.json({ error: "无权限访问该分镜" }, { status: 403 });
-    }
-
-    // 更新分镜状态为 "generating"
-    await prisma.shotDesign.update({
-      where: { id: shotId },
-      data: { final_prompt_status: "generating" },
-    });
+    await updateShotPipeline(prisma, panel.id, { final_prompt_status: "generating" });
 
     try {
       // 合成 Prompt
       const composed = await composeShotPrompt({
-        shotDesignId: shotId,
+        panelId: panel.id,
         characterTemplateIds: character_template_ids,
         characterPositions: character_positions,
         manualAdjustments: manual_adjustments,
@@ -104,11 +83,7 @@ export async function POST(req: Request, { params }: RouteParams) {
       });
 
       // 保存合成结果
-      const compositionId = await saveShotPromptComposition(
-        shotId,
-        payload.userId,
-        composed
-      );
+      const compositionId = await saveShotPromptComposition(panel.id, payload.userId, composed);
 
       // 更新模板使用计数
       await incrementTemplateUsageCount(character_template_ids);
@@ -118,24 +93,16 @@ export async function POST(req: Request, { params }: RouteParams) {
         success: true,
         composition: {
           id: compositionId,
-          shot_design_id: shotId,
+          panel_id: panel.id,
           ...composed,
         },
       });
     } catch (error) {
-      // 更新分镜状态为 "error"
-      await prisma.shotDesign.update({
-        where: { id: shotId },
-        data: { final_prompt_status: "error" },
-      });
+      await updateShotPipeline(prisma, panel.id, { final_prompt_status: "error" });
       throw error;
     }
   } catch (error) {
-    console.error("合成分镜 Prompt 失败:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "合成分镜 Prompt 失败" },
-      { status: 500 }
-    );
+    return canvasErrorResponse(error, "合成分镜 Prompt 失败");
   }
 }
 
@@ -158,33 +125,10 @@ export async function GET(req: Request, { params }: RouteParams) {
   const { shotId } = await params;
 
   try {
-    // 获取分镜的 Prompt 合成记录
-    const shotDesign = await prisma.shotDesign.findUnique({
-      where: { id: shotId },
-      include: {
-        prompt_composition: true,
-        script_segment: {
-          include: {
-            timeline_chapter: {
-              include: {
-                timeline: true,
-              },
-            },
-          },
-        },
-      },
-    });
+    const { panel } = await getCanvasShotForUser(prisma, shotId, payload.userId);
+    const composition = await prisma.shotPromptComposition.findUnique({ where: { panel_id: panel.id } });
 
-    if (!shotDesign) {
-      return NextResponse.json({ error: "分镜不存在" }, { status: 404 });
-    }
-
-    const timeline = shotDesign.script_segment?.timeline_chapter?.timeline;
-    if (!timeline || timeline.user_id !== payload.userId) {
-      return NextResponse.json({ error: "无权限访问该分镜" }, { status: 403 });
-    }
-
-    if (!shotDesign.prompt_composition) {
+    if (!composition) {
       return NextResponse.json({
         success: true,
         composition: null,
@@ -195,16 +139,12 @@ export async function GET(req: Request, { params }: RouteParams) {
     return NextResponse.json({
       success: true,
       composition: {
-        ...shotDesign.prompt_composition,
-        created_at: shotDesign.prompt_composition.created_at.toISOString(),
-        updated_at: shotDesign.prompt_composition.updated_at.toISOString(),
+        ...composition,
+        created_at: composition.created_at.toISOString(),
+        updated_at: composition.updated_at.toISOString(),
       },
     });
   } catch (error) {
-    console.error("获取分镜 Prompt 合成记录失败:", error);
-    return NextResponse.json(
-      { error: "获取分镜 Prompt 合成记录失败" },
-      { status: 500 }
-    );
+    return canvasErrorResponse(error, "获取分镜 Prompt 合成记录失败");
   }
 }

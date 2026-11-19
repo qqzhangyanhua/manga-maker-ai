@@ -12,6 +12,8 @@ import { prisma } from "@/lib/db";
 import { callImageGenerationByType } from "@/lib/image-generation";
 import { uploadToMinIO } from "@/lib/minio";
 import { z } from "zod";
+import { getCanvasShotForUser } from "@/lib/canvas";
+import { canvasErrorResponse } from "@/lib/canvas/route-error";
 
 interface RouteParams {
   params: Promise<{ shotId: string }>;
@@ -84,32 +86,9 @@ export async function POST(req: Request, { params }: RouteParams) {
 
     const { refined_prompt, negative_prompt, generation_params } = validation.data;
 
-    // 获取分镜设计信息
-    const shotDesign = await prisma.shotDesign.findUnique({
-      where: { id: shotId },
-      include: {
-        prompt_composition: true,
-        script_segment: {
-          include: {
-            timeline_chapter: {
-              include: {
-                timeline: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!shotDesign) {
-      return NextResponse.json({ error: "分镜不存在" }, { status: 404 });
-    }
-
-    // 验证权限
-    const timeline = shotDesign.script_segment?.timeline_chapter?.timeline;
-    if (!timeline || timeline.user_id !== payload.userId) {
-      return NextResponse.json({ error: "无权限访问该分镜" }, { status: 403 });
-    }
+    // 获取分镜信息并验证权限
+    const { panel, shot } = await getCanvasShotForUser(prisma, shotId, payload.userId);
+    const promptComposition = await prisma.shotPromptComposition.findUnique({ where: { panel_id: panel.id } });
 
     // 合并生成参数
     const finalParams = { ...DEFAULT_PARAMS, ...generation_params };
@@ -120,8 +99,8 @@ export async function POST(req: Request, { params }: RouteParams) {
     // 获取 negative prompt
     const finalNegativePrompt =
       negative_prompt ||
-      shotDesign.prompt_composition?.final_negative_prompt ||
-      shotDesign.negative_prompt ||
+      promptComposition?.final_negative_prompt ||
+      shot.negative_prompt ||
       "";
 
     console.log("[RefinePrompt] 开始生成微调图片:", {
@@ -154,7 +133,7 @@ export async function POST(req: Request, { params }: RouteParams) {
 
     // 上传图片到 MinIO
     const imageBase64 = result.images[0];
-    const fileName = `refined/${shotId}/refined-${Date.now()}.png`;
+    const fileName = `refined/${panel.id}/refined-${Date.now()}.png`;
     const refinedImageUrl = await uploadBase64Image(imageBase64, fileName);
 
     console.log("[RefinePrompt] 微调图片生成成功:", {
@@ -163,25 +142,24 @@ export async function POST(req: Request, { params }: RouteParams) {
       seed,
     });
 
-    // 创建微调记录（可选：保存为新的 ShotPromptComposition）
-    // 注意：由于 shot_design_id 是 unique，如果已存在记录则需要 upsert
+    // 微调记录保存到分镜的 Prompt 合成记录（每个分镜一条）
     const refinedComposition = await prisma.shotPromptComposition.upsert({
-      where: { shot_design_id: shotId },
+      where: { panel_id: panel.id },
       update: {
         final_prompt: refined_prompt,
         final_negative_prompt: finalNegativePrompt,
         updated_at: new Date(),
       },
       create: {
-        shot_design_id: shotId,
+        panel_id: panel.id,
         user_id: payload.userId,
         final_prompt: refined_prompt,
         final_negative_prompt: finalNegativePrompt,
-        character_prompts: shotDesign.prompt_composition?.character_prompts || [],
-        scene_prompt: shotDesign.prompt_composition?.scene_prompt || "",
-        action_prompt: shotDesign.prompt_composition?.action_prompt || "",
-        atmosphere_prompt: shotDesign.prompt_composition?.atmosphere_prompt || "",
-        camera_prompt: shotDesign.prompt_composition?.camera_prompt || "",
+        character_prompts: [],
+        scene_prompt: "",
+        action_prompt: "",
+        atmosphere_prompt: "",
+        camera_prompt: "",
       },
     });
 
@@ -193,11 +171,7 @@ export async function POST(req: Request, { params }: RouteParams) {
       message: "微调图片生成成功",
     });
   } catch (error) {
-    console.error("[RefinePrompt] Error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "生成失败" },
-      { status: 500 }
-    );
+    return canvasErrorResponse(error, "生成失败");
   }
 }
 
@@ -220,49 +194,23 @@ export async function GET(req: Request, { params }: RouteParams) {
   const { shotId } = await params;
 
   try {
-    // 获取分镜的 Prompt 信息
-    const shotDesign = await prisma.shotDesign.findUnique({
-      where: { id: shotId },
-      include: {
-        prompt_composition: true,
-        nine_grid: true,
-        script_segment: {
-          include: {
-            timeline_chapter: {
-              include: {
-                timeline: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!shotDesign) {
-      return NextResponse.json({ error: "分镜不存在" }, { status: 404 });
-    }
-
-    // 验证权限
-    const timeline = shotDesign.script_segment?.timeline_chapter?.timeline;
-    if (!timeline || timeline.user_id !== payload.userId) {
-      return NextResponse.json({ error: "无权限访问该分镜" }, { status: 403 });
-    }
+    // 获取分镜的 Prompt 信息并验证权限
+    const { panel, shot } = await getCanvasShotForUser(prisma, shotId, payload.userId);
+    const [promptComposition, nineGrid] = await Promise.all([
+      prisma.shotPromptComposition.findUnique({ where: { panel_id: panel.id } }),
+      shot.nine_grid_generation_id
+        ? prisma.nineGridGeneration.findUnique({ where: { id: shot.nine_grid_generation_id } })
+        : null,
+    ]);
 
     // 获取当前使用的 Prompt
-    const currentPrompt =
-      shotDesign.prompt_composition?.final_prompt ||
-      shotDesign.prompt ||
-      "";
+    const currentPrompt = promptComposition?.final_prompt || shot.prompt || "";
 
-    const negativePrompt =
-      shotDesign.prompt_composition?.final_negative_prompt ||
-      shotDesign.negative_prompt ||
-      "";
+    const negativePrompt = promptComposition?.final_negative_prompt || shot.negative_prompt || "";
 
     // 获取九宫格中选中的图片信息
     let selectedImage = null;
-    if (shotDesign.nine_grid) {
-      const nineGrid = shotDesign.nine_grid;
+    if (nineGrid) {
       if (nineGrid.selected_grid_position && nineGrid.images) {
         const images = nineGrid.images as Array<{
           grid_position: number;
@@ -280,17 +228,13 @@ export async function GET(req: Request, { params }: RouteParams) {
       prompt_info: {
         current_prompt: currentPrompt,
         negative_prompt: negativePrompt,
-        shot_description: shotDesign.shot_description,
-        current_image_url: shotDesign.generated_image_url,
+        shot_description: shot.shot_description,
+        current_image_url: shot.generated_image_url,
         selected_nine_grid_image: selectedImage,
-        composition_id: shotDesign.prompt_composition?.id,
+        composition_id: promptComposition?.id,
       },
     });
   } catch (error) {
-    console.error("[RefinePrompt] Get error:", error);
-    return NextResponse.json(
-      { error: "获取 Prompt 信息失败" },
-      { status: 500 }
-    );
+    return canvasErrorResponse(error, "获取 Prompt 信息失败");
   }
 }

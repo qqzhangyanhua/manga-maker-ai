@@ -13,6 +13,8 @@ import { prisma } from "@/lib/db";
 import { callImageGenerationByType } from "@/lib/image-generation";
 import { uploadToMinIO } from "@/lib/minio";
 import { Prisma } from "@prisma/client";
+import { getCanvasShotForUser, updateShotPipeline } from "@/lib/canvas";
+import { canvasErrorResponse } from "@/lib/canvas/route-error";
 
 /**
  * 将 base64 图片上传到 MinIO
@@ -76,55 +78,22 @@ export async function POST(req: Request, { params }: RouteParams) {
     // 合并生成参数
     const finalParams = { ...DEFAULT_PARAMS, ...generation_params };
 
-    // 获取分镜设计信息
-    const shotDesign = await prisma.shotDesign.findUnique({
-      where: { id: shotId },
-      include: {
-        prompt_composition: true,
-        script_segment: {
-          include: {
-            timeline_chapter: {
-              include: {
-                timeline: true,
-              },
-            },
-          },
-        },
-      },
-    });
+    // 获取分镜信息并验证权限
+    const { panel, shot } = await getCanvasShotForUser(prisma, shotId, payload.userId);
+    const panelId = panel.id;
 
-    if (!shotDesign) {
-      return NextResponse.json({ error: "分镜不存在" }, { status: 404 });
+    // 获取 Prompt：指定的合成记录（须属于该分镜）> 分镜的合成记录 > 分镜自身的 prompt
+    let composition = prompt_composition_id
+      ? await prisma.shotPromptComposition.findFirst({ where: { id: prompt_composition_id, panel_id: panelId } })
+      : null;
+    if (!composition) {
+      composition = await prisma.shotPromptComposition.findUnique({ where: { panel_id: panelId } });
     }
 
-    // 验证权限
-    const timeline = shotDesign.script_segment?.timeline_chapter?.timeline;
-    if (!timeline || timeline.user_id !== payload.userId) {
-      return NextResponse.json({ error: "无权限访问该分镜" }, { status: 403 });
-    }
-
-    // 获取 Prompt
-    let finalPrompt = "";
-    let finalNegativePrompt = "";
-
-    if (prompt_composition_id) {
-      // 使用指定的 Prompt 合成记录
-      const composition = await prisma.shotPromptComposition.findUnique({
-        where: { id: prompt_composition_id },
-      });
-      if (composition) {
-        finalPrompt = composition.final_prompt;
-        finalNegativePrompt = composition.final_negative_prompt;
-      }
-    } else if (shotDesign.prompt_composition) {
-      // 使用已关联的 Prompt 合成记录
-      finalPrompt = shotDesign.prompt_composition.final_prompt;
-      finalNegativePrompt = shotDesign.prompt_composition.final_negative_prompt;
-    } else if (shotDesign.prompt) {
-      // 回退到分镜自身的 prompt
-      finalPrompt = shotDesign.prompt;
-      finalNegativePrompt = shotDesign.negative_prompt || "";
-    }
+    const finalPrompt = composition?.final_prompt || shot.prompt;
+    const finalNegativePrompt = composition?.final_prompt
+      ? composition.final_negative_prompt
+      : shot.negative_prompt || "";
 
     if (!finalPrompt) {
       return NextResponse.json(
@@ -133,11 +102,21 @@ export async function POST(req: Request, { params }: RouteParams) {
       );
     }
 
-    // 更新分镜状态为 generating
-    await prisma.shotDesign.update({
-      where: { id: shotId },
-      data: { nine_grid_status: "generating" },
-    });
+    // 九宫格记录必须关联合成记录：还没合成过的，用分镜自身的 prompt 建一条
+    if (!composition) {
+      composition = await prisma.shotPromptComposition.create({
+        data: {
+          panel_id: panelId,
+          user_id: payload.userId,
+          scene_prompt: "",
+          action_prompt: "",
+          atmosphere_prompt: "",
+          camera_prompt: "",
+          final_prompt: finalPrompt,
+          final_negative_prompt: finalNegativePrompt,
+        },
+      });
+    }
 
     // 生成基础 seed（使用时间戳 + 随机数）
     const baseSeed = Math.floor(Date.now() / 1000) % 1000000000;
@@ -145,8 +124,8 @@ export async function POST(req: Request, { params }: RouteParams) {
     // 创建九宫格生成记录
     const nineGridGeneration = await prisma.nineGridGeneration.create({
       data: {
-        shot_design_id: shotId,
-        prompt_composition_id: shotDesign.prompt_composition_id || prompt_composition_id || shotId,
+        panel_id: panelId,
+        prompt_composition_id: composition.id,
         user_id: payload.userId,
         generation_params: finalParams as unknown as Prisma.InputJsonValue,
         images: [],
@@ -154,10 +133,10 @@ export async function POST(req: Request, { params }: RouteParams) {
       },
     });
 
-    // 更新分镜关联
-    await prisma.shotDesign.update({
-      where: { id: shotId },
-      data: { nine_grid_generation_id: nineGridGeneration.id },
+    // 更新分镜状态与关联
+    await updateShotPipeline(prisma, panelId, {
+      nine_grid_status: "generating",
+      nine_grid_generation_id: nineGridGeneration.id,
     });
 
     // 使用 SSE 流式返回
@@ -253,11 +232,8 @@ export async function POST(req: Request, { params }: RouteParams) {
           });
 
           // 更新分镜状态
-          await prisma.shotDesign.update({
-            where: { id: shotId },
-            data: {
-              nine_grid_status: generatedImages.length > 0 ? "completed" : "error",
-            },
+          await updateShotPipeline(prisma, panelId, {
+            nine_grid_status: generatedImages.length > 0 ? "completed" : "error",
           });
 
           // 发送完成事件
@@ -282,10 +258,7 @@ export async function POST(req: Request, { params }: RouteParams) {
             },
           });
 
-          await prisma.shotDesign.update({
-            where: { id: shotId },
-            data: { nine_grid_status: "error" },
-          });
+          await updateShotPipeline(prisma, panelId, { nine_grid_status: "error" });
 
           sendEvent("error", {
             message: error instanceof Error ? error.message : "生成失败",
@@ -304,11 +277,7 @@ export async function POST(req: Request, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error("[NineGrid] Error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "生成失败" },
-      { status: 500 }
-    );
+    return canvasErrorResponse(error, "生成失败");
   }
 }
 
@@ -332,11 +301,9 @@ export async function GET(req: Request, { params }: RouteParams) {
 
   try {
     // 获取分镜的最新九宫格生成记录
+    const { panel } = await getCanvasShotForUser(prisma, shotId, payload.userId);
     const nineGridGeneration = await prisma.nineGridGeneration.findFirst({
-      where: {
-        shot_design_id: shotId,
-        user_id: payload.userId,
-      },
+      where: { panel_id: panel.id },
       orderBy: { created_at: "desc" },
     });
 
@@ -357,10 +324,6 @@ export async function GET(req: Request, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error("[NineGrid] Get error:", error);
-    return NextResponse.json(
-      { error: "获取九宫格生成记录失败" },
-      { status: 500 }
-    );
+    return canvasErrorResponse(error, "获取九宫格生成记录失败");
   }
 }

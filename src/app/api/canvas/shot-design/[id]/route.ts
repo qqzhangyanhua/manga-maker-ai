@@ -1,16 +1,47 @@
 /**
- * Shot Design Edit API
- * PATCH /api/canvas/shot-design/[id] - 更新镜头设计
+ * 画布镜头编辑 API
+ * PATCH /api/canvas/shot-design/[id] - 更新画布镜头（id 为项目分镜 ID）
  */
 
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { z } from "zod";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getCanvasShotForUser, updateCanvasShot } from "@/lib/canvas";
+import type { CanvasShotPatch } from "@/lib/canvas";
+import { canvasErrorResponse } from "@/lib/canvas/route-error";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
+
+// 空字符串视为不修改（与原接口一致）
+const nonEmpty = z
+  .string()
+  .optional()
+  .transform((value) => (value ? value : undefined));
+const stringList = z.array(z.string()).optional();
+
+const ShotPatchSchema = z.object({
+  camera_angle: nonEmpty,
+  shot_size: nonEmpty,
+  panel_type: nonEmpty,
+  shot_description: nonEmpty,
+  composition_hint: nonEmpty,
+  location_key: z.string().optional(),
+  prompt: nonEmpty,
+  negative_prompt: z.string().nullable().optional(),
+  scene_id: z.string().nullable().optional(),
+  character_ids: stringList,
+  expression_types: stringList,
+  outfit_ids: stringList,
+  character_prompt_template_ids: stringList,
+  character_prompt_status: nonEmpty,
+  final_prompt_status: nonEmpty,
+  nine_grid_status: nonEmpty,
+  selection_status: nonEmpty,
+});
 
 export async function PATCH(req: Request, { params }: RouteParams) {
   const cookieStore = await cookies();
@@ -28,76 +59,22 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   const { id } = await params;
 
   try {
-    const shot = await prisma.shotDesign.findUnique({
-      where: { id },
-      include: {
-        script_segment: {
-          include: {
-            timeline_chapter: {
-              include: { timeline: true },
-            },
-          },
-        },
-      },
-    });
-
-    if (!shot) {
-      return NextResponse.json({ error: "镜头设计不存在" }, { status: 404 });
+    const body: unknown = await req.json();
+    const parsed = ShotPatchSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "请求参数验证失败", details: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      );
     }
 
-    if (
-      shot.script_segment.timeline_chapter.timeline.user_id !== payload.userId
-    ) {
-      return NextResponse.json({ error: "无权操作" }, { status: 403 });
-    }
+    const context = await getCanvasShotForUser(prisma, id, payload.userId);
+    const patch: CanvasShotPatch = parsed.data;
+    await updateCanvasShot(prisma, context, payload.userId, patch);
+    const { shot } = await getCanvasShotForUser(prisma, id, payload.userId);
 
-    const body = await req.json();
-    const {
-      camera_angle,
-      shot_size,
-      panel_type,
-      shot_description,
-      composition_hint,
-      character_ids,
-      scene_id,
-      expression_types,
-      outfit_ids,
-      prompt,
-      negative_prompt,
-      // 新增：角色身份证相关字段
-      character_prompt_template_ids,
-      character_prompt_status,
-      final_prompt_status,
-      nine_grid_status,
-      selection_status,
-    } = body;
-
-    const updated = await prisma.shotDesign.update({
-      where: { id },
-      data: {
-        ...(camera_angle && { camera_angle }),
-        ...(shot_size && { shot_size }),
-        ...(panel_type && { panel_type }),
-        ...(shot_description && { shot_description }),
-        ...(composition_hint && { composition_hint }),
-        ...(character_ids && { character_ids }),
-        ...(scene_id !== undefined && { scene_id }),
-        ...(expression_types && { expression_types }),
-        ...(outfit_ids && { outfit_ids }),
-        ...(prompt && { prompt }),
-        ...(negative_prompt !== undefined && { negative_prompt }),
-        // 新增：角色身份证相关字段
-        ...(character_prompt_template_ids && { character_prompt_template_ids }),
-        ...(character_prompt_status && { character_prompt_status }),
-        ...(final_prompt_status && { final_prompt_status }),
-        ...(nine_grid_status && { nine_grid_status }),
-        ...(selection_status && { selection_status }),
-      },
-    });
-
-    return NextResponse.json({ success: true, shot: updated });
+    return NextResponse.json({ success: true, shot });
   } catch (error) {
-    console.error("更新镜头设计失败:", error);
-    return NextResponse.json({ error: "更新失败" }, { status: 500 });
+    return canvasErrorResponse(error, "更新失败");
   }
 }

@@ -112,17 +112,20 @@ export const UpdateShotDesignRequestSchema = z.object({
   composition_hint: z.string().max(500).optional().openapi({
     description: "构图提示",
   }),
-  character_ids: z.array(z.string().uuid()).optional().openapi({
-    description: "关联角色 ID 列表",
+  location_key: z.string().optional().openapi({
+    description: "场景地点标识",
+  }),
+  character_ids: z.array(z.string()).optional().openapi({
+    description: "角色库角色 ID，或待绑定小说角色的临时 ID（unbound-xxx）；传了即整体替换镜头角色",
   }),
   scene_id: z.string().uuid().nullable().optional().openapi({
     description: "关联场景 ID",
   }),
-  expression_types: z.record(z.string()).optional().openapi({
-    description: "角色表情配置（key: character_id, value: expression_type）",
+  expression_types: z.array(z.string()).optional().openapi({
+    description: "角色表情，与 character_ids 按位置一一对应",
   }),
-  outfit_ids: z.record(z.string()).optional().openapi({
-    description: "角色服装配置（key: character_id, value: outfit_id）",
+  outfit_ids: z.array(z.string()).optional().openapi({
+    description: "角色服装 ID，与 character_ids 按位置一一对应",
   }),
   prompt: z.string().max(2000).optional().openapi({
     description: "AI 生成提示词",
@@ -312,10 +315,13 @@ export const GenerateScriptResponseSchema = z.object({
   }),
 });
 
+/** 画布镜头：即项目分镜（Panel），id 为分镜 ID */
 export const ShotDesignSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().uuid().openapi({ description: "分镜 ID" }),
   script_segment_id: z.string().uuid(),
-  shot_order: z.number().int(),
+  shot_order: z.number().int().openapi({
+    description: "在剧本片段内的顺序，从 1 开始",
+  }),
   camera_angle: z.string().openapi({
     description: "摄像机角度",
   }),
@@ -325,25 +331,36 @@ export const ShotDesignSchema = z.object({
   panel_type: z.string().openapi({
     description: "分镜类型",
   }),
-  shot_description: z.string().nullable(),
-  composition_hint: z.string().nullable(),
-  character_ids: z.array(z.string()).nullable().openapi({
-    description: "关联角色 ID 列表",
+  shot_description: z.string(),
+  composition_hint: z.string(),
+  location_key: z.string(),
+  character_ids: z.array(z.string()).openapi({
+    description: "角色库角色 ID，或待绑定小说角色的临时 ID（unbound-xxx）",
+  }),
+  outfit_ids: z.array(z.string()).openapi({
+    description: "角色服装 ID，与 character_ids 一一对应（无则为空串）",
+  }),
+  expression_types: z.array(z.string()).openapi({
+    description: "角色表情，与 character_ids 一一对应（无则为空串）",
   }),
   scene_id: z.string().uuid().nullable(),
-  expression_types: z.record(z.string()).nullable(),
-  outfit_ids: z.record(z.string()).nullable(),
-  prompt: z.string().nullable(),
+  prompt: z.string(),
   negative_prompt: z.string().nullable(),
   generated_image_url: z.string().url().nullable().openapi({
     description: "生成的图片 URL",
   }),
-  image_status: z.string().openapi({
+  generation_status: z.string().openapi({
     description: "图片生成状态（pending/generating/completed/error）",
     example: "pending",
   }),
+  character_prompt_template_ids: z.array(z.string().uuid()),
+  prompt_composition_id: z.string().uuid().nullable(),
+  nine_grid_generation_id: z.string().uuid().nullable(),
+  character_prompt_status: z.string(),
+  final_prompt_status: z.string(),
+  nine_grid_status: z.string(),
+  selection_status: z.string(),
   created_at: z.string().datetime(),
-  updated_at: z.string().datetime(),
 });
 
 export const GenerateShotsResponseSchema = z.object({
@@ -546,7 +563,7 @@ export const CharacterPromptRefSchema = z.object({
 
 export const ShotPromptCompositionSchema = z.object({
   id: z.string().uuid(),
-  shot_design_id: z.string().uuid(),
+  panel_id: z.string().uuid().openapi({ description: "分镜 ID" }),
   user_id: z.string().uuid(),
   character_prompts: z.array(CharacterPromptRefSchema),
   scene_prompt: z.string(),
