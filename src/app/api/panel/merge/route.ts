@@ -4,6 +4,7 @@ import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ApiError } from "@/lib/api-helpers";
 import { ensureProjectCharacters, filterOwnedCharacterIds } from "@/lib/project";
+import { mergePanelsKeepingSegment } from "@/lib/script-segment";
 import { callChatCompletionStreamByType } from "@/lib/llm-provider";
 
 const mergeSystemPrompt = `你是一位专业的漫画分镜编辑。
@@ -206,19 +207,10 @@ export async function POST(req: Request) {
         characterIds: [characterId],
       });
 
-      // 删除两个旧 panels
-      await tx.panel.deleteMany({
-        where: { id: { in: panel_ids } },
-      });
-
-      // 创建新 panel（使用较小的 panel_order）
-      const newOrder = Math.min(panels[0].panel_order, panels[1].panel_order);
-      const created = await tx.panel.create({
-        data: {
-          project_id,
-          // 融合后的分镜留在前一个分镜的章节
-          chapter_id: panels[0].chapter_id,
-          panel_order: newOrder,
+      return mergePanelsKeepingSegment(tx, {
+        projectId: project_id,
+        panelIds: panel_ids,
+        panel: {
           panel_type: mergedData.panel_type,
           importance: mergedData.importance,
           description: mergedData.description,
@@ -229,21 +221,8 @@ export async function POST(req: Request) {
           emotion: mergedData.emotion || null,
           camera_angle: mergedData.camera_angle || null,
           shot_size: mergedData.shot_size || null,
-          script_segment_id: panels[0].script_segment_id, // 保留第一个的 segment_id
-          script_start: panels[0].script_start,
-          script_end: panels[1].script_end, // 扩展到第二个的结束位置
         },
       });
-
-      // 重新排序后续 panels（-1 因为删除了两个，新增了一个）
-      await tx.$executeRaw`
-        UPDATE panels
-        SET panel_order = panel_order - 1
-        WHERE project_id = ${project_id}::uuid
-        AND panel_order > ${Math.max(panels[0].panel_order, panels[1].panel_order)}
-      `;
-
-      return created;
     });
 
     console.log("[Merge API] Merge successful:", {

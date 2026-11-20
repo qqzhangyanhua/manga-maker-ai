@@ -11,6 +11,7 @@ export type ApiPanel = {
   emotion: string | null;
   prompt_used: string | null;
   generated_image: string | null;
+  segment_id?: string | null;
   script_segment_id: string | null;
   script_start: number | null;
   script_end: number | null;

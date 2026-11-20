@@ -42,7 +42,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "剧本片段不存在" }, { status: 404 });
     }
 
-    if (segment.timeline_chapter.timeline.user_id !== payload.userId) {
+    if (!segment.timeline_chapter || segment.timeline_chapter.timeline.user_id !== payload.userId) {
       return NextResponse.json({ error: "无权操作" }, { status: 403 });
     }
 
@@ -102,15 +102,14 @@ export async function DELETE(req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "剧本片段不存在" }, { status: 404 });
     }
 
-    if (segment.timeline_chapter.timeline.user_id !== payload.userId) {
+    if (!segment.timeline_chapter || segment.timeline_chapter.timeline.user_id !== payload.userId) {
       return NextResponse.json({ error: "无权操作" }, { status: 403 });
     }
 
     await prisma.scriptSegment.delete({ where: { id } });
 
-    // 更新计数
     await prisma.timelineChapter.update({
-      where: { id: segment.timeline_chapter_id },
+      where: { id: segment.timeline_chapter.id },
       data: { script_segment_count: { decrement: 1 } },
     });
 

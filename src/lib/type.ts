@@ -53,6 +53,7 @@ export type StoryOutline = {
 
 export type StoryboardPanelData = {
   panel_order?: number;
+  script_segment_id?: string | null;
   panel_type?: string | null;
   importance?: string | null;
   description?: string | null;

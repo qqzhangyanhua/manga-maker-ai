@@ -6,6 +6,8 @@ import { callChatCompletionByType } from "@/lib/llm-provider";
 import { QuotaExceededError, assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
 import { ensureDefaultChapter, ensureProjectCharacters, filterOwnedCharacterIds, findStoryProject } from "@/lib/project";
+import { readStoryboardSegments, writeStoryboardOnChapter } from "@/lib/script-segment";
+import type { StoryboardPanelDraft } from "@/lib/script-segment";
 
 const systemPrompt = `你是一位资深的漫画分镜导演和AI绘画专家。
 
@@ -198,7 +200,6 @@ export async function POST(req: Request) {
     if (saveToDb) {
       const projectTitle = typeof storyboardData.project_title === "string" ? storyboardData.project_title : "未命名项目";
       const storyboardStyle = typeof storyboardData.style === "string" ? storyboardData.style : undefined;
-      const scriptSegments = Array.isArray(storyboardData.script_segments) ? storyboardData.script_segments : null;
       const asString = (value: unknown) => (typeof value === "string" ? value : undefined);
       const asNumber = (value: unknown) => (typeof value === "number" ? value : undefined);
 
@@ -243,28 +244,26 @@ export async function POST(req: Request) {
         const scriptEnd = asNumber(panelData.script_end);
         const characterId = asString(panelData.character_id);
 
-        return {
+        const draft: StoryboardPanelDraft = {
+          sourceKey: asString(panelData.script_segment_id) ?? null,
           panel_order: panelOrder,
           panel_type: panelType,
           importance: importance,
           description: description,
           dialogue: dialogue ?? null,
           character_id: characterId && ownedCharacterIds.has(characterId) ? characterId : null,
+          character_name: null,
           emotion: asString(panelData.emotion) ?? null,
           prompt_used: englishPrompt ?? description,
-          generated_image: null,
-          script_segment_id: asString(panelData.script_segment_id) ?? null,
           script_start: scriptStart ?? null,
           script_end: scriptEnd ?? null,
           camera_angle: asString(panelData.camera_angle) ?? null,
           shot_size: shotSize ?? null,
           visual_prompt: visualPrompt ?? description,
         };
+        return draft;
       });
 
-      const scriptCreate = scriptSegments
-        ? { create: { content: story, segments: scriptSegments as Prisma.InputJsonValue } }
-        : undefined;
       const include = {
         panels: { orderBy: { panel_order: "asc" as const } },
         script: true,
@@ -296,6 +295,25 @@ export async function POST(req: Request) {
             });
         // 分镜必须挂在章节上：用项目的第一个章节，没有就建"第一章"
         const chapterId = await ensureDefaultChapter(tx, target.id);
+        const written = await writeStoryboardOnChapter(tx, {
+          projectId: target.id,
+          chapterId,
+          segments: readStoryboardSegments(storyboardData.script_segments),
+          panels: normalizedPanels,
+        });
+        const scriptCreate = written.segments.length > 0
+          ? {
+              create: {
+                content: story,
+                segments: written.segments.map((segment) => ({
+                  id: segment.id,
+                  text: segment.content,
+                  start: segment.source_text_start,
+                  end: segment.source_text_end,
+                })) as Prisma.InputJsonValue,
+              },
+            }
+          : undefined;
 
         return tx.project.update({
           where: { id: target.id },
@@ -307,7 +325,6 @@ export async function POST(req: Request) {
                 }
               : {}),
             updated_at: new Date(),
-            panels: { create: normalizedPanels.map((panel) => ({ ...panel, chapter_id: chapterId })) },
             script: scriptCreate,
           },
           include,

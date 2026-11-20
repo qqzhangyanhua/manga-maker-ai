@@ -8,6 +8,7 @@ import { generateStoryOutline } from "./story-generator";
 import { callChatCompletionByType } from "./llm-provider";
 import { generateImageBatch } from "./unified-image-generation";
 import { ensureDefaultChapter, ensureStoryProject } from "./project";
+import { readStoryboardSegments, writeStoryboardOnChapter } from "./script-segment";
 import type { StoryOutline, StoryboardData, WorkflowConfig, WorkflowResult, WorkflowStatus, WorkflowStep } from "./type";
 
 export type { WorkflowConfig, WorkflowResult, WorkflowStatus, WorkflowStep } from "./type";
@@ -176,51 +177,62 @@ ${act.summary || ""}
         }
 
         const storyboardPanels = Array.isArray(storyboardData.panels) ? storyboardData.panels : [];
-        const scriptSegments = Array.isArray(storyboardData.script_segments)
-            ? (storyboardData.script_segments as Prisma.InputJsonValue)
-            : undefined;
 
         // 分镜写入故事的主项目（新建故事时由数据库触发器创建）
         const storyProject = await ensureStoryProject(prisma, storyId);
-        const chapterId = await ensureDefaultChapter(prisma, storyProject.id);
-        const project = (await prisma.project.update({
-            where: { id: storyProject.id },
-            data: {
-                description: story.premise,
-                style: this.config.style || storyboardData.style || "manga",
-                status: "in_progress",
-                updated_at: new Date(),
-                panels: {
-                    create: storyboardPanels.map((panel, index) => ({
-                        chapter_id: chapterId,
-                        panel_order: panel.panel_order ?? index + 1,
-                        panel_type: panel.panel_type ?? null,
-                        importance: panel.importance ?? null,
-                        description: panel.description ?? null,
-                        dialogue: panel.dialogue || null,
-                        character_name: panel.character_name || null,
-                        emotion: panel.emotion || null,
-                        prompt_used: panel.english_prompt || panel.visual_prompt,
-                        camera_angle: panel.camera_angle || null,
-                        shot_size: panel.shot_size || null,
-                        visual_prompt: panel.visual_prompt || panel.description,
-                    })),
+        const project = await prisma.$transaction(async (tx) => {
+            const chapterId = await ensureDefaultChapter(tx, storyProject.id);
+            const written = await writeStoryboardOnChapter(tx, {
+                projectId: storyProject.id,
+                chapterId,
+                segments: readStoryboardSegments(storyboardData.script_segments),
+                panels: storyboardPanels.map((panel, index) => ({
+                    sourceKey: typeof panel.script_segment_id === "string" ? panel.script_segment_id : null,
+                    panel_order: panel.panel_order ?? index + 1,
+                    panel_type: panel.panel_type || "medium",
+                    importance: panel.importance || "medium",
+                    description: panel.description || "无描述",
+                    dialogue: panel.dialogue || null,
+                    character_id: null,
+                    character_name: panel.character_name || null,
+                    emotion: panel.emotion || null,
+                    prompt_used: panel.english_prompt || panel.visual_prompt || panel.description || null,
+                    script_start: null,
+                    script_end: null,
+                    camera_angle: panel.camera_angle || null,
+                    shot_size: panel.shot_size || null,
+                    visual_prompt: panel.visual_prompt || panel.description || null,
+                })),
+            });
+
+            return tx.project.update({
+                where: { id: storyProject.id },
+                data: {
+                    description: story.premise,
+                    style: this.config.style || storyboardData.style || "manga",
+                    status: "in_progress",
+                    updated_at: new Date(),
+                    script: written.segments.length > 0
+                        ? {
+                            create: {
+                                content: story.premise,
+                                segments: written.segments.map((segment) => ({
+                                    id: segment.id,
+                                    text: segment.content,
+                                    start: segment.source_text_start,
+                                    end: segment.source_text_end,
+                                })) as Prisma.InputJsonValue,
+                            },
+                        }
+                        : undefined,
                 },
-                script: Array.isArray(scriptSegments)
-                    ? {
-                        create: {
-                            content: story.premise,
-                            segments: scriptSegments,
-                        },
-                    }
-                    : undefined,
-            },
-            include: {
-                panels: {
-                    orderBy: { panel_order: "asc" },
+                include: {
+                    panels: {
+                        orderBy: { panel_order: "asc" },
+                    },
                 },
-            },
-        })) as Prisma.ProjectGetPayload<{ include: { panels: true } }>;
+            });
+        });
 
         return project;
     }

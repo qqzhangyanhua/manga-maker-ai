@@ -22,6 +22,7 @@ export type Panel = {
   emotion: string | null;
   generated_image: string | null;
   prompt_used: string | null;
+  segment_id?: string | null;
   script_segment_id: string | null;
   script_start: number | null;
   script_end: number | null;

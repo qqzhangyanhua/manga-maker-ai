@@ -73,6 +73,7 @@ export function panelDataToApiPanels(
       generated_image: panel.generatedImage || null,
       character_id: originalPanel?.character_id || null, // Use character_id
       emotion: originalPanel?.emotion || null,
+      segment_id: originalPanel?.segment_id || null,
       script_segment_id: originalPanel?.script_segment_id || null,
       script_start: originalPanel?.script_start || null,
       script_end: originalPanel?.script_end || null,

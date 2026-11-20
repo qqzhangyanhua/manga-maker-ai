@@ -290,10 +290,10 @@ export default function StoryboardEditorPage({
     onInsertAfter: handleInsertAfter,
   });
 
-  // 点击文本片段 → 高亮对应分镜
+  // 点击文本片段 → 高亮对应分镜。新分镜用剧本片段 id，旧分镜仍可能挂着字符串片段 id。
   const handleSegmentClick = (segmentId: string) => {
     setSelectedSegmentId(segmentId);
-    const panel = project?.panels.find((p) => p.script_segment_id === segmentId);
+    const panel = project?.panels.find((p) => p.segment_id === segmentId || p.script_segment_id === segmentId);
     if (panel) {
       setSelectedPanelId(panel.id);
       panelRefs.current[panel.id]?.scrollIntoView({
@@ -310,9 +310,10 @@ export default function StoryboardEditorPage({
 
     setSelectedPanelId(panelId);
     const panel = project?.panels.find((p) => p.id === panelId);
-    if (panel?.script_segment_id) {
-      setSelectedSegmentId(panel.script_segment_id);
-      segmentRefs.current[panel.script_segment_id]?.scrollIntoView({
+    const segmentId = panel?.segment_id || panel?.script_segment_id;
+    if (segmentId) {
+      setSelectedSegmentId(segmentId);
+      segmentRefs.current[segmentId]?.scrollIntoView({
         behavior: "smooth",
         block: "center",
       });

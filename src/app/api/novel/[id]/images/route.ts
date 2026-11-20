@@ -138,7 +138,8 @@ export async function GET(
       });
 
       for (const shot of shots) {
-        const chapter = shot.segment ? chapterMap.get(shot.segment.timeline_chapter_id) : undefined;
+        const timelineChapterId = shot.segment?.timeline_chapter_id;
+        const chapter = timelineChapterId ? chapterMap.get(timelineChapterId) : undefined;
         if (chapter && shot.generated_image) {
           allImages.push({
             id: shot.id,
@@ -180,9 +181,8 @@ export async function GET(
       });
 
       for (const final of finals) {
-        const chapter = final.panel.segment
-          ? chapterMap.get(final.panel.segment.timeline_chapter_id)
-          : undefined;
+        const timelineChapterId = final.panel.segment?.timeline_chapter_id;
+        const chapter = timelineChapterId ? chapterMap.get(timelineChapterId) : undefined;
         if (chapter) {
           allImages.push({
             id: final.id,

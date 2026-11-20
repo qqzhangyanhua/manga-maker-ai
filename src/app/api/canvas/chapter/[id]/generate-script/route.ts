@@ -9,6 +9,7 @@ import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getNovelBackendClient, NovelBackendError } from "@/lib/novel-backend-client";
 import { logInfo, logError } from "@/lib/api-logger";
+import { createChapterScriptSegments } from "@/lib/script-segment";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -222,25 +223,22 @@ export async function POST(req: Request, { params }: RouteParams) {
       segmentCount: analyzeResult.segments.length,
     });
 
-    // 创建剧本片段（批量插入）
-    const createdSegments = await Promise.all(
-      analyzeResult.segments.map((segment) =>
-        prisma.scriptSegment.create({
-          data: {
-            timeline_chapter_id: chapterId,
-            segment_order: segment.segment_order,
-            content: segment.content,
-            scene_description: segment.scene_description,
-            character_actions: segment.character_actions,
-            dialogue: segment.dialogue,
-            estimated_duration: segment.estimated_duration,
-            emotion_tone: segment.emotion_tone,
-            source_text_start: segment.source_text_start || 0,
-            source_text_end: segment.source_text_end || chapterContent.length,
-          },
-        })
-      )
-    );
+    // 剧本片段属于这一时间线的项目章节。章节 id 由 module 写成锚点。
+    const createdSegments = await createChapterScriptSegments(prisma, {
+      chapterId: timelineChapter.project_chapter_id ?? chapterId,
+      timelineChapterId: chapterId,
+      segments: analyzeResult.segments.map((segment) => ({
+        segment_order: segment.segment_order,
+        content: segment.content,
+        scene_description: segment.scene_description,
+        character_actions: segment.character_actions,
+        dialogue: segment.dialogue,
+        estimated_duration: segment.estimated_duration,
+        emotion_tone: segment.emotion_tone,
+        source_text_start: segment.source_text_start || 0,
+        source_text_end: segment.source_text_end || chapterContent.length,
+      })),
+    });
 
     // 更新状态为完成
     await prisma.timelineChapter.update({

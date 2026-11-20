@@ -58,6 +58,15 @@ vi.mock("@/lib/db", () => ({
     projectCharacter: {
       createMany: vi.fn(),
     },
+    scriptSegment: {
+      create: vi.fn(),
+    },
+    panel: {
+      create: vi.fn(),
+    },
+    timelineChapter: {
+      findUnique: vi.fn(),
+    },
   },
 }));
 
@@ -92,10 +101,22 @@ describe("POST /api/storyboard", () => {
     (prisma.project.update as ReturnType<typeof vi.fn>).mockImplementation(
       ({ where }: { where: { id: string } }) => Promise.resolve({ id: where.id, panels: [] })
     );
+    (prisma.scriptSegment.create as ReturnType<typeof vi.fn>).mockImplementation(
+      async ({ data }: { data: { segment_order: number; chapter_id: string | null; content: string; source_text_start: number; source_text_end: number; timeline_chapter_id: string | null } }) => ({
+        id: `segment-${data.segment_order}`,
+        ...data,
+      })
+    );
+    (prisma.panel.create as ReturnType<typeof vi.fn>).mockImplementation(
+      async ({ data }: { data: { panel_order: number } }) => ({
+        id: `panel-${data.panel_order}`,
+        ...data,
+      })
+    );
   });
 
   const panelsWritten = () =>
-    (prisma.project.update as ReturnType<typeof vi.fn>).mock.calls[0][0].data.panels.create;
+    (prisma.panel.create as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[0].data);
 
   it("should handle missing panel_type by inferring from context", async () => {
     // Mock LLM response with undefined panel_type
@@ -391,7 +412,7 @@ describe("POST /api/storyboard", () => {
       const updateCall = (prisma.project.update as ReturnType<typeof vi.fn>).mock.calls[0][0];
       expect(updateCall.where).toEqual({ id: storyProject.id });
       expect(updateCall.data.description).toBe("故事正文");
-      expect(updateCall.data.panels.create).toHaveLength(1);
+      expect(panelsWritten()).toHaveLength(1);
       expect(updateCall.data.script.create.content).toBe("故事正文");
     });
 

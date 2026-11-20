@@ -631,7 +631,7 @@ model Chapter {
   character_states  ChapterCharacterState[] // Character states at end of chapter
   suggested_scenes  SuggestedScene[] // AI-suggested scenes for background generation
   timeline_chapters TimelineChapter[] // 锚定到本章节的画布时间线章节
-  script_segments   ScriptSegment[] // 画布剧本片段，由触发器按时间线章节锚点维护
+  script_segments   ScriptSegment[] // 本章节的剧本片段。有时间线时，锚点变化会把片段带到新章节
 
   @@index([story_id, chapter_order], map: "idx_chapters_story_order")
   @@index([project_id, chapter_order], map: "idx_chapters_project_order")
@@ -1427,8 +1427,9 @@ model TimelineChapter {
 // 剧本片段
 model ScriptSegment {
   id                  String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  timeline_chapter_id String  @db.Uuid
-  // 所属项目章节，始终等于时间线章节的 project_chapter_id，由数据库触发器维护，应用代码不写
+  // 画布片段才有时间线章节。分镜生成的片段没有时间线，章节 id 由 module 写下。
+  timeline_chapter_id String? @db.Uuid
+  // 所属项目章节。module 写入。有时间线时插入触发器改成该时间线的项目章节锚点；没有时间线时触发器保留 module 写下的值。
   chapter_id          String? @db.Uuid
   segment_order       Int
 
@@ -1449,7 +1450,7 @@ model ScriptSegment {
   created_at DateTime @default(now()) @db.Timestamptz(6)
 
   // Relations
-  timeline_chapter TimelineChapter @relation(fields: [timeline_chapter_id], references: [id], onDelete: Cascade)
+  timeline_chapter TimelineChapter? @relation(fields: [timeline_chapter_id], references: [id], onDelete: Cascade)
   chapter          Chapter?        @relation(fields: [chapter_id], references: [id], onDelete: SetNull)
   shot_designs     ShotDesign[]
   panels           Panel[]
