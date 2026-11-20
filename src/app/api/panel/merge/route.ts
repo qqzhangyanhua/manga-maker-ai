@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ApiError } from "@/lib/api-helpers";
-import { ensureProjectCharacters, filterOwnedCharacterIds } from "@/lib/project";
+import { ensureProjectCharacters, filterOwnedCharacterIds, panelReadingOrderBy, readingOrder } from "@/lib/project";
 import { mergePanelsKeepingSegment } from "@/lib/script-segment";
 import { callChatCompletionStreamByType } from "@/lib/llm-provider";
 
@@ -89,9 +89,7 @@ export async function POST(req: Request) {
     }
 
     // 获取项目的所有 panels，按顺序排列
-    const allPanels = await prisma.panel.findMany({
-      where: { project_id },
-      orderBy: { panel_order: "asc" },
+    const allPanels = await readingOrder(prisma, project_id, {
       select: { id: true, panel_order: true },
     });
 
@@ -106,7 +104,7 @@ export async function POST(req: Request) {
         id: { in: panel_ids },
         project_id,
       },
-      orderBy: { panel_order: "asc" },
+      orderBy: panelReadingOrderBy,
     });
 
     console.log("[Merge API] Panels to merge:", {

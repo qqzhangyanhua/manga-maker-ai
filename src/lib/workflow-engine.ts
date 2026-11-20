@@ -7,7 +7,7 @@ import { prisma, Prisma } from "./db";
 import { generateStoryOutline } from "./story-generator";
 import { callChatCompletionByType } from "./llm-provider";
 import { generateImageBatch } from "./unified-image-generation";
-import { ensureDefaultChapter, ensureStoryProject } from "./project";
+import { ensureDefaultChapter, ensureStoryProject, panelReadingOrderBy } from "./project";
 import { readStoryboardSegments, writeStoryboardOnChapter } from "./script-segment";
 import type { StoryOutline, StoryboardData, WorkflowConfig, WorkflowResult, WorkflowStatus, WorkflowStep } from "./type";
 
@@ -224,7 +224,7 @@ ${act.summary || ""}
                 },
                 include: {
                     panels: {
-                        orderBy: { panel_order: "asc" },
+                        orderBy: panelReadingOrderBy,
                     },
                 },
             });
@@ -242,7 +242,7 @@ ${act.summary || ""}
             include: {
                 panels: {
                     where: { prompt_used: { not: null } },
-                    orderBy: { panel_order: "asc" },
+                    orderBy: panelReadingOrderBy,
                 },
             },
         });

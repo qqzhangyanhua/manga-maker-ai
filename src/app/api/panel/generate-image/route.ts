@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { withCreditFreeze } from "@/lib/api-helpers";
 import { estimateImageCost } from "@/lib/billing";
 import { prisma } from "@/lib/db";
+import { panelReadingOrderBy } from "@/lib/project";
 import { recordGenerationLog } from "@/lib/generation-log";
 import { findBestReferenceImage } from "@/lib/character-reference";
 import { generateImage } from "@/lib/unified-image-generation";
@@ -325,7 +326,7 @@ export async function PUT(req: Request) {
       where: { id: project_id },
       include: {
         panels: {
-          orderBy: { panel_order: "asc" },
+          orderBy: panelReadingOrderBy,
         },
       },
     });

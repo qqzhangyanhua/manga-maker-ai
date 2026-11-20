@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { ApiError, withAuth } from "@/lib/api-helpers";
-import { findStoryProject } from "@/lib/project";
+import { findStoryProject, readingOrder } from "@/lib/project";
 
 /**
  * GET /api/story/[id]/panels
@@ -35,9 +35,7 @@ export async function GET(
 
         const projectId = project.id;
 
-        const panels = await prisma.panel.findMany({
-            where: { project_id: projectId },
-            orderBy: { panel_order: 'asc' },
+        const panels = await readingOrder(prisma, projectId, {
             include: {
                 chapter: {
                     select: {

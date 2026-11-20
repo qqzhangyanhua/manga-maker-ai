@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { panelReadingOrderBy } from "@/lib/project";
 
 export async function GET(
   req: Request,
@@ -78,7 +79,7 @@ export async function GET(
             },
           },
         },
-        orderBy: [{ panel_order: "asc" }, { created_at: "asc" }],
+        orderBy: panelReadingOrderBy,
         take: 100, // 限制返回数量
       });
 

@@ -7,6 +7,7 @@ export {
   listProjectCharacters,
 } from "./access";
 export { DEFAULT_CHAPTER_TITLE, ensureDefaultChapter, resolvePanelChapter } from "./chapter";
+export { panelReadingOrderBy, readingOrder } from "./chapter-panels";
 export {
   findUnambiguousNovelProject,
   listNovelComicProjects,

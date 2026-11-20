@@ -20,6 +20,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { panelReadingOrderBy } from "@/lib/project";
 import { callChatCompletionStreamByType } from "@/lib/llm-provider";
 import { recordGenerationLog } from "@/lib/generation-log";
 
@@ -147,7 +148,7 @@ export async function POST(req: Request) {
         project: {
           include: {
             panels: {
-              orderBy: { panel_order: "asc" },
+              orderBy: panelReadingOrderBy,
               take: 10, // 获取周围的分镜作为上下文
             },
             Story: true,

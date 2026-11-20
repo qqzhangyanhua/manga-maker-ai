@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { Prisma, prisma } from "@/lib/db";
+import { panelReadingOrderBy } from "@/lib/project";
 import { readMigratedPanelSegmentIds, readProjectChapterSegments, withMigratedSegmentIds } from "@/lib/script-segment";
 import type { SuccessResponse, CreateVersionInput, ProjectVersion } from "@/types/template";
 
@@ -160,7 +161,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       where: { id: projectId },
       include: {
         panels: {
-          orderBy: { panel_order: "asc" },
+          orderBy: panelReadingOrderBy,
           select: {
             id: true,
             chapter_id: true,

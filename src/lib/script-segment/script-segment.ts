@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient, ScriptSegment } from "@prisma/client";
+import { panelReadingOrderBy } from "@/lib/project";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -205,11 +206,10 @@ export async function writeStoryboardOnChapter(
 
 /** 合并后的分镜留下顺序靠前那一格的剧本片段，不复制字符串片段 id。 */
 export async function mergePanelsKeepingSegment(db: Db, input: MergePanelsInput) {
-  const found = await db.panel.findMany({
+  const panels = await db.panel.findMany({
     where: { id: { in: input.panelIds }, project_id: input.projectId },
-    orderBy: { panel_order: "asc" },
+    orderBy: panelReadingOrderBy,
   });
-  const panels = [...found].sort((left, right) => left.panel_order - right.panel_order);
   if (panels.length !== 2) {
     throw new Error("分镜不存在或不属于该项目");
   }

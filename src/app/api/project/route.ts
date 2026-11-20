@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { ApiError, parseWithSchema, withAuth } from "@/lib/api-helpers";
-import { deleteProjectWithStory, ensureStoryProject, findStoryProject } from "@/lib/project";
+import { deleteProjectWithStory, ensureStoryProject, findStoryProject, panelReadingOrderBy } from "@/lib/project";
 
 const projectStatusSchema = z.enum(["draft", "in_progress", "completed", "archived"]);
 
@@ -25,7 +25,7 @@ export async function GET() {
       where: { user_id: userId },
       include: {
         panels: {
-          orderBy: { panel_order: "asc" },
+          orderBy: panelReadingOrderBy,
         },
       },
       orderBy: { created_at: "desc" },

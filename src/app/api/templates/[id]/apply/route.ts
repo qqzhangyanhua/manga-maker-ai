@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { ensureDefaultChapter, ensureStoryProject } from "@/lib/project";
+import { ensureDefaultChapter, ensureStoryProject, panelReadingOrderBy } from "@/lib/project";
 import type { SuccessResponse } from "@/types/template";
 
 interface RouteParams {
@@ -183,7 +183,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       const existingPanels = await prisma.panel.findMany({
         where: { project_id: projectId },
         select: { id: true, panel_order: true, chapter_id: true },
-        orderBy: { panel_order: "asc" }
+        orderBy: panelReadingOrderBy
       });
 
       // Calculate new panel orders
@@ -257,7 +257,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
           project_id: projectId
         },
         select: { id: true, panel_order: true, chapter_id: true },
-        orderBy: { panel_order: "asc" }
+        orderBy: panelReadingOrderBy
       });
 
       if (targetPanels.length !== targetPanelIds.length) {
@@ -281,7 +281,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
           panel_order: { gt: maxOrder }
         },
         select: { id: true, panel_order: true },
-        orderBy: { panel_order: "asc" }
+        orderBy: panelReadingOrderBy
       });
 
       // Execute in transaction
