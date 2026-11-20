@@ -7,6 +7,7 @@
 | 文档 | 说明 |
 |------|------|
 | [DATABASE_SETUP.md](DATABASE_SETUP.md) | 数据库设置与迁移（README/AGENTS 引用） |
+| [testing/test-db.md](testing/test-db.md) | 本地 Postgres 的 `pnpm test:db` 通道 |
 | [API_DOCUMENTATION.md](API_DOCUMENTATION.md) | API 接口说明 |
 | [QUICK_REFERENCE.md](QUICK_REFERENCE.md) | 快速参考 |
 | [QUICK_REFERENCE_SERIALIZED_COMIC.md](QUICK_REFERENCE_SERIALIZED_COMIC.md) | 连载漫画功能快速参考 |

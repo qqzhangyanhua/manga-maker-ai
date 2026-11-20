@@ -25,7 +25,7 @@ uvicorn app.main:app --reload --port 8000
 - 数据层：PostgreSQL + Prisma ORM，MinIO/S3 对象存储
 - AI/LLM：开放的 OpenAI-compatible 接口，通过数据库表 `llm_providers` 配置不同用途（storyboard/story/image/prompt 等）
 - 认证与通信：JWT/bcrypt，Nodemailer SMTP 邮件
-- 测试与质量：ESLint、Vitest（`scripts/run-vitest.mjs`）
+- 测试与质量：ESLint、Vitest（`scripts/run-vitest.mjs`）。`pnpm test` 只用 mock；连本地 Postgres 的通道是 `pnpm test:db`，见 `docs/testing/test-db.md`。
 
 ## Novel Backend 服务（Python FastAPI）
 
