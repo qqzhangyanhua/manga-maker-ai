@@ -1,7 +1,8 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { ApiError } from "@/lib/api-error";
 import { filterOwnedCharacterIds } from "@/lib/project";
-import { preparePanelCast } from "./panel-cast";
+import { normalizePanelCast, panels } from "@/lib/project/chapter-panels";
+import type { CastMemberInput } from "@/lib/project/chapter-panels";
 import { canvasShotInclude, isUuid, planPanelCharacters, toCanvasFinal, toCanvasShots } from "./shot-mapping";
 import type { AnchoredCanvasChapter, CanvasShotContext } from "./context";
 import type {
@@ -21,15 +22,6 @@ const WRITE_TX_OPTIONS = { timeout: 60_000, maxWait: 10_000 };
 function emptyToNull(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
-}
-
-async function lockChapterPanels(tx: Tx, chapterId: string): Promise<void> {
-  // 与数据库函数 canvas_renumber_chapter_panels 同一个锁键
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('canvas_panels'), hashtext(${chapterId}))`;
-}
-
-async function renumberChapterPanels(tx: Tx, chapterId: string): Promise<void> {
-  await tx.$executeRaw`SELECT canvas_renumber_chapter_panels(${chapterId}::uuid)`;
 }
 
 /** 时间线章节下的全部画布镜头，按剧本片段、分镜编号排序 */
@@ -69,23 +61,6 @@ export async function countChapterCharacters(db: Db, timelineChapterId: string):
     panelsByCharacter.set(characterId, panels);
   }
   return new Map(Array.from(panelsByCharacter, ([id, panels]) => [id, panels.size]));
-}
-
-/** 主角色兼容字段（panel.character_id 等）取第一个已入库角色 */
-async function syncMainCharacter(tx: Tx, panelId: string): Promise<void> {
-  const first = await tx.panelCharacter.findFirst({
-    where: { panel_id: panelId, project_character_id: { not: null } },
-    orderBy: [{ sort_order: "asc" }, { created_at: "asc" }],
-    include: { project_character: { select: { character_id: true } } },
-  });
-  await tx.panel.update({
-    where: { id: panelId },
-    data: {
-      character_id: first?.project_character?.character_id ?? null,
-      outfit_id: first?.outfit_id ?? null,
-      expression_type: first?.expression_type ?? null,
-    },
-  });
 }
 
 /**
@@ -142,21 +117,61 @@ export async function replacePanelCharacters(
     rows.forEach((row) => projectCharacterIds.set(row.character_id, row.id));
   }
 
-  await tx.panelCharacter.deleteMany({ where: { panel_id: panelId } });
-  if (plans.length > 0) {
-    await tx.panelCharacter.createMany({
-      data: plans.map((plan) => ({
-        panel_id: panelId,
-        project_character_id: plan.characterId ? projectCharacterIds.get(plan.characterId) ?? null : null,
-        pending_character_key: plan.pendingKey,
-        pending_character_name: plan.pendingName,
-        outfit_id: plan.outfitId,
-        expression_type: plan.expression,
-        sort_order: plan.sortOrder,
-      })),
-    });
+  const castMembers: CastMemberInput[] = [];
+  const pendingRows: Array<{
+    pendingKey: string;
+    pendingName: string | null;
+    expression: string | null;
+    sortOrder: number;
+  }> = [];
+  const sortByProjectCharacter = new Map<string, number>();
+  for (const plan of plans) {
+    if (plan.characterId) {
+      const projectCharacterId = projectCharacterIds.get(plan.characterId);
+      if (!projectCharacterId) continue;
+      castMembers.push({
+        projectCharacterId,
+        outfitId: plan.outfitId,
+        expression: plan.expression,
+      });
+      sortByProjectCharacter.set(projectCharacterId, plan.sortOrder);
+      continue;
+    }
+    if (plan.pendingKey) {
+      pendingRows.push({
+        pendingKey: plan.pendingKey,
+        pendingName: plan.pendingName,
+        expression: plan.expression,
+        sortOrder: plan.sortOrder,
+      });
+    }
   }
-  await syncMainCharacter(tx, panelId);
+
+  // 在场角色走模块。待绑定不是在场角色，按原来的交错顺序补回去。主角色由触发器派生。
+  await panels(projectId, { tx }).setCast(panelId, castMembers);
+  if (pendingRows.length === 0) return;
+
+  const written = await tx.panelCharacter.findMany({
+    where: { panel_id: panelId, project_character_id: { not: null } },
+    select: { id: true, project_character_id: true },
+  });
+  for (const row of written) {
+    if (!row.project_character_id) continue;
+    const sortOrder = sortByProjectCharacter.get(row.project_character_id);
+    if (sortOrder === undefined) continue;
+    await tx.panelCharacter.update({ where: { id: row.id }, data: { sort_order: sortOrder } });
+  }
+  await tx.panelCharacter.createMany({
+    data: pendingRows.map((row) => ({
+      panel_id: panelId,
+      project_character_id: null,
+      pending_character_key: row.pendingKey,
+      pending_character_name: row.pendingName,
+      outfit_id: null,
+      expression_type: row.expression,
+      sort_order: row.sortOrder,
+    })),
+  });
 }
 
 async function upsertPipelineState(tx: Tx, panelId: string, fields: CanvasShotPipelineFields): Promise<void> {
@@ -232,53 +247,41 @@ export async function createCanvasShots(
   }
 
   const createdIds = await db.$transaction(async (tx) => {
-    await lockChapterPanels(tx, chapter.projectChapterId);
-    const max = await tx.panel.aggregate({
-      where: { chapter_id: chapter.projectChapterId },
-      _max: { panel_order: true },
-    });
-    let nextOrder = (max._max.panel_order ?? 0) + 1;
-    const ids: string[] = [];
+    const created = await panels(chapter.projectId, { tx }).add(
+      shots.map((shot) => ({
+        segmentId: shot.segmentId,
+        panelType: emptyToNull(shot.panel_type) ?? "medium",
+        importance: "medium",
+        description: shot.shot_description,
+        cameraAngle: emptyToNull(shot.camera_angle),
+        shotSize: emptyToNull(shot.shot_size),
+        compositionHint: emptyToNull(shot.composition_hint),
+        locationKey: emptyToNull(shot.location_key),
+        visualPrompt: shot.prompt,
+        negativePrompt: shot.negative_prompt,
+        generationStatus: "pending",
+      })),
+      { chapter: chapter.projectChapterId },
+    );
 
-    for (const shot of shots) {
-      const panel = await tx.panel.create({
-        data: {
-          project_id: chapter.projectId,
-          chapter_id: chapter.projectChapterId,
-          segment_id: shot.segmentId,
-          panel_order: nextOrder++,
-          panel_type: emptyToNull(shot.panel_type) ?? "medium",
-          importance: "medium",
-          description: shot.shot_description,
-          camera_angle: emptyToNull(shot.camera_angle),
-          shot_size: emptyToNull(shot.shot_size),
-          composition_hint: emptyToNull(shot.composition_hint),
-          location_key: emptyToNull(shot.location_key),
-          visual_prompt: shot.prompt,
-          negative_prompt: shot.negative_prompt,
-          generation_status: "pending",
-          pipeline_state: { create: {} },
+    for (let index = 0; index < shots.length; index += 1) {
+      const shot = shots[index];
+      const panel = created[index];
+      if (!shot || !panel || shot.character_ids.length === 0) continue;
+      await replacePanelCharacters(tx, {
+        panelId: panel.id,
+        projectId: chapter.projectId,
+        userId,
+        characters: {
+          character_ids: shot.character_ids,
+          outfit_ids: shot.outfit_ids,
+          expression_types: shot.expression_types,
+          pendingNames: params.pendingNames,
         },
-        select: { id: true },
       });
-      if (shot.character_ids.length > 0) {
-        await replacePanelCharacters(tx, {
-          panelId: panel.id,
-          projectId: chapter.projectId,
-          userId,
-          characters: {
-            character_ids: shot.character_ids,
-            outfit_ids: shot.outfit_ids,
-            expression_types: shot.expression_types,
-            pendingNames: params.pendingNames,
-          },
-        });
-      }
-      ids.push(panel.id);
     }
 
-    await renumberChapterPanels(tx, chapter.projectChapterId);
-    return ids;
+    return created.map((panel) => panel.id);
   }, WRITE_TX_OPTIONS);
 
   const all = await listChapterShots(db, chapter.timelineChapterId);
@@ -286,7 +289,7 @@ export async function createCanvasShots(
   return createdIds.map((id) => byId.get(id)).filter((s): s is CanvasShot => s !== undefined);
 }
 
-/** 更新画布上的一格分镜；只写传了的字段。传了出场角色就整体替换，并同步主角色。 */
+/** 更新画布上的一格分镜；只写传了的字段。传了出场角色就整体替换。主角色由触发器派生。 */
 export async function updateCanvasShot(
   db: PrismaClient,
   context: CanvasShotContext,
@@ -305,15 +308,13 @@ export async function updateCanvasShot(
   if (patch.generated_image_url !== undefined) data.generated_image = patch.generated_image_url;
   if (patch.generation_status !== undefined) data.generation_status = patch.generation_status;
 
-  const cast =
-    patch.characters !== undefined
-      ? await preparePanelCast(db, context.projectId, patch.characters)
-      : null;
-  if (cast) {
-    data.character_id = cast.leadCharacterId;
-    data.outfit_id = cast.leadOutfitId;
-    data.expression_type = cast.leadExpression;
-  }
+  const cast = patch.characters !== undefined
+    ? await normalizePanelCast(db, context.projectId, patch.characters.map((row) => ({
+      projectCharacterId: row.project_character_id,
+      outfitId: row.outfit_id,
+      expression: row.expression,
+    })))
+    : undefined;
 
   await db.$transaction(async (tx) => {
     if (patch.scene_id !== undefined) {
@@ -326,13 +327,8 @@ export async function updateCanvasShot(
     if (Object.keys(data).length > 0) {
       await tx.panel.update({ where: { id: context.panel.id }, data });
     }
-    if (cast) {
-      await tx.panelCharacter.deleteMany({ where: { panel_id: context.panel.id } });
-      if (cast.rows.length > 0) {
-        await tx.panelCharacter.createMany({
-          data: cast.rows.map((row) => ({ panel_id: context.panel.id, ...row })),
-        });
-      }
+    if (cast !== undefined) {
+      await panels(context.projectId, { tx }).setCast(context.panel.id, cast);
     }
     if (hasPipelineFields(patch)) {
       await upsertPipelineState(tx, context.panel.id, patch);

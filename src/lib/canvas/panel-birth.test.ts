@@ -21,6 +21,10 @@ const PANEL_B = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2";
 const USER_ID = "user-1";
 
 function createDb() {
+  const storedPanels: ReturnType<typeof storedPanel>[] = [];
+  const projectCharacters = [
+    { id: PC1, character_id: LIB1, character: { outfits: [] as Array<{ id: string }> } },
+  ];
   const db = {
     $transaction: vi.fn(),
     $executeRaw: vi.fn(),
@@ -29,18 +33,48 @@ function createDb() {
     projectCharacter: { findMany: vi.fn(), create: vi.fn() },
     suggestedCharacter: { findMany: vi.fn(), create: vi.fn() },
     scriptSegment: { count: vi.fn() },
-    panel: { aggregate: vi.fn(), create: vi.fn(), findMany: vi.fn() },
-    panelCharacter: { createMany: vi.fn() },
+    chapter: { findUnique: vi.fn() },
+    panel: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+    panelCharacter: { createMany: vi.fn(), deleteMany: vi.fn() },
+    storedPanels,
   };
   db.$transaction.mockImplementation(async (fn: (tx: typeof db) => Promise<unknown>) => fn(db));
   db.$executeRaw.mockResolvedValue(0);
   db.scriptSegment.count.mockImplementation(async (args: { where: { id: { in: string[] } } }) => args.where.id.in.length);
-  db.panel.aggregate.mockResolvedValue({ _max: { panel_order: 3 } });
+  db.chapter.findUnique.mockResolvedValue({ id: PROJECT_CHAPTER, project_id: PROJECT_ID });
   db.panel.create.mockResolvedValue({ id: PANEL_A });
-  db.panel.findMany.mockResolvedValue([]);
+  db.panel.findUnique.mockImplementation(async (args: { where: { id: string } }) => ({
+    id: args.where.id,
+    project_id: PROJECT_ID,
+    chapter_id: PROJECT_CHAPTER,
+  }));
+  db.panel.findMany.mockImplementation(async (args: { select?: unknown }) => {
+    if (args?.select) {
+      const created = [
+        { id: PANEL_A, project_id: PROJECT_ID, panel_order: 4 },
+        { id: PANEL_B, project_id: PROJECT_ID, panel_order: 5 },
+      ].slice(0, db.panel.create.mock.calls.length);
+      return [
+        { id: "existing-1", project_id: PROJECT_ID, panel_order: 1 },
+        { id: "existing-2", project_id: PROJECT_ID, panel_order: 2 },
+        { id: "existing-3", project_id: PROJECT_ID, panel_order: 3 },
+        ...created,
+      ];
+    }
+    return storedPanels;
+  });
+  db.panel.update.mockResolvedValue({});
   db.panelCharacter.createMany.mockResolvedValue({ count: 0 });
-  db.projectCharacter.create.mockResolvedValue({ id: PC_NEW });
-  db.projectCharacter.findMany.mockResolvedValue([{ id: PC1, character_id: LIB1 }]);
+  db.panelCharacter.deleteMany.mockResolvedValue({ count: 0 });
+  db.projectCharacter.create.mockImplementation(async () => {
+    projectCharacters.push({ id: PC_NEW, character_id: LIB2, character: { outfits: [] } });
+    return { id: PC_NEW };
+  });
+  db.projectCharacter.findMany.mockImplementation(async (args: { where?: { id?: { in?: string[] } } }) => {
+    const ids = args.where?.id?.in;
+    if (!ids) return projectCharacters;
+    return projectCharacters.filter((row) => ids.includes(row.id));
+  });
   db.character.findMany.mockResolvedValue([
     { id: LIB1, name: "林晓" },
     { id: LIB2, name: "Alice" },
@@ -117,7 +151,7 @@ function storedPanel(id: string, characters: Array<{ project_character_id: strin
 describe("从一章小说生成分镜", () => {
   it("把整个角色库交给规划器，已在项目里的角色按规划字段直接入镜", async () => {
     const db = createDb();
-    db.panel.findMany.mockResolvedValue([storedPanel(PANEL_A, [{ project_character_id: PC1, expression: "happy" }])]);
+    db.storedPanels.push(storedPanel(PANEL_A, [{ project_character_id: PC1, expression: "happy" }]));
     const plan = vi.fn().mockResolvedValue([planned()]);
 
     const result = await birthChapterPanels(asClient(db), {
@@ -154,12 +188,14 @@ describe("从一章小说生成分镜", () => {
         negative_prompt: "blurry",
         camera_angle: "平视",
         shot_size: "中景",
-        character_id: LIB1,
-        outfit_id: null,
-        expression_type: "happy",
+        pipeline_state: { create: {} },
       }),
       select: { id: true },
     });
+    const writtenPanel = db.panel.create.mock.calls[0]?.[0] as { data: Record<string, unknown> };
+    expect(writtenPanel.data).not.toHaveProperty("character_id");
+    expect(writtenPanel.data).not.toHaveProperty("outfit_id");
+    expect(writtenPanel.data).not.toHaveProperty("expression_type");
     expect(db.panelCharacter.createMany).toHaveBeenCalledWith({
       data: [
         {
@@ -245,19 +281,18 @@ describe("从一章小说生成分镜", () => {
         }),
       ],
     });
-    expect(db.panel.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ character_id: LIB2, expression_type: "surprised" }),
-      select: { id: true },
-    });
+    const writtenPanel = db.panel.create.mock.calls[0]?.[0] as { data: Record<string, unknown> };
+    expect(writtenPanel.data).not.toHaveProperty("character_id");
+    expect(writtenPanel.data).not.toHaveProperty("expression_type");
   });
 
   it("对不上角色库的人不入镜；有故事时同一个名字只留一条建议角色", async () => {
     const db = createDb();
     db.panel.create.mockResolvedValueOnce({ id: PANEL_A }).mockResolvedValueOnce({ id: PANEL_B });
-    db.panel.findMany.mockResolvedValue([
+    db.storedPanels.push(
       storedPanel(PANEL_A, [{ project_character_id: PC1, expression: "happy" }]),
       storedPanel(PANEL_B, []),
-    ]);
+    );
     const plan = vi.fn().mockResolvedValue([
       planned({ character_ids: [LIB1, "路人甲", UNKNOWN_ID], expression_types: ["happy", "sad", "angry"] }),
       planned({ shot_order: 2, character_ids: ["路人甲", "路人乙"], expression_types: [] }),
@@ -392,8 +427,6 @@ describe("从一章小说生成分镜", () => {
         negative_prompt: null,
         composition_hint: null,
         location_key: null,
-        character_id: null,
-        expression_type: null,
       }),
       select: { id: true },
     });

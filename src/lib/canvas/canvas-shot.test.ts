@@ -16,15 +16,27 @@ const LIB2 = "88888888-8888-4888-8888-888888888888";
 const O1 = "99999999-9999-4999-8999-999999999999";
 const O2 = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
+const CHAPTER_ID = "12121212-1212-4212-8212-121212121212";
+
 function createDb() {
   const db = {
     $transaction: vi.fn(),
-    panel: { findMany: vi.fn(), update: vi.fn() },
+    $executeRaw: vi.fn(),
+    panel: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+    chapter: { findUnique: vi.fn() },
     projectCharacter: { findMany: vi.fn() },
     panelCharacter: { deleteMany: vi.fn(), createMany: vi.fn() },
     scene: { findUnique: vi.fn() },
   };
   db.$transaction.mockImplementation(async (fn: (tx: typeof db) => Promise<void>) => fn(db));
+  db.$executeRaw.mockResolvedValue(0);
+  db.chapter.findUnique.mockResolvedValue({ id: CHAPTER_ID, project_id: PROJECT_ID });
+  db.panel.findUnique.mockImplementation(async (args: { where: { id: string } }) => ({
+    id: args.where.id,
+    project_id: PROJECT_ID,
+    chapter_id: CHAPTER_ID,
+  }));
+  db.panel.findMany.mockResolvedValue([{ id: PANEL_ID, project_id: PROJECT_ID, panel_order: 4 }]);
   db.panel.update.mockResolvedValue({});
   db.panelCharacter.deleteMany.mockResolvedValue({ count: 0 });
   db.panelCharacter.createMany.mockResolvedValue({ count: 0 });
@@ -156,14 +168,7 @@ describe("画布分镜读写", () => {
         where: { id: { in: [PC2, PC1] }, project_id: PROJECT_ID },
       })
     );
-    expect(db.panel.update).toHaveBeenCalledWith({
-      where: { id: PANEL_ID },
-      data: expect.objectContaining({
-        character_id: LIB2,
-        outfit_id: O2,
-        expression_type: "angry",
-      }),
-    });
+    expect(db.panel.update).not.toHaveBeenCalled();
     expect(db.panelCharacter.deleteMany).toHaveBeenCalledWith({ where: { panel_id: PANEL_ID } });
     expect(db.panelCharacter.createMany).toHaveBeenCalledWith({
       data: [
@@ -195,10 +200,7 @@ describe("画布分镜读写", () => {
     await updateCanvasShot(asClient(db), context(), "user-1", { characters: [] });
 
     expect(db.projectCharacter.findMany).not.toHaveBeenCalled();
-    expect(db.panel.update).toHaveBeenCalledWith({
-      where: { id: PANEL_ID },
-      data: { character_id: null, outfit_id: null, expression_type: null },
-    });
+    expect(db.panel.update).not.toHaveBeenCalled();
     expect(db.panelCharacter.deleteMany).toHaveBeenCalledWith({ where: { panel_id: PANEL_ID } });
     expect(db.panelCharacter.createMany).not.toHaveBeenCalled();
   });

@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { ApiError } from "@/lib/api-error";
+import { panels } from "@/lib/project/chapter-panels";
 
 import type { AnchoredCanvasChapter } from "./context";
 import { canvasShotInclude, isUuid, toCanvasShot } from "./shot-mapping";
@@ -354,58 +355,41 @@ export async function birthChapterPanels(
   const namesToCreate = storyId ? suggestionNames(accepted, existingSuggestions) : [];
 
   const createdIds = await db.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('canvas_panels'), hashtext(${chapter.projectChapterId}))`;
     await ensureProjectCharacters(tx, chapter.projectId, accepted);
+    const writer = panels(chapter.projectId, { tx });
+    const created = await writer.add(
+      accepted.map((panel) => ({
+        segmentId: panel.segmentId,
+        panelType: panel.panelType,
+        importance: "medium",
+        description: panel.description,
+        cameraAngle: emptyToNull(panel.cameraAngle),
+        shotSize: emptyToNull(panel.shotSize),
+        compositionHint: emptyToNull(panel.compositionHint),
+        locationKey: emptyToNull(panel.locationKey),
+        visualPrompt: panel.prompt,
+        negativePrompt: emptyToNull(panel.negativePrompt),
+        generationStatus: "pending",
+      })),
+      { chapter: chapter.projectChapterId },
+    );
 
-    const max = await tx.panel.aggregate({
-      where: { chapter_id: chapter.projectChapterId },
-      _max: { panel_order: true },
-    });
-    let nextOrder = (max._max.panel_order ?? 0) + 1;
-    const ids: string[] = [];
-
-    for (const panel of accepted) {
-      const lead = panel.rows[0];
-      const created = await tx.panel.create({
-        data: {
-          project_id: chapter.projectId,
-          chapter_id: chapter.projectChapterId,
-          segment_id: panel.segmentId,
-          panel_order: nextOrder++,
-          panel_type: panel.panelType,
-          importance: "medium",
-          description: panel.description,
-          camera_angle: emptyToNull(panel.cameraAngle),
-          shot_size: emptyToNull(panel.shotSize),
-          composition_hint: emptyToNull(panel.compositionHint),
-          location_key: emptyToNull(panel.locationKey),
-          visual_prompt: panel.prompt,
-          negative_prompt: emptyToNull(panel.negativePrompt),
-          character_id: lead?.libraryCharacterId ?? null,
-          outfit_id: null,
-          expression_type: lead?.expression ?? null,
-          generation_status: "pending",
-          pipeline_state: { create: {} },
-        },
-        select: { id: true },
-      });
-      const characterRows = panel.rows.filter((row): row is CastRow & { projectCharacterId: string } => (
+    for (let index = 0; index < accepted.length; index += 1) {
+      const panel = accepted[index];
+      const createdPanel = created[index];
+      if (!panel || !createdPanel) continue;
+      const rows = panel.rows.filter((row): row is CastRow & { projectCharacterId: string } => (
         row.projectCharacterId !== null
       ));
-      if (characterRows.length > 0) {
-        await tx.panelCharacter.createMany({
-          data: characterRows.map((row, index) => ({
-            panel_id: created.id,
-            project_character_id: row.projectCharacterId,
-            outfit_id: null,
-            expression_type: row.expression,
-            sort_order: index,
-            pending_character_key: null,
-            pending_character_name: null,
-          })),
-        });
-      }
-      ids.push(created.id);
+      if (rows.length === 0) continue;
+      await writer.setCast(
+        createdPanel.id,
+        rows.map((row) => ({
+          projectCharacterId: row.projectCharacterId,
+          outfitId: null,
+          expression: row.expression,
+        })),
+      );
     }
 
     if (storyId) {
@@ -422,8 +406,7 @@ export async function birthChapterPanels(
       }
     }
 
-    await tx.$executeRaw`SELECT canvas_renumber_chapter_panels(${chapter.projectChapterId}::uuid)`;
-    return ids;
+    return created.map((panel) => panel.id);
   }, WRITE_TX_OPTIONS);
 
   const stored = await db.panel.findMany({
