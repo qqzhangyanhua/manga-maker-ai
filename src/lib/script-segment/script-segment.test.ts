@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "@prisma/client";
 
+import { panelReadingOrderBy } from "@/lib/project";
 import {
   createChapterScriptSegments,
   mergePanelsKeepingSegment,
@@ -185,6 +186,10 @@ describe("剧本片段 module", () => {
       },
     });
 
+    expect(db.panel.findMany).toHaveBeenCalledWith({
+      where: { id: { in: ["panel-late", "panel-early"] }, project_id: PROJECT },
+      orderBy: panelReadingOrderBy,
+    });
     expect(db.panel.deleteMany).toHaveBeenCalledWith({
       where: { id: { in: ["panel-late", "panel-early"] } },
     });

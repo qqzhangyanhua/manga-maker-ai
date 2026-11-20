@@ -22,6 +22,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { panelReadingOrderBy } from "@/lib/project";
 import { callChatCompletionStreamByType } from "@/lib/llm-provider";
 import { recordGenerationLog } from "@/lib/generation-log";
 
@@ -111,7 +112,7 @@ export async function POST(req: Request) {
       where: { id: project_id },
       include: {
         panels: {
-          orderBy: { panel_order: "asc" },
+          orderBy: panelReadingOrderBy,
         },
         Story: true,
         script: true,

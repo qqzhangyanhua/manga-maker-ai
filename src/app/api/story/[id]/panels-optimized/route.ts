@@ -11,7 +11,7 @@ import {
   parsePaginationParams,
   createPaginatedResponse,
 } from "@/lib/api-helpers";
-import { findStoryProject } from "@/lib/project";
+import { findStoryProject, panelReadingOrderBy } from "@/lib/project";
 
 /**
  * GET /api/story/[id]/panels-optimized
@@ -86,7 +86,7 @@ export async function GET(
     const [panels, total] = await Promise.all([
       prisma.panel.findMany({
         where,
-        orderBy: { panel_order: 'asc' },
+        orderBy: panelReadingOrderBy,
         skip: pagination.skip,
         take: pagination.take,
         // 只加载必要字段，减少数据传输

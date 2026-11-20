@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { ApiError, parseWithSchema, withAuth } from "@/lib/api-helpers";
-import { deleteProjectWithStory } from "@/lib/project";
+import { deleteProjectWithStory, panelReadingOrderBy } from "@/lib/project";
 import {
   readMigratedPanelSegmentIds,
   readProjectChapterSegments,
@@ -38,7 +38,7 @@ export async function GET(
       where: { id },
       include: {
         panels: {
-          orderBy: { panel_order: "asc" },
+          orderBy: panelReadingOrderBy,
         },
         script: true,
       },
@@ -94,7 +94,7 @@ export async function PATCH(
       },
       include: {
         panels: {
-          orderBy: { panel_order: "asc" },
+          orderBy: panelReadingOrderBy,
         },
         script: true,
       },

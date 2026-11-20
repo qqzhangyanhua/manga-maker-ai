@@ -40,9 +40,13 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-vi.mock("@/lib/project", () => ({
-  deleteProjectWithStory: vi.fn(),
-}));
+vi.mock("@/lib/project", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/project")>("@/lib/project");
+  return {
+    ...actual,
+    deleteProjectWithStory: vi.fn(),
+  };
+});
 
 import { verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";

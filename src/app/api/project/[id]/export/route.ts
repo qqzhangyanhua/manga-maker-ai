@@ -4,6 +4,7 @@ import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PDFDocument, rgb } from "pdf-lib";
 import JSZip from "jszip";
+import { panelReadingOrderBy } from "@/lib/project";
 import { readProjectChapterSegments } from "@/lib/script-segment";
 import { exportProjectJson } from "./export-json";
 
@@ -88,7 +89,7 @@ export async function POST(req: Request, { params }: RouteParams) {
       where: { id },
       include: {
         panels: {
-          orderBy: { panel_order: "asc" },
+          orderBy: panelReadingOrderBy,
           include: {
             character: {
               select: {
