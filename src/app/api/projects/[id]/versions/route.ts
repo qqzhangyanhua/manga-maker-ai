@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { Prisma, prisma } from "@/lib/db";
+import { readMigratedPanelSegmentIds, readProjectChapterSegments, withMigratedSegmentIds } from "@/lib/script-segment";
 import type { SuccessResponse, CreateVersionInput, ProjectVersion } from "@/types/template";
 
 interface RouteParams {
@@ -173,7 +174,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             character_name: true,
             emotion: true,
             generated_image: true,
-            prompt_used: true
+            prompt_used: true,
+            segment_id: true
           }
         },
         script: true
@@ -202,6 +204,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     });
 
     const nextVersionNumber = (maxVersion?.version_number || 0) + 1;
+    const chapterSegments = await readProjectChapterSegments(prisma, projectId);
+    const panels = withMigratedSegmentIds(
+      project.panels,
+      await readMigratedPanelSegmentIds(prisma, projectId),
+    );
 
     // Build version data snapshot
     const versionData = {
@@ -210,9 +217,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         description: project.description,
         style: project.style
       },
-      panels: project.panels.map(panel => ({
+      panels: panels.map(panel => ({
         id: panel.id,
         chapter_id: panel.chapter_id,
+        segment_id: panel.segment_id,
         panel_order: panel.panel_order,
         description: panel.description,
         panel_type: panel.panel_type,
@@ -225,9 +233,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         generated_image: panel.generated_image,
         prompt_used: panel.prompt_used
       })),
-      script: project.script ? {
-        content: project.script.content,
-        segments: project.script.segments
+      script: project.script || chapterSegments.length > 0 ? {
+        content: project.script?.content ?? "",
+        segments: chapterSegments
       } : undefined
     };
 
@@ -288,7 +296,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         project_id: projectId,
         version_number: nextVersionNumber,
         label: label?.trim() || null,
-        version_data: versionData as Prisma.InputJsonValue,
+        version_data: versionData as unknown as Prisma.InputJsonValue,
         change_summary: changeSummary,
         is_auto: !label, // If no label provided, it's auto-save
         is_pinned: false,

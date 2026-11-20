@@ -4,6 +4,8 @@ import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PDFDocument, rgb } from "pdf-lib";
 import JSZip from "jszip";
+import { readProjectChapterSegments } from "@/lib/script-segment";
+import { exportProjectJson } from "./export-json";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -150,6 +152,10 @@ export async function POST(req: Request, { params }: RouteParams) {
       );
     }
 
+    const chapterSegments = format === "json"
+      ? await readProjectChapterSegments(prisma, project.id)
+      : [];
+
     // 根据格式导出
     switch (format) {
       case "pdf":
@@ -162,7 +168,7 @@ export async function POST(req: Request, { params }: RouteParams) {
         return await exportToZIP(project, panelsWithImages);
 
       case "json":
-        return await exportToJSON(project);
+        return exportProjectJson(project, chapterSegments);
 
       default:
         return NextResponse.json(
@@ -425,80 +431,6 @@ async function exportToZIP(project: ExportProject, panels: ExportPanel[]) {
     status: 200,
     headers: {
       "Content-Type": "application/zip",
-      "Content-Disposition": `attachment; filename="${encodeURIComponent(filename)}"`,
-    },
-  });
-}
-
-/**
- * 导出为 JSON（原有功能保留）
- */
-async function exportToJSON(project: ExportProject) {
-  const exportData = {
-    version: "1.0",
-    exportedAt: new Date().toISOString(),
-    project: {
-      id: project.id,
-      title: project.title,
-      description: project.description,
-      style: project.style,
-      status: project.status,
-      coverImage: project.cover_image,
-      createdAt: project.created_at,
-      updatedAt: project.updated_at,
-    },
-    story: project.Story
-      ? {
-          id: project.Story.id,
-          title: project.Story.title,
-        }
-      : null,
-    script: project.script
-      ? {
-          originalText: project.script.content,
-          segmentedData: project.script.segments,
-        }
-      : null,
-    panels: project.panels.map((panel) => ({
-      id: panel.id,
-      order: panel.panel_order,
-      description: panel.description,
-      dialogue: panel.dialogue,
-      panelType: panel.panel_type,
-      importance: panel.importance,
-      cameraAngle: panel.camera_angle,
-      shotSize: panel.shot_size,
-      promptUsed: panel.prompt_used,
-      visualPrompt: panel.visual_prompt,
-      generatedImage: panel.generated_image,
-      character: panel.character
-        ? {
-            id: panel.character.id,
-            name: panel.character.name,
-          }
-        : null,
-      expressionType: panel.expression_type,
-      outfit: panel.outfit
-        ? {
-            id: panel.outfit.id,
-            type: panel.outfit.outfit_type,
-          }
-        : null,
-      scene: panel.scene
-        ? {
-            id: panel.scene.id,
-            name: panel.scene.name,
-          }
-        : null,
-    })),
-  };
-
-  const filename = `${sanitizeFilename(project.title || "storyboard")}.json`;
-
-  return new NextResponse(JSON.stringify(exportData, null, 2), {
-    status: 200,
-    headers: {
-      "Content-Type": "application/json",
       "Content-Disposition": `attachment; filename="${encodeURIComponent(filename)}"`,
     },
   });

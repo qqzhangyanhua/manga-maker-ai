@@ -4,6 +4,7 @@ import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ApiError } from "@/lib/api-helpers";
 import { ensureProjectCharacters, filterOwnedCharacterIds } from "@/lib/project";
+import { migrateLegacyJsonSegments, readMigratedPanelSegmentIds } from "@/lib/script-segment";
 import { callChatCompletionStreamByType } from "@/lib/llm-provider";
 
 const splitSystemPrompt = `你是一位专业的漫画分镜编辑。
@@ -141,6 +142,10 @@ export async function POST(req: Request) {
     const characterId1 = pickCharacterId(splitData.panel1.character_id);
     const characterId2 = pickCharacterId(splitData.panel2.character_id);
 
+    // 先迁旧 JSON，再把拆出来的格子指向章节上的片段。迁之前原格子还在，字符串 id 才指得到。
+    await migrateLegacyJsonSegments(prisma, panel.project_id);
+    const segmentId = (await readMigratedPanelSegmentIds(prisma, panel.project_id)).get(panel.id) ?? panel.segment_id;
+
     // 使用事务删除旧 panel 并创建两个新 panel
     const newPanels = await prisma.$transaction(async (tx) => {
       await ensureProjectCharacters(tx, {
@@ -176,7 +181,7 @@ export async function POST(req: Request) {
           emotion: splitData.panel1.emotion || null,
           camera_angle: splitData.panel1.camera_angle || null,
           shot_size: splitData.panel1.shot_size || null,
-          script_segment_id: panel.script_segment_id,
+          segment_id: segmentId,
           script_start: panel.script_start,
           script_end: panel.script_end ? Math.floor((panel.script_start || 0 + (panel.script_end || 0)) / 2) : null,
         },
@@ -198,7 +203,7 @@ export async function POST(req: Request) {
           emotion: splitData.panel2.emotion || null,
           camera_angle: splitData.panel2.camera_angle || null,
           shot_size: splitData.panel2.shot_size || null,
-          script_segment_id: panel.script_segment_id,
+          segment_id: segmentId,
           script_start: panel.script_end ? Math.floor((panel.script_start || 0 + (panel.script_end || 0)) / 2) : null,
           script_end: panel.script_end,
         },

@@ -216,12 +216,8 @@ ${act.summary || ""}
                         ? {
                             create: {
                                 content: story.premise,
-                                segments: written.segments.map((segment) => ({
-                                    id: segment.id,
-                                    text: segment.content,
-                                    start: segment.source_text_start,
-                                    end: segment.source_text_end,
-                                })) as Prisma.InputJsonValue,
+                                // 片段名单在章节行上。这一列先留着，只写空名单。
+                                segments: [] as Prisma.InputJsonValue,
                             },
                         }
                         : undefined,

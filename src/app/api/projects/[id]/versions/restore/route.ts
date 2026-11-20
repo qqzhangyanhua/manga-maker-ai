@@ -9,6 +9,13 @@ import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { Prisma, prisma } from "@/lib/db";
 import { ensureDefaultChapter } from "@/lib/project";
+import {
+  readMigratedPanelSegmentIds,
+  readProjectChapterSegments,
+  readSnapshotSegments,
+  restoreProjectChapterSegments,
+  withMigratedSegmentIds,
+} from "@/lib/script-segment";
 import type { SuccessResponse, RestoreVersionInput } from "@/types/template";
 
 interface RouteParams {
@@ -140,7 +147,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
               character_name: true,
               emotion: true,
               generated_image: true,
-              prompt_used: true
+              prompt_used: true,
+              segment_id: true
             }
           },
           script: true
@@ -154,15 +162,21 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
           select: { version_number: true }
         });
 
+        const chapterSegments = await readProjectChapterSegments(prisma, projectId);
+        const backupPanels = withMigratedSegmentIds(
+          currentProject.panels,
+          await readMigratedPanelSegmentIds(prisma, projectId),
+        );
         const backupData = {
           project: {
             title: currentProject.title,
             description: currentProject.description,
             style: currentProject.style
           },
-          panels: currentProject.panels.map(p => ({
+          panels: backupPanels.map(p => ({
             id: p.id,
             chapter_id: p.chapter_id,
+            segment_id: p.segment_id,
             panel_order: p.panel_order,
             description: p.description,
             panel_type: p.panel_type,
@@ -175,9 +189,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             generated_image: p.generated_image,
             prompt_used: p.prompt_used
           })),
-          script: currentProject.script ? {
-            content: currentProject.script.content,
-            segments: currentProject.script.segments
+          script: currentProject.script || chapterSegments.length > 0 ? {
+            content: currentProject.script?.content ?? "",
+            segments: chapterSegments
           } : undefined
         };
 
@@ -186,7 +200,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             project_id: projectId,
             version_number: (maxVersionNumber?.version_number || 0) + 1,
             label: `恢复前备份 (版本 ${version.version_number})`,
-            version_data: backupData as Prisma.InputJsonValue,
+            version_data: backupData as unknown as Prisma.InputJsonValue,
             change_summary: `恢复到版本 ${version.version_number} 前的自动备份`,
             is_auto: false,
             is_pinned: true,
@@ -213,7 +227,13 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         where: { project_id: projectId }
       });
 
-      // 3. Recreate panels from version
+      // 3. 先恢复章节上的剧本片段，再把分镜指回去。删分镜之后再删旧行，避免级联删掉分镜。
+      const restoredSegments = scriptData
+        ? await restoreProjectChapterSegments(tx, projectId, readSnapshotSegments(scriptData.segments))
+        : [];
+      const restoredSegmentIds = new Set(restoredSegments.map((segment) => segment.id));
+
+      // 4. 按版本重建分镜
       if (panelItems.length > 0) {
         const asString = (value: unknown) => (typeof value === "string" ? value : null);
         // 版本里记录的章节还在项目里就放回原章节，否则放到默认章节
@@ -231,9 +251,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
             const savedChapterId = asString(panel.chapter_id);
 
+            const savedSegmentId = asString(panel.segment_id);
             return {
               project_id: projectId,
               chapter_id: savedChapterId && projectChapterIds.has(savedChapterId) ? savedChapterId : defaultChapterId,
+              segment_id: savedSegmentId && restoredSegmentIds.has(savedSegmentId) ? savedSegmentId : null,
               panel_order: panelOrder,
               description,
               panel_type: panelType,
@@ -250,10 +272,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         });
       }
 
-      // 4. Update or create script
+      // 5. 正文仍放在剧本上。片段名单不再写进项目级 JSON。
       if (scriptData) {
         const scriptContent = typeof scriptData.content === "string" ? scriptData.content : "";
-        const scriptSegments = Array.isArray(scriptData.segments) ? scriptData.segments : [];
         const existingScript = await tx.storyScript.findUnique({
           where: { project_id: projectId }
         });
@@ -261,17 +282,14 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         if (existingScript) {
           await tx.storyScript.update({
             where: { project_id: projectId },
-            data: {
-              content: scriptContent,
-              segments: scriptSegments as Prisma.InputJsonValue
-            }
+            data: { content: scriptContent }
           });
-        } else {
+        } else if (scriptContent.length > 0) {
           await tx.storyScript.create({
             data: {
               project_id: projectId,
               content: scriptContent,
-              segments: scriptSegments as Prisma.InputJsonValue
+              segments: []
             }
           });
         }

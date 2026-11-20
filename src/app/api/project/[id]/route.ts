@@ -2,6 +2,12 @@ import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { ApiError, parseWithSchema, withAuth } from "@/lib/api-helpers";
 import { deleteProjectWithStory } from "@/lib/project";
+import {
+  readMigratedPanelSegmentIds,
+  readProjectChapterSegments,
+  toStoryboardPanelSegments,
+  withMigratedSegmentIds,
+} from "@/lib/script-segment";
 
 const projectStatusSchema = z.enum(["draft", "in_progress", "completed", "archived"]);
 
@@ -46,7 +52,7 @@ export async function GET(
       throw new ApiError("无权限访问", 403, "FORBIDDEN");
     }
 
-    return { project };
+    return { project: await projectWithChapterSegments(project) };
   });
 }
 
@@ -94,8 +100,35 @@ export async function PATCH(
       },
     });
 
-    return { project: updatedProject };
+    return { project: await projectWithChapterSegments(updatedProject) };
   });
+}
+
+async function projectWithChapterSegments<T extends {
+  id: string;
+  script: { segments: unknown } | null;
+  panels?: Array<{ id: string; segment_id: string | null }>;
+}>(project: T) {
+  const segments = toStoryboardPanelSegments(await readProjectChapterSegments(prisma, project.id));
+  const linked = project.panels
+    ? {
+        ...project,
+        panels: withMigratedSegmentIds(
+          project.panels,
+          await readMigratedPanelSegmentIds(prisma, project.id),
+        ),
+      }
+    : project;
+  if (!linked.script) {
+    return {
+      ...linked,
+      script: segments.length > 0 ? { id: project.id, content: "", segments } : null,
+    };
+  }
+  return {
+    ...linked,
+    script: { ...linked.script, segments },
+  };
 }
 
 // DELETE /api/project/[id] - 删除项目
