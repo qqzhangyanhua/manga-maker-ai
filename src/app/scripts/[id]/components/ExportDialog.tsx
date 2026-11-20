@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Download, FileImage, FileText, FolderArchive } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { exportProject, downloadBlob, type ExportOptions } from "@/lib/export-utils";
+import { exportProject, downloadBlob, panelsFromProjectPayload, type ExportOptions } from "@/lib/export-utils";
 
 interface ExportDialogProps {
   open: boolean;
@@ -63,7 +63,7 @@ export function ExportDialog({
       }
 
       const projectData = await response.json();
-      const panels = projectData.panels || [];
+      const panels = panelsFromProjectPayload(projectData);
 
       setProgress(20);
 

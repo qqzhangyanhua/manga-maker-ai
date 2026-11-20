@@ -27,6 +27,7 @@ import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { useBatchSelection } from "@/hooks/use-batch-selection";
 import { useBatchOperations } from "@/hooks/use-batch-operations";
 import { useToast } from "@/hooks/use-toast";
+import { insertAtEndAnchor } from "./insert-at-end";
 
 export default function StoryboardEditorPage({
   params,
@@ -226,9 +227,7 @@ export default function StoryboardEditorPage({
     }) => {
       if (!project) return;
 
-      // 获取最后一个分镜的 order
-      const lastPanel = project.panels[project.panels.length - 1];
-      const insertOrder = lastPanel?.panel_order ?? 0;
+      const anchor = insertAtEndAnchor(project.panels);
 
       // 调用插入分镜 API
       const response = await fetch("/api/panel/insert", {
@@ -236,7 +235,8 @@ export default function StoryboardEditorPage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           project_id: project.id,
-          insert_after_order: insertOrder,
+          insert_after_order: anchor?.panel_order ?? 0,
+          insert_after_panel_id: anchor?.id,
           description: suggestion.description,
           use_llm: false,
           // 额外字段

@@ -91,10 +91,13 @@ export async function PATCH(req: Request) {
       );
     }
 
-    // Get all panels in the same project, ordered by panel_order
+    // 邻格只在同一章节里找。另一章即使 panel_order 挨着，也不是这一组的成员。
     const allPanels = await prisma.panel.findMany({
-      where: { project_id: targetPanel.project_id },
-      orderBy: { panel_order: "asc" },
+      where: {
+        project_id: targetPanel.project_id,
+        chapter_id: targetPanel.chapter_id,
+      },
+      orderBy: [{ panel_order: "asc" }, { id: "asc" }],
       select: {
         id: true,
         panel_order: true,

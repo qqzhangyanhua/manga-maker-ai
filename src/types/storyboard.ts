@@ -29,6 +29,8 @@ export type Panel = {
   camera_angle: string | null;
   shot_size: string | null;
   sketch_image_url: string | null;
+  chapter_id?: string;
+  chapter?: { id: string; chapter_order: number } | null;
 };
 
 export type Project = {

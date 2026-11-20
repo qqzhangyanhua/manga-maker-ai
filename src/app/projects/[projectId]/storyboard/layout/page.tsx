@@ -7,6 +7,7 @@ import { ArrowLeft, Download, Save, Loader2, Grid, Eye, RotateCcw, RotateCw } fr
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { CanvasWorkspace, type CanvasController, type CanvasSchema } from "@/components/ImageEditor/CanvasWorkspace";
+import { panelsForAutoArrange } from "./arrange-order";
 
 interface LayoutProject {
   id: string;
@@ -16,6 +17,7 @@ interface LayoutProject {
     panel_order: number;
     generated_image: string | null;
     description: string;
+    chapter?: { chapter_order: number } | null;
   }>;
 }
 
@@ -52,10 +54,11 @@ export default function LayoutEditorPage({
 
     try {
       // Calculate canvas height based on panels
+      const orderedPanels = panelsForAutoArrange(panels);
       const panelHeight = 600; // Standard height for each panel
       const panelSpacing = 40;
       const topPadding = 60;
-      const totalHeight = Math.max(1000, topPadding + panels.length * (panelHeight + panelSpacing));
+      const totalHeight = Math.max(1000, topPadding + orderedPanels.length * (panelHeight + panelSpacing));
 
       // Set canvas size (this will require updating CanvasWorkspace)
       await canvasRef.current.setCanvasHeight?.(totalHeight);
@@ -63,9 +66,9 @@ export default function LayoutEditorPage({
       // Clear existing content
       canvasRef.current.clearOverlays();
 
-      // Add each panel as image
-      for (let i = 0; i < panels.length; i++) {
-        const panel = panels[i];
+      // 按阅读顺序逐格放到画布上
+      for (let i = 0; i < orderedPanels.length; i++) {
+        const panel = orderedPanels[i];
         if (panel.generated_image) {
           const y = topPadding + i * (panelHeight + panelSpacing);
           await canvasRef.current.addPanelImage?.({
@@ -82,7 +85,7 @@ export default function LayoutEditorPage({
 
       toast({
         title: "自动排版完成",
-        description: `已自动排列 ${panels.length} 个分镜，可拖拽调整位置`,
+        description: `已自动排列 ${orderedPanels.length} 个分镜，可拖拽调整位置`,
       });
     } catch (error) {
       console.error("Auto arrange error:", error);

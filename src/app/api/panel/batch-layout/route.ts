@@ -169,6 +169,15 @@ export async function PATCH(req: Request) {
       );
     }
 
+    // 章节各自从 1 编号后，不同章节的 panel_order 也会连号，不能据此当成同一组
+    const chapterIds = new Set(panels.map((panel) => panel.chapter_id));
+    if (chapterIds.size > 1) {
+      return NextResponse.json(
+        { error: "所选分镜不在同一章节，请选择同一章节内的连续分镜" },
+        { status: 400 }
+      );
+    }
+
     // Verify panels are consecutive by panel_order
     const orders = panels.map((p) => p.panel_order).sort((a, b) => a - b);
     for (let i = 1; i < orders.length; i++) {
