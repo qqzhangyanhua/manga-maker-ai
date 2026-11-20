@@ -39,6 +39,9 @@ export async function GET(
       include: {
         panels: {
           orderBy: panelReadingOrderBy,
+          include: {
+            chapter: { select: { id: true, chapter_order: true } },
+          },
         },
         script: true,
       },
@@ -95,6 +98,9 @@ export async function PATCH(
       include: {
         panels: {
           orderBy: panelReadingOrderBy,
+          include: {
+            chapter: { select: { id: true, chapter_order: true } },
+          },
         },
         script: true,
       },

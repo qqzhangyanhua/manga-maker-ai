@@ -5,6 +5,7 @@
 
 import { jsPDF } from "jspdf";
 import JSZip from "jszip";
+import { sortByReadingOrder } from "@/lib/project/chapter-panels/reading-order-sort";
 
 export interface PanelData {
   id: string;
@@ -12,6 +13,8 @@ export interface PanelData {
   image_url: string | null;
   generated_image: string | null;
   description: string;
+  chapter_order?: number | null;
+  chapter?: { chapter_order?: number | null } | null;
 }
 
 export interface ExportOptions {
@@ -275,6 +278,19 @@ export async function exportToZIP(
   return zip.generateAsync({ type: "blob" });
 }
 
+/** 项目详情接口把分镜放在 project.panels 里。 */
+export function panelsFromProjectPayload(payload: {
+  panels?: PanelData[] | null;
+  project?: { panels?: PanelData[] | null } | null;
+}): PanelData[] {
+  return payload.project?.panels ?? payload.panels ?? [];
+}
+
+/** 客户端导出用的分镜顺序：有图，且按阅读顺序。 */
+export function panelsForClientExport(panels: readonly PanelData[]): PanelData[] {
+  return sortByReadingOrder(panels.filter((panel) => panel.generated_image || panel.image_url));
+}
+
 /**
  * Main export function
  */
@@ -283,19 +299,11 @@ export async function exportProject(
   projectTitle: string,
   options: ExportOptions
 ): Promise<Blob> {
-  // Validate panels
-  const panelsWithImages = panels.filter(
-    (p) => p.generated_image || p.image_url
-  );
+  const sortedPanels = panelsForClientExport(panels);
 
-  if (panelsWithImages.length === 0) {
+  if (sortedPanels.length === 0) {
     throw new Error("No panels with images to export");
   }
-
-  // Sort by panel_order
-  const sortedPanels = [...panelsWithImages].sort(
-    (a, b) => a.panel_order - b.panel_order
-  );
 
   // Export based on format
   switch (options.format) {

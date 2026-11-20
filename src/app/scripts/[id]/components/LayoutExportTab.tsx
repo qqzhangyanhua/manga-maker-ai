@@ -33,6 +33,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { panelsForLayoutExport } from "./layout-export-order";
 
 // 预设页面尺寸
 const PAGE_PRESETS = {
@@ -110,12 +111,11 @@ export function LayoutExportTab({
     return PAGE_PRESETS[pagePreset];
   }, [pagePreset, customWidth, customHeight]);
 
-  // 获取有图片的分镜
-  const panelsWithImages = useMemo(() => {
-    return panels
-      .filter((p) => p.generated_image || p.image_url)
-      .sort((a, b) => (a.panel_order || 0) - (b.panel_order || 0));
-  }, [panels]);
+  // 有图片的分镜按阅读顺序，章节各自从 1 编号时也不会交错
+  const panelsWithImages = useMemo(
+    () => panelsForLayoutExport(panels, chapters),
+    [panels, chapters],
+  );
 
   // 计算总页数
   const totalPages = useMemo(() => {

@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { project_id, insert_after_order, description, use_llm = true } = body;
+    const { project_id, insert_after_order, insert_after_panel_id, description, use_llm = true } = body;
 
     if (!project_id) {
       return NextResponse.json({ error: "缺少 project_id" }, { status: 400 });
@@ -73,12 +73,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "无权限操作此项目" }, { status: 403 });
     }
 
-    // 获取上下文分镜（用于提供更好的上下文）
+    // 插入到末尾时带上阅读顺序最后一格的 id。章节各自从 1 编号后，panel_order 不再能唯一定位一格。
+    const anchorId = typeof insert_after_panel_id === "string" ? insert_after_panel_id : "";
+    const anchor = anchorId
+      ? await prisma.panel.findFirst({
+          where: { id: anchorId, project_id },
+          select: { id: true, chapter_id: true, panel_order: true },
+        })
+      : null;
+    if (anchorId && !anchor) {
+      return NextResponse.json({ error: "未找到要接在后面的分镜" }, { status: 404 });
+    }
+    const insertAfterOrder = anchor?.panel_order ?? insert_after_order;
+
+    // 获取上下文分镜（用于提供更好的上下文）。有锚点时只看那一章。
     const contextPanels = await prisma.panel.findMany({
       where: {
         project_id,
+        ...(anchor ? { chapter_id: anchor.chapter_id } : {}),
         panel_order: {
-          in: [insert_after_order, insert_after_order + 1],
+          in: [insertAfterOrder, insertAfterOrder + 1],
         },
       },
       orderBy: { panel_order: "asc" },
@@ -98,7 +112,7 @@ export async function POST(req: Request) {
 ${description}
 ${contextInfo}
 
-这个分镜将插入到 order=${insert_after_order} 之后。
+这个分镜将插入到 order=${insertAfterOrder} 之后。
 
 请输出新分镜的JSON。`;
 
@@ -155,26 +169,36 @@ ${contextInfo}
         characterIds: [characterId],
       });
 
-      // 新分镜跟随前一个分镜所在章节；插在最前面时跟随后一个分镜
-      const chapterId =
-        contextPanels.find((p) => p.panel_order === insert_after_order)?.chapter_id ??
-        contextPanels[0]?.chapter_id ??
-        (await ensureDefaultChapter(tx, project_id));
+      // 有锚点时新分镜留在那一章，只平移这一章。否则仍按项目范围的 panel_order。
+      const chapterId = anchor
+        ? anchor.chapter_id
+        : contextPanels.find((p) => p.panel_order === insertAfterOrder)?.chapter_id ??
+          contextPanels[0]?.chapter_id ??
+          (await ensureDefaultChapter(tx, project_id));
 
-      // 后续 panels 的 order 都要 +1
-      await tx.$executeRaw`
-        UPDATE panels
-        SET panel_order = panel_order + 1
-        WHERE project_id = ${project_id}::uuid
-        AND panel_order > ${insert_after_order}
-      `;
+      if (anchor) {
+        await tx.$executeRaw`
+          UPDATE panels
+          SET panel_order = panel_order + 1
+          WHERE project_id = ${project_id}::uuid
+          AND chapter_id = ${anchor.chapter_id}::uuid
+          AND panel_order > ${insertAfterOrder}
+        `;
+      } else {
+        await tx.$executeRaw`
+          UPDATE panels
+          SET panel_order = panel_order + 1
+          WHERE project_id = ${project_id}::uuid
+          AND panel_order > ${insertAfterOrder}
+        `;
+      }
 
       // 创建新 panel
       const created = await tx.panel.create({
         data: {
           project_id,
           chapter_id: chapterId,
-          panel_order: insert_after_order + 1,
+          panel_order: insertAfterOrder + 1,
           panel_type: panelData.panel_type,
           importance: panelData.importance,
           description: panelData.description,
