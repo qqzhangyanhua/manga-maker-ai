@@ -361,6 +361,26 @@ Before deploying a migration to production:
 - [ ] Application code updated to handle new schema
 - [ ] Deployment window scheduled (if downtime needed)
 
+## 本地测试库（`pnpm test:db`）
+
+`pnpm test` 只跑 mock，不连接数据库。需要真实 Postgres 时使用单独通道，步骤和跳过规则见 [testing/test-db.md](testing/test-db.md)。
+
+```bash
+docker compose up -d postgres
+```
+
+`.env.test`：
+
+```bash
+TEST_DATABASE_URL=postgresql://manga:manga123@127.0.0.1:5432/manga_test
+```
+
+```bash
+pnpm test:db
+```
+
+没有 `TEST_DATABASE_URL` 时命令打印「已跳过」并以退出码 0 结束。它不会读取应用的 `DATABASE_URL`。
+
 ## Additional Resources
 
 - [Prisma Migrate Documentation](https://www.prisma.io/docs/concepts/components/prisma-migrate)

@@ -72,8 +72,9 @@ npm run type-check   # TypeScript 类型检查(tsc --noEmit)
 
 ### 测试
 ```bash
-npm test             # 运行所有测试(Vitest)
+npm test             # 运行所有测试(Vitest，只用 mock)
 npm run test:watch   # 监听模式
+pnpm test:db         # 本地 Postgres 通道，见 docs/testing/test-db.md
 
 # 运行单个测试文件
 npx vitest run src/lib/utils.test.ts
