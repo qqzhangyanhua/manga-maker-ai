@@ -20,11 +20,11 @@ export async function DELETE(
     });
 
     if (!story) {
-      throw new ApiError("故事不存在", 404, "NOT_FOUND");
+      throw new ApiError(404, "NOT_FOUND", "故事不存在");
     }
 
     if (story.user_id !== userId) {
-      throw new ApiError("无权访问此故事", 403, "FORBIDDEN");
+      throw new ApiError(403, "FORBIDDEN", "无权访问此故事");
     }
 
     const storyCharacter = await prisma.storyCharacter.findUnique({
@@ -40,7 +40,7 @@ export async function DELETE(
     });
 
     if (!storyCharacter) {
-      throw new ApiError("该角色不在此故事中", 404, "NOT_FOUND");
+      throw new ApiError(404, "NOT_FOUND", "该角色不在此故事中");
     }
 
     await prisma.storyCharacter.delete({
@@ -88,11 +88,11 @@ export async function PATCH(
     });
 
     if (!story) {
-      throw new ApiError("故事不存在", 404, "NOT_FOUND");
+      throw new ApiError(404, "NOT_FOUND", "故事不存在");
     }
 
     if (story.user_id !== userId) {
-      throw new ApiError("无权访问此故事", 403, "FORBIDDEN");
+      throw new ApiError(403, "FORBIDDEN", "无权访问此故事");
     }
 
     const storyCharacter = await prisma.storyCharacter.findUnique({
@@ -105,7 +105,7 @@ export async function PATCH(
     });
 
     if (!storyCharacter) {
-      throw new ApiError("该角色不在此故事中", 404, "NOT_FOUND");
+      throw new ApiError(404, "NOT_FOUND", "该角色不在此故事中");
     }
 
     const body = await req.json();
@@ -128,7 +128,7 @@ export async function PATCH(
       if (VALID_ROLES.includes(role as CharacterRole)) {
         updateData.role = role;
       } else {
-        throw new ApiError(`无效的角色类型，必须是: ${VALID_ROLES.join(", ")}`, 400, "BAD_REQUEST");
+        throw new ApiError(400, "BAD_REQUEST", `无效的角色类型，必须是: ${VALID_ROLES.join(", ")}`);
       }
     }
 

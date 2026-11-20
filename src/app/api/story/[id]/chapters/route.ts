@@ -19,11 +19,11 @@ export async function GET(
     });
 
     if (!story) {
-      throw new ApiError("故事不存在", 404, "NOT_FOUND");
+      throw new ApiError(404, "NOT_FOUND", "故事不存在");
     }
 
     if (story.user_id !== userId) {
-      throw new ApiError("无权访问此故事", 403, "FORBIDDEN");
+      throw new ApiError(403, "FORBIDDEN", "无权访问此故事");
     }
 
     const chapters = await prisma.chapter.findMany({
@@ -59,7 +59,7 @@ export async function POST(
     const { title, summary } = body;
 
     if (!title || typeof title !== "string") {
-      throw new ApiError("章节标题不能为空", 400, "BAD_REQUEST");
+      throw new ApiError(400, "BAD_REQUEST", "章节标题不能为空");
     }
 
     const story = await prisma.story.findUnique({
@@ -68,11 +68,11 @@ export async function POST(
     });
 
     if (!story) {
-      throw new ApiError("故事不存在", 404, "NOT_FOUND");
+      throw new ApiError(404, "NOT_FOUND", "故事不存在");
     }
 
     if (story.user_id !== userId) {
-      throw new ApiError("无权访问此故事", 403, "FORBIDDEN");
+      throw new ApiError(403, "FORBIDDEN", "无权访问此故事");
     }
 
     const lastChapter = await prisma.chapter.findFirst({

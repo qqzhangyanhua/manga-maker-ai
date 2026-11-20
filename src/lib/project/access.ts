@@ -1,5 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
-import { ApiError } from "@/lib/api-helpers";
+import { ApiError } from "@/lib/api-error";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -10,10 +10,10 @@ export async function getProjectForUser(db: Db, projectId: string, userId: strin
     select: { id: true, user_id: true, story_id: true, title: true },
   });
   if (!project) {
-    throw new ApiError("项目不存在", 404, "NOT_FOUND");
+    throw new ApiError(404, "NOT_FOUND", "项目不存在");
   }
   if (project.user_id !== userId) {
-    throw new ApiError("无权访问此项目", 403, "FORBIDDEN");
+    throw new ApiError(403, "FORBIDDEN", "无权访问此项目");
   }
   return project;
 }
@@ -25,10 +25,10 @@ export async function assertChapterInProject(db: Db, chapterId: string, projectI
     select: { id: true, project_id: true, story_id: true },
   });
   if (!chapter) {
-    throw new ApiError("章节不存在", 404, "NOT_FOUND");
+    throw new ApiError(404, "NOT_FOUND", "章节不存在");
   }
   if (chapter.project_id !== projectId) {
-    throw new ApiError("章节不属于该项目", 400, "CHAPTER_PROJECT_MISMATCH");
+    throw new ApiError(400, "CHAPTER_PROJECT_MISMATCH", "章节不属于该项目");
   }
   return chapter;
 }
@@ -39,7 +39,7 @@ export async function assertPanelsInProject(db: Db, panelIds: string[], projectI
   if (ids.length === 0) return;
   const count = await db.panel.count({ where: { id: { in: ids }, project_id: projectId } });
   if (count !== ids.length) {
-    throw new ApiError("分镜不属于该项目", 400, "PANEL_PROJECT_MISMATCH");
+    throw new ApiError(400, "PANEL_PROJECT_MISMATCH", "分镜不属于该项目");
   }
 }
 
@@ -69,7 +69,7 @@ export async function ensureProjectCharacters(
     select: { id: true },
   });
   if (owned.length !== ids.length) {
-    throw new ApiError("角色不存在或不属于当前用户", 400, "INVALID_CHARACTER");
+    throw new ApiError(400, "INVALID_CHARACTER", "角色不存在或不属于当前用户");
   }
 
   await db.projectCharacter.createMany({

@@ -1,14 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "@prisma/client";
 
-vi.mock("@/lib/api-helpers", () => ({
-  ApiError: class ApiError extends Error {
-    constructor(message: string, public statusCode = 500, public code?: string) {
-      super(message);
-    }
-  },
-}));
-
 import { ensureDefaultChapter, resolvePanelChapter } from "./chapter";
 
 function createDb() {

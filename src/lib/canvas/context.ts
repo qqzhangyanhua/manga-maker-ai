@@ -1,5 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
-import { ApiError } from "@/lib/api-helpers";
+import { ApiError } from "@/lib/api-error";
 import { anchorTimelineChapters } from "@/lib/project";
 import { canvasShotInclude, isUuid, toCanvasShot } from "./shot-mapping";
 import type { CanvasPanelRecord } from "./shot-mapping";
@@ -35,7 +35,7 @@ export interface CanvasShotContext {
 }
 
 export function projectRequiredError(): ApiError {
-  return new ApiError(PROJECT_REQUIRED_MESSAGE, 409, PROJECT_REQUIRED_CODE);
+  return new ApiError(409, PROJECT_REQUIRED_CODE, PROJECT_REQUIRED_MESSAGE);
 }
 
 /** 取当前用户的画布章节（时间线章节）；不存在 404，属于他人 403 */
@@ -57,10 +57,10 @@ export async function getCanvasChapter(
       })
     : null;
   if (!tc) {
-    throw new ApiError("章节不存在", 404, "NOT_FOUND");
+    throw new ApiError(404, "NOT_FOUND", "章节不存在");
   }
   if (tc.timeline.user_id !== userId) {
-    throw new ApiError("无权操作", 403, "FORBIDDEN");
+    throw new ApiError(403, "FORBIDDEN", "无权操作");
   }
   const projectId = tc.timeline.project_id;
   return {
@@ -91,7 +91,7 @@ export async function requireAnchoredChapter(
   await anchorTimelineChapters(db, chapter.timelineId);
   const reloaded = await getCanvasChapter(db, chapter.timelineChapterId, userId);
   if (!reloaded.projectId || !reloaded.projectChapterId) {
-    throw new ApiError("章节无法对应到漫画项目的章节，请检查来源小说章节是否存在", 409, PROJECT_REQUIRED_CODE);
+    throw new ApiError(409, PROJECT_REQUIRED_CODE, "章节无法对应到漫画项目的章节，请检查来源小说章节是否存在");
   }
   return reloaded as AnchoredCanvasChapter;
 }
@@ -117,10 +117,10 @@ export async function getCanvasShotForUser(db: Db, panelId: string, userId: stri
       })
     : null;
   if (!panel || !panel.segment) {
-    throw new ApiError("镜头不存在", 404, "NOT_FOUND");
+    throw new ApiError(404, "NOT_FOUND", "镜头不存在");
   }
   if (panel.project.user_id !== userId) {
-    throw new ApiError("无权操作", 403, "FORBIDDEN");
+    throw new ApiError(403, "FORBIDDEN", "无权操作");
   }
   return {
     panel,

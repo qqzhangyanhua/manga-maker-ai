@@ -17,11 +17,11 @@ export async function GET(
     });
 
     if (!panel) {
-      throw new ApiError("分镜不存在", 404, "NOT_FOUND");
+      throw new ApiError(404, "NOT_FOUND", "分镜不存在");
     }
 
     if (panel.project.user_id !== userId) {
-      throw new ApiError("无权限访问此分镜", 403, "FORBIDDEN");
+      throw new ApiError(403, "FORBIDDEN", "无权限访问此分镜");
     }
 
     return panel;
@@ -46,7 +46,7 @@ export async function PATCH(
     }
 
     if (existingPanel.project.user_id !== userId) {
-      throw new ApiError("无权限修改此分镜", 403, "FORBIDDEN");
+      throw new ApiError(403, "FORBIDDEN", "无权限修改此分镜");
     }
 
     const body = await req.json();
@@ -162,7 +162,7 @@ export async function DELETE(
     }
 
     if (existingPanel.project.user_id !== userId) {
-      throw new ApiError("无权限删除此分镜", 403, "FORBIDDEN");
+      throw new ApiError(403, "FORBIDDEN", "无权限删除此分镜");
     }
 
     // 删除 panel

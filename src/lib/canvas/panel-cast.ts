@@ -1,6 +1,6 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
-import { ApiError } from "@/lib/api-helpers";
+import { ApiError } from "@/lib/api-error";
 
 import { isUuid } from "./shot-mapping";
 import type { PanelCastWrite } from "./types";
@@ -34,10 +34,10 @@ export async function preparePanelCast(
   for (const row of characters) {
     const id = row.project_character_id.trim();
     if (!isUuid(id)) {
-      throw new ApiError("出场角色必须是项目角色", 400, "PROJECT_CHARACTER_REQUIRED");
+      throw new ApiError(400, "PROJECT_CHARACTER_REQUIRED", "出场角色必须是项目角色");
     }
     if (seen.has(id)) {
-      throw new ApiError("同一格不能重复同一个项目角色", 400, "DUPLICATE_PROJECT_CHARACTER");
+      throw new ApiError(400, "DUPLICATE_PROJECT_CHARACTER", "同一格不能重复同一个项目角色");
     }
     seen.add(id);
   }
@@ -54,7 +54,7 @@ export async function preparePanelCast(
       })
     : [];
   if (found.length !== ids.length) {
-    throw new ApiError("项目角色不属于这个项目", 400, "PROJECT_CHARACTER_MISMATCH");
+    throw new ApiError(400, "PROJECT_CHARACTER_MISMATCH", "项目角色不属于这个项目");
   }
 
   const byId = new Map(found.map((row) => [row.id, row]));
@@ -62,11 +62,11 @@ export async function preparePanelCast(
     const id = row.project_character_id.trim();
     const projectCharacter = byId.get(id);
     if (!projectCharacter) {
-      throw new ApiError("项目角色不属于这个项目", 400, "PROJECT_CHARACTER_MISMATCH");
+      throw new ApiError(400, "PROJECT_CHARACTER_MISMATCH", "项目角色不属于这个项目");
     }
     const outfitId = row.outfit_id?.trim() || null;
     if (outfitId && !projectCharacter.character.outfits.some((outfit) => outfit.id === outfitId)) {
-      throw new ApiError("服装不属于该项目角色", 400, "OUTFIT_MISMATCH");
+      throw new ApiError(400, "OUTFIT_MISMATCH", "服装不属于该项目角色");
     }
     return {
       project_character_id: id,

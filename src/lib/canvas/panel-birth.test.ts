@@ -1,19 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "@prisma/client";
 
-vi.mock("@/lib/api-helpers", () => ({
-  ApiError: class ApiError extends Error {
-    statusCode: number;
-    code?: string;
-    constructor(message: string, statusCode = 500, code?: string) {
-      super(message);
-      this.name = "ApiError";
-      this.statusCode = statusCode;
-      this.code = code;
-    }
-  },
-}));
-
 import type { AnchoredCanvasChapter } from "./context";
 import { birthChapterPanels } from "./panel-birth";
 import type { PlannedPanelFields } from "./panel-birth";

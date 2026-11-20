@@ -1,5 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
-import { ApiError } from "@/lib/api-helpers";
+import { ApiError } from "@/lib/api-error";
 import { assertChapterInProject } from "./access";
 
 type Db = PrismaClient | Prisma.TransactionClient;
@@ -26,7 +26,7 @@ async function findOrCreateDefaultChapter(tx: Prisma.TransactionClient, projectI
     select: { story_id: true },
   });
   if (!project) {
-    throw new ApiError("项目不存在", 404, "NOT_FOUND");
+    throw new ApiError(404, "NOT_FOUND", "项目不存在");
   }
 
   const created = await tx.chapter.create({

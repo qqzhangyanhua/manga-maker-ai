@@ -49,11 +49,11 @@ export async function GET(
         });
 
         if (!story) {
-            throw new ApiError("故事不存在", 404, "NOT_FOUND");
+            throw new ApiError(404, "NOT_FOUND", "故事不存在");
         }
 
         if (story.user_id !== userId) {
-            throw new ApiError("无权访问", 403, "FORBIDDEN");
+            throw new ApiError(403, "FORBIDDEN", "无权访问");
         }
 
         const projectId = (await findStoryProject(prisma, story.id))?.id ?? null;
@@ -118,11 +118,11 @@ export async function PATCH(
         });
 
         if (!story) {
-            throw new ApiError("故事不存在", 404, "NOT_FOUND");
+            throw new ApiError(404, "NOT_FOUND", "故事不存在");
         }
 
         if (story.user_id !== userId) {
-            throw new ApiError("无权修改", 403, "FORBIDDEN");
+            throw new ApiError(403, "FORBIDDEN", "无权修改");
         }
 
         // Update story
@@ -167,11 +167,11 @@ export async function DELETE(
         });
 
         if (!story) {
-            throw new ApiError("故事不存在", 404, "NOT_FOUND");
+            throw new ApiError(404, "NOT_FOUND", "故事不存在");
         }
 
         if (story.user_id !== userId) {
-            throw new ApiError("无权删除", 403, "FORBIDDEN");
+            throw new ApiError(403, "FORBIDDEN", "无权删除");
         }
 
         await deleteStoryWithProject(prisma, id);

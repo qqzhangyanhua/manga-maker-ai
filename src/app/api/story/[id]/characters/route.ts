@@ -20,11 +20,11 @@ export async function POST(
     });
 
     if (!story) {
-      throw new ApiError("故事不存在", 404, "NOT_FOUND");
+      throw new ApiError(404, "NOT_FOUND", "故事不存在");
     }
 
     if (story.user_id !== userId) {
-      throw new ApiError("无权访问此故事", 403, "FORBIDDEN");
+      throw new ApiError(403, "FORBIDDEN", "无权访问此故事");
     }
 
     const body = await req.json();
@@ -35,7 +35,7 @@ export async function POST(
     };
 
     if (!character_id) {
-      throw new ApiError("缺少 character_id", 400, "BAD_REQUEST");
+      throw new ApiError(400, "BAD_REQUEST", "缺少 character_id");
     }
 
     const validatedRole = (role && VALID_ROLES.includes(role as CharacterRole))
@@ -47,11 +47,11 @@ export async function POST(
     });
 
     if (!character) {
-      throw new ApiError("角色不存在", 404, "NOT_FOUND");
+      throw new ApiError(404, "NOT_FOUND", "角色不存在");
     }
 
     if (character.user_id !== userId) {
-      throw new ApiError("无权使用此角色", 403, "FORBIDDEN");
+      throw new ApiError(403, "FORBIDDEN", "无权使用此角色");
     }
 
     const existing = await prisma.storyCharacter.findUnique({
@@ -64,7 +64,7 @@ export async function POST(
     });
 
     if (existing) {
-      throw new ApiError("该角色已添加到此故事", 400, "BAD_REQUEST");
+      throw new ApiError(400, "BAD_REQUEST", "该角色已添加到此故事");
     }
 
     const maxOrder = await prisma.storyCharacter.aggregate({
@@ -115,11 +115,11 @@ export async function GET(
     });
 
     if (!story) {
-      throw new ApiError("故事不存在", 404, "NOT_FOUND");
+      throw new ApiError(404, "NOT_FOUND", "故事不存在");
     }
 
     if (story.user_id !== userId) {
-      throw new ApiError("无权访问此故事", 403, "FORBIDDEN");
+      throw new ApiError(403, "FORBIDDEN", "无权访问此故事");
     }
 
     const storyCharacters = await prisma.storyCharacter.findMany({

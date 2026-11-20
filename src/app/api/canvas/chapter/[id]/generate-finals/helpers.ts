@@ -47,7 +47,7 @@ export async function fetchChapterData(chapterId: string, userId: string) {
   ]);
 
   if (allShots.length === 0) {
-    throw new ApiError("请先生成镜头设计", 400, "NO_SHOTS");
+    throw new ApiError(400, "NO_SHOTS", "请先生成镜头设计");
   }
 
   const segmentMap = new Map(segments.map((s) => [s.id, s]));

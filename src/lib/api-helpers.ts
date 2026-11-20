@@ -8,20 +8,9 @@ import { cookies } from 'next/headers';
 import { AUTH_COOKIE_NAME, verifyAuthToken } from '@/lib/auth';
 import { z } from "zod";
 import { freezeCredits, settleFreeze, rollbackFreeze } from '@/lib/billing';
+import { ApiError } from '@/lib/api-error';
 
-/**
- * API 错误类型
- */
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    public statusCode: number = 500,
-    public code?: string
-  ) {
-    super(message);
-    this.name = 'ApiError';
-  }
-}
+export { ApiError };
 
 /**
  * 身份验证结果
@@ -50,12 +39,12 @@ export async function withAuth<T = unknown>(
     const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
 
     if (!token) {
-      throw new ApiError('未登录', 401, 'UNAUTHORIZED');
+      throw new ApiError(401, 'UNAUTHORIZED', '未登录');
     }
 
     const payload = verifyAuthToken(token);
     if (!payload?.userId) {
-      throw new ApiError('无效的token', 401, 'INVALID_TOKEN');
+      throw new ApiError(401, 'INVALID_TOKEN', '无效的token');
     }
 
     // 执行处理器
@@ -85,13 +74,7 @@ export function handleApiError(error: unknown): NextResponse {
   console.error('[API Error]', error);
 
   if (error instanceof ApiError) {
-    return NextResponse.json(
-      {
-        error: error.message,
-        code: error.code,
-      },
-      { status: error.statusCode }
-    );
+    return NextResponse.json(error.toJSON(), { status: error.statusCode });
   }
 
   if (error instanceof Error) {
@@ -130,11 +113,11 @@ export async function validateOwnership<T extends { user_id: string }>(
   });
 
   if (!resource) {
-    throw new ApiError(`${resourceName}不存在`, 404, 'NOT_FOUND');
+    throw new ApiError(404, 'NOT_FOUND', `${resourceName}不存在`);
   }
 
   if (resource.user_id !== userId) {
-    throw new ApiError(`无权访问此${resourceName}`, 403, 'FORBIDDEN');
+    throw new ApiError(403, 'FORBIDDEN', `无权访问此${resourceName}`);
   }
 
   return resource;
@@ -221,7 +204,7 @@ export function parseWithSchema<T>(
   if (!parsed.success) {
     const firstIssue = parsed.error.issues[0];
     const detail = firstIssue?.message || "参数格式不正确";
-    throw new ApiError(`${messagePrefix}: ${detail}`, 400, "BAD_REQUEST");
+    throw new ApiError(400, "BAD_REQUEST", `${messagePrefix}: ${detail}`);
   }
   return parsed.data;
 }
@@ -249,7 +232,7 @@ export interface AuthContextWithFreeze extends AuthContext {
  *     async ({ userId, freezeId }) => {
  *       // 验证权限
  *       const panel = await prisma.panel.findUnique({ where: { id: panel_id } });
- *       if (!panel) throw new ApiError('分镜不存在', 404);
+ *       if (!panel) throw new ApiError(404, 'NOT_FOUND', '分镜不存在');
  *
  *       // 生成图片
  *       const imageUrl = await callImageGenerationByType({ ... });
@@ -284,12 +267,12 @@ export async function withCreditFreeze<T = unknown>(
     const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
 
     if (!token) {
-      throw new ApiError('未登录', 401, 'UNAUTHORIZED');
+      throw new ApiError(401, 'UNAUTHORIZED', '未登录');
     }
 
     const payload = verifyAuthToken(token);
     if (!payload?.userId) {
-      throw new ApiError('无效的token', 401, 'INVALID_TOKEN');
+      throw new ApiError(401, 'INVALID_TOKEN', '无效的token');
     }
 
     const userId = payload.userId;

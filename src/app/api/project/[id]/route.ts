@@ -45,11 +45,11 @@ export async function GET(
     });
 
     if (!project) {
-      throw new ApiError("项目不存在", 404, "NOT_FOUND");
+      throw new ApiError(404, "NOT_FOUND", "项目不存在");
     }
 
     if (project.user_id !== userId) {
-      throw new ApiError("无权限访问", 403, "FORBIDDEN");
+      throw new ApiError(403, "FORBIDDEN", "无权限访问");
     }
 
     return { project: await projectWithChapterSegments(project) };
@@ -68,11 +68,11 @@ export async function PATCH(
     });
 
     if (!project) {
-      throw new ApiError("项目不存在", 404, "NOT_FOUND");
+      throw new ApiError(404, "NOT_FOUND", "项目不存在");
     }
 
     if (project.user_id !== userId) {
-      throw new ApiError("无权限", 403, "FORBIDDEN");
+      throw new ApiError(403, "FORBIDDEN", "无权限");
     }
 
     const body = parseWithSchema(
@@ -143,11 +143,11 @@ export async function DELETE(
     });
 
     if (!project) {
-      throw new ApiError("项目不存在", 404, "NOT_FOUND");
+      throw new ApiError(404, "NOT_FOUND", "项目不存在");
     }
 
     if (project.user_id !== userId) {
-      throw new ApiError("无权限", 403, "FORBIDDEN");
+      throw new ApiError(403, "FORBIDDEN", "无权限");
     }
 
     await deleteProjectWithStory(prisma, id);

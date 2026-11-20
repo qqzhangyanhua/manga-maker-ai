@@ -23,11 +23,11 @@ export async function POST(
     });
 
     if (!existingPage) {
-      throw new ApiError("页面不存在", 404, "NOT_FOUND");
+      throw new ApiError(404, "NOT_FOUND", "页面不存在");
     }
 
     if (existingPage.project_id !== params.id) {
-      throw new ApiError("页面不属于该项目", 400, "INVALID_PAGE");
+      throw new ApiError(400, "INVALID_PAGE", "页面不属于该项目");
     }
 
     const body: ApplyTemplateRequest = await req.json();
@@ -39,7 +39,7 @@ export async function POST(
     });
 
     if (!template) {
-      throw new ApiError("模板不存在", 404, "TEMPLATE_NOT_FOUND");
+      throw new ApiError(404, "TEMPLATE_NOT_FOUND", "模板不存在");
     }
 
     // 验证 panelMapping 中的 Panel 是否存在
@@ -58,9 +58,7 @@ export async function POST(
 
       if (invalidPanelIds.length > 0) {
         throw new ApiError(
-          `以下 Panel 不存在或不属于该项目: ${invalidPanelIds.join(", ")}`,
-          400,
-          "INVALID_PANEL_IDS"
+          400, "INVALID_PANEL_IDS", `以下 Panel 不存在或不属于该项目: ${invalidPanelIds.join(", ")}`
         );
       }
     }

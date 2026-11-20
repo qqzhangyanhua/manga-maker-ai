@@ -21,11 +21,11 @@ export async function POST(
     });
 
     if (!existingPage) {
-      throw new ApiError("页面不存在", 404, "NOT_FOUND");
+      throw new ApiError(404, "NOT_FOUND", "页面不存在");
     }
 
     if (existingPage.project_id !== params.id) {
-      throw new ApiError("页面不属于该项目", 400, "INVALID_PAGE");
+      throw new ApiError(400, "INVALID_PAGE", "页面不属于该项目");
     }
 
     // 获取当前最大 page_order

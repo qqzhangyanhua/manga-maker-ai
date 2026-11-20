@@ -49,11 +49,11 @@ export async function GET(
     });
 
     if (!story) {
-      throw new ApiError('故事不存在', 404);
+      throw new ApiError(404, "NOT_FOUND", '故事不存在');
     }
 
     if (story.user_id !== userId) {
-      throw new ApiError('无权访问', 403);
+      throw new ApiError(403, "FORBIDDEN", '无权访问');
     }
 
     const project = await findStoryProject(prisma, story.id);

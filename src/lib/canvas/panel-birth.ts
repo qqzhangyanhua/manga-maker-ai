@@ -1,6 +1,6 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
-import { ApiError } from "@/lib/api-helpers";
+import { ApiError } from "@/lib/api-error";
 
 import type { AnchoredCanvasChapter } from "./context";
 import { canvasShotInclude, isUuid, toCanvasShot } from "./shot-mapping";
@@ -87,7 +87,7 @@ export class NoPanelsWrittenError extends ApiError {
   readonly skipped: SkippedPanel[];
 
   constructor(skipped: SkippedPanel[]) {
-    super(noPanelsMessage(skipped), 422, "NO_PANELS_WRITTEN");
+    super(422, "NO_PANELS_WRITTEN", noPanelsMessage(skipped));
     this.name = "NoPanelsWrittenError";
     this.skipped = skipped;
   }
@@ -281,7 +281,7 @@ export async function birthChapterPanels(
     where: { id: { in: segmentIds }, timeline_chapter_id: chapter.timelineChapterId },
   });
   if (foundSegments !== segmentIds.length) {
-    throw new ApiError("剧本片段不属于该章节", 400, "SEGMENT_CHAPTER_MISMATCH");
+    throw new ApiError(400, "SEGMENT_CHAPTER_MISMATCH", "剧本片段不属于该章节");
   }
 
   const [library, project, projectCharacters] = await Promise.all([

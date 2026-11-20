@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ApiError } from "@/lib/api-helpers";
+import { ApiError } from "@/lib/api-error";
 
 /** 画布接口统一错误响应：业务错误（ApiError）按其状态码返回，其余记日志后返回 500 */
 export function canvasErrorResponse(error: unknown, fallbackMessage: string): NextResponse {

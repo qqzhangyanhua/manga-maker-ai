@@ -28,11 +28,11 @@ export async function GET(
     });
 
     if (!page) {
-      throw new ApiError("页面不存在", 404, "NOT_FOUND");
+      throw new ApiError(404, "NOT_FOUND", "页面不存在");
     }
 
     if (page.project_id !== params.id) {
-      throw new ApiError("页面不属于该项目", 400, "INVALID_PAGE");
+      throw new ApiError(400, "INVALID_PAGE", "页面不属于该项目");
     }
 
     return { page: transformComicPage(page) };
@@ -53,11 +53,11 @@ export async function PATCH(
     });
 
     if (!existingPage) {
-      throw new ApiError("页面不存在", 404, "NOT_FOUND");
+      throw new ApiError(404, "NOT_FOUND", "页面不存在");
     }
 
     if (existingPage.project_id !== params.id) {
-      throw new ApiError("页面不属于该项目", 400, "INVALID_PAGE");
+      throw new ApiError(400, "INVALID_PAGE", "页面不属于该项目");
     }
 
     const body: UpdatePageRequest = await req.json();
@@ -146,11 +146,11 @@ export async function DELETE(
     });
 
     if (!existingPage) {
-      throw new ApiError("页面不存在", 404, "NOT_FOUND");
+      throw new ApiError(404, "NOT_FOUND", "页面不存在");
     }
 
     if (existingPage.project_id !== params.id) {
-      throw new ApiError("页面不属于该项目", 400, "INVALID_PAGE");
+      throw new ApiError(400, "INVALID_PAGE", "页面不属于该项目");
     }
 
     // 删除页面

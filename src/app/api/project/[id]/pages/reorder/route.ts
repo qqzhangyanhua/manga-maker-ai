@@ -21,7 +21,7 @@ export async function POST(
     const { pageIds } = body;
 
     if (!Array.isArray(pageIds) || pageIds.length === 0) {
-      throw new ApiError("pageIds 必须是非空数组", 400, "INVALID_INPUT");
+      throw new ApiError(400, "INVALID_INPUT", "pageIds 必须是非空数组");
     }
 
     // 验证所有页面都属于该项目
@@ -37,9 +37,7 @@ export async function POST(
 
     if (invalidIds.length > 0) {
       throw new ApiError(
-        `以下页面不存在或不属于该项目: ${invalidIds.join(", ")}`,
-        400,
-        "INVALID_PAGE_IDS"
+        400, "INVALID_PAGE_IDS", `以下页面不存在或不属于该项目: ${invalidIds.join(", ")}`
       );
     }
 

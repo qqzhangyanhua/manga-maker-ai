@@ -1,15 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "@prisma/client";
 
-vi.mock("@/lib/api-helpers", () => ({
-  ApiError: class ApiError extends Error {
-    constructor(message: string, public statusCode = 500, public code?: string) {
-      super(message);
-      this.name = "ApiError";
-    }
-  },
-}));
-
 import type { CanvasShotContext } from "./context";
 import { listChapterShots, updateCanvasShot } from "./shot-store";
 import type { PanelCastWrite } from "./types";

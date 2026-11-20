@@ -59,11 +59,11 @@ export async function POST(req: Request) {
       });
 
       if (!story) {
-        throw new ApiError("关联的故事不存在", 404, "NOT_FOUND");
+        throw new ApiError(404, "NOT_FOUND", "关联的故事不存在");
       }
 
       if (story.user_id !== userId) {
-        throw new ApiError("无权关联该故事", 403, "FORBIDDEN");
+        throw new ApiError(403, "FORBIDDEN", "无权关联该故事");
       }
 
       // 一个故事只有一个项目，已存在时直接返回，调用方据此继续创作
@@ -107,11 +107,11 @@ export async function DELETE(req: Request) {
     });
 
     if (!project) {
-      throw new ApiError("项目不存在", 404, "NOT_FOUND");
+      throw new ApiError(404, "NOT_FOUND", "项目不存在");
     }
 
     if (project.user_id !== userId) {
-      throw new ApiError("项目不存在或无权限", 403, "FORBIDDEN");
+      throw new ApiError(403, "FORBIDDEN", "项目不存在或无权限");
     }
 
     // 删除项目（章节、分镜级联删除）；故事主项目连同故事一起删除

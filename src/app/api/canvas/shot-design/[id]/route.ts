@@ -42,7 +42,7 @@ function toPanelCast(
   if (!rows) return undefined;
   return rows.map((row) => {
     if (!row.project_character_id) {
-      throw new ApiError("出场角色必须是项目角色", 400, "PROJECT_CHARACTER_REQUIRED");
+      throw new ApiError(400, "PROJECT_CHARACTER_REQUIRED", "出场角色必须是项目角色");
     }
     return {
       project_character_id: row.project_character_id,
