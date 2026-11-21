@@ -154,6 +154,10 @@ async function triggerNextStage(chapterId: string, stage: 'shot' | 'final'): Pro
       method: 'POST',
     });
 
+    if (response.status === 401) {
+      throw new Error('请重新登录');
+    }
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || '自动生成失败');

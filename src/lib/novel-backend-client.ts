@@ -8,6 +8,9 @@
  */
 
 import { logInfo, logError } from "@/lib/api-logger";
+import { fetchNovelBackend, NovelBackendError } from "@/lib/novel-backend-fetch";
+
+export { NovelBackendError };
 
 /**
  * Novel-Backend 客户端配置
@@ -222,7 +225,8 @@ export class NovelBackendClient {
    * 分析章节文本，生成剧本片段
    */
   async analyzeScript(
-    request: AnalyzeScriptRequest
+    request: AnalyzeScriptRequest,
+    userToken: string
   ): Promise<AnalyzeScriptResponse> {
     const endpoint = "/canvas/analyze-script";
     const url = `${this.baseUrl}${endpoint}`;
@@ -238,7 +242,7 @@ export class NovelBackendClient {
         url,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: this.canvasHeaders(userToken),
           body: JSON.stringify(request),
         }
       );
@@ -250,17 +254,14 @@ export class NovelBackendClient {
       return response;
     } catch (error) {
       logError("剧本分析失败", error, { url, request });
-      throw new NovelBackendError(
-        "剧本分析失败",
-        error instanceof Error ? error.message : String(error)
-      );
+      throw this.wrapError("剧本分析失败", error);
     }
   }
 
   /**
    * 为剧本片段规划镜头
    */
-  async planShots(request: PlanShotsRequest): Promise<PlanShotsResponse> {
+  async planShots(request: PlanShotsRequest, userToken: string): Promise<PlanShotsResponse> {
     const endpoint = "/canvas/plan-shots";
     const url = `${this.baseUrl}${endpoint}`;
 
@@ -273,7 +274,7 @@ export class NovelBackendClient {
     try {
       const response = await this.fetchWithRetry<PlanShotsResponse>(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: this.canvasHeaders(userToken),
         body: JSON.stringify(request),
       });
 
@@ -284,10 +285,7 @@ export class NovelBackendClient {
       return response;
     } catch (error) {
       logError("镜头规划失败", error, { url, request });
-      throw new NovelBackendError(
-        "镜头规划失败",
-        error instanceof Error ? error.message : String(error)
-      );
+      throw this.wrapError("镜头规划失败", error);
     }
   }
 
@@ -296,7 +294,8 @@ export class NovelBackendClient {
    * 为场景图列表生成最终漫画图
    */
   async generateFinals(
-    request: GenerateFinalsRequest
+    request: GenerateFinalsRequest,
+    userToken: string
   ): Promise<GenerateFinalsResponse> {
     const endpoint = "/canvas/generate-finals";
     const url = `${this.baseUrl}${endpoint}`;
@@ -311,7 +310,7 @@ export class NovelBackendClient {
     try {
       const response = await this.fetchWithRetry<GenerateFinalsResponse>(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: this.canvasHeaders(userToken),
         body: JSON.stringify(request),
       });
 
@@ -322,10 +321,7 @@ export class NovelBackendClient {
       return response;
     } catch (error) {
       logError("漫画图生成失败", error, { url, request });
-      throw new NovelBackendError(
-        "漫画图生成失败",
-        error instanceof Error ? error.message : String(error)
-      );
+      throw this.wrapError("漫画图生成失败", error);
     }
   }
 
@@ -333,7 +329,8 @@ export class NovelBackendClient {
    * 识别角色 - 从对话和场景描述中识别在场角色
    */
   async identifyCharacters(
-    request: IdentifyCharactersRequest
+    request: IdentifyCharactersRequest,
+    userToken: string
   ): Promise<IdentifyCharactersResponse> {
     const endpoint = "/canvas/identify-characters";
     const url = `${this.baseUrl}${endpoint}`;
@@ -347,7 +344,7 @@ export class NovelBackendClient {
     try {
       const response = await this.fetchWithRetry<IdentifyCharactersResponse>(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: this.canvasHeaders(userToken),
         body: JSON.stringify(request),
       });
 
@@ -359,10 +356,7 @@ export class NovelBackendClient {
       return response;
     } catch (error) {
       logError("角色识别失败", error, { url, request });
-      throw new NovelBackendError(
-        "角色识别失败",
-        error instanceof Error ? error.message : String(error)
-      );
+      throw this.wrapError("角色识别失败", error);
     }
   }
 
@@ -370,7 +364,8 @@ export class NovelBackendClient {
    * 批量识别角色 - 为多个镜头识别在场角色
    */
   async batchIdentifyCharacters(
-    request: BatchIdentifyCharactersRequest
+    request: BatchIdentifyCharactersRequest,
+    userToken: string
   ): Promise<BatchIdentifyCharactersResponse> {
     const endpoint = "/canvas/batch-identify-characters";
     const url = `${this.baseUrl}${endpoint}`;
@@ -384,7 +379,7 @@ export class NovelBackendClient {
     try {
       const response = await this.fetchWithRetry<BatchIdentifyCharactersResponse>(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: this.canvasHeaders(userToken),
         body: JSON.stringify(request),
       });
 
@@ -396,10 +391,7 @@ export class NovelBackendClient {
       return response;
     } catch (error) {
       logError("批量角色识别失败", error, { url, request });
-      throw new NovelBackendError(
-        "批量角色识别失败",
-        error instanceof Error ? error.message : String(error)
-      );
+      throw this.wrapError("批量角色识别失败", error);
     }
   }
 
@@ -422,108 +414,28 @@ export class NovelBackendClient {
     }
   }
 
-  /**
-   * 带重试的 Fetch 请求
-   */
-  private async fetchWithRetry<T>(
-    url: string,
-    options: RequestInit,
-    retryCount = 0
-  ): Promise<T> {
-    try {
-      // 添加超时控制
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-
-      const response = await fetch(url, {
-        ...options,
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      // 检查 HTTP 状态码
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `HTTP ${response.status}: ${errorText || response.statusText}`
-        );
-      }
-
-      // 解析 JSON 响应
-      const data = await response.json();
-      return data as T;
-    } catch (error) {
-      // 判断是否需要重试
-      const shouldRetry =
-        retryCount < this.maxRetries &&
-        this.isRetryableError(error as Error);
-
-      if (shouldRetry) {
-        const delay = this.getRetryDelay(retryCount);
-        logInfo(`重试请求 (${retryCount + 1}/${this.maxRetries})`, {
-          url,
-          delayMs: delay,
-        });
-
-        await this.sleep(delay);
-        return this.fetchWithRetry<T>(url, options, retryCount + 1);
-      }
-
-      // 不重试，直接抛出错误
-      throw error;
-    }
+  private fetchWithRetry<T>(url: string, options: RequestInit): Promise<T> {
+    return fetchNovelBackend<T>(url, options, {
+      timeout: this.timeout,
+      maxRetries: this.maxRetries,
+    });
   }
 
-  /**
-   * 判断错误是否可重试
-   */
-  private isRetryableError(error: Error): boolean {
-    // 网络超时、连接错误可重试
-    if (error.name === "AbortError" || error.name === "TypeError") {
-      return true;
-    }
-
-    // 5xx 服务器错误可重试
-    const message = error.message;
-    if (
-      message.includes("HTTP 500") ||
-      message.includes("HTTP 502") ||
-      message.includes("HTTP 503") ||
-      message.includes("HTTP 504")
-    ) {
-      return true;
-    }
-
-    return false;
+  /** 画布调用统一带上创作者令牌，调用方不自己拼 Authorization。 */
+  private canvasHeaders(userToken: string): Record<string, string> {
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${userToken}`,
+    };
   }
 
-  /**
-   * 获取重试延迟（指数退避）
-   */
-  private getRetryDelay(retryCount: number): number {
-    // 指数退避: 1s, 2s, 4s
-    return Math.pow(2, retryCount) * 1000;
-  }
-
-  /**
-   * 延迟工具函数
-   */
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-}
-
-/**
- * Novel-Backend 自定义错误
- */
-export class NovelBackendError extends Error {
-  constructor(
-    message: string,
-    public readonly originalError?: string
-  ) {
-    super(message);
-    this.name = "NovelBackendError";
+  private wrapError(message: string, error: unknown): NovelBackendError {
+    const statusCode = error instanceof NovelBackendError ? error.statusCode : undefined;
+    return new NovelBackendError(
+      message,
+      error instanceof Error ? error.message : String(error),
+      statusCode
+    );
   }
 }
 

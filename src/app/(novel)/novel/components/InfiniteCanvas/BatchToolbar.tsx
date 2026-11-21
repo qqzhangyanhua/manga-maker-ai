@@ -34,6 +34,10 @@ export function BatchToolbar() {
         body: JSON.stringify({ chapterIds, stage }),
       });
 
+      if (response.status === 401) {
+        throw new Error('请重新登录');
+      }
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || '批量生成失败');
