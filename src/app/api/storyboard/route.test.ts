@@ -7,10 +7,15 @@ import { assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
 
 // Use vi.hoisted to ensure mocks are available before module imports
-const { mockCookiesGet, mockCookies } = vi.hoisted(() => {
+const { mockCookiesGet, mockCookies, add, setLead, panelsMock } = vi.hoisted(() => {
   const mockCookiesGet = vi.fn();
   const mockCookies = vi.fn();
-  return { mockCookiesGet, mockCookies };
+  const add = vi.fn(async (input: readonly unknown[]) =>
+    input.map((_row, index) => ({ id: `panel-${index + 1}`, panelOrder: index + 1 })),
+  );
+  const setLead = vi.fn();
+  const panelsMock = vi.fn(() => ({ add, setLead }));
+  return { mockCookiesGet, mockCookies, add, setLead, panelsMock };
 });
 
 // Mock dependencies
@@ -35,6 +40,13 @@ vi.mock("@/lib/generation-log", () => ({
   recordGenerationLog: vi.fn(),
 }));
 
+vi.mock("@/lib/project/chapter-panels", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/project/chapter-panels")>(
+    "@/lib/project/chapter-panels",
+  );
+  return { ...actual, panels: panelsMock };
+});
+
 vi.mock("@/lib/db", () => ({
   prisma: {
     $transaction: vi.fn(),
@@ -57,6 +69,7 @@ vi.mock("@/lib/db", () => ({
     },
     projectCharacter: {
       createMany: vi.fn(),
+      findMany: vi.fn(),
     },
     scriptSegment: {
       create: vi.fn(),
@@ -107,16 +120,13 @@ describe("POST /api/storyboard", () => {
         ...data,
       })
     );
-    (prisma.panel.create as ReturnType<typeof vi.fn>).mockImplementation(
-      async ({ data }: { data: { panel_order: number } }) => ({
-        id: `panel-${data.panel_order}`,
-        ...data,
-      })
-    );
+    (prisma.projectCharacter.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   });
 
-  const panelsWritten = () =>
-    (prisma.panel.create as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[0].data);
+  const panelsWritten = () => {
+    const rows = (add.mock.calls.at(-1)?.[0] ?? []) as Array<Record<string, unknown>>;
+    return rows.map((row) => ({ ...row, panel_type: row.panelType }));
+  };
 
   it("should handle missing panel_type by inferring from context", async () => {
     // Mock LLM response with undefined panel_type
@@ -377,6 +387,9 @@ describe("POST /api/storyboard", () => {
       }),
     });
     (prisma.character.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "my-character" }]);
+    (prisma.projectCharacter.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: "pc-mine", character_id: "my-character" },
+    ]);
     (prisma.project.create as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "project-123", panels: [] });
 
     const response = await POST(
@@ -388,9 +401,11 @@ describe("POST /api/storyboard", () => {
     );
 
     expect(response.status).toBe(200);
-    const panels = panelsWritten();
-    expect(panels[0].character_id).toBe("my-character");
-    expect(panels[1].character_id).toBeNull();
+    const rows = (add.mock.calls.at(-1)?.[0] ?? []) as Array<Record<string, unknown>>;
+    expect(rows[0]).not.toHaveProperty("character_id");
+    expect(rows[1]).not.toHaveProperty("character_id");
+    expect(setLead).toHaveBeenCalledTimes(1);
+    expect(setLead).toHaveBeenCalledWith(["panel-1"], "pc-mine");
     expect(prisma.projectCharacter.createMany).toHaveBeenCalledWith({
       data: [{ project_id: "project-123", character_id: "my-character", role: "minor" }],
       skipDuplicates: true,
@@ -419,7 +434,7 @@ describe("POST /api/storyboard", () => {
       data: { project_id: "project-123", story_id: null, title: "第一章", chapter_order: 1 },
       select: { id: true },
     });
-    expect(panelsWritten()[0].chapter_id).toBe("new-chapter");
+    expect(add.mock.calls.at(-1)?.[1]).toEqual({ chapter: "new-chapter" });
   });
 
   it("should return 400 when story is missing", async () => {

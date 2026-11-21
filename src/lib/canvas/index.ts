@@ -23,15 +23,12 @@ export type { AnchoredCanvasChapter, CanvasChapterContext, CanvasShotContext } f
 export {
   addCanvasFinal,
   countChapterCharacters,
-  createCanvasShots,
   listChapterFinals,
   listChapterShots,
   refreshCanvasCounters,
-  replacePanelCharacters,
   updateCanvasShot,
   updateShotPipeline,
 } from "./shot-store";
-export type { NewCanvasShot } from "./shot-store";
 export {
   pendingCharacterKey,
   promotePendingCharacters,

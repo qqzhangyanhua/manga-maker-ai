@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { ApiError } from "@/lib/api-error";
+import { ensureProjectCharacters } from "@/lib/project";
 import { panels } from "@/lib/project/chapter-panels";
 
 import type { AnchoredCanvasChapter } from "./context";
@@ -215,10 +216,11 @@ function classifyShot(
   };
 }
 
-async function ensureProjectCharacters(
+async function attachMissingProjectCharacters(
   tx: Prisma.TransactionClient,
   projectId: string,
-  accepted: AcceptedPanel[]
+  userId: string,
+  accepted: AcceptedPanel[],
 ): Promise<void> {
   const missing: string[] = [];
   const seen = new Set<string>();
@@ -229,18 +231,18 @@ async function ensureProjectCharacters(
       missing.push(row.libraryCharacterId);
     }
   }
+  if (missing.length === 0) return;
 
-  for (const libraryCharacterId of missing) {
-    const created = await tx.projectCharacter.create({
-      data: { project_id: projectId, character_id: libraryCharacterId, role: "minor" },
-      select: { id: true },
-    });
-    for (const panel of accepted) {
-      for (const row of panel.rows) {
-        if (row.libraryCharacterId === libraryCharacterId && !row.projectCharacterId) {
-          row.projectCharacterId = created.id;
-        }
-      }
+  await ensureProjectCharacters(tx, { projectId, userId, characterIds: missing });
+  const created = await tx.projectCharacter.findMany({
+    where: { project_id: projectId, character_id: { in: missing } },
+    select: { id: true, character_id: true },
+  });
+  const byLibrary = new Map(created.map((row) => [row.character_id, row.id]));
+  for (const panel of accepted) {
+    for (const row of panel.rows) {
+      if (row.projectCharacterId) continue;
+      row.projectCharacterId = byLibrary.get(row.libraryCharacterId) ?? null;
     }
   }
 }
@@ -355,7 +357,7 @@ export async function birthChapterPanels(
   const namesToCreate = storyId ? suggestionNames(accepted, existingSuggestions) : [];
 
   const createdIds = await db.$transaction(async (tx) => {
-    await ensureProjectCharacters(tx, chapter.projectId, accepted);
+    await attachMissingProjectCharacters(tx, chapter.projectId, userId, accepted);
     const writer = panels(chapter.projectId, { tx });
     const created = await writer.add(
       accepted.map((panel) => ({

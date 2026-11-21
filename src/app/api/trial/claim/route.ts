@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ensureDefaultChapter, ensureStoryProject } from "@/lib/project";
+import { panels } from "@/lib/project/chapter-panels";
 import { getTrialResult, markTrialClaimed } from "@/lib/trial-store";
 
 interface ClaimRequest {
@@ -109,22 +110,16 @@ export async function POST(
 
       // 3. 创建分镜（挂在项目的第一章）
       const chapterId = await ensureDefaultChapter(tx, project.id);
-      const panelPromises = trialResult.panels.map((panel, index) =>
-        tx.panel.create({
-          data: {
-            project_id: project.id,
-            chapter_id: chapterId,
-            panel_order: index + 1,
-            panel_type: "medium",
-            importance: "medium",
-            description: panel.description,
-            generated_image: panel.imageUrl || null,
-            prompt_used: `${panel.description}, ${styleName}`,
-          },
-        })
+      await panels(project.id, { tx }).add(
+        trialResult.panels.map((panel) => ({
+          panelType: "medium",
+          importance: "medium",
+          description: panel.description,
+          generatedImage: panel.imageUrl || null,
+          promptUsed: `${panel.description}, ${styleName}`,
+        })),
+        { chapter: chapterId },
       );
-
-      await Promise.all(panelPromises);
 
       return { storyId: story.id, projectId: project.id };
     });

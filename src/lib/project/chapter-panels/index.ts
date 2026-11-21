@@ -21,6 +21,8 @@ export type {
   WriteDiff,
 } from "./plan";
 export { panelReadingOrderBy, readingOrder } from "./reading-order";
+export { bindPendingCharacters } from "./bind-pending";
+export type { PendingBindRow } from "./bind-pending";
 export { normalizePanelCast, panels } from "./write";
 export { chapterPanelFromGenerated, panelsInWrittenOrder } from "./from-generated";
 export type { GeneratedChapterPanel } from "./from-generated";

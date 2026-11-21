@@ -95,6 +95,25 @@ export async function castSnapshots(): Promise<CastSnapshot[]> {
   });
 }
 
+/** 旧迁移夹具要写下当时还允许的主角色列。约束开启后，这两下写入要先关掉拒绝触发器。 */
+export async function withoutLeadGuard<T>(work: () => Promise<T>): Promise<T> {
+  await db.$executeRawUnsafe("ALTER TABLE panels DISABLE TRIGGER trg_panels_reject_inconsistent_lead");
+  try {
+    return await work();
+  } finally {
+    await db.$executeRawUnsafe("ALTER TABLE panels ENABLE TRIGGER trg_panels_reject_inconsistent_lead");
+  }
+}
+
+/**
+ * 夹具里有重复编号时不能在同一事务里重新打开触发器。
+ * 延迟唯一检查还挂着，ALTER TABLE 会报 pending trigger events。
+ * 测试事务回滚时，这次 DISABLE 会一起撤销。
+ */
+export async function suspendLeadGuard(): Promise<void> {
+  await db.$executeRawUnsafe("ALTER TABLE panels DISABLE TRIGGER trg_panels_reject_inconsistent_lead");
+}
+
 export async function seedRenumberCase(): Promise<RenumberSeed> {
   const { userId, projectId } = await seedProject("chapter-panel-order");
   const newcomer = await db.character.create({ data: { user_id: userId, name: "新人" } });
@@ -114,6 +133,7 @@ export async function seedRenumberCase(): Promise<RenumberSeed> {
     ],
   });
 
+  await suspendLeadGuard();
   await db.panel.createMany({
     data: [
       {

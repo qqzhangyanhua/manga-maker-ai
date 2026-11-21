@@ -295,6 +295,11 @@ export async function POST(req: Request) {
             });
         // 分镜必须挂在章节上：用项目的第一个章节，没有就建"第一章"
         const chapterId = await ensureDefaultChapter(tx, target.id);
+        await ensureProjectCharacters(tx, {
+          projectId: target.id,
+          userId,
+          characterIds: Array.from(ownedCharacterIds),
+        });
         const written = await writeStoryboardOnChapter(tx, {
           projectId: target.id,
           chapterId,
@@ -325,12 +330,6 @@ export async function POST(req: Request) {
           },
           include,
         });
-      });
-
-      await ensureProjectCharacters(prisma, {
-        projectId: project.id,
-        userId,
-        characterIds: Array.from(ownedCharacterIds),
       });
 
       await recordGenerationLog({
