@@ -6,7 +6,7 @@ type KeyboardShortcutsOptions = {
   project: Project | null;
   onMerge: (panelId: string) => void;
   onSplit: (panelId: string) => void;
-  onInsertAfter: (panelOrder: number) => void;
+  onInsertAfter: (panelOrder: number, panelId: string) => void;
 };
 
 /**
@@ -41,7 +41,7 @@ export function useKeyboardShortcuts({
         e.preventDefault();
         const panel = project?.panels.find((p) => p.id === selectedPanelId);
         if (panel) {
-          onInsertAfter(panel.panel_order);
+          onInsertAfter(panel.panel_order, panel.id);
         }
       }
     };

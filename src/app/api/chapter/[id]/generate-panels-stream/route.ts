@@ -3,6 +3,7 @@ import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ApiError } from "@/lib/api-helpers";
 import { assertChapterInProject } from "@/lib/project";
+import { chapterPanelFromGenerated, panels, panelsInWrittenOrder } from "@/lib/project/chapter-panels";
 import { generatePanelsFromChapterStream } from "@/lib/panel-generator";
 import { assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
@@ -314,56 +315,16 @@ export async function POST(
           message: `正在保存 ${generatedPanels.length} 个分镜到数据库...`,
         });
 
-        // 如果需要覆盖，先删除旧分镜
-        if (overwrite) {
-          await prisma.panel.deleteMany({
-            where: {
-              project_id,
-              chapter_id: chapterId,
-            },
-          });
-        }
-
-        // 扩写模式：获取当前章节已有分镜的最大 panel_order
-        let panelOrderOffset = 0;
-        if (!overwrite) {
-          const existingPanels = await prisma.panel.findMany({
-            where: {
-              project_id,
-              chapter_id: chapterId,
-            },
-            select: { panel_order: true },
-            orderBy: { panel_order: "desc" },
-            take: 1,
-          });
-
-          if (existingPanels.length > 0) {
-            panelOrderOffset = existingPanels[0].panel_order;
-          }
-        }
-
-        // 批量创建分镜
-        const panels = await prisma.$transaction(
-          generatedPanels.map((panel) =>
-            prisma.panel.create({
-              data: {
-                project_id,
-                chapter_id: chapterId,
-                panel_order: panel.panel_order + panelOrderOffset,
-                description: panel.description,
-                visual_prompt: panel.visual_prompt,
-                dialogue: panel.dialogue || null,
-                panel_type: panel.panel_type,
-                importance: panel.importance,
-                camera_angle: panel.camera_angle || null,
-                shot_size: panel.shot_size || null,
-                camera_movement: panel.camera_movement || null,
-                movement_speed: panel.movement_speed || null,
-                movement_direction: panel.movement_direction || null,
-              },
-            })
-          )
-        );
+        // 覆盖在同一事务里换掉整章；追加只写入，编号由模块计算。这之前失败不会删旧分镜。
+        const fields = generatedPanels.map((panel) => chapterPanelFromGenerated(panel));
+        const written = overwrite
+          ? await panels(project_id).replaceChapter(chapterId, fields)
+          : { panels: await panels(project_id).add(fields, { chapter: chapterId }) };
+        const writtenIds = written.panels.map((panel) => panel.id);
+        const storedPanels = writtenIds.length
+          ? await prisma.panel.findMany({ where: { id: { in: writtenIds } } })
+          : [];
+        const savedPanels = panelsInWrittenOrder(writtenIds, storedPanels);
 
         // 记录生成日志
         await recordGenerationLog({
@@ -380,8 +341,8 @@ export async function POST(
             overwrite,
           },
           responsePayload: {
-            panels_generated: panels.length,
-            panel_ids: panels.map((p) => p.id),
+            panels_generated: savedPanels.length,
+            panel_ids: savedPanels.map((panel) => panel.id),
           },
         });
 
@@ -390,7 +351,7 @@ export async function POST(
           stage: "done",
           current: 4,
           total: 4,
-          message: `成功生成 ${panels.length} 个分镜！`,
+          message: `成功生成 ${savedPanels.length} 个分镜！`,
         });
 
         controller.close();

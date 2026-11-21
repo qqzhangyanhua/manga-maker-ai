@@ -1,16 +1,13 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { PUT } from "./route";
-import { prisma } from "@/lib/db";
-import { verifyAuthToken } from "@/lib/auth";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Use vi.hoisted to ensure mocks are available before module imports
-const { mockCookiesGet, mockCookies } = vi.hoisted(() => {
+const { mockCookiesGet, mockCookies, mockPlace, mockPanels } = vi.hoisted(() => {
   const mockCookiesGet = vi.fn();
   const mockCookies = vi.fn();
-  return { mockCookiesGet, mockCookies };
+  const mockPlace = vi.fn();
+  const mockPanels = vi.fn(() => ({ place: mockPlace }));
+  return { mockCookiesGet, mockCookies, mockPlace, mockPanels };
 });
 
-// Mock dependencies
 vi.mock("next/headers", () => ({
   cookies: mockCookies,
 }));
@@ -24,269 +21,174 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     panel: {
       findUnique: vi.fn(),
-      update: vi.fn(),
-      count: vi.fn(),
     },
-    $transaction: vi.fn(),
     $executeRaw: vi.fn(),
+    $transaction: vi.fn(),
   },
 }));
 
+vi.mock("@/lib/project/chapter-panels", () => ({
+  panels: mockPanels,
+}));
+
+import { verifyAuthToken } from "@/lib/auth";
+import { ApiError } from "@/lib/api-helpers";
+import { prisma } from "@/lib/db";
+import { PUT } from "./route";
+
+const mockUserId = "user-123";
+const mockProjectId = "project-123";
+const mockPanelId = "panel-123";
+
+const mockPanel = {
+  id: mockPanelId,
+  project_id: mockProjectId,
+  panel_order: 3,
+  description: "Test panel",
+  project: {
+    user_id: mockUserId,
+  },
+};
+
+const mocked = prisma as unknown as {
+  panel: { findUnique: ReturnType<typeof vi.fn> };
+  $executeRaw: ReturnType<typeof vi.fn>;
+};
+
+function reorder(body: Record<string, unknown>) {
+  return PUT(
+    new Request("http://localhost/api/panel/reorder", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
 describe("PUT /api/panel/reorder", () => {
-  const mockUserId = "user-123";
-  const mockProjectId = "project-123";
-  const mockPanelId = "panel-123";
-
-  const mockPanel = {
-    id: mockPanelId,
-    project_id: mockProjectId,
-    panel_order: 3,
-    description: "Test panel",
-    project: {
-      user_id: mockUserId,
-    },
-  };
-
   beforeEach(() => {
     vi.clearAllMocks();
-
-    // Mock cookies - default to authenticated
     mockCookiesGet.mockReturnValue({ value: "valid-token" });
-    mockCookies.mockResolvedValue({
-      get: mockCookiesGet,
-    });
-
-    // Mock auth verification
+    mockCookies.mockResolvedValue({ get: mockCookiesGet });
     (verifyAuthToken as ReturnType<typeof vi.fn>).mockReturnValue({
       userId: mockUserId,
     });
+    mockPlace.mockResolvedValue([
+      { id: mockPanelId, chapterId: "chapter-1", panelOrder: 1 },
+    ]);
   });
 
-  afterEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("should successfully reorder panel forward (向前移动)", async () => {
-    // Mock Prisma responses
-    (prisma.panel.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockPanel
-    );
-    (prisma.panel.count as ReturnType<typeof vi.fn>).mockResolvedValue(5);
-    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
-      async (callback) => {
-        await callback({
-          $executeRaw: vi.fn(),
-          panel: {
-            update: vi.fn(),
-          },
-        });
-      }
-    );
-    (prisma.panel.findUnique as ReturnType<typeof vi.fn>)
+  it("按锚点调用 place，不平移整表", async () => {
+    mocked.panel.findUnique
       .mockResolvedValueOnce(mockPanel)
       .mockResolvedValueOnce({ ...mockPanel, panel_order: 1 });
 
-    const request = new Request("http://localhost/api/panel/reorder", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        panel_id: mockPanelId,
-        new_order: 1,
-        project_id: mockProjectId,
-      }),
+    const response = await reorder({
+      panel_id: mockPanelId,
+      project_id: mockProjectId,
+      after: "anchor-1",
     });
-
-    const response = await PUT(request);
     const data = await response.json();
 
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
     expect(data.message).toBe("分镜顺序已更新");
     expect(data.panel.panel_order).toBe(1);
+    expect(mockPanels).toHaveBeenCalledWith(mockProjectId);
+    expect(mockPlace).toHaveBeenCalledWith([mockPanelId], { after: "anchor-1" });
+    expect(mocked.$executeRaw).not.toHaveBeenCalled();
   });
 
-  it("should successfully reorder panel backward (向后移动)", async () => {
-    (prisma.panel.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockPanel
-    );
-    (prisma.panel.count as ReturnType<typeof vi.fn>).mockResolvedValue(5);
-    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
-      async (callback) => {
-        await callback({
-          $executeRaw: vi.fn(),
-          panel: {
-            update: vi.fn(),
-          },
-        });
-      }
-    );
-    (prisma.panel.findUnique as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce(mockPanel)
-      .mockResolvedValueOnce({ ...mockPanel, panel_order: 5 });
-
-    const request = new Request("http://localhost/api/panel/reorder", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        panel_id: mockPanelId,
-        new_order: 5,
-        project_id: mockProjectId,
-      }),
+  it("缺少锚点时返回 400", async () => {
+    const response = await reorder({
+      panel_id: mockPanelId,
+      project_id: mockProjectId,
     });
-
-    const response = await PUT(request);
-    const data = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(data.success).toBe(true);
-  });
-
-  it("should return error when panel_id is missing", async () => {
-    const request = new Request("http://localhost/api/panel/reorder", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        new_order: 1,
-        project_id: mockProjectId,
-      }),
-    });
-
-    const response = await PUT(request);
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.error).toContain("缺少必需参数");
+    expect(data.error).toContain("恰好一种");
+    expect(mockPlace).not.toHaveBeenCalled();
   });
 
-  it("should return error when new_order is invalid", async () => {
-    const request = new Request("http://localhost/api/panel/reorder", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        panel_id: mockPanelId,
-        new_order: 0,
-        project_id: mockProjectId,
-      }),
+  it("分镜不存在时返回 404", async () => {
+    mocked.panel.findUnique.mockResolvedValue(null);
+
+    const response = await reorder({
+      panel_id: mockPanelId,
+      project_id: mockProjectId,
+      before: "anchor-1",
     });
-
-    const response = await PUT(request);
-    const data = await response.json();
-
-    expect(response.status).toBe(400);
-    expect(data.error).toContain("new_order 必须是大于 0 的整数");
-  });
-
-  it("should return error when panel does not exist", async () => {
-    (prisma.panel.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(
-      null
-    );
-
-    const request = new Request("http://localhost/api/panel/reorder", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        panel_id: mockPanelId,
-        new_order: 1,
-        project_id: mockProjectId,
-      }),
-    });
-
-    const response = await PUT(request);
     const data = await response.json();
 
     expect(response.status).toBe(404);
     expect(data.error).toBe("分镜不存在");
+    expect(mockPlace).not.toHaveBeenCalled();
   });
 
-  it("should return error when user does not have permission", async () => {
-    (prisma.panel.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+  it("无权限时返回 403", async () => {
+    mocked.panel.findUnique.mockResolvedValue({
       ...mockPanel,
-      project: {
-        user_id: "other-user",
-      },
+      project: { user_id: "other-user" },
     });
 
-    const request = new Request("http://localhost/api/panel/reorder", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        panel_id: mockPanelId,
-        new_order: 1,
-        project_id: mockProjectId,
-      }),
+    const response = await reorder({
+      panel_id: mockPanelId,
+      project_id: mockProjectId,
+      before: "anchor-1",
     });
-
-    const response = await PUT(request);
     const data = await response.json();
 
     expect(response.status).toBe(403);
     expect(data.error).toBe("无权限操作此分镜");
+    expect(mockPlace).not.toHaveBeenCalled();
   });
 
-  it("should return error when new_order exceeds total panels", async () => {
-    (prisma.panel.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockPanel
-    );
-    (prisma.panel.count as ReturnType<typeof vi.fn>).mockResolvedValue(3);
-
-    const request = new Request("http://localhost/api/panel/reorder", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        panel_id: mockPanelId,
-        new_order: 10,
-        project_id: mockProjectId,
-      }),
+  it("分镜不属于指定项目时返回 400", async () => {
+    mocked.panel.findUnique.mockResolvedValue({
+      ...mockPanel,
+      project_id: "other-project",
     });
 
-    const response = await PUT(request);
+    const response = await reorder({
+      panel_id: mockPanelId,
+      project_id: mockProjectId,
+      before: "anchor-1",
+    });
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.error).toContain("new_order 超出范围");
+    expect(data.error).toBe("分镜不属于指定项目");
+    expect(mockPlace).not.toHaveBeenCalled();
   });
 
-  it("should return success when order does not change", async () => {
-    (prisma.panel.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockPanel
-    );
-
-    const request = new Request("http://localhost/api/panel/reorder", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        panel_id: mockPanelId,
-        new_order: 3, // Same as current order
-        project_id: mockProjectId,
-      }),
-    });
-
-    const response = await PUT(request);
-    const data = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(data.success).toBe(true);
-    expect(data.message).toBe("顺序未改变");
-  });
-
-  it("should return 401 when not authenticated", async () => {
-    // Override default mock for this test
+  it("未登录时返回 401", async () => {
     mockCookiesGet.mockReturnValue(undefined);
 
-    const request = new Request("http://localhost/api/panel/reorder", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        panel_id: mockPanelId,
-        new_order: 1,
-        project_id: mockProjectId,
-      }),
+    const response = await reorder({
+      panel_id: mockPanelId,
+      project_id: mockProjectId,
+      after: "anchor-1",
     });
-
-    const response = await PUT(request);
     const data = await response.json();
 
     expect(response.status).toBe(401);
     expect(data.error).toBe("未登录");
+  });
+
+  it("place 抛出的 ApiError 沿用 statusCode", async () => {
+    mocked.panel.findUnique.mockResolvedValue(mockPanel);
+    mockPlace.mockRejectedValue(new ApiError(400, "ANCHOR_IN_SELECTION", "不能把分镜放到自己前面或后面"));
+
+    const response = await reorder({
+      panel_id: mockPanelId,
+      project_id: mockProjectId,
+      before: mockPanelId,
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data.code).toBe("ANCHOR_IN_SELECTION");
+    expect(data.error).toBe("不能把分镜放到自己前面或后面");
   });
 });

@@ -54,7 +54,7 @@ interface EditablePanelCardProps {
   onUpdate: (updates: Partial<Panel>) => void;
   onMerge?: (panelId: string) => void;
   onSplit?: (panelId: string) => void;
-  onInsertAfter?: (panelOrder: number) => void;
+  onInsertAfter?: (panelOrder: number, panelId: string) => void;
   onGenerateSketch?: (panelId: string, characterId?: string) => void;
   onGeneratePrompt?: (panelId: string, opts?: { characterId?: string; styleKey?: string }) => void;
   onSelectionChange?: (panelId: string, selection: { characterId?: string; styleKey?: string }) => void;
@@ -571,7 +571,7 @@ const EditablePanelCard = ({
                 className="h-7 text-xs"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onInsertAfter(panel.panel_order);
+                  onInsertAfter(panel.panel_order, panel.id);
                 }}
                 disabled={operationLoading?.type === "insert"}
               >

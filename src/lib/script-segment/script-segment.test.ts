@@ -1,6 +1,20 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "@prisma/client";
 
+const { panelsMock } = vi.hoisted(() => ({
+  panelsMock: vi.fn(),
+}));
+
+vi.mock("@/lib/project/chapter-panels", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/project/chapter-panels")>(
+    "@/lib/project/chapter-panels",
+  );
+  return {
+    ...actual,
+    panels: panelsMock,
+  };
+});
+
 import { panelReadingOrderBy } from "@/lib/project";
 import {
   createChapterScriptSegments,
@@ -24,7 +38,7 @@ function createDb() {
   const db = {
     timelineChapter: { findUnique: vi.fn() },
     scriptSegment: { create: vi.fn() },
-    panel: { findMany: vi.fn(), deleteMany: vi.fn(), create: vi.fn() },
+    panel: { findMany: vi.fn(), findUnique: vi.fn(), deleteMany: vi.fn(), create: vi.fn() },
     $executeRaw: vi.fn(),
   };
   db.scriptSegment.create.mockImplementation(async (args: { data: { chapter_id: string | null; timeline_chapter_id: string | null; content: string; source_text_start: number; source_text_end: number; segment_order: number } }) => {
@@ -168,6 +182,15 @@ describe("剧本片段 module", () => {
         script_end: 20,
       },
     ]);
+    const stored = {
+      id: "merged-1",
+      segment_id: KEPT_SEGMENT,
+      panel_order: 2,
+      description: "两格合成的雨夜",
+    };
+    db.panel.findUnique.mockResolvedValue(stored);
+    const merge = vi.fn().mockResolvedValue({ id: "merged-1", panelOrder: 2 });
+    panelsMock.mockReturnValue({ merge });
 
     const merged = await mergePanelsKeepingSegment(asClient(db), {
       projectId: PROJECT,
@@ -179,7 +202,6 @@ describe("剧本片段 module", () => {
         visual_prompt: "雨夜",
         prompt_used: "merged rain",
         dialogue: null,
-        character_id: null,
         emotion: null,
         camera_angle: "平视",
         shot_size: "中景",
@@ -190,16 +212,29 @@ describe("剧本片段 module", () => {
       where: { id: { in: ["panel-late", "panel-early"] }, project_id: PROJECT },
       orderBy: panelReadingOrderBy,
     });
-    expect(db.panel.deleteMany).toHaveBeenCalledWith({
-      where: { id: { in: ["panel-late", "panel-early"] } },
-    });
-    const data = db.panel.create.mock.calls[0][0].data;
-    expect(data.segment_id).toBe(KEPT_SEGMENT);
-    expect(data.panel_order).toBe(2);
-    expect(data.script_start).toBe(0);
-    expect(data.script_end).toBe(20);
-    expect(data.description).toBe("两格合成的雨夜");
-    expect(data).not.toHaveProperty("script_segment_id");
+    expect(panelsMock).toHaveBeenCalledWith(PROJECT, { tx: asClient(db) });
+    expect(merge).toHaveBeenCalledWith(
+      ["panel-late", "panel-early"],
+      expect.objectContaining({
+        panelType: "medium",
+        importance: "high",
+        description: "两格合成的雨夜",
+        visualPrompt: "雨夜",
+        promptUsed: "merged rain",
+        dialogue: null,
+        emotion: null,
+        cameraAngle: "平视",
+        shotSize: "中景",
+        segmentId: KEPT_SEGMENT,
+        scriptStart: 0,
+        scriptEnd: 20,
+      }),
+    );
+    const fields = merge.mock.calls[0]?.[1];
+    expect(fields).not.toHaveProperty("character_id");
+    expect(fields).not.toHaveProperty("characterId");
+    expect(db.panel.findUnique).toHaveBeenCalledWith({ where: { id: "merged-1" } });
+    expect(merged).toBe(stored);
     expect(merged.segment_id).toBe(KEPT_SEGMENT);
   });
 });

@@ -4,6 +4,8 @@ import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ApiError } from "@/lib/api-helpers";
 import { ensureProjectCharacters, resolvePanelChapter } from "@/lib/project";
+import { panels } from "@/lib/project/chapter-panels";
+import type { NewPanelInput, PanelInsertWhere } from "@/lib/project/chapter-panels";
 
 /**
  * POST /api/panel
@@ -78,58 +80,60 @@ export async function POST(req: Request) {
             }
         }
 
-        // 分镜绑定的角色必须是项目角色：角色库中的角色自动加入，非本人角色直接拒绝
-        await ensureProjectCharacters(prisma, {
-            projectId: project_id,
-            userId: payload.userId,
-            characterIds: [resolvedCharacterId],
-        });
-
         const chapterId = await resolvePanelChapter(prisma, project_id, chapter_id);
 
-        // Determine order
-        let newOrder = panel_order;
-        if (newOrder === undefined) {
-            const lastPanel = await prisma.panel.findFirst({
-                where: { project_id },
-                orderBy: { panel_order: 'desc' },
-            });
-            newOrder = (lastPanel?.panel_order ?? 0) + 1;
-        } else {
-            // Shift existing panels if inserting
-            await prisma.panel.updateMany({
-                where: {
-                    project_id,
-                    panel_order: { gte: newOrder }
-                },
-                data: {
-                    panel_order: { increment: 1 }
-                }
-            });
-        }
+        const panel = await prisma.$transaction(async (tx) => {
+            let projectCharacterId: string | null = null;
+            if (typeof resolvedCharacterId === "string" && resolvedCharacterId.length > 0) {
+                await ensureProjectCharacters(tx, {
+                    projectId: project_id,
+                    userId: payload.userId,
+                    characterIds: [resolvedCharacterId],
+                });
+                const projectCharacter = await tx.projectCharacter.findUnique({
+                    where: {
+                        project_id_character_id: {
+                            project_id,
+                            character_id: resolvedCharacterId,
+                        },
+                    },
+                    select: { id: true },
+                });
+                projectCharacterId = projectCharacter?.id ?? null;
+            }
 
-        // Create panel
-        const panel = await prisma.panel.create({
-            data: {
-                project_id,
-                chapter_id: chapterId,
-                panel_order: newOrder,
-                description: description || "",
-                panel_type,
+            const input: NewPanelInput = {
+                panelType: panel_type,
                 importance,
-                camera_angle,
-                shot_size,
+                description: description || "",
                 dialogue,
-                character_id: resolvedCharacterId, // Use resolved character_id
-                // Do NOT write to character_name anymore
+                cameraAngle: camera_angle,
+                shotSize: shot_size,
                 emotion,
-            },
-            include: {
-                character: {
-                    select: { id: true, name: true },
+            };
+            const writer = panels(project_id, { tx });
+            const added = await writer.add(input, whereForNewPanel(chapterId, panel_order));
+            const created = added[0];
+            if (!created) {
+                throw new Error("创建分镜失败");
+            }
+            if (projectCharacterId) {
+                await writer.setLead([created.id], projectCharacterId);
+            }
+
+            return tx.panel.findUnique({
+                where: { id: created.id },
+                include: {
+                    character: {
+                        select: { id: true, name: true },
+                    },
                 },
-            },
+            });
         });
+
+        if (!panel) {
+            return NextResponse.json({ error: "创建分镜失败" }, { status: 500 });
+        }
 
         return NextResponse.json({
             success: true,
@@ -146,4 +150,15 @@ export async function POST(req: Request) {
             { status: 500 }
         );
     }
+}
+
+// 省略表示追加到章尾。0 与调用方约定为章首。其他数字按 1 起始，换成模块的 0 起始下标。
+function whereForNewPanel(chapterId: string, panelOrder: unknown): PanelInsertWhere {
+    if (panelOrder === 0) {
+        return { chapter: chapterId, index: 0 };
+    }
+    if (typeof panelOrder === "number") {
+        return { chapter: chapterId, index: panelOrder - 1 };
+    }
+    return { chapter: chapterId };
 }

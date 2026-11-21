@@ -24,6 +24,7 @@ interface InsertPanelDialogProps {
   open: boolean;
   projectId: string;
   insertAfterIndex: number;
+  insertAfterPanelId?: string;
   onOpenChange: (open: boolean) => void;
   onInserted: () => void;
   onError: (message: string) => void;
@@ -33,6 +34,7 @@ export function InsertPanelDialog({
   open,
   projectId,
   insertAfterIndex,
+  insertAfterPanelId,
   onOpenChange,
   onInserted,
   onError,
@@ -58,6 +60,7 @@ export function InsertPanelDialog({
         body: JSON.stringify({
           project_id: projectId,
           insert_after_order: insertAfterIndex,
+          ...(insertAfterPanelId ? { insert_after_panel_id: insertAfterPanelId } : {}),
           description: description.trim(),
           use_llm: useLlm,
         }),

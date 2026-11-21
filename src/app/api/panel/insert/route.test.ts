@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockCookieGet } = vi.hoisted(() => {
+const { mockCookieGet, add, panelsMock } = vi.hoisted(() => {
   const mockCookieGet = vi.fn();
-  return { mockCookieGet };
+  const add = vi.fn();
+  const panelsMock = vi.fn(() => ({ add, setLead: vi.fn() }));
+  return { mockCookieGet, add, panelsMock };
 });
 
 vi.mock("next/headers", () => ({
@@ -18,6 +20,10 @@ vi.mock("@/lib/llm-provider", () => ({
   callChatCompletionStreamByType: vi.fn(),
 }));
 
+vi.mock("@/lib/project/chapter-panels", () => ({
+  panels: panelsMock,
+}));
+
 vi.mock("@/lib/project", () => ({
   ensureProjectCharacters: vi.fn(),
   filterOwnedCharacterIds: vi.fn(async () => new Set<string>()),
@@ -28,6 +34,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     project: { findUnique: vi.fn() },
     panel: { findFirst: vi.fn(), findMany: vi.fn() },
+    $executeRaw: vi.fn(),
     $transaction: vi.fn(),
   },
 }));
@@ -43,6 +50,7 @@ const projectId = "11111111-1111-4111-8111-111111111111";
 const mocked = prisma as unknown as {
   project: { findUnique: ReturnType<typeof vi.fn> };
   panel: { findFirst: ReturnType<typeof vi.fn>; findMany: ReturnType<typeof vi.fn> };
+  $executeRaw: ReturnType<typeof vi.fn>;
   $transaction: ReturnType<typeof vi.fn>;
 };
 
@@ -57,11 +65,10 @@ function insert(body: Record<string, unknown>) {
 }
 
 describe("POST /api/panel/insert 插入到末尾", () => {
-  const sql: { text: string; values: unknown[] }[] = [];
+  const executeRaw = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
-    sql.length = 0;
     mockCookieGet.mockReturnValue({ value: "token" });
     (verifyAuthToken as ReturnType<typeof vi.fn>).mockReturnValue({ userId });
     mocked.project.findUnique.mockResolvedValue({ id: projectId, user_id: userId });
@@ -71,19 +78,26 @@ describe("POST /api/panel/insert 插入到末尾", () => {
       panel_order: 1,
     });
     mocked.panel.findMany.mockResolvedValue([]);
-    mocked.$transaction.mockImplementation(async (fn: (tx: {
-      $executeRaw: (strings: TemplateStringsArray, ...values: unknown[]) => Promise<void>;
-      panel: { create: (args: { data: Record<string, unknown> }) => Promise<Record<string, unknown>> };
-    }) => Promise<unknown>) =>
-      fn({
-        $executeRaw: async (strings, ...values) => {
-          sql.push({ text: strings.join(" "), values });
-        },
+    add.mockResolvedValue([{ id: "new-panel", panelOrder: 2 }]);
+    mocked.$transaction.mockImplementation(async (fn: unknown) => {
+      if (typeof fn !== "function") {
+        throw new Error("expected transaction callback");
+      }
+      return (fn as (tx: {
+        $executeRaw: typeof executeRaw;
+        panel: { findUnique: ReturnType<typeof vi.fn>; findMany: ReturnType<typeof vi.fn> };
+      }) => Promise<unknown>)({
+        $executeRaw: executeRaw,
         panel: {
-          create: async ({ data }) => ({ id: "new-panel", ...data }),
+          findUnique: vi.fn().mockResolvedValue({
+            id: "new-panel",
+            chapter_id: "c2",
+            panel_order: 2,
+          }),
+          findMany: vi.fn().mockResolvedValue([]),
         },
-      }),
-    );
+      });
+    });
   });
 
   it("锚在第二章最后一格时，新分镜接在该章后面，第一章不动", async () => {
@@ -99,10 +113,11 @@ describe("POST /api/panel/insert 插入到末尾", () => {
     expect(response.status).toBe(200);
     expect(data.panel.chapter_id).toBe("c2");
     expect(data.panel.panel_order).toBe(2);
-    expect(sql).toHaveLength(1);
-    expect(sql[0].text).toContain("chapter_id");
-    expect(sql[0].values).toContain("c2");
-    expect(sql[0].values).not.toContain(99);
+    expect(data.message).toBe("分镜已插入");
+    expect(add).toHaveBeenCalledTimes(1);
+    expect(add.mock.calls[0]?.[1]).toEqual({ after: "ch2-end" });
     expect(ensureDefaultChapter).not.toHaveBeenCalled();
+    expect(executeRaw).not.toHaveBeenCalled();
+    expect(mocked.$executeRaw).not.toHaveBeenCalled();
   });
 });

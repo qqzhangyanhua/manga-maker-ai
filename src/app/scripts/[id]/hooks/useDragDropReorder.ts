@@ -11,6 +11,16 @@ interface UseDragDropReorderOptions {
   onSuccess?: () => void;
 }
 
+type ChapterMoveAnchor =
+  | { index?: number }
+  | { before: string }
+  | { after: string };
+
+type PanelReorderAnchor =
+  | { before: string }
+  | { after: string }
+  | { chapter_id: string; index?: number };
+
 export function useDragDropReorder({ storyId, onSuccess }: UseDragDropReorderOptions) {
   const { toast } = useToast();
   const [isReordering, setIsReordering] = useState(false);
@@ -52,10 +62,11 @@ export function useDragDropReorder({ storyId, onSuccess }: UseDragDropReorderOpt
   );
 
   /**
-   * 移动分镜到另一个章节
+   * 移动分镜到另一个章节。
+   * 省略 anchor 则追加到章尾；index 从 0 起，也可以用 before / after。
    */
   const movePanelToChapter = useCallback(
-    async (panelId: string, targetChapterId: string, targetOrder?: number) => {
+    async (panelId: string, targetChapterId: string, anchor?: ChapterMoveAnchor) => {
       setIsReordering(true);
       try {
         const response = await fetch("/api/panel/move-to-chapter", {
@@ -64,7 +75,7 @@ export function useDragDropReorder({ storyId, onSuccess }: UseDragDropReorderOpt
           body: JSON.stringify({
             panel_id: panelId,
             target_chapter_id: targetChapterId,
-            target_order: targetOrder,
+            ...anchor,
           }),
         });
 
@@ -94,16 +105,25 @@ export function useDragDropReorder({ storyId, onSuccess }: UseDragDropReorderOpt
   );
 
   /**
-   * 章节内重排序分镜（使用现有 API）
+   * 按锚点重排分镜。单格走 reorder，多格走 batch-reorder，都不再提交整份顺序。
    */
   const reorderPanelsInChapter = useCallback(
-    async (updates: Array<{ id: string; panel_order: number }>, projectId: string) => {
+    async (panelIds: string[], projectId: string, anchor: PanelReorderAnchor) => {
       setIsReordering(true);
       try {
-        const response = await fetch("/api/panel/batch-update", {
-          method: "PATCH",
+        if (panelIds.length === 0) {
+          throw new Error("没有要排序的分镜");
+        }
+
+        const singleId = panelIds.length === 1 ? panelIds[0] : undefined;
+        const response = await fetch(singleId ? "/api/panel/reorder" : "/api/panel/batch-reorder", {
+          method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ updates, projectId }),
+          body: JSON.stringify(
+            singleId
+              ? { panel_id: singleId, project_id: projectId, ...anchor }
+              : { panel_ids: panelIds, project_id: projectId, ...anchor },
+          ),
         });
 
         if (!response.ok) {

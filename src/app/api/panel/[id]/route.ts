@@ -1,7 +1,21 @@
-import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { ApiError, withAuth } from "@/lib/api-helpers";
 import { ensureProjectCharacters } from "@/lib/project";
+import { panels } from "@/lib/project/chapter-panels";
+import type { CastMemberInput } from "@/lib/project/chapter-panels";
+
+const panelInclude = {
+  character: {
+    select: { id: true, name: true },
+  },
+  outfit: {
+    select: { id: true, outfit_name: true },
+  },
+  scene: {
+    select: { id: true, name: true },
+  },
+} satisfies Prisma.PanelInclude;
 
 export async function GET(
   req: Request,
@@ -94,47 +108,70 @@ export async function PATCH(
       }
     }
 
-    // 绑定的角色必须是项目角色：角色库中的角色自动加入，非本人角色返回 400
-    if (typeof resolvedCharacterId === "string") {
+    const projectId = existingPanel.project_id;
+    // 主角色列由在场角色触发器派生，应用代码只改 panel_characters
+    if (typeof resolvedCharacterId === "string" && resolvedCharacterId.length > 0) {
       await ensureProjectCharacters(prisma, {
-        projectId: existingPanel.project_id,
+        projectId,
         userId,
         characterIds: [resolvedCharacterId],
       });
+      const projectCharacter = await prisma.projectCharacter.findUnique({
+        where: {
+          project_id_character_id: {
+            project_id: projectId,
+            character_id: resolvedCharacterId,
+          },
+        },
+        select: { id: true },
+      });
+      if (!projectCharacter) {
+        throw new ApiError(400, "INVALID_CHARACTER", "角色不存在或不属于当前用户");
+      }
+      await panels(projectId).setLead([panelId], projectCharacter.id);
+      if (outfit_id !== undefined || expression_type !== undefined) {
+        await updateCastAppearance(panelId, projectCharacter.id, outfit_id, expression_type);
+      }
+    } else if (resolvedCharacterId === null) {
+      await clearLead(projectId, panelId);
+    } else if (outfit_id !== undefined || expression_type !== undefined) {
+      const lead = await prisma.panelCharacter.findFirst({
+        where: {
+          panel_id: panelId,
+          project_character_id: { not: null },
+        },
+        orderBy: { sort_order: "asc" },
+        select: { project_character_id: true },
+      });
+      if (lead?.project_character_id) {
+        await updateCastAppearance(panelId, lead.project_character_id, outfit_id, expression_type);
+      }
     }
 
-    // 更新 panel
-    const updatedPanel = await prisma.panel.update({
+    const data = {
+      ...(visual_prompt !== undefined && { visual_prompt }),
+      ...(dialogue !== undefined && { dialogue }),
+      ...(camera_angle !== undefined && { camera_angle }),
+      ...(shot_size !== undefined && { shot_size }),
+      ...(description !== undefined && { description }),
+      ...(panel_type !== undefined && { panel_type }),
+      ...(importance !== undefined && { importance }),
+      ...(emotion !== undefined && { emotion }),
+      ...(prompt_used !== undefined && { prompt_used }),
+      ...(generated_image !== undefined && { generated_image }),
+      ...(scene_id !== undefined && { scene_id }),
+    };
+
+    if (Object.keys(data).length > 0) {
+      await prisma.panel.update({
+        where: { id: panelId },
+        data,
+      });
+    }
+
+    const updatedPanel = await prisma.panel.findUnique({
       where: { id: panelId },
-      data: {
-        ...(visual_prompt !== undefined && { visual_prompt }),
-        ...(dialogue !== undefined && { dialogue }),
-        ...(camera_angle !== undefined && { camera_angle }),
-        ...(shot_size !== undefined && { shot_size }),
-        ...(description !== undefined && { description }),
-        ...(panel_type !== undefined && { panel_type }),
-        ...(importance !== undefined && { importance }),
-        // Do NOT write to character_name anymore
-        ...(emotion !== undefined && { emotion }),
-        ...(prompt_used !== undefined && { prompt_used }),
-        ...(generated_image !== undefined && { generated_image }),
-        // Phase 2: Asset binding fields
-        ...(resolvedCharacterId !== undefined && { character_id: resolvedCharacterId }),
-        ...(expression_type !== undefined && { expression_type }),
-        ...(outfit_id !== undefined && { outfit_id }),
-        ...(scene_id !== undefined && { scene_id }),
-      },
-      include: {
-        character: {
-          select: { id: true, name: true },
-        },
-        outfit: {
-          select: { id: true, outfit_name: true },
-        },
-        scene: {
-          select: { id: true, name: true },
-        },
-      },
+      include: panelInclude,
     });
 
     return {
@@ -165,24 +202,60 @@ export async function DELETE(
       throw new ApiError(403, "FORBIDDEN", "无权限删除此分镜");
     }
 
-    // 删除 panel
-    await prisma.panel.delete({
-      where: { id: panelId },
-    });
-
-    // 重新排序后续 panels (使用 Prisma query 代替 raw SQL)
-    await prisma.panel.updateMany({
-      where: {
-        project_id: existingPanel.project_id,
-        panel_order: { gt: existingPanel.panel_order },
-      },
-      data: {
-        panel_order: { decrement: 1 },
-      },
-    });
+    const discarded = await panels(existingPanel.project_id).remove([panelId]);
 
     return {
       message: "分镜已删除",
+      discarded,
     };
+  });
+}
+
+// 去掉排序第一的主角色，其余已绑定角色保持相对顺序。未绑定的 pending 行不保留。
+async function clearLead(projectId: string, panelId: string): Promise<void> {
+  const rows = await prisma.panelCharacter.findMany({
+    where: {
+      panel_id: panelId,
+      project_character_id: { not: null },
+    },
+    orderBy: { sort_order: "asc" },
+    select: {
+      project_character_id: true,
+      outfit_id: true,
+      expression_type: true,
+    },
+  });
+  const rest: CastMemberInput[] = [];
+  for (const row of rows.slice(1)) {
+    if (!row.project_character_id) continue;
+    rest.push({
+      projectCharacterId: row.project_character_id,
+      outfitId: row.outfit_id,
+      expression: row.expression_type,
+    });
+  }
+  await panels(projectId).setCast(panelId, rest);
+}
+
+async function updateCastAppearance(
+  panelId: string,
+  projectCharacterId: string,
+  outfitId: unknown,
+  expressionType: unknown,
+): Promise<void> {
+  const data: { outfit_id?: string | null; expression_type?: string | null } = {};
+  if (outfitId !== undefined) {
+    data.outfit_id = typeof outfitId === "string" ? outfitId : null;
+  }
+  if (expressionType !== undefined) {
+    data.expression_type = typeof expressionType === "string" ? expressionType : null;
+  }
+  if (Object.keys(data).length === 0) return;
+  await prisma.panelCharacter.updateMany({
+    where: {
+      panel_id: panelId,
+      project_character_id: projectCharacterId,
+    },
+    data,
   });
 }

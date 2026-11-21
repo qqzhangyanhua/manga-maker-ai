@@ -41,6 +41,7 @@ export default function StoryboardEditorPage({
   const [selectedPanelId, setSelectedPanelId] = useState<string | null>(null);
   const [insertDialogOpen, setInsertDialogOpen] = useState(false);
   const [insertAfterOrder, setInsertAfterOrder] = useState<number | null>(null);
+  const [insertAfterPanelId, setInsertAfterPanelId] = useState<string | null>(null);
   const [panelSelections, setPanelSelections] = useState<Record<string, { characterId?: string; styleKey?: string }>>({});
 
   // 批量操作弹窗状态
@@ -110,14 +111,15 @@ export default function StoryboardEditorPage({
   );
 
   // 插入分镜（打开对话框）
-  const handleInsertAfter = async (panelOrder: number) => {
+  const handleInsertAfter = async (panelOrder: number, panelId: string) => {
     setInsertAfterOrder(panelOrder);
+    setInsertAfterPanelId(panelId);
     setInsertDialogOpen(true);
   };
 
   // 执行插入操作
   const handleInsertPanelSubmit = async (description: string, useLLM: boolean) => {
-    await handleInsertPanel(description, useLLM, insertAfterOrder);
+    await handleInsertPanel(description, useLLM, insertAfterOrder, insertAfterPanelId);
   };
 
   const handleSelectionChange = (panelId: string, selection: { characterId?: string; styleKey?: string }) => {
