@@ -26,7 +26,6 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
   const [orderId, setOrderId] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"wechat" | "alipay">("wechat");
   const [creating, setCreating] = useState(false);
-  const [checking, setChecking] = useState(false);
   const [payingOrder, setPayingOrder] = useState<{
     planName: string;
     amount: number;
@@ -60,31 +59,27 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
       return;
     }
 
-    // 目录里的金额是分。现有下单接口仍按元计价，这里换算后再提交。
-    const amountYuan = Number(formatRechargePriceYuan(plan.priceFen));
-
     setCreating(true);
     try {
       const res = await fetch("/api/payment/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          planId: plan.id,
-          amount: amountYuan,
-          credits: plan.credits + (plan.bonus ?? 0),
-        }),
+        body: JSON.stringify({ planId: plan.id }),
       });
 
       const data = await res.json();
-      if (!res.ok) {
+      const order = data.data as
+        | { orderId?: string; amount?: number; credits?: number }
+        | undefined;
+      if (!res.ok || !order?.orderId) {
         throw new Error(data.error ?? "创建订单失败");
       }
 
-      setOrderId(data.orderId);
+      setOrderId(order.orderId);
       setPayingOrder({
         planName: plan.name,
-        amount: data.amount,
-        credits: data.credits,
+        amount: order.amount ?? 0,
+        credits: order.credits ?? 0,
       });
       setStep("paying");
     } catch (err) {
@@ -99,14 +94,15 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
     try {
       const res = await fetch(`/api/payment/check-order?orderId=${encodeURIComponent(orderId)}`);
       const data = await res.json();
-      if (data.success && data.status === "paid") {
+      const order = data.data as { status?: string; credits?: number; newBalance?: number } | undefined;
+      if (data.success && order?.status === "paid") {
         if (pollRef.current) {
           clearInterval(pollRef.current);
           pollRef.current = null;
         }
         setSuccessData({
-          credits: data.credits ?? 0,
-          newBalance: data.newBalance ?? 0,
+          credits: order.credits ?? 0,
+          newBalance: order.newBalance ?? 0,
         });
         setStep("success");
         onSuccess?.();
@@ -127,39 +123,6 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
       };
     }
   }, [step, orderId, checkOrderStatus]);
-
-  const handlePayComplete = async () => {
-    if (!orderId) return;
-    setChecking(true);
-    try {
-      const res = await fetch("/api/payment/simulate-paid", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error ?? "处理失败");
-      }
-
-      if (pollRef.current) {
-        clearInterval(pollRef.current);
-        pollRef.current = null;
-      }
-
-      setSuccessData({
-        credits: data.credits ?? 0,
-        newBalance: data.newBalance ?? 0,
-      });
-      setStep("success");
-      onSuccess?.();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "处理失败");
-    } finally {
-      setChecking(false);
-    }
-  };
 
   const handleBackFromPaying = () => {
     if (pollRef.current) {
@@ -185,7 +148,7 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
           </DialogTitle>
           <DialogDescription className="text-zinc-400">
             {step === "select" && "选择合适的套餐为您的账户充值算力"}
-            {step === "paying" && "请使用微信或支付宝扫码完成支付"}
+            {step === "paying" && "支付功能即将上线"}
             {step === "success" && "充值成功"}
           </DialogDescription>
         </DialogHeader>
@@ -292,6 +255,9 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
               <div className="text-xl font-bold text-orange-500">
                 金额：¥{payingOrder.amount}
               </div>
+              {orderId && (
+                <div className="text-xs text-zinc-500 break-all">订单号：{orderId}</div>
+              )}
             </div>
 
             <div className="flex flex-col items-center gap-4">
@@ -323,13 +289,6 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
             <div className="flex gap-3 justify-end">
               <Button variant="outline" onClick={handleBackFromPaying}>
                 取消
-              </Button>
-              <Button
-                onClick={handlePayComplete}
-                disabled={checking}
-                className="bg-orange-500 hover:bg-orange-600 text-white"
-              >
-                {checking ? "处理中..." : "我已完成支付"}
               </Button>
             </div>
           </div>

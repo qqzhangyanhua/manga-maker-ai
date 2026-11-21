@@ -1,58 +1,37 @@
-import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
-import { getOrder } from "@/lib/payment-order-store";
-import { getUserCredits } from "@/lib/credits";
+import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
+import {
+  errorResponse,
+  notFoundResponse,
+  successResponse,
+  unauthorizedResponse,
+  validationErrorResponse,
+} from "@/lib/api-response";
+import { prisma } from "@/lib/db";
+import { getRechargeOrder } from "@/lib/recharge-order";
+import { presentRechargeOrder } from "../present-order";
 
-export async function GET(req: NextRequest) {
+export async function GET(req: Request) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
-    if (!token) {
-      return NextResponse.json({ error: "未登录" }, { status: 401 });
-    }
+    if (!token) return unauthorizedResponse("未登录");
 
     const payload = verifyAuthToken(token);
-    if (!payload?.userId) {
-      return NextResponse.json({ error: "无效的token" }, { status: 401 });
-    }
+    if (!payload?.userId) return unauthorizedResponse("无效的token");
 
-    const orderId = req.nextUrl.searchParams.get("orderId");
-    if (!orderId) {
-      return NextResponse.json({ error: "缺少订单ID" }, { status: 400 });
-    }
+    const orderId = new URL(req.url).searchParams.get("orderId")?.trim() ?? "";
+    if (!orderId) return validationErrorResponse("缺少订单号");
 
-    const order = getOrder(orderId);
-    if (!order) {
-      return NextResponse.json({ error: "订单不存在" }, { status: 404 });
-    }
-
-    if (order.userId !== payload.userId) {
-      return NextResponse.json({ error: "无权限查看该订单" }, { status: 403 });
-    }
-
-    const message =
-      order.status === "pending"
-        ? "等待支付"
-        : order.status === "paid"
-          ? "支付成功"
-          : order.status === "expired"
-            ? "订单已过期"
-            : "支付失败";
-
-    const newBalance =
-      order.status === "paid" ? await getUserCredits(order.userId) : undefined;
-
-    return NextResponse.json({
-      success: true,
+    const result = await getRechargeOrder(prisma, {
+      userId: payload.userId,
       orderId,
-      status: order.status,
-      message,
-      credits: order.status === "paid" ? order.credits : undefined,
-      newBalance,
     });
+    if (!result.ok) return notFoundResponse("订单不存在");
+
+    return successResponse(presentRechargeOrder(result.order));
   } catch (error) {
     console.error("check-order error:", error);
-    return NextResponse.json({ error: "查询失败" }, { status: 500 });
+    return errorResponse("查询订单失败");
   }
 }

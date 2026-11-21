@@ -1,55 +1,40 @@
-import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
-import { createOrder } from "@/lib/payment-order-store";
+import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
+import {
+  errorResponse,
+  successResponse,
+  unauthorizedResponse,
+  validationErrorResponse,
+} from "@/lib/api-response";
+import { prisma } from "@/lib/db";
+import { createRechargeOrder } from "@/lib/recharge-order";
+import { presentRechargeOrder } from "../present-order";
 
-interface CreateOrderBody {
-  planId: string;
-  amount: number;
-  credits: number;
+function readPlanId(body: unknown): string {
+  if (typeof body !== "object" || body === null || !("planId" in body)) return "";
+  const { planId } = body;
+  return typeof planId === "string" ? planId.trim() : "";
 }
 
 export async function POST(req: Request) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
-    if (!token) {
-      return NextResponse.json({ error: "未登录" }, { status: 401 });
-    }
+    if (!token) return unauthorizedResponse("未登录");
 
     const payload = verifyAuthToken(token);
-    if (!payload?.userId) {
-      return NextResponse.json({ error: "无效的token" }, { status: 401 });
-    }
+    if (!payload?.userId) return unauthorizedResponse("无效的token");
 
-    const body: CreateOrderBody = await req.json();
-    const { planId, amount, credits } = body;
-
-    if (!planId || !amount || !credits) {
-      return NextResponse.json({ error: "参数不完整" }, { status: 400 });
-    }
-
-    const orderId = `order_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
-    createOrder({
-      orderId,
+    const planId = readPlanId(await req.json());
+    const result = await createRechargeOrder(prisma, {
       userId: payload.userId,
       planId,
-      amount,
-      credits,
     });
+    if (!result.ok) return validationErrorResponse("未知套餐");
 
-    return NextResponse.json({
-      success: true,
-      orderId,
-      amount,
-      credits,
-      qrCodeUrl: null,
-      paymentMethods: ["wechat", "alipay"],
-      expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
-    });
+    return successResponse(presentRechargeOrder(result.order));
   } catch (error) {
     console.error("create-order error:", error);
-    return NextResponse.json({ error: "创建订单失败" }, { status: 500 });
+    return errorResponse("创建订单失败");
   }
 }
