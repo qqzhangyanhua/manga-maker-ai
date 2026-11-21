@@ -57,6 +57,8 @@ RAG_ENABLE_VECTOR_SEARCH=true
 uvicorn app.main:app --reload
 ```
 
+进程内测试不启动上面的服务，也不连接真实数据库或模型。在 `services/novel-backend` 执行 `pip install -r requirements-dev.txt`，然后 `pytest`。收集范围只有 `tests/`。
+
 启动日志示例：
 
 ```

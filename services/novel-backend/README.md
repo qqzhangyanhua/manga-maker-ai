@@ -14,6 +14,7 @@
 ---
 - source .venv/bin/activate
 - uvicorn app.main:app --reload --port 8000
+- 进程内测试不启动服务，也不需要真实数据库或模型密钥：`pip install -r requirements-dev.txt`，然后在本目录执行 `pytest`
 ## 🎯 Phase 1: 基础优化（已完成）
 
 ### 1.1 提示词模板管理系统
