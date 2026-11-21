@@ -31,6 +31,14 @@ export interface StoredPanel {
   character_id?: string | null;
   outfit_id?: string | null;
   expression_type?: string | null;
+  generated_image?: string | null;
+  character_name?: string | null;
+  sketch_image_url?: string | null;
+  script_segment_id?: string | null;
+  is_shared?: boolean;
+  shared_at?: Date | null;
+  view_count?: number;
+  show_prompt?: boolean;
 }
 
 export interface StoredCast {

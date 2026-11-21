@@ -1,4 +1,14 @@
 export { plan } from "./plan";
+export { planChapterRestores, snapshotPanelField } from "./restore-plan";
+export type { ChapterRestorePlan, RestoredPanelSource } from "./restore-plan";
+export { PANEL_WRITE_TX_OPTIONS, lockChapter, lockChapters } from "./session";
+export {
+  keptPanelSelect,
+  planTemplateInsert,
+  planTemplateReplace,
+  templateShotInput,
+} from "./template-apply-plan";
+export type { KeptPanelRow, TemplateApplyPlan, TemplateShot } from "./template-apply-plan";
 export type {
   CastMemberInput,
   ChapterDraft,
