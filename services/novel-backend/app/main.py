@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 import logging
 
 from .config import settings
+from .startup import startup_hooks
 from .routers import (
     chapters,
     inspiration,
@@ -42,33 +43,10 @@ async def lifespan(app: FastAPI):
     logger.info(f"📊 数据库: {settings.DATABASE_URL.split('@')[-1]}")
     logger.info(f"🤖 AI 模型: {settings.OPENAI_MODEL}")
 
-    # 预热数据库连接池（减少首次请求延迟）
-    from .database import AsyncSessionLocal
-    from sqlalchemy import text
-    import time
-    
-    try:
-        start_time = time.time()
-        async with AsyncSessionLocal() as session:
-            await session.execute(text("SELECT 1"))
-        warmup_time = (time.time() - start_time) * 1000
-        logger.info(f"🔌 数据库连接池预热完成 ({warmup_time:.0f}ms)")
-    except Exception as e:
-        logger.warning(f"⚠️ 数据库连接池预热失败: {e}")
-
-    # 初始化向量服务
-    from .services.vector_service import get_vector_service
-    vector_service = get_vector_service()
-    if vector_service.enabled:
-        stats = vector_service.get_stats()
-        logger.info(
-            f"🔍 RAG 向量服务已启用 - "
-            f"Collection: {stats.get('collection_name')}, "
-            f"文档数: {stats.get('total_documents')}, "
-            f"Embedding: {stats.get('embedding_model')}"
-        )
-    else:
-        logger.warning("⚠️ RAG 向量服务未启用，将使用关键词匹配降级模式")
+    # 外部依赖集中在可替换钩子，进程内测试不必连接真实服务
+    await startup_hooks.postgres()
+    startup_hooks.vector_store()
+    startup_hooks.object_storage()
 
     yield
     logger.info("👋 Novel Backend Service 关闭")

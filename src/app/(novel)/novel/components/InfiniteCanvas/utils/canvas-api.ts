@@ -29,8 +29,11 @@ export function skippedPanelMessage(
   }).join("；");
 }
 
-/** 读取画布接口的错误信息；未归属项目时抛 CanvasProjectRequiredError */
+/** 读取画布接口的错误信息；未归属项目时抛 CanvasProjectRequiredError。登录失效统一提示重新登录。 */
 export async function readCanvasError(response: Response, fallback: string): Promise<string> {
+  if (response.status === 401) {
+    return "请重新登录";
+  }
   let body: CanvasErrorBody = {};
   try {
     body = (await response.json()) as CanvasErrorBody;

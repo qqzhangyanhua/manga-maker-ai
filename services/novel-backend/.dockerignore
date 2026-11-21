@@ -1,0 +1,2 @@
+# 开发依赖不进入构建上下文，生产镜像只安装 requirements.txt
+requirements-dev.txt
