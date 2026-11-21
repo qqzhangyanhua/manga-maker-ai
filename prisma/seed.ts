@@ -13,6 +13,7 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { PREDEFINED_TEMPLATES } from '../src/lib/story-templates';
+import { panels } from '../src/lib/project/chapter-panels';
 import { ensureStoryProject } from '../src/lib/project/story-project';
 import { seedGenres } from './seeds/genres-seed';
 
@@ -715,23 +716,19 @@ async function main() {
       data: { project_id: project.id, story_id: story.id, title: '第一章', chapter_order: 1 }
     });
 
-    // Create panels
-    for (const panel of sample.panels) {
-      await prisma.panel.create({
-        data: {
-          project_id: project.id,
-          chapter_id: chapter.id,
-          panel_order: panel.panel_order,
-          panel_type: panel.panel_type,
-          importance: panel.importance,
-          description: panel.description,
-          dialogue: panel.dialogue,
-          camera_angle: panel.camera_angle,
-          shot_size: panel.shot_size,
-          generated_image: panel.generated_image,
-        }
-      });
-    }
+    const orderedPanels = [...sample.panels].sort((left, right) => left.panel_order - right.panel_order);
+    await panels(project.id).add(
+      orderedPanels.map((panel) => ({
+        panelType: panel.panel_type,
+        importance: panel.importance,
+        description: panel.description,
+        dialogue: panel.dialogue,
+        cameraAngle: panel.camera_angle,
+        shotSize: panel.shot_size,
+        generatedImage: panel.generated_image,
+      })),
+      { chapter: chapter.id },
+    );
 
     console.log(`✓ 创建示例项目: ${sample.story.title} (${sample.panels.length} 格)`);
   }

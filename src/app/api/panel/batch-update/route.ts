@@ -10,8 +10,27 @@ import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ApiError } from "@/lib/api-helpers";
 import { ensureProjectCharacters } from "@/lib/project";
+import { panels as chapterPanels } from "@/lib/project/chapter-panels";
+import type { LeadAppearance } from "@/lib/project/chapter-panels";
 
 export const dynamic = "force-dynamic";
+
+function contentFields(update: PanelUpdateData): Omit<PanelUpdateData, "character_id" | "expression_type" | "outfit_id"> {
+  return {
+    ...(update.panel_type !== undefined && { panel_type: update.panel_type }),
+    ...(update.importance !== undefined && { importance: update.importance }),
+    ...(update.camera_angle !== undefined && { camera_angle: update.camera_angle }),
+    ...(update.shot_size !== undefined && { shot_size: update.shot_size }),
+    ...(update.scene_id !== undefined && { scene_id: update.scene_id }),
+  };
+}
+
+function leadAppearance(update: PanelUpdateData): LeadAppearance | undefined {
+  const appearance: LeadAppearance = {};
+  if (update.outfit_id !== undefined) appearance.outfitId = update.outfit_id;
+  if (update.expression_type !== undefined) appearance.expression = update.expression_type;
+  return Object.keys(appearance).length > 0 ? appearance : undefined;
+}
 
 interface PanelUpdateData {
   panel_type?: string;
@@ -184,20 +203,51 @@ export async function POST(req: Request) {
       );
     }
 
-    // 绑定的角色必须是项目角色：角色库中的角色自动加入，非本人角色返回 400
+    const contentUpdate = contentFields(updateData);
+    const appearance = leadAppearance(updateData);
+    // 主角色列由在场角色触发器派生。角色、服装、表情只通过 setLead 写在场角色。
     await prisma.$transaction(async (tx) => {
-      await ensureProjectCharacters(tx, {
-        projectId: project.id,
-        userId: payload.userId,
-        characterIds: [updateData.character_id],
-      });
+      const writer = chapterPanels(project.id, { tx });
+      if (updateData.character_id) {
+        await ensureProjectCharacters(tx, {
+          projectId: project.id,
+          userId: payload.userId,
+          characterIds: [updateData.character_id],
+        });
+        const projectCharacter = await tx.projectCharacter.findUnique({
+          where: {
+            project_id_character_id: {
+              project_id: project.id,
+              character_id: updateData.character_id,
+            },
+          },
+          select: { id: true },
+        });
+        if (!projectCharacter) {
+          throw new ApiError(400, "INVALID_CHARACTER", "角色不存在或不属于当前用户");
+        }
+        await writer.setLead(panelIds, projectCharacter.id, appearance);
+      } else if (appearance) {
+        for (const panelId of panelIds) {
+          // 与 panels_reject_inconsistent_lead 同一顺序，避免并列 sort_order 时改到另一位角色。
+          const lead = await tx.panelCharacter.findFirst({
+            where: { panel_id: panelId, project_character_id: { not: null } },
+            orderBy: [{ sort_order: "asc" }, { created_at: "asc" }, { id: "asc" }],
+            select: { project_character_id: true },
+          });
+          if (!lead?.project_character_id) {
+            throw new ApiError(400, "LEAD_MISSING", "没有在场角色，不能改主角色的服装或表情");
+          }
+          await writer.setLead([panelId], lead.project_character_id, appearance);
+        }
+      }
 
-      await tx.panel.updateMany({
-        where: {
-          id: { in: panelIds }
-        },
-        data: updateData
-      });
+      if (Object.keys(contentUpdate).length > 0) {
+        await tx.panel.updateMany({
+          where: { id: { in: panelIds } },
+          data: contentUpdate,
+        });
+      }
     });
 
     // Get updated panels for response
@@ -219,7 +269,7 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     if (error instanceof ApiError) {
-      return NextResponse.json({ error: error.message, code: error.code }, { status: error.statusCode });
+      return NextResponse.json(error.toJSON(), { status: error.statusCode });
     }
     console.error("Batch update panels error:", error);
     const message = error instanceof Error ? error.message : "未知错误";

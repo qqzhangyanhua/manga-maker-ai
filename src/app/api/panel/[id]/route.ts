@@ -138,7 +138,7 @@ export async function PATCH(
           panel_id: panelId,
           project_character_id: { not: null },
         },
-        orderBy: { sort_order: "asc" },
+        orderBy: [{ sort_order: "asc" }, { created_at: "asc" }, { id: "asc" }],
         select: { project_character_id: true },
       });
       if (lead?.project_character_id) {
@@ -209,14 +209,14 @@ export async function DELETE(
   });
 }
 
-// 去掉排序第一的主角色，其余已绑定角色保持相对顺序。未绑定的 pending 行不保留。
+// 去掉第一位在场角色。顺序与 panels_reject_inconsistent_lead 相同。未绑定的 pending 行不保留。
 async function clearLead(projectId: string, panelId: string): Promise<void> {
   const rows = await prisma.panelCharacter.findMany({
     where: {
       panel_id: panelId,
       project_character_id: { not: null },
     },
-    orderBy: { sort_order: "asc" },
+    orderBy: [{ sort_order: "asc" }, { created_at: "asc" }, { id: "asc" }],
     select: {
       project_character_id: true,
       outfit_id: true,

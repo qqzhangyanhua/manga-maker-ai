@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { ensureProjectCharacters } from "@/lib/project";
+import { bindPendingCharacters } from "@/lib/project/chapter-panels";
 import { PENDING_CHARACTER_PREFIX } from "./shot-mapping";
 
 /** 小说人物还没加入角色库时，画布镜头里用的临时 ID */
@@ -45,46 +46,12 @@ export async function promotePendingCharacters(
       select: { id: true },
     });
 
-    const bound = new Set(
-      (
-        await tx.panelCharacter.findMany({
-          where: {
-            panel_id: { in: Array.from(new Set(pending.map((p) => p.panel_id))) },
-            project_character_id: projectCharacter.id,
-          },
-          select: { panel_id: true },
-        })
-      ).map((row) => row.panel_id)
+    await bindPendingCharacters(
+      tx,
+      params.projectId,
+      projectCharacter.id,
+      pending.map((row) => ({ id: row.id, panelId: row.panel_id })),
     );
-
-    for (const row of pending) {
-      if (bound.has(row.panel_id)) {
-        await tx.panelCharacter.delete({ where: { id: row.id } });
-        continue;
-      }
-      await tx.panelCharacter.update({
-        where: { id: row.id },
-        data: { project_character_id: projectCharacter.id, pending_character_key: null, pending_character_name: null },
-      });
-      bound.add(row.panel_id);
-    }
-
-    // 主角色兼容字段：分镜原来没有已入库角色的，现在第一个就是它
-    for (const panelId of Array.from(bound)) {
-      const first = await tx.panelCharacter.findFirst({
-        where: { panel_id: panelId, project_character_id: { not: null } },
-        orderBy: [{ sort_order: "asc" }, { created_at: "asc" }],
-        include: { project_character: { select: { character_id: true } } },
-      });
-      await tx.panel.update({
-        where: { id: panelId },
-        data: {
-          character_id: first?.project_character?.character_id ?? null,
-          outfit_id: first?.outfit_id ?? null,
-          expression_type: first?.expression_type ?? null,
-        },
-      });
-    }
     return pending.length;
   });
 }

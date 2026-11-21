@@ -39,6 +39,7 @@ function createDb() {
     timelineChapter: { findUnique: vi.fn() },
     scriptSegment: { create: vi.fn() },
     panel: { findMany: vi.fn(), findUnique: vi.fn(), deleteMany: vi.fn(), create: vi.fn() },
+    projectCharacter: { findMany: vi.fn() },
     $executeRaw: vi.fn(),
   };
   db.scriptSegment.create.mockImplementation(async (args: { data: { chapter_id: string | null; timeline_chapter_id: string | null; content: string; source_text_start: number; source_text_end: number; segment_order: number } }) => {
@@ -58,6 +59,7 @@ function createDb() {
     id: PANEL_NEW,
     ...args.data,
   }));
+  db.projectCharacter.findMany.mockResolvedValue([]);
   db.panel.deleteMany.mockResolvedValue({ count: 2 });
   db.$executeRaw.mockResolvedValue(0);
   return db;
@@ -118,10 +120,8 @@ describe("剧本片段 module", () => {
     expect(written[0].chapter_id).toBe(ANCHOR);
   });
 
-  it("分镜只留下剧本片段 id", async () => {
-    const db = createDb();
-
-    const written = await writeStoryboardOnChapter(asClient(db), {
+  function storyboardInput(characterId: string | null) {
+    return {
       projectId: PROJECT,
       chapterId: CHAPTER,
       segments: [{ sourceKey: "seg_1", content: "雨夜", start: 0, end: 2 }],
@@ -133,7 +133,7 @@ describe("剧本片段 module", () => {
           importance: "high",
           description: "林晓站在雨里",
           dialogue: null,
-          character_id: null,
+          character_id: characterId,
           character_name: null,
           emotion: null,
           prompt_used: "rain street",
@@ -144,20 +144,49 @@ describe("剧本片段 module", () => {
           visual_prompt: "雨夜街道",
         },
       ],
-    });
+    };
+  }
+
+  it("分镜只留下剧本片段 id", async () => {
+    const db = createDb();
+    const add = vi.fn().mockResolvedValue([{ id: PANEL_NEW, panelOrder: 1 }]);
+    const setLead = vi.fn();
+    panelsMock.mockReturnValue({ add, setLead });
+
+    const written = await writeStoryboardOnChapter(asClient(db), storyboardInput(null));
 
     const segmentData = db.scriptSegment.create.mock.calls[0][0].data;
     expect(segmentData.chapter_id).toBe(CHAPTER);
     expect(segmentData.timeline_chapter_id).toBeNull();
     expect(segmentData.content).toBe("雨夜");
+    expect(panelsMock).toHaveBeenCalledWith(PROJECT, { tx: asClient(db) });
+    expect(add).toHaveBeenCalledWith(
+      [expect.objectContaining({ segmentId: SEGMENT_ROW, panelType: "wide", description: "林晓站在雨里" })],
+      { chapter: CHAPTER },
+    );
+    const panelInput = add.mock.calls[0]?.[0]?.[0] as Record<string, unknown>;
+    expect(panelInput).not.toHaveProperty("character_id");
+    expect(panelInput).not.toHaveProperty("panel_order");
+    expect(panelInput).not.toHaveProperty("script_segment_id");
+    expect(setLead).not.toHaveBeenCalled();
+    expect(written.panels[0]?.segment_id).toBe(SEGMENT_ROW);
+    expect(written.segments[0]?.id).toBe(SEGMENT_ROW);
+  });
 
-    const panelData = db.panel.create.mock.calls[0][0].data;
-    expect(panelData.segment_id).toBe(SEGMENT_ROW);
-    expect(panelData.chapter_id).toBe(CHAPTER);
-    expect(panelData.project_id).toBe(PROJECT);
-    expect(panelData).not.toHaveProperty("script_segment_id");
-    expect(written.panels[0].segment_id).toBe(SEGMENT_ROW);
-    expect(written.segments[0].id).toBe(SEGMENT_ROW);
+  it("角色库 id 已有项目角色时用 setLead，不把主角色写进新分镜", async () => {
+    const db = createDb();
+    const projectCharacterId = "55555555-5555-4555-8555-555555555555";
+    const libraryId = "77777777-7777-4777-8777-777777777777";
+    db.projectCharacter.findMany.mockResolvedValue([{ id: projectCharacterId, character_id: libraryId }]);
+    const add = vi.fn().mockResolvedValue([{ id: PANEL_NEW, panelOrder: 1 }]);
+    const setLead = vi.fn();
+    panelsMock.mockReturnValue({ add, setLead });
+
+    await writeStoryboardOnChapter(asClient(db), storyboardInput(libraryId));
+
+    expect(setLead).toHaveBeenCalledWith([PANEL_NEW], projectCharacterId);
+    const panelInput = add.mock.calls[0]?.[0]?.[0] as Record<string, unknown>;
+    expect(panelInput).not.toHaveProperty("character_id");
   });
 
   it("合并保留第一个分镜的剧本片段 id，不写字符串片段 id", async () => {

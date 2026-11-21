@@ -5,10 +5,14 @@ import { verifyAuthToken } from "@/lib/auth";
 import { callChatCompletionByType } from "@/lib/llm-provider";
 import { assertAndIncrementUsage } from "@/lib/usage";
 
-const { mockCookiesGet, mockCookies } = vi.hoisted(() => {
+const { mockCookiesGet, mockCookies, add, panelsMock } = vi.hoisted(() => {
   const mockCookiesGet = vi.fn();
   const mockCookies = vi.fn();
-  return { mockCookiesGet, mockCookies };
+  const add = vi.fn(async (input: readonly unknown[]) =>
+    input.map((_row, index) => ({ id: `panel-${index + 1}`, panelOrder: index + 1 })),
+  );
+  const panelsMock = vi.fn(() => ({ add, setLead: vi.fn() }));
+  return { mockCookiesGet, mockCookies, add, panelsMock };
 });
 
 vi.mock("next/headers", () => ({
@@ -32,6 +36,13 @@ vi.mock("@/lib/generation-log", () => ({
   recordGenerationLog: vi.fn(),
 }));
 
+vi.mock("@/lib/project/chapter-panels", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/project/chapter-panels")>(
+    "@/lib/project/chapter-panels",
+  );
+  return { ...actual, panels: panelsMock };
+});
+
 vi.mock("@/lib/db", () => ({
   prisma: {
     $transaction: vi.fn(),
@@ -54,6 +65,7 @@ vi.mock("@/lib/db", () => ({
     },
     projectCharacter: {
       createMany: vi.fn(),
+      findMany: vi.fn(),
     },
     scriptSegment: {
       create: vi.fn(),
@@ -96,16 +108,10 @@ describe("POST /api/storyboard 关联故事", () => {
         ...data,
       })
     );
-    (prisma.panel.create as ReturnType<typeof vi.fn>).mockImplementation(
-      async ({ data }: { data: { panel_order: number } }) => ({
-        id: `panel-${data.panel_order}`,
-        ...data,
-      })
-    );
+    (prisma.projectCharacter.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   });
 
-  const panelsWritten = () =>
-    (prisma.panel.create as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[0].data);
+  const panelsWritten = () => (add.mock.calls.at(-1)?.[0] ?? []) as unknown[];
 
   const storyId = "story-1";
   const storyProject = {

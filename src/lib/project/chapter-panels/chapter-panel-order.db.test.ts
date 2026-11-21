@@ -16,6 +16,7 @@ import {
   reading,
   seedProject,
   seedRenumberCase,
+  withoutLeadGuard,
   stableChapter,
   tiedChapter,
 } from "./chapter-panel-order-db";
@@ -174,13 +175,15 @@ describe("章节重编号迁移", () => {
         sort_order: 0,
       },
     });
-    await db.panel.update({
-      where: { id: pendingPanel.id },
-      data: { character_id: newcomer.id, outfit_id: outfit.id, expression_type: "shy" },
-    });
-    await db.panel.update({
-      where: { id: memberPanel.id },
-      data: { character_id: member.id, expression_type: "happy" },
+    await withoutLeadGuard(async () => {
+      await db.panel.update({
+        where: { id: pendingPanel.id },
+        data: { character_id: newcomer.id, outfit_id: outfit.id, expression_type: "shy" },
+      });
+      await db.panel.update({
+        where: { id: memberPanel.id },
+        data: { character_id: member.id, expression_type: "happy" },
+      });
     });
 
     expect(await dryRunCounts()).toEqual({ chapters: 0, panels: 2, projectCharacters: 1 });

@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { generatePanelsFromChapter } from "@/lib/panel-generator";
+import { panels as writeChapterPanels } from "@/lib/project/chapter-panels";
 import { assertAndIncrementUsage } from "@/lib/usage";
 import { recordGenerationLog } from "@/lib/generation-log";
 import { logInfo, logError } from "@/lib/api-logger";
@@ -212,27 +213,27 @@ export async function POST(
     });
 
     // 9. 批量创建分镜记录
-    const panels = await prisma.$transaction(
-      generatedPanels.map((panel) =>
-        prisma.panel.create({
-          data: {
-            project_id: projectId,
-            chapter_id: chapter.id,
-            panel_order: panel.panel_order,
-            description: panel.description,
-            visual_prompt: panel.visual_prompt,
-            dialogue: panel.dialogue || null,
-            panel_type: panel.panel_type,
-            importance: panel.importance,
-            camera_angle: panel.camera_angle || null,
-            shot_size: panel.shot_size || null,
-            camera_movement: panel.camera_movement || null,
-            movement_speed: panel.movement_speed || null,
-            movement_direction: panel.movement_direction || null
-          }
-        })
-      )
+    const createdPanels = await writeChapterPanels(projectId).add(
+      [...generatedPanels]
+        .sort((left, right) => left.panel_order - right.panel_order)
+        .map((panel) => ({
+          panelType: panel.panel_type,
+          importance: panel.importance,
+          description: panel.description,
+          visualPrompt: panel.visual_prompt,
+          dialogue: panel.dialogue || null,
+          cameraAngle: panel.camera_angle || null,
+          shotSize: panel.shot_size || null,
+          cameraMovement: panel.camera_movement || null,
+          movementSpeed: panel.movement_speed || null,
+          movementDirection: panel.movement_direction || null,
+        })),
+      { chapter: chapter.id },
     );
+    const panels = await prisma.panel.findMany({
+      where: { id: { in: createdPanels.map((panel) => panel.id) } },
+      orderBy: { panel_order: "asc" },
+    });
 
     // 10. 记录生成日志
     await recordGenerationLog({

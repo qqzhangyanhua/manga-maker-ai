@@ -140,7 +140,7 @@ export async function writeStoryboardOnChapter(
   db: Db,
   input: StoryboardChapterInput
 ): Promise<StoryboardChapterWrite> {
-  const created = await createChapterScriptSegments(db, {
+  const createdSegments = await createChapterScriptSegments(db, {
     chapterId: input.chapterId,
     segments: input.segments.map((segment, index) => ({
       segment_order: index + 1,
@@ -157,42 +157,62 @@ export async function writeStoryboardOnChapter(
 
   const segmentIdByKey = new Map<string, string>();
   input.segments.forEach((segment, index) => {
-    const row = created[index];
+    const row = createdSegments[index];
     if (row && !segmentIdByKey.has(segment.sourceKey)) {
       segmentIdByKey.set(segment.sourceKey, row.id);
     }
   });
 
-  const panels: Array<{ id: string; segment_id: string | null }> = [];
-  for (const panel of input.panels) {
-    const segmentId = panel.sourceKey ? segmentIdByKey.get(panel.sourceKey) ?? null : null;
-    const createdPanel = await db.panel.create({
-      data: {
-        project_id: input.projectId,
-        chapter_id: input.chapterId,
-        segment_id: segmentId,
-        panel_order: panel.panel_order,
-        panel_type: panel.panel_type,
-        importance: panel.importance,
-        description: panel.description,
-        dialogue: panel.dialogue,
-        character_id: panel.character_id,
-        character_name: panel.character_name,
-        emotion: panel.emotion,
-        prompt_used: panel.prompt_used,
-        generated_image: null,
-        script_start: panel.script_start,
-        script_end: panel.script_end,
-        camera_angle: panel.camera_angle,
-        shot_size: panel.shot_size,
-        visual_prompt: panel.visual_prompt,
-      },
+  const ordered = [...input.panels].sort((left, right) => left.panel_order - right.panel_order);
+  const writer = chapterPanels(db, input.projectId);
+  const createdPanels = await writer.add(
+    ordered.map((panel) => ({
+      segmentId: panel.sourceKey ? segmentIdByKey.get(panel.sourceKey) ?? null : null,
+      panelType: panel.panel_type,
+      importance: panel.importance,
+      description: panel.description,
+      dialogue: panel.dialogue,
+      characterName: panel.character_name,
+      emotion: panel.emotion,
+      promptUsed: panel.prompt_used,
+      scriptStart: panel.script_start,
+      scriptEnd: panel.script_end,
+      cameraAngle: panel.camera_angle,
+      shotSize: panel.shot_size,
+      visualPrompt: panel.visual_prompt,
+    })),
+    { chapter: input.chapterId },
+  );
+
+  const libraryIds = ordered
+    .map((panel) => panel.character_id)
+    .filter((id): id is string => typeof id === "string" && id.length > 0);
+  if (libraryIds.length > 0) {
+    const projectCharacters = await db.projectCharacter.findMany({
+      where: { project_id: input.projectId, character_id: { in: libraryIds } },
+      select: { id: true, character_id: true },
     });
-    panels.push({ id: createdPanel.id, segment_id: segmentId });
+    const byLibrary = new Map(projectCharacters.map((row) => [row.character_id, row.id]));
+    for (let index = 0; index < ordered.length; index += 1) {
+      const libraryId = ordered[index]?.character_id;
+      const panelId = createdPanels[index]?.id;
+      if (!libraryId || !panelId) continue;
+      const projectCharacterId = byLibrary.get(libraryId);
+      if (!projectCharacterId) continue;
+      await writer.setLead([panelId], projectCharacterId);
+    }
   }
 
+  const panels = createdPanels.map((panel, index) => {
+    const sourceKey = ordered[index]?.sourceKey;
+    return {
+      id: panel.id,
+      segment_id: sourceKey ? segmentIdByKey.get(sourceKey) ?? null : null,
+    };
+  });
+
   return {
-    segments: created.map((row, index) => ({
+    segments: createdSegments.map((row, index) => ({
       id: row.id,
       chapter_id: row.chapter_id,
       content: row.content,
@@ -240,6 +260,11 @@ export async function mergePanelsKeepingSegment(db: Db, input: MergePanelsInput)
 // 事务客户端没有 $transaction。已经在事务里就接着用，否则自己开一个。
 function isPrismaClient(db: Db): db is PrismaClient {
   return "$transaction" in db;
+}
+
+function chapterPanels(db: Db, projectId: string) {
+  if (isPrismaClient(db)) return panels(projectId, { db });
+  return panels(projectId, { tx: db });
 }
 
 function mergeThroughPanels(

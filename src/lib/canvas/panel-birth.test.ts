@@ -30,7 +30,7 @@ function createDb() {
     $executeRaw: vi.fn(),
     character: { findMany: vi.fn() },
     project: { findUnique: vi.fn() },
-    projectCharacter: { findMany: vi.fn(), create: vi.fn() },
+    projectCharacter: { findMany: vi.fn(), createMany: vi.fn() },
     suggestedCharacter: { findMany: vi.fn(), create: vi.fn() },
     scriptSegment: { count: vi.fn() },
     chapter: { findUnique: vi.fn() },
@@ -66,19 +66,20 @@ function createDb() {
   db.panel.update.mockResolvedValue({});
   db.panelCharacter.createMany.mockResolvedValue({ count: 0 });
   db.panelCharacter.deleteMany.mockResolvedValue({ count: 0 });
-  db.projectCharacter.create.mockImplementation(async () => {
-    projectCharacters.push({ id: PC_NEW, character_id: LIB2, character: { outfits: [] } });
-    return { id: PC_NEW };
+  db.projectCharacter.createMany.mockImplementation(async (args: { data: Array<{ character_id: string }> }) => {
+    const row = args.data.find((item) => !projectCharacters.some((existing) => existing.character_id === item.character_id));
+    if (row) projectCharacters.push({ id: PC_NEW, character_id: row.character_id, character: { outfits: [] } });
+    return { count: args.data.length };
   });
   db.projectCharacter.findMany.mockImplementation(async (args: { where?: { id?: { in?: string[] } } }) => {
     const ids = args.where?.id?.in;
-    if (!ids) return projectCharacters;
-    return projectCharacters.filter((row) => ids.includes(row.id));
+    return ids ? projectCharacters.filter((row) => ids.includes(row.id)) : projectCharacters;
   });
-  db.character.findMany.mockResolvedValue([
-    { id: LIB1, name: "林晓" },
-    { id: LIB2, name: "Alice" },
-  ]);
+  db.character.findMany.mockImplementation(async (args: { where?: { id?: { in?: string[] } } }) => {
+    const library = [{ id: LIB1, name: "林晓" }, { id: LIB2, name: "Alice" }];
+    const ids = args.where?.id?.in;
+    return ids ? library.filter((row) => ids.includes(row.id)) : library;
+  });
   db.project.findUnique.mockResolvedValue({ story_id: STORY_ID });
   db.suggestedCharacter.findMany.mockResolvedValue([]);
   db.suggestedCharacter.create.mockResolvedValue({ id: "suggested-1" });
@@ -173,7 +174,7 @@ describe("从一章小说生成分镜", () => {
         { id: LIB2, name: "Alice" },
       ],
     });
-    expect(db.projectCharacter.create).not.toHaveBeenCalled();
+    expect(db.projectCharacter.createMany).not.toHaveBeenCalled();
     expect(db.panel.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         project_id: PROJECT_ID,
@@ -234,10 +235,10 @@ describe("从一章小说生成分镜", () => {
       plan,
     });
 
-    expect(db.projectCharacter.create).toHaveBeenCalledTimes(1);
-    expect(db.projectCharacter.create).toHaveBeenCalledWith({
-      data: { project_id: PROJECT_ID, character_id: LIB2, role: "minor" },
-      select: { id: true },
+    expect(db.projectCharacter.createMany).toHaveBeenCalledTimes(1);
+    expect(db.projectCharacter.createMany).toHaveBeenCalledWith({
+      data: [{ project_id: PROJECT_ID, character_id: LIB2, role: "minor" }],
+      skipDuplicates: true,
     });
     expect(db.panelCharacter.createMany).toHaveBeenCalledWith({
       data: [
@@ -464,10 +465,9 @@ describe("从一章小说生成分镜", () => {
       segments: [segment(), segment(SEGMENT_2, "第二段")],
       plan,
     })).rejects.toThrow("规划服务不可用");
-
     expect(db.$transaction).not.toHaveBeenCalled();
     expect(db.panel.create).not.toHaveBeenCalled();
-    expect(db.projectCharacter.create).not.toHaveBeenCalled();
+    expect(db.projectCharacter.createMany).not.toHaveBeenCalled();
     expect(db.suggestedCharacter.create).not.toHaveBeenCalled();
   });
 

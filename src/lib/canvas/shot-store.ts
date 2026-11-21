@@ -1,15 +1,10 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
-import { ApiError } from "@/lib/api-error";
-import { filterOwnedCharacterIds } from "@/lib/project";
 import { normalizePanelCast, panels } from "@/lib/project/chapter-panels";
-import type { CastMemberInput } from "@/lib/project/chapter-panels";
-import { canvasShotInclude, isUuid, planPanelCharacters, toCanvasFinal, toCanvasShots } from "./shot-mapping";
-import type { AnchoredCanvasChapter, CanvasShotContext } from "./context";
+import { canvasShotInclude, isUuid, toCanvasFinal, toCanvasShots } from "./shot-mapping";
+import type { CanvasShotContext } from "./context";
 import type {
   CanvasFinal,
   CanvasShot,
-  CanvasShotCharacters,
-  CanvasShotInput,
   CanvasShotPatch,
   CanvasShotPipelineFields,
 } from "./types";
@@ -63,117 +58,6 @@ export async function countChapterCharacters(db: Db, timelineChapterId: string):
   return new Map(Array.from(panelsByCharacter, ([id, panels]) => [id, panels.size]));
 }
 
-/**
- * 整体替换分镜角色。已在当前用户角色库里的写成项目角色（不在项目里的自动加入），
- * unbound-xxx 写成待绑定，其余丢弃。待绑定角色的名称没传时沿用原来记录的。
- */
-export async function replacePanelCharacters(
-  tx: Tx,
-  params: { panelId: string; projectId: string; userId: string; characters: CanvasShotCharacters }
-): Promise<void> {
-  const { panelId, projectId, userId, characters } = params;
-  const existing = await tx.panelCharacter.findMany({
-    where: { panel_id: panelId, pending_character_key: { not: null } },
-    select: { pending_character_key: true, pending_character_name: true },
-  });
-  const pendingNames = new Map<string, string>();
-  for (const row of existing) {
-    if (row.pending_character_key && row.pending_character_name) {
-      pendingNames.set(row.pending_character_key, row.pending_character_name);
-    }
-  }
-  characters.pendingNames?.forEach((name, key) => pendingNames.set(key, name));
-
-  const ownedCharacterIds = await filterOwnedCharacterIds(
-    tx,
-    userId,
-    characters.character_ids.filter(isUuid)
-  );
-  const outfitIds = (characters.outfit_ids ?? []).filter(isUuid);
-  const outfits = outfitIds.length
-    ? await tx.characterOutfit.findMany({ where: { id: { in: outfitIds } }, select: { id: true, character_id: true } })
-    : [];
-
-  const plans = planPanelCharacters({
-    characterIds: characters.character_ids,
-    outfitIds: characters.outfit_ids,
-    expressionTypes: characters.expression_types,
-    ownedCharacterIds,
-    outfitOwners: new Map(outfits.map((o) => [o.id, o.character_id])),
-    pendingNames,
-  });
-
-  const realIds = plans.map((p) => p.characterId).filter((id): id is string => id !== null);
-  const projectCharacterIds = new Map<string, string>();
-  if (realIds.length > 0) {
-    await tx.projectCharacter.createMany({
-      data: realIds.map((characterId) => ({ project_id: projectId, character_id: characterId, role: "minor" })),
-      skipDuplicates: true,
-    });
-    const rows = await tx.projectCharacter.findMany({
-      where: { project_id: projectId, character_id: { in: realIds } },
-      select: { id: true, character_id: true },
-    });
-    rows.forEach((row) => projectCharacterIds.set(row.character_id, row.id));
-  }
-
-  const castMembers: CastMemberInput[] = [];
-  const pendingRows: Array<{
-    pendingKey: string;
-    pendingName: string | null;
-    expression: string | null;
-    sortOrder: number;
-  }> = [];
-  const sortByProjectCharacter = new Map<string, number>();
-  for (const plan of plans) {
-    if (plan.characterId) {
-      const projectCharacterId = projectCharacterIds.get(plan.characterId);
-      if (!projectCharacterId) continue;
-      castMembers.push({
-        projectCharacterId,
-        outfitId: plan.outfitId,
-        expression: plan.expression,
-      });
-      sortByProjectCharacter.set(projectCharacterId, plan.sortOrder);
-      continue;
-    }
-    if (plan.pendingKey) {
-      pendingRows.push({
-        pendingKey: plan.pendingKey,
-        pendingName: plan.pendingName,
-        expression: plan.expression,
-        sortOrder: plan.sortOrder,
-      });
-    }
-  }
-
-  // 在场角色走模块。待绑定不是在场角色，按原来的交错顺序补回去。主角色由触发器派生。
-  await panels(projectId, { tx }).setCast(panelId, castMembers);
-  if (pendingRows.length === 0) return;
-
-  const written = await tx.panelCharacter.findMany({
-    where: { panel_id: panelId, project_character_id: { not: null } },
-    select: { id: true, project_character_id: true },
-  });
-  for (const row of written) {
-    if (!row.project_character_id) continue;
-    const sortOrder = sortByProjectCharacter.get(row.project_character_id);
-    if (sortOrder === undefined) continue;
-    await tx.panelCharacter.update({ where: { id: row.id }, data: { sort_order: sortOrder } });
-  }
-  await tx.panelCharacter.createMany({
-    data: pendingRows.map((row) => ({
-      panel_id: panelId,
-      project_character_id: null,
-      pending_character_key: row.pendingKey,
-      pending_character_name: row.pendingName,
-      outfit_id: null,
-      expression_type: row.expression,
-      sort_order: row.sortOrder,
-    })),
-  });
-}
-
 async function upsertPipelineState(tx: Tx, panelId: string, fields: CanvasShotPipelineFields): Promise<void> {
   const data = {
     updated_at: new Date(),
@@ -214,79 +98,6 @@ export async function updateShotPipeline(db: Db, panelId: string, fields: Canvas
   } else {
     await upsertPipelineState(db, panelId, fields);
   }
-}
-
-export interface NewCanvasShot extends CanvasShotInput {
-  segmentId: string;
-  outfit_ids?: string[];
-  expression_types?: string[];
-}
-
-/**
- * 在锚定的项目章节里新建画布镜头（分镜），接在同一剧本片段已有镜头之后，然后统一重编号。
- * 返回新建的镜头，顺序与输入一致。
- */
-export async function createCanvasShots(
-  db: PrismaClient,
-  params: {
-    chapter: AnchoredCanvasChapter;
-    userId: string;
-    shots: NewCanvasShot[];
-    pendingNames?: Map<string, string>;
-  }
-): Promise<CanvasShot[]> {
-  const { chapter, userId, shots } = params;
-  if (shots.length === 0) return [];
-
-  const segmentIds = Array.from(new Set(shots.map((s) => s.segmentId)));
-  const validSegments = await db.scriptSegment.count({
-    where: { id: { in: segmentIds }, timeline_chapter_id: chapter.timelineChapterId },
-  });
-  if (validSegments !== segmentIds.length) {
-    throw new ApiError(400, "SEGMENT_CHAPTER_MISMATCH", "剧本片段不属于该章节");
-  }
-
-  const createdIds = await db.$transaction(async (tx) => {
-    const created = await panels(chapter.projectId, { tx }).add(
-      shots.map((shot) => ({
-        segmentId: shot.segmentId,
-        panelType: emptyToNull(shot.panel_type) ?? "medium",
-        importance: "medium",
-        description: shot.shot_description,
-        cameraAngle: emptyToNull(shot.camera_angle),
-        shotSize: emptyToNull(shot.shot_size),
-        compositionHint: emptyToNull(shot.composition_hint),
-        locationKey: emptyToNull(shot.location_key),
-        visualPrompt: shot.prompt,
-        negativePrompt: shot.negative_prompt,
-        generationStatus: "pending",
-      })),
-      { chapter: chapter.projectChapterId },
-    );
-
-    for (let index = 0; index < shots.length; index += 1) {
-      const shot = shots[index];
-      const panel = created[index];
-      if (!shot || !panel || shot.character_ids.length === 0) continue;
-      await replacePanelCharacters(tx, {
-        panelId: panel.id,
-        projectId: chapter.projectId,
-        userId,
-        characters: {
-          character_ids: shot.character_ids,
-          outfit_ids: shot.outfit_ids,
-          expression_types: shot.expression_types,
-          pendingNames: params.pendingNames,
-        },
-      });
-    }
-
-    return created.map((panel) => panel.id);
-  }, WRITE_TX_OPTIONS);
-
-  const all = await listChapterShots(db, chapter.timelineChapterId);
-  const byId = new Map(all.map((s) => [s.id, s]));
-  return createdIds.map((id) => byId.get(id)).filter((s): s is CanvasShot => s !== undefined);
 }
 
 /** 更新画布上的一格分镜；只写传了的字段。传了出场角色就整体替换。主角色由触发器派生。 */

@@ -162,6 +162,9 @@ describe("PATCH /api/panel/[id] 角色绑定", () => {
     const response = await patch({ outfit_id: "outfit-1" });
 
     expect(response.status).toBe(200);
+    expect(mocked.panelCharacter.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      orderBy: [{ sort_order: "asc" }, { created_at: "asc" }, { id: "asc" }],
+    }));
     expect(setLead).toHaveBeenCalledWith([panelId], "pc-lead", { outfitId: "outfit-1" });
     expect(mocked.panelCharacter.updateMany).not.toHaveBeenCalled();
   });
@@ -188,6 +191,9 @@ describe("PATCH /api/panel/[id] 角色绑定", () => {
     expect(mocked.character.findMany).not.toHaveBeenCalled();
     expect(mocked.character.findFirst).not.toHaveBeenCalled();
     expect(setLead).not.toHaveBeenCalled();
+    expect(mocked.panelCharacter.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      orderBy: [{ sort_order: "asc" }, { created_at: "asc" }, { id: "asc" }],
+    }));
     expect(setCast).toHaveBeenCalledWith(panelId, [
       { projectCharacterId: "pc-next", outfitId: null, expression: "sad" },
     ]);

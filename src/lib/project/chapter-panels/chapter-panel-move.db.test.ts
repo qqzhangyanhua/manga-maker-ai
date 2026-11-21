@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { db } from "../../../test-db/harness";
-import { executeSqlFile, reading, rollbackFile, seedProject } from "./chapter-panel-order-db";
+import { executeSqlFile, reading, rollbackFile, seedProject, withoutLeadGuard } from "./chapter-panel-order-db";
 
 describe("剧本片段换章节", () => {
   it("换章节后移出和移入的章节都从 1 连号", async () => {
@@ -231,7 +231,8 @@ describe("章节重编号回滚", () => {
     const target = await db.chapter.create({
       data: { project_id: projectId, title: "移入", chapter_order: 2 },
     });
-    const panel = await db.panel.create({
+    // 回滚后同步触发器已去掉。这一格故意写下不一致的主角色，先关掉拒绝触发器。
+    const panel = await withoutLeadGuard(() => db.panel.create({
       data: {
         project_id: projectId,
         chapter_id: source.id,
@@ -242,7 +243,7 @@ describe("章节重编号回滚", () => {
         character_id: member.id,
         expression_type: "happy",
       },
-    });
+    }));
     await db.panelCharacter.create({
       data: {
         panel_id: panel.id,
