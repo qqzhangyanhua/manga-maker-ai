@@ -204,9 +204,12 @@ def test_every_canvas_route_succeeds_with_valid_token(
     client: TestClient,
     sign_user_token: Callable[[str], str],
     canvas_services: None,
+    timeline_owners: dict[str, str],
 ) -> None:
     operations = _canvas_operations(client)
     assert set(operations) == set(_SUCCESS_CASES)
+    # 进度流在连接前核对所有者。这条用例的时间线属于当前用户。
+    timeline_owners["tl-1"] = USER_ID
 
     headers = {"Authorization": f"Bearer {sign_user_token(USER_ID)}"}
     for method, path in operations:
