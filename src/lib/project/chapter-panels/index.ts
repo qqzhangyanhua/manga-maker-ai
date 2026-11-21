@@ -18,6 +18,7 @@ export type {
   AddedPanel,
   ChapterPanels,
   Discarded,
+  LeadAppearance,
   NewPanelInput,
   PanelInsertWhere,
   PanelWriterOptions,

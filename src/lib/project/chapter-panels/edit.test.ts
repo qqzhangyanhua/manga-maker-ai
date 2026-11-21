@@ -4,6 +4,7 @@ import { panels } from "./write";
 import {
   CHAPTER,
   CHAPTER_B,
+  OTHER_OUTFIT,
   OTHER_PC,
   OUTFIT,
   PC1,
@@ -179,6 +180,41 @@ describe("拆分、合并、主角色和整章替换", () => {
       code: "PROJECT_CHARACTER_MISMATCH",
     });
     expect(fake.cast.map((item) => item.project_character_id)).toEqual(before);
+  });
+
+  it("服装不属于该角色时整次拒绝，已有在场角色不变", async () => {
+    const fake = createFake();
+    fake.cast.push(row("a", PC2, 0, { expression_type: "angry" }));
+    fake.cast.push(row("a", null, 1, { pending_character_key: "ghost", pending_character_name: "鬼" }));
+
+    await expect(writer(fake).setLead(["a"], PC1, { outfitId: OTHER_OUTFIT, expression: "happy" })).rejects.toMatchObject({
+      statusCode: 400,
+      code: "OUTFIT_MISMATCH",
+    });
+    expect(fake.cast.map((item) => [item.project_character_id, item.pending_character_key])).toEqual([
+      [PC2, null],
+      [null, "ghost"],
+    ]);
+    expect(fake.locks).toEqual([]);
+  });
+
+  it("换主角色时把服装和表情写在第一行，其余行保持相对顺序", async () => {
+    const fake = createFake();
+    fake.cast.push(row("a", PC2, 0, { expression_type: "angry" }));
+    fake.cast.push(row("a", null, 1, { pending_character_key: "ghost", pending_character_name: "鬼" }));
+
+    await writer(fake).setLead(["a"], PC1, { outfitId: OUTFIT, expression: "happy" });
+
+    expect(fake.cast.map((item) => [
+      item.project_character_id,
+      item.outfit_id,
+      item.expression_type,
+      item.pending_character_key,
+    ])).toEqual([
+      [PC1, OUTFIT, "happy", null],
+      [PC2, null, "angry", null],
+      [null, null, null, "ghost"],
+    ]);
   });
 
   it("多章一起换主角色时按章节 id 顺序加锁", async () => {

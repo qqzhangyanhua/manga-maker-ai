@@ -2,7 +2,7 @@ import type { Prisma } from "@prisma/client";
 
 import { normalizePanelCast } from "./cast";
 import type { Discarded } from "./discard";
-import { setLeadInTransaction } from "./lead";
+import { setLeadInTransaction, type LeadAppearance } from "./lead";
 import { mergeInTransaction } from "./merge";
 import { placeInTransaction, type PlacedPanel } from "./place";
 import { plan } from "./plan";
@@ -26,6 +26,7 @@ import {
 import { splitInTransaction } from "./split";
 
 export type { Discarded } from "./discard";
+export type { LeadAppearance } from "./lead";
 export type { PlacedPanel } from "./place";
 export type { ReplacedChapter } from "./replace-chapter";
 export type { AddedPanel, NewPanelInput, PanelInsertWhere, PanelWriterOptions } from "./session";
@@ -38,7 +39,7 @@ export interface ChapterPanels {
   split(id: string, parts: readonly Partial<NewPanelInput>[]): Promise<AddedPanel[]>;
   merge(ids: readonly string[], fields?: Partial<NewPanelInput>): Promise<AddedPanel>;
   setCast(panelId: string, cast: readonly CastMemberInput[]): Promise<void>;
-  setLead(ids: readonly string[], projectCharacterId: string): Promise<void>;
+  setLead(ids: readonly string[], projectCharacterId: string, appearance?: LeadAppearance): Promise<void>;
   replaceChapter(chapterId: string, fields: readonly NewPanelInput[]): Promise<ReplacedChapter>;
 }
 
@@ -68,8 +69,8 @@ export function panels(projectId: string, options: PanelWriterOptions = {}): Cha
     setCast(panelId, cast) {
       return withTransaction(options, (tx) => setCastInTransaction(tx, projectId, panelId, cast));
     },
-    setLead(ids, projectCharacterId) {
-      return withTransaction(options, (tx) => setLeadInTransaction(tx, projectId, ids, projectCharacterId));
+    setLead(ids, projectCharacterId, appearance) {
+      return withTransaction(options, (tx) => setLeadInTransaction(tx, projectId, ids, projectCharacterId, appearance));
     },
     replaceChapter(chapterId, fields) {
       return withTransaction(options, (tx) => replaceChapterInTransaction(tx, projectId, chapterId, fields));
