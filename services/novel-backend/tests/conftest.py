@@ -83,3 +83,17 @@ def canvas_services(monkeypatch: pytest.MonkeyPatch) -> None:
     from tests.canvas_stubs import install_canvas_stubs
 
     install_canvas_stubs(monkeypatch)
+
+
+@pytest.fixture
+def timeline_owners(monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
+    """替换时间线所有者查询。写入 timeline_id -> user_id；未登记视为不存在。"""
+    owners: dict[str, str] = {}
+
+    async def lookup(timeline_id: str) -> str | None:
+        return owners.get(timeline_id)
+
+    from app.routers import canvas as canvas_router
+
+    monkeypatch.setattr(canvas_router, "find_canvas_timeline_owner_id", lookup)
+    return owners

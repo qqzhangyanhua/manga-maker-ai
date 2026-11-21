@@ -6,12 +6,15 @@ Canvas API Router
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from sqlalchemy import text
 from typing import List, Optional
+from uuid import UUID
 import logging
 import asyncio
 import json
 from datetime import datetime
 
+from ..database import AsyncSessionLocal
 from ..middleware.auth import get_current_user_id
 from ..services.canvas import (
     ScriptAnalyzer,
@@ -189,6 +192,28 @@ async def batch_identify_characters(request: BatchIdentifyCharactersRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+async def find_canvas_timeline_owner_id(timeline_id: str) -> str | None:
+    """读取共享库 canvas_timelines.user_id。没有这条时间线时返回 None。
+
+    小说后端没有时间线模型。id 用绑定参数传入，不拼进 SQL。
+    测试替换本函数，因此不需要真实数据库。
+    """
+    try:
+        UUID(timeline_id)
+    except ValueError:
+        return None
+
+    statement = text(
+        "SELECT CAST(user_id AS text) FROM canvas_timelines WHERE id = CAST(:timeline_id AS uuid)"
+    )
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(statement, {"timeline_id": timeline_id})
+        row = result.first()
+    if row is None or row[0] is None:
+        return None
+    return str(row[0])
+
+
 async def timeline_event_generator(timeline_id: str):
     """
     SSE 事件生成器 - 实时推送时间轴更新
@@ -216,11 +241,15 @@ async def timeline_event_generator(timeline_id: str):
 
 
 @router.get("/timeline/{timeline_id}/stream")
-async def stream_timeline_updates(timeline_id: str):
+async def stream_timeline_updates(
+    timeline_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
     """
     SSE 端点 - 实时推送时间轴章节状态更新
 
-    客户端通过 EventSource 连接此端点接收实时更新
+    客户端通过 EventSource 连接此端点接收实时更新。
+    建立连接前确认时间线属于当前用户；不存在或不属于时返回 404，不打开推送。
 
     事件格式:
     - type: 'connected' | 'status_update' | 'count_update' | 'heartbeat' | 'error'
@@ -229,6 +258,11 @@ async def stream_timeline_updates(timeline_id: str):
     - status: 'pending' | 'generating' | 'completed' | 'error'
     - count: 数量
     """
+    owner_id = await find_canvas_timeline_owner_id(timeline_id)
+    # 不存在与非所有者同一 404，避免泄露时间线是否存在。
+    if owner_id is None or owner_id != user_id:
+        raise HTTPException(status_code=404, detail="时间线不存在")
+
     return StreamingResponse(
         timeline_event_generator(timeline_id),
         media_type="text/event-stream",
