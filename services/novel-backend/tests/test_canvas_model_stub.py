@@ -1,12 +1,25 @@
 """画布模型服务被桩替换后，接口返回桩的结果，不调用模型。"""
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from fastapi.testclient import TestClient
 
+USER_ID = "11111111-1111-1111-1111-111111111111"
 
-def test_analyze_script_uses_model_stub(client: TestClient, canvas_services: None) -> None:
+
+def _user_headers(sign_user_token: Callable[[str], str]) -> dict[str, str]:
+    return {"Authorization": f"Bearer {sign_user_token(USER_ID)}"}
+
+
+def test_analyze_script_uses_model_stub(
+    client: TestClient,
+    canvas_services: None,
+    sign_user_token: Callable[[str], str],
+) -> None:
     response = client.post(
         "/canvas/analyze-script",
+        headers=_user_headers(sign_user_token),
         json={"chapter_content": "甲站在室内。", "chapter_number": 1},
     )
 
@@ -29,9 +42,14 @@ def test_analyze_script_uses_model_stub(client: TestClient, canvas_services: Non
     }
 
 
-def test_plan_shots_uses_model_stub(client: TestClient, canvas_services: None) -> None:
+def test_plan_shots_uses_model_stub(
+    client: TestClient,
+    canvas_services: None,
+    sign_user_token: Callable[[str], str],
+) -> None:
     response = client.post(
         "/canvas/plan-shots",
+        headers=_user_headers(sign_user_token),
         json={
             "script_content": "甲走进房间",
             "scene_description": "室内",
@@ -46,9 +64,14 @@ def test_plan_shots_uses_model_stub(client: TestClient, canvas_services: None) -
     assert body["shots"][0]["prompt"] == "桩提示词"
 
 
-def test_generate_finals_uses_model_stub(client: TestClient, canvas_services: None) -> None:
+def test_generate_finals_uses_model_stub(
+    client: TestClient,
+    canvas_services: None,
+    sign_user_token: Callable[[str], str],
+) -> None:
     response = client.post(
         "/canvas/generate-finals",
+        headers=_user_headers(sign_user_token),
         json={
             "scenes": [
                 {
@@ -76,9 +99,14 @@ def test_generate_finals_uses_model_stub(client: TestClient, canvas_services: No
     ]
 
 
-def test_identify_characters_uses_model_stub(client: TestClient, canvas_services: None) -> None:
+def test_identify_characters_uses_model_stub(
+    client: TestClient,
+    canvas_services: None,
+    sign_user_token: Callable[[str], str],
+) -> None:
     response = client.post(
         "/canvas/identify-characters",
+        headers=_user_headers(sign_user_token),
         json={
             "dialogue": "甲：你好",
             "scene_description": "室内",
@@ -97,9 +125,14 @@ def test_identify_characters_uses_model_stub(client: TestClient, canvas_services
     }
 
 
-def test_batch_identify_characters_uses_model_stub(client: TestClient, canvas_services: None) -> None:
+def test_batch_identify_characters_uses_model_stub(
+    client: TestClient,
+    canvas_services: None,
+    sign_user_token: Callable[[str], str],
+) -> None:
     response = client.post(
         "/canvas/batch-identify-characters",
+        headers=_user_headers(sign_user_token),
         json={
             "shots": [{"shot_id": "h1", "dialogue": "甲：你好", "description": "室内"}],
             "available_characters": [{"id": "c1", "name": "甲"}],

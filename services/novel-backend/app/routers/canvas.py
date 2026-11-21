@@ -12,6 +12,7 @@ import asyncio
 import json
 from datetime import datetime
 
+from ..middleware.auth import get_current_user_id
 from ..services.canvas import (
     ScriptAnalyzer,
     ShotPlanner,
@@ -21,7 +22,12 @@ from ..services.canvas import (
 from ..services.canvas.character_identifier import CharacterIdentifier
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/canvas", tags=["Canvas - Novel to Comic"])
+# 路由级依赖：之后新增的画布接口默认要求有效用户身份。
+router = APIRouter(
+    prefix="/canvas",
+    tags=["Canvas - Novel to Comic"],
+    dependencies=[Depends(get_current_user_id)],
+)
 
 
 class AnalyzeScriptRequest(BaseModel):
