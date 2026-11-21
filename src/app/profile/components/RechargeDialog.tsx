@@ -4,6 +4,11 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  formatRechargePriceYuan,
+  getRechargePlan,
+  listRechargePlans,
+} from "@/lib/recharge-catalog";
 import { Check, Zap, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -12,22 +17,6 @@ interface RechargeDialogProps {
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
 }
-
-interface RechargePlan {
-  id: string;
-  name: string;
-  credits: number;
-  price: number;
-  bonus?: number;
-  popular?: boolean;
-}
-
-const rechargePlans: RechargePlan[] = [
-  { id: "basic", name: "基础套餐", credits: 5000, price: 9.9 },
-  { id: "standard", name: "标准套餐", credits: 15000, price: 29.9, bonus: 1000, popular: true },
-  { id: "premium", name: "高级套餐", credits: 50000, price: 99.9, bonus: 5000 },
-  { id: "ultimate", name: "至尊套餐", credits: 100000, price: 199.9, bonus: 15000 },
-];
 
 type Step = "select" | "paying" | "success";
 
@@ -65,11 +54,14 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
   }, [open, resetState]);
 
   const handleRecharge = async () => {
-    const plan = rechargePlans.find((p) => p.id === selectedPlan);
+    const plan = selectedPlan ? getRechargePlan(selectedPlan) : null;
     if (!plan) {
       toast.error("请选择充值套餐");
       return;
     }
+
+    // 目录里的金额是分。现有下单接口仍按元计价，这里换算后再提交。
+    const amountYuan = Number(formatRechargePriceYuan(plan.priceFen));
 
     setCreating(true);
     try {
@@ -78,7 +70,7 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           planId: plan.id,
-          amount: plan.price,
+          amount: amountYuan,
           credits: plan.credits + (plan.bonus ?? 0),
         }),
       });
@@ -201,8 +193,10 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
         {step === "select" && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 py-6">
-              {rechargePlans.map((plan) => {
+              {listRechargePlans().map((plan) => {
                 const totalCredits = plan.credits + (plan.bonus ?? 0);
+                const priceYuanLabel = formatRechargePriceYuan(plan.priceFen);
+                const priceYuan = Number(priceYuanLabel);
                 const isSelected = selectedPlan === plan.id;
 
                 return (
@@ -244,7 +238,7 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
 
                       <div>
                         <div className="text-2xl font-bold text-orange-500">
-                          ¥{plan.price}
+                          ¥{priceYuanLabel}
                         </div>
                         {plan.bonus && (
                           <div className="text-xs text-zinc-500 mt-1">
@@ -254,7 +248,7 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
                       </div>
 
                       <div className="text-xs text-zinc-400">
-                        约 ¥{((plan.price / totalCredits) * 1000).toFixed(2)} / 千算力
+                        约 ¥{((priceYuan / totalCredits) * 1000).toFixed(2)} / 千算力
                       </div>
                     </div>
                   </div>
