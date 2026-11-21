@@ -6,7 +6,8 @@ import type { InsertAt } from "./plan";
 
 type Tx = Prisma.TransactionClient;
 
-const WRITE_TX_OPTIONS = { timeout: 60_000, maxWait: 10_000 };
+/** 章节分镜写入的事务时限。调用方包住多次替换时用同一组。 */
+export const PANEL_WRITE_TX_OPTIONS = { timeout: 60_000, maxWait: 10_000 };
 
 /** 新建一格时写入的内容。主角色由在场角色触发器派生，这里不接收。 */
 export interface NewPanelInput {
@@ -31,6 +32,17 @@ export interface NewPanelInput {
   scriptStart?: number | null;
   scriptEnd?: number | null;
   layoutHint?: string | null;
+  /** 版本恢复带上已有成图。普通编辑不走这里。 */
+  generatedImage?: string | null;
+  /** 快照里的角色名。主角色外键不在这个输入里。 */
+  characterName?: string | null;
+  /** 整章重写会新建行。这些是内容列，不是主角色外键，要原样带上。 */
+  sketchImageUrl?: string | null;
+  scriptSegmentId?: string | null;
+  isShared?: boolean;
+  sharedAt?: Date | null;
+  viewCount?: number;
+  showPrompt?: boolean;
 }
 
 export type PanelInsertWhere =
@@ -75,6 +87,12 @@ const PANEL_SELECT = {
   camera_movement: true,
   movement_speed: true,
   movement_direction: true,
+  sketch_image_url: true,
+  script_segment_id: true,
+  is_shared: true,
+  shared_at: true,
+  view_count: true,
+  show_prompt: true,
 } satisfies Prisma.PanelSelect;
 
 export type PanelContent = Prisma.PanelGetPayload<{ select: typeof PANEL_SELECT }>;
@@ -88,7 +106,7 @@ interface DraftRow {
 export async function withTransaction<T>(options: PanelWriterOptions, work: (tx: Tx) => Promise<T>): Promise<T> {
   if (options.tx) return work(options.tx);
   const client = options.db ?? (await loadPrisma());
-  return client.$transaction((tx) => work(tx), WRITE_TX_OPTIONS);
+  return client.$transaction((tx) => work(tx), PANEL_WRITE_TX_OPTIONS);
 }
 
 async function loadPrisma(): Promise<PrismaClient> {
@@ -132,6 +150,14 @@ export async function createPanelRecord(
       script_start: field.scriptStart,
       script_end: field.scriptEnd,
       layout_hint: field.layoutHint,
+      generated_image: field.generatedImage,
+      character_name: field.characterName,
+      sketch_image_url: field.sketchImageUrl,
+      script_segment_id: field.scriptSegmentId,
+      is_shared: field.isShared,
+      shared_at: field.sharedAt,
+      view_count: field.viewCount,
+      show_prompt: field.showPrompt,
       camera_movement: field.cameraMovement,
       movement_speed: field.movementSpeed,
       movement_direction: field.movementDirection,
@@ -166,6 +192,12 @@ export function inheritPanelInput(source: PanelContent, patch: Partial<NewPanelI
     cameraMovement: source.camera_movement,
     movementSpeed: source.movement_speed,
     movementDirection: source.movement_direction,
+    sketchImageUrl: source.sketch_image_url,
+    scriptSegmentId: source.script_segment_id,
+    isShared: source.is_shared,
+    sharedAt: source.shared_at,
+    viewCount: source.view_count,
+    showPrompt: source.show_prompt,
   };
   const keys = Object.keys(patch) as (keyof NewPanelInput)[];
   for (const key of keys) {

@@ -10,6 +10,14 @@ import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { Prisma, prisma } from "@/lib/db";
 import { ensureDefaultChapter, panelReadingOrderBy } from "@/lib/project";
 import {
+  lockChapter,
+  lockChapters,
+  PANEL_WRITE_TX_OPTIONS,
+  panels,
+  planChapterRestores,
+  snapshotPanelField,
+} from "@/lib/project/chapter-panels";
+import {
   readMigratedPanelSegmentIds,
   readProjectChapterSegments,
   readSnapshotSegments,
@@ -210,9 +218,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // Restore project in transaction
+    // 项目元数据、剧本片段和各章分镜在同一个事务里替换。任一章失败则全部回滚。
     await prisma.$transaction(async (tx) => {
-      // 1. Update project metadata
       await tx.project.update({
         where: { id: projectId },
         data: {
@@ -222,57 +229,51 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         }
       });
 
-      // 2. Delete all current panels
-      await tx.panel.deleteMany({
-        where: { project_id: projectId }
+      const listChapters = () => tx.chapter.findMany({
+        where: { project_id: projectId },
+        orderBy: [{ chapter_order: "asc" }, { created_at: "asc" }, { id: "asc" }],
+        select: { id: true },
       });
 
-      // 3. 先恢复章节上的剧本片段，再把分镜指回去。删分镜之后再删旧行，避免级联删掉分镜。
+      // 先按章节 id 排序加锁，再清掉各章旧分镜。和 place/remove 同一把锁、同一顺序，避免交叉死锁。
+      // 片段删除会级联删分镜，清空必须发生在恢复片段之前。
+      const chaptersBefore = await listChapters();
+      await lockChapters(tx, chaptersBefore.map((chapter) => chapter.id));
+      const writer = panels(projectId, { tx });
+      for (const chapter of chaptersBefore) {
+        await writer.replaceChapter(chapter.id, []);
+      }
+
       const restoredSegments = scriptData
         ? await restoreProjectChapterSegments(tx, projectId, readSnapshotSegments(scriptData.segments))
         : [];
       const restoredSegmentIds = new Set(restoredSegments.map((segment) => segment.id));
 
-      // 4. 按版本重建分镜
       if (panelItems.length > 0) {
-        const asString = (value: unknown) => (typeof value === "string" ? value : null);
-        // 版本里记录的章节还在项目里就放回原章节，否则放到默认章节
-        const projectChapterIds = new Set(
-          (await tx.chapter.findMany({ where: { project_id: projectId }, select: { id: true } })).map((c) => c.id)
+        const chapters = await listChapters();
+        let fallbackChapterId = chapters[0]?.id ?? null;
+        if (!fallbackChapterId) {
+          fallbackChapterId = await ensureDefaultChapter(tx, projectId);
+          await lockChapter(tx, fallbackChapterId);
+        }
+        const sources = panelItems.map((panel, index) => ({
+          index,
+          chapterId: typeof panel.chapter_id === "string" ? panel.chapter_id : null,
+          panelOrder: typeof panel.panel_order === "number" ? panel.panel_order : null,
+          field: snapshotPanelField(panel, restoredSegmentIds),
+        }));
+        const plans = planChapterRestores(
+          sources,
+          chapters.map((chapter) => chapter.id),
+          fallbackChapterId,
         );
-        const needsDefault = panelItems.some((panel) => !projectChapterIds.has(asString(panel.chapter_id) ?? ""));
-        const defaultChapterId = needsDefault ? await ensureDefaultChapter(tx, projectId) : null;
-        await tx.panel.createMany({
-          data: panelItems.map((panel, index) => {
-            const panelOrder = typeof panel.panel_order === "number" ? panel.panel_order : index + 1;
-            const panelType = typeof panel.panel_type === "string" ? panel.panel_type : "medium";
-            const importance = typeof panel.importance === "string" ? panel.importance : "medium";
-            const description = typeof panel.description === "string" ? panel.description : "无描述";
-
-            const savedChapterId = asString(panel.chapter_id);
-
-            const savedSegmentId = asString(panel.segment_id);
-            return {
-              project_id: projectId,
-              chapter_id: savedChapterId && projectChapterIds.has(savedChapterId) ? savedChapterId : defaultChapterId,
-              segment_id: savedSegmentId && restoredSegmentIds.has(savedSegmentId) ? savedSegmentId : null,
-              panel_order: panelOrder,
-              description,
-              panel_type: panelType,
-              importance,
-              camera_angle: asString(panel.camera_angle),
-              shot_size: asString(panel.shot_size),
-              dialogue: asString(panel.dialogue),
-              character_name: asString(panel.character_name),
-              emotion: asString(panel.emotion),
-              generated_image: asString(panel.generated_image),
-              prompt_used: asString(panel.prompt_used)
-            };
-          })
-        });
+        for (const plan of plans) {
+          if (plan.fields.length === 0) continue;
+          await writer.replaceChapter(plan.chapterId, plan.fields);
+        }
       }
 
-      // 5. 正文仍放在剧本上。片段名单不再写进项目级 JSON。
+      // 片段行已经恢复。正文在剧本表上，和片段不是同一处，所以这里只改 content。
       if (scriptData) {
         const scriptContent = typeof scriptData.content === "string" ? scriptData.content : "";
         const existingScript = await tx.storyScript.findUnique({
@@ -294,7 +295,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
           });
         }
       }
-    });
+    }, PANEL_WRITE_TX_OPTIONS);
 
     const response: SuccessResponse<{
       version: typeof version;

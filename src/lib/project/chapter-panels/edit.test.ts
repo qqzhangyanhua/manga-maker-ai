@@ -59,6 +59,7 @@ describe("拆分、合并、主角色和整章替换", () => {
     const source = fake.panels.find((panel) => panel.id === "b");
     if (!source) throw new Error("缺少分镜");
     source.segment_id = SEGMENT;
+    source.sketch_image_url = "http://img/sketch.png";
     fake.cast.push(row("b", PC1, 0, { outfit_id: OUTFIT, expression_type: "happy" }));
     fake.cast.push(row("b", null, 1, { pending_character_key: "ghost", pending_character_name: "鬼" }));
     fake.panels.push(aside("x"));
@@ -74,6 +75,8 @@ describe("拆分、合并、主角色和整章替换", () => {
     const left = fake.panels.find((panel) => panel.id === "new-1");
     const right = fake.panels.find((panel) => panel.id === "new-2");
     expect(left?.segment_id).toBe(SEGMENT);
+    expect(left?.sketch_image_url).toBe("http://img/sketch.png");
+    expect(right?.sketch_image_url).toBe("http://img/sketch.png");
     expect(left?.panel_type).toBe("dialogue");
     expect(left?.description).toBe("左半");
     expect(right?.panel_type).toBe("closeup");
@@ -251,6 +254,39 @@ describe("拆分、合并、主角色和整章替换", () => {
     expect(created?.pipeline).toBe(true);
     expect(created).not.toHaveProperty("character_id");
     expect(fake.cast).toEqual([]);
+  });
+
+  it("整章替换写下成图和角色名，不写主角色", async () => {
+    const fake = createFake();
+
+    const sharedAt = new Date("2026-01-01T00:00:00.000Z");
+    await writer(fake).replaceChapter(CHAPTER, [
+      {
+        panelType: "wide",
+        description: "雨",
+        generatedImage: "http://img/a.png",
+        characterName: "小林",
+        sketchImageUrl: "http://img/a-sketch.png",
+        scriptSegmentId: "seg-json",
+        isShared: true,
+        sharedAt,
+        viewCount: 4,
+        showPrompt: false,
+      },
+    ]);
+
+    const created = fake.panels.find((panel) => panel.id === "new-1");
+    expect(created?.generated_image).toBe("http://img/a.png");
+    expect(created?.character_name).toBe("小林");
+    expect(created?.sketch_image_url).toBe("http://img/a-sketch.png");
+    expect(created?.script_segment_id).toBe("seg-json");
+    expect(created?.is_shared).toBe(true);
+    expect(created?.shared_at).toBe(sharedAt);
+    expect(created?.view_count).toBe(4);
+    expect(created?.show_prompt).toBe(false);
+    expect(created).not.toHaveProperty("character_id");
+    expect(created).not.toHaveProperty("outfit_id");
+    expect(created).not.toHaveProperty("expression_type");
   });
 
   it("空的替换会清空这一章", async () => {
