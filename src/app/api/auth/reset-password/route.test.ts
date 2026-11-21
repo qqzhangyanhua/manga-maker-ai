@@ -180,7 +180,7 @@ describe("POST /api/auth/reset-password", () => {
       const data = await response.json();
 
       expect(response.status).toBe(429);
-      expect(data).toEqual({ error: "请求过于频繁，请稍后再试" });
+      expect(data).toEqual({ success: false, error: "请求过于频繁，请稍后再试" });
       expect(checkAndIncrementWindowLimitDistributed).toHaveBeenCalledWith(
         "reset-password:ip:198.51.100.7",
         20,
@@ -218,7 +218,7 @@ describe("POST /api/auth/reset-password", () => {
 
       const sixth = await postReset("person@example.com", issued);
       expect(sixth.status).toBe(429);
-      expect(sixth.body).toEqual({ error: "验证码已失效，请重新获取验证码" });
+      expect(sixth.body).toEqual({ success: false, error: "验证码已失效，请重新获取验证码" });
     });
 
     it("重新申请验证码后可以再次尝试并成功重置", async () => {
@@ -313,7 +313,26 @@ describe("POST /api/auth/reset-password", () => {
 
       const sixth = await postReset("victim@example.com", issued);
       expect(sixth.status).toBe(429);
-      expect(sixth.body).toEqual({ error: "验证码已失效，请重新获取验证码" });
+      expect(sixth.body).toEqual({ success: false, error: "验证码已失效，请重新获取验证码" });
+    });
+
+    it("邮箱、验证码或新密码不是字符串时返回参数不完整", async () => {
+      const request = new Request("http://localhost/api/auth/reset-password", {
+        method: "POST",
+        headers: { "x-forwarded-for": "198.51.100.7" },
+        body: JSON.stringify({ email: "person@example.com", code: 123456, newPassword: "newpass1" }),
+      });
+
+      const response = await requestReset(request as never);
+
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toEqual({ error: "参数不完整" });
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it("不是标准邮箱格式时仍按验证码处理，而不是参数不完整", async () => {
+      const missing = await postReset("not-an-email", "123456");
+      expect(missing).toEqual({ status: 400, body: INVALID_CODE_BODY });
     });
   });
 });

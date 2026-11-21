@@ -109,14 +109,18 @@ export async function getRechargeOrder(
     return { ok: false, reason: "not_found" };
   }
 
-  // 只有仍待支付且已过期的订单在读取时改成已过期。已支付的不因过期改状态。
+  // 条件写只改仍待支付的行。并发确认已经写成已支付时再读一次，不能覆盖成已过期。
   const now = input.now ?? new Date();
   if (found.status === "pending" && found.expires_at.getTime() <= now.getTime()) {
-    const expired = await db.rechargeOrder.update({
-      where: { id: found.id },
+    await db.rechargeOrder.updateMany({
+      where: { id: found.id, status: "pending" },
       data: { status: "expired" },
     });
-    return { ok: true, order: toRecord(expired) };
+    const current = await db.rechargeOrder.findUnique({ where: { id: found.id } });
+    if (!current || current.user_id !== input.userId) {
+      return { ok: false, reason: "not_found" };
+    }
+    return { ok: true, order: toRecord(current) };
   }
 
   return { ok: true, order: toRecord(found) };

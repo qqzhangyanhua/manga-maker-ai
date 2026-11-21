@@ -82,6 +82,43 @@ describe("POST /api/auth/forgot-password", () => {
       expect(sendPasswordResetEmail).toHaveBeenCalledTimes(1);
     });
 
+    it("已注册邮箱发信失败时与未注册邮箱返回相同的成功响应", async () => {
+      const mailError = new Error("smtp down");
+      (prisma.user.findUnique as ReturnType<typeof vi.fn>).mockImplementation(
+        async ({ where }: { where: { email: string } }) => {
+          if (where.email === "known@example.com") {
+            return { id: "user-1" };
+          }
+          return null;
+        },
+      );
+      (redis.set as ReturnType<typeof vi.fn>).mockResolvedValue("OK");
+      (sendPasswordResetEmail as ReturnType<typeof vi.fn>).mockRejectedValue(mailError);
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const known = await postForgot("known@example.com");
+      const unknown = await postForgot("unknown@example.com");
+
+      expect(known).toEqual({ status: 200, body: { success: true } });
+      expect(unknown).toEqual(known);
+      expect(errorSpy).toHaveBeenCalledWith("发送重置邮件失败:", mailError);
+      errorSpy.mockRestore();
+    });
+
+    it("邮箱缺失或不是字符串时返回 400", async () => {
+      const request = new Request("http://localhost/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "x-forwarded-for": "203.0.113.10" },
+        body: JSON.stringify({ email: 1 }),
+      });
+
+      const response = await POST(request as never);
+
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toEqual({ error: "请提供邮箱地址" });
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
     it("被限流时已注册和未注册邮箱的响应仍然相同", async () => {
       (checkAndIncrementWindowLimitDistributed as ReturnType<typeof vi.fn>).mockResolvedValue(
         createMockRateLimit(false),
@@ -120,7 +157,7 @@ describe("POST /api/auth/forgot-password", () => {
       const data = await response.json();
 
       expect(response.status).toBe(429);
-      expect(data).toEqual({ error: "请求过于频繁，请稍后再试" });
+      expect(data).toEqual({ success: false, error: "请求过于频繁，请稍后再试" });
       expect(sendPasswordResetEmail).not.toHaveBeenCalled();
       expect(checkAndIncrementWindowLimitDistributed).toHaveBeenCalledWith(
         "forgot-password:email:test@example.com",
@@ -145,7 +182,7 @@ describe("POST /api/auth/forgot-password", () => {
       const data = await response.json();
 
       expect(response.status).toBe(429);
-      expect(data).toEqual({ error: "操作过于频繁，请稍后再试" });
+      expect(data).toEqual({ success: false, error: "操作过于频繁，请稍后再试" });
       expect(sendPasswordResetEmail).not.toHaveBeenCalled();
       expect(checkAndIncrementWindowLimitDistributed).toHaveBeenCalledWith(
         "forgot-password:ip:203.0.113.10",

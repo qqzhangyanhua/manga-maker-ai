@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { z } from "zod";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import {
   errorResponse,
@@ -11,11 +12,9 @@ import { createRechargeOrder } from "@/lib/recharge-order";
 import { presentRechargeOrder } from "../present-order";
 import { isSimulatePayEnabled } from "../simulate-flag";
 
-function readPlanId(body: unknown): string {
-  if (typeof body !== "object" || body === null || !("planId" in body)) return "";
-  const { planId } = body;
-  return typeof planId === "string" ? planId.trim() : "";
-}
+const createOrderSchema = z.object({
+  planId: z.string().trim().min(1),
+});
 
 export async function POST(req: Request) {
   try {
@@ -26,10 +25,12 @@ export async function POST(req: Request) {
     const payload = verifyAuthToken(token);
     if (!payload?.userId) return unauthorizedResponse("无效的token");
 
-    const planId = readPlanId(await req.json());
+    const parsed = createOrderSchema.safeParse(await req.json());
+    if (!parsed.success) return validationErrorResponse("未知套餐");
+
     const result = await createRechargeOrder(prisma, {
       userId: payload.userId,
-      planId,
+      planId: parsed.data.planId,
     });
     if (!result.ok) return validationErrorResponse("未知套餐");
 

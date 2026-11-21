@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { z } from "zod";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import {
   errorResponse,
@@ -12,6 +13,10 @@ import { prisma } from "@/lib/db";
 import { getRechargeOrder } from "@/lib/recharge-order";
 import { presentRechargeOrder } from "../present-order";
 
+const checkOrderSchema = z.object({
+  orderId: z.string().trim().min(1),
+});
+
 export async function GET(req: Request) {
   try {
     const cookieStore = await cookies();
@@ -21,8 +26,11 @@ export async function GET(req: Request) {
     const payload = verifyAuthToken(token);
     if (!payload?.userId) return unauthorizedResponse("无效的token");
 
-    const orderId = new URL(req.url).searchParams.get("orderId")?.trim() ?? "";
-    if (!orderId) return validationErrorResponse("缺少订单号");
+    const parsed = checkOrderSchema.safeParse({
+      orderId: new URL(req.url).searchParams.get("orderId") ?? "",
+    });
+    if (!parsed.success) return validationErrorResponse("缺少订单号");
+    const { orderId } = parsed.data;
 
     const result = await getRechargeOrder(prisma, {
       userId: payload.userId,

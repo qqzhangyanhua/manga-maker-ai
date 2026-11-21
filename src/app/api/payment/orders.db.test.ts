@@ -19,8 +19,10 @@ vi.mock("@/lib/db", async () => ({
   prisma: (await import("@/test-db/harness")).db,
 }));
 
+import type { Prisma } from "@prisma/client";
 import { NextRequest } from "next/server";
 import { verifyAuthToken } from "@/lib/auth";
+import { getRechargeOrder } from "@/lib/recharge-order";
 import { db } from "@/test-db/harness";
 import { GET as checkOrder } from "./check-order/route";
 import { POST as createOrder } from "./create-order/route";
@@ -348,5 +350,97 @@ describe("充值订单接口", () => {
     } finally {
       process.env.NODE_ENV = previousNodeEnv;
     }
+  });
+
+  it("套餐标识缺失或不是文本时返回 400，并且不落库", async () => {
+    const user = await db.user.create({ data: { email: "plan-shape@example.com" } });
+    loginAs(user.id);
+
+    const missing = await postCreate({});
+    expect(missing.status).toBe(400);
+    await expect(missing.json()).resolves.toEqual({ success: false, error: "未知套餐" });
+
+    const typed = await postCreate({ planId: 1 });
+    expect(typed.status).toBe(400);
+    await expect(typed.json()).resolves.toEqual({ success: false, error: "未知套餐" });
+    expect(await db.rechargeOrder.count()).toBe(0);
+  });
+
+  it("查询时没有订单号返回 400", async () => {
+    const user = await db.user.create({ data: { email: "check-missing-id@example.com" } });
+    loginAs(user.id);
+
+    const response = await getOrder();
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      error: "缺少订单号",
+    });
+  });
+
+  it("模拟支付开启时订单号缺失返回 400", async () => {
+    process.env.ALLOW_SIMULATE_PAYMENT = "true";
+    const user = await db.user.create({ data: { email: "simulate-missing@example.com" } });
+    loginAs(user.id);
+
+    const response = await simulatePaid(
+      new Request("http://localhost/api/payment/simulate-paid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: "  " }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      error: "缺少订单号",
+    });
+  });
+
+  it("已支付但有效期已过的订单被读取时仍保持已支付", async () => {
+    const user = await db.user.create({ data: { email: "paid-expired-race@example.com" } });
+    loginAs(user.id);
+    const created = await postCreate({ planId: "basic" });
+    const orderId = (await created.json()).data.orderId as string;
+    const paidAt = new Date("2026-11-21T00:00:00.000Z");
+    await db.rechargeOrder.update({
+      where: { id: orderId },
+      data: { expires_at: new Date(Date.now() - 60_000) },
+    });
+
+    // 读取时看到的仍是待支付。写回过期状态之前，并发确认已经把它改成已支付。
+    const orders = db.rechargeOrder;
+    let confirmed = false;
+    const rechargeOrder = new Proxy(orders, {
+      get(target, property, receiver) {
+        if (property === "findUnique") {
+          return async (args: Prisma.RechargeOrderFindUniqueArgs) => {
+            const row = await target.findUnique(args);
+            if (!confirmed && row?.id === orderId && row.status === "pending") {
+              confirmed = true;
+              await target.update({
+                where: { id: orderId },
+                data: { status: "paid", paid_at: paidAt },
+              });
+            }
+            return row;
+          };
+        }
+        const value: unknown = Reflect.get(target, property, receiver);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    }) as typeof orders;
+
+    const result = await getRechargeOrder({ rechargeOrder }, { userId: user.id, orderId });
+
+    expect(result).toEqual({
+      ok: true,
+      order: expect.objectContaining({ id: orderId, status: "paid", paidAt }),
+    });
+    const row = await db.rechargeOrder.findUnique({ where: { id: orderId } });
+    expect(row?.status).toBe("paid");
+    expect(row?.paid_at?.toISOString()).toBe(paidAt.toISOString());
   });
 });

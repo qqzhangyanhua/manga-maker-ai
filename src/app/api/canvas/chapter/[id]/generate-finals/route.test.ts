@@ -145,7 +145,7 @@ describe("生成最终漫画图携带创作者令牌", () => {
 
     expect(bearerFor(fetchMock, "/canvas/generate-finals")).toBe(`Bearer ${CREATOR_TOKEN}`);
     expect(response.status).toBe(401);
-    expect(data.error).toBe("请重新登录");
+    expect(data).toEqual({ success: false, error: "请重新登录" });
   });
 
   it("小说后端返回 403 时，路由同样返回 401", async () => {
@@ -187,7 +187,7 @@ describe("生成最终漫画图携带创作者令牌", () => {
     expect(bearerFor(fetchMock, "/canvas/batch-identify-characters")).toBe(`Bearer ${CREATOR_TOKEN}`);
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/canvas/generate-finals"))).toBe(false);
     expect(response.status).toBe(401);
-    expect((await response.json()).error).toBe("请重新登录");
+    await expect(response.json()).resolves.toEqual({ success: false, error: "请重新登录" });
   });
 
   it("批量识别角色返回 403 时，路由同样返回 401", async () => {
@@ -209,6 +209,7 @@ describe("生成最终漫画图携带创作者令牌", () => {
 
     expect(response.status).toBe(401);
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/canvas/generate-finals"))).toBe(false);
+    await expect(response.json()).resolves.toEqual({ success: false, error: "请重新登录" });
   });
 
   it("小说后端返回其它错误时仍是 502，不会当成登录过期", async () => {

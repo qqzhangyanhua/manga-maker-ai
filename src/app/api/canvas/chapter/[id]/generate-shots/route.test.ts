@@ -123,7 +123,7 @@ describe("生成分镜携带创作者令牌", () => {
 
     expect(bearerOnPlan(fetchMock)).toBe(`Bearer ${CREATOR_TOKEN}`);
     expect(response.status).toBe(401);
-    expect(data.error).toBe("请重新登录");
+    expect(data).toEqual({ success: false, error: "请重新登录" });
   });
 
   it("小说后端返回 403 时，路由同样返回 401", async () => {
@@ -134,6 +134,7 @@ describe("生成分镜携带创作者令牌", () => {
 
     expect(bearerOnPlan(fetchMock)).toBe(`Bearer ${CREATOR_TOKEN}`);
     expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ success: false, error: "请重新登录" });
   });
 
   it("小说后端返回其它错误时仍是 502，不会当成登录过期", async () => {

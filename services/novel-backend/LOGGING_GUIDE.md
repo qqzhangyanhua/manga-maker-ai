@@ -16,8 +16,6 @@ cd services/novel-backend
 # 启动后端服务（如果还没启动）
 uvicorn app.main:app --reload --log-level info
 
-进程内测试不需要先启动服务：在本目录 `pip install -r requirements-dev.txt` 后执行 `pytest`。
-
 # 或者查看日志文件（如果配置了文件日志）
 tail -f logs/app.log
 ```

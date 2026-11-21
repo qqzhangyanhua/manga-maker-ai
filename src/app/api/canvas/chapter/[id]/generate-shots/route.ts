@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
+import { unauthorizedResponse } from "@/lib/api-response";
 import { prisma } from "@/lib/db";
 import { getNovelBackendClient, NovelBackendError } from "@/lib/novel-backend-client";
 import { logInfo, logError } from "@/lib/api-logger";
@@ -148,7 +149,7 @@ export async function POST(req: Request, { params }: RouteParams) {
 
     if (error instanceof NovelBackendError) {
       if (error.statusCode === 401 || error.statusCode === 403) {
-        return NextResponse.json({ error: "请重新登录" }, { status: 401 });
+        return unauthorizedResponse("请重新登录");
       }
       return NextResponse.json(
         { error: "分镜生成失败", detail: error.message },

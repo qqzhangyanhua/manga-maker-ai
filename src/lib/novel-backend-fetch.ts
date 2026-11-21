@@ -22,16 +22,16 @@ interface FetchConfig {
 /**
  * 带超时和指数退避的小说后端请求。401/403 不重试。
  */
-export async function fetchNovelBackend<T>(
+export async function fetchNovelBackend(
   url: string,
   options: RequestInit,
   config: FetchConfig,
   retryCount = 0
-): Promise<T> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), config.timeout);
+): Promise<unknown> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), config.timeout);
 
+  try {
     const response = await fetch(url, {
       ...options,
       signal: controller.signal,
@@ -49,13 +49,12 @@ export async function fetchNovelBackend<T>(
     }
 
     const data: unknown = await response.json();
-    return data as T;
-  } catch (error) {
-    const shouldRetry =
-      retryCount < config.maxRetries &&
-      isRetryableError(error as Error);
+    return data;
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+    const retryable = error instanceof Error && isRetryableError(error);
 
-    if (shouldRetry) {
+    if (retryCount < config.maxRetries && retryable) {
       const delay = retryDelay(retryCount);
       logInfo(`重试请求 (${retryCount + 1}/${config.maxRetries})`, {
         url,
@@ -63,7 +62,7 @@ export async function fetchNovelBackend<T>(
       });
 
       await sleep(delay);
-      return fetchNovelBackend<T>(url, options, config, retryCount + 1);
+      return fetchNovelBackend(url, options, config, retryCount + 1);
     }
 
     throw error;

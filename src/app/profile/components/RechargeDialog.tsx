@@ -20,6 +20,19 @@ interface RechargeDialogProps {
 
 type Step = "select" | "paying" | "success";
 
+/** 接口返回的是 UTC。弹窗按北京时间展示，避免本机时区把有效期看偏。 */
+function formatOrderExpiry(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  const shifted = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+  const year = shifted.getUTCFullYear();
+  const month = String(shifted.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(shifted.getUTCDate()).padStart(2, "0");
+  const hour = String(shifted.getUTCHours()).padStart(2, "0");
+  const minute = String(shifted.getUTCMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hour}:${minute}`;
+}
+
 export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialogProps) {
   const [step, setStep] = useState<Step>("select");
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
@@ -30,6 +43,7 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
     planName: string;
     amount: number;
     credits: number;
+    expiresAt: string | null;
   } | null>(null);
   const [successData, setSuccessData] = useState<{ credits: number; newBalance: number } | null>(null);
   const [simulatePayAvailable, setSimulatePayAvailable] = useState(false);
@@ -77,6 +91,7 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
             orderId?: string;
             amount?: number;
             credits?: number;
+            expiresAt?: string;
             simulatePayAvailable?: boolean;
           }
         | undefined;
@@ -90,6 +105,7 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
         planName: plan.name,
         amount: order.amount ?? 0,
         credits: order.credits ?? 0,
+        expiresAt: typeof order.expiresAt === "string" ? order.expiresAt : null,
       });
       setStep("paying");
     } catch (err) {
@@ -301,6 +317,11 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
               {orderId && (
                 <div className="text-xs text-zinc-500 break-all">订单号：{orderId}</div>
               )}
+              {payingOrder.expiresAt && (
+                <div className="text-xs text-zinc-500">
+                  有效期至 {formatOrderExpiry(payingOrder.expiresAt)}（北京时间）
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col items-center gap-4">
@@ -319,24 +340,26 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
                 </div>
               )}
 
-              <div className="flex gap-2">
-                <Button
-                  variant={paymentMethod === "wechat" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setPaymentMethod("wechat")}
-                  className={paymentMethod === "wechat" ? "bg-green-600 hover:bg-green-700" : ""}
-                >
-                  微信支付
-                </Button>
-                <Button
-                  variant={paymentMethod === "alipay" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setPaymentMethod("alipay")}
-                  className={paymentMethod === "alipay" ? "bg-blue-600 hover:bg-blue-700" : ""}
-                >
-                  支付宝
-                </Button>
-              </div>
+              {simulatePayAvailable && (
+                <div className="flex gap-2">
+                  <Button
+                    variant={paymentMethod === "wechat" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setPaymentMethod("wechat")}
+                    className={paymentMethod === "wechat" ? "bg-green-600 hover:bg-green-700" : ""}
+                  >
+                    微信支付
+                  </Button>
+                  <Button
+                    variant={paymentMethod === "alipay" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setPaymentMethod("alipay")}
+                    className={paymentMethod === "alipay" ? "bg-blue-600 hover:bg-blue-700" : ""}
+                  >
+                    支付宝
+                  </Button>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3 justify-end">

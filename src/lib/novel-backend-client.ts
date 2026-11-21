@@ -9,6 +9,13 @@
 
 import { logInfo, logError } from "@/lib/api-logger";
 import { fetchNovelBackend, NovelBackendError } from "@/lib/novel-backend-fetch";
+import {
+  isAnalyzeScriptResponse,
+  isBatchIdentifyCharactersResponse,
+  isGenerateFinalsResponse,
+  isIdentifyCharactersResponse,
+  isPlanShotsResponse,
+} from "@/lib/novel-backend-response";
 
 export { NovelBackendError };
 
@@ -238,13 +245,15 @@ export class NovelBackendClient {
     });
 
     try {
-      const response = await this.fetchWithRetry<AnalyzeScriptResponse>(
+      const response = await this.readCanvasPayload(
         url,
         {
           method: "POST",
           headers: this.canvasHeaders(userToken),
           body: JSON.stringify(request),
-        }
+        },
+        isAnalyzeScriptResponse,
+        "剧本分析响应格式不正确",
       );
 
       logInfo("剧本分析成功", {
@@ -272,11 +281,16 @@ export class NovelBackendClient {
     });
 
     try {
-      const response = await this.fetchWithRetry<PlanShotsResponse>(url, {
-        method: "POST",
-        headers: this.canvasHeaders(userToken),
-        body: JSON.stringify(request),
-      });
+      const response = await this.readCanvasPayload(
+        url,
+        {
+          method: "POST",
+          headers: this.canvasHeaders(userToken),
+          body: JSON.stringify(request),
+        },
+        isPlanShotsResponse,
+        "镜头规划响应格式不正确",
+      );
 
       logInfo("镜头规划成功", {
         shotCount: response.shots.length,
@@ -308,11 +322,16 @@ export class NovelBackendClient {
     });
 
     try {
-      const response = await this.fetchWithRetry<GenerateFinalsResponse>(url, {
-        method: "POST",
-        headers: this.canvasHeaders(userToken),
-        body: JSON.stringify(request),
-      });
+      const response = await this.readCanvasPayload(
+        url,
+        {
+          method: "POST",
+          headers: this.canvasHeaders(userToken),
+          body: JSON.stringify(request),
+        },
+        isGenerateFinalsResponse,
+        "漫画图生成响应格式不正确",
+      );
 
       logInfo("漫画图生成成功", {
         panelCount: response.panels.length,
@@ -342,11 +361,16 @@ export class NovelBackendClient {
     });
 
     try {
-      const response = await this.fetchWithRetry<IdentifyCharactersResponse>(url, {
-        method: "POST",
-        headers: this.canvasHeaders(userToken),
-        body: JSON.stringify(request),
-      });
+      const response = await this.readCanvasPayload(
+        url,
+        {
+          method: "POST",
+          headers: this.canvasHeaders(userToken),
+          body: JSON.stringify(request),
+        },
+        isIdentifyCharactersResponse,
+        "角色识别响应格式不正确",
+      );
 
       logInfo("角色识别成功", {
         identifiedCount: response.identified_characters.length,
@@ -377,11 +401,16 @@ export class NovelBackendClient {
     });
 
     try {
-      const response = await this.fetchWithRetry<BatchIdentifyCharactersResponse>(url, {
-        method: "POST",
-        headers: this.canvasHeaders(userToken),
-        body: JSON.stringify(request),
-      });
+      const response = await this.readCanvasPayload(
+        url,
+        {
+          method: "POST",
+          headers: this.canvasHeaders(userToken),
+          body: JSON.stringify(request),
+        },
+        isBatchIdentifyCharactersResponse,
+        "批量角色识别响应格式不正确",
+      );
 
       logInfo("批量角色识别成功", {
         totalShots: response.summary.total_shots,
@@ -414,11 +443,20 @@ export class NovelBackendClient {
     }
   }
 
-  private fetchWithRetry<T>(url: string, options: RequestInit): Promise<T> {
-    return fetchNovelBackend<T>(url, options, {
+  private async readCanvasPayload<T>(
+    url: string,
+    options: RequestInit,
+    guard: (value: unknown) => value is T,
+    invalidMessage: string,
+  ): Promise<T> {
+    const payload = await fetchNovelBackend(url, options, {
       timeout: this.timeout,
       maxRetries: this.maxRetries,
     });
+    if (!guard(payload)) {
+      throw new NovelBackendError(invalidMessage);
+    }
+    return payload;
   }
 
   /** 画布调用统一带上创作者令牌，调用方不自己拼 Authorization。 */

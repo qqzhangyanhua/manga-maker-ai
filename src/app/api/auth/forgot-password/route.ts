@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { rateLimitResponse } from "@/lib/api-response";
 import { prisma } from "@/lib/db";
 import { redis } from "@/lib/redis";
 import { sendPasswordResetEmail } from "@/lib/mailer";
 import { checkAndIncrementWindowLimitDistributed } from "@/lib/rate-limit";
+import { getClientIp } from "../client-ip";
 import {
   normalizePasswordResetEmail,
   PASSWORD_RESET_TTL_SECONDS,
@@ -10,6 +13,10 @@ import {
   passwordResetCodeKey,
   passwordResetVoidedKey,
 } from "../password-reset";
+
+const forgotPasswordSchema = z.object({
+  email: z.string().min(1),
+});
 
 function generateCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -19,24 +26,14 @@ const NO_MEMORY_FALLBACK = { allowMemoryFallback: false } as const;
 const EMAIL_LIMIT_MESSAGE = "请求过于频繁，请稍后再试";
 const IP_LIMIT_MESSAGE = "操作过于频繁，请稍后再试";
 
-function getClientIp(request: NextRequest): string {
-  const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) {
-    const first = forwarded.split(",")[0]?.trim();
-    if (first) {
-      return first;
-    }
-  }
-  return request.ip ?? "unknown";
-}
-
 export async function POST(req: NextRequest) {
   try {
-    const { email } = await req.json();
-
-    if (!email || typeof email !== "string") {
+    const parsed = forgotPasswordSchema.safeParse(await req.json());
+    if (!parsed.success) {
       return NextResponse.json({ error: "请提供邮箱地址" }, { status: 400 });
     }
+
+    const { email } = parsed.data;
 
     const normalizedEmail = normalizePasswordResetEmail(email);
     const emailLimit = await checkAndIncrementWindowLimitDistributed(
@@ -46,7 +43,7 @@ export async function POST(req: NextRequest) {
       NO_MEMORY_FALLBACK,
     );
     if (!emailLimit.allowed) {
-      return NextResponse.json({ error: EMAIL_LIMIT_MESSAGE }, { status: 429 });
+      return rateLimitResponse(EMAIL_LIMIT_MESSAGE);
     }
 
     const ipLimit = await checkAndIncrementWindowLimitDistributed(
@@ -56,7 +53,7 @@ export async function POST(req: NextRequest) {
       NO_MEMORY_FALLBACK,
     );
     if (!ipLimit.allowed) {
-      return NextResponse.json({ error: IP_LIMIT_MESSAGE }, { status: 429 });
+      return rateLimitResponse(IP_LIMIT_MESSAGE);
     }
 
     const user = await prisma.user.findUnique({
@@ -64,7 +61,7 @@ export async function POST(req: NextRequest) {
       select: { id: true },
     });
 
-    // 未注册也返回成功，避免通过响应区分邮箱是否存在
+    // 未注册和发信失败都返回成功，避免用状态码区分邮箱是否存在
     if (!user) {
       return NextResponse.json({ success: true });
     }
@@ -81,7 +78,7 @@ export async function POST(req: NextRequest) {
       await sendPasswordResetEmail(normalizedEmail, code);
     } catch (mailError) {
       console.error("发送重置邮件失败:", mailError);
-      return NextResponse.json({ error: "邮件发送失败，请稍后重试" }, { status: 500 });
+      return NextResponse.json({ success: true });
     }
 
     return NextResponse.json({ success: true });
