@@ -56,6 +56,11 @@ export interface RateLimitResult {
   resetAt: Date;
 }
 
+export interface DistributedWindowLimitOptions {
+  /** 为 false 时 Redis 不可用直接拒绝，不回退进程内存 */
+  allowMemoryFallback?: boolean;
+}
+
 export function checkRateLimit(
   identifier: string,
   maxRequests: number = 3
@@ -146,16 +151,30 @@ export function checkAndIncrementWindowLimit(
   return { allowed: true, remaining, resetAt: new Date(entry.resetAt) };
 }
 
+function denyWindow(windowMs: number): RateLimitResult {
+  return {
+    allowed: false,
+    remaining: 0,
+    resetAt: new Date(Date.now() + windowMs),
+  };
+}
+
 /**
- * 基于 Redis 的分布式时间窗限流（优先使用 Redis，回退内存）
+ * 基于 Redis 的分布式时间窗限流。
+ * 默认在 Redis 缺失或出错时回退内存；allowMemoryFallback 为 false 时直接拒绝。
  */
 export async function checkAndIncrementWindowLimitDistributed(
   identifier: string,
   maxRequests: number,
-  windowMs: number
+  windowMs: number,
+  options?: DistributedWindowLimitOptions,
 ): Promise<RateLimitResult> {
+  const allowMemoryFallback = options?.allowMemoryFallback ?? true;
+
   if (!hasRedis) {
-    // 未配置 Redis 时回退内存版
+    if (!allowMemoryFallback) {
+      return denyWindow(windowMs);
+    }
     return checkAndIncrementWindowLimit(identifier, maxRequests, windowMs);
   }
 
@@ -178,6 +197,10 @@ export async function checkAndIncrementWindowLimitDistributed(
     const resetAt = new Date(Date.now() + (ttl > 0 ? ttl * 1000 : windowMs));
     return { allowed, remaining, resetAt };
   } catch (error) {
+    if (!allowMemoryFallback) {
+      console.error("Redis 限流失败，已拒绝请求", error);
+      return denyWindow(windowMs);
+    }
     console.error("Redis 限流失败，回退到内存限流", error);
     return checkAndIncrementWindowLimit(identifier, maxRequests, windowMs);
   }
