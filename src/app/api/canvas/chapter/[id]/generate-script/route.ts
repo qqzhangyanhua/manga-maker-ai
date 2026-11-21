@@ -198,7 +198,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     const analyzeResult = await client.analyzeScript({
       chapter_content: chapterContent,
       chapter_number: timelineChapter.chapter_number,
-    });
+    }, token);
 
     logInfo("剧本分析服务响应", {
       chapterId,
@@ -282,12 +282,15 @@ export async function POST(req: Request, { params }: RouteParams) {
 
     // 区分不同类型的错误
     if (error instanceof NovelBackendError) {
+      if (error.statusCode === 401 || error.statusCode === 403) {
+        return NextResponse.json({ error: "请重新登录" }, { status: 401 });
+      }
       return NextResponse.json(
         {
           error: "剧本生成失败",
           detail: error.message,
         },
-        { status: 502 } // Bad Gateway
+        { status: 502 }
       );
     }
 

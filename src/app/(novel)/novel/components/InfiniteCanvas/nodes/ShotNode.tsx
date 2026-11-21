@@ -8,7 +8,7 @@ import { useOpenDetail, useCanvasStore } from '@/stores/canvas-store';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { ShotNodeData } from '../nodes-types';
-import { skippedPanelMessage } from '../utils/canvas-api';
+import { readCanvasError, skippedPanelMessage } from '../utils/canvas-api';
 
 interface ShotNodeProps {
   data: ShotNodeData;
@@ -64,8 +64,7 @@ export const ShotNode = memo(({ data }: ShotNodeProps) => {
         method: 'POST',
       });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || '生成失败');
+        throw new Error(await readCanvasError(response, '生成失败'));
       }
       return response.json() as Promise<{
         metadata?: { shot_count?: number };

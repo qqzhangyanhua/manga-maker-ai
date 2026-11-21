@@ -81,7 +81,7 @@ export async function POST(req: Request, { params }: RouteParams) {
         character_actions: segment.character_actions,
       })),
       plan: async (request) => {
-        const planned = await client.planShots(request);
+        const planned = await client.planShots(request, token);
         if (!planned.success) {
           throw new NovelBackendError("镜头规划失败", "规划没有成功");
         }
@@ -147,6 +147,9 @@ export async function POST(req: Request, { params }: RouteParams) {
     }
 
     if (error instanceof NovelBackendError) {
+      if (error.statusCode === 401 || error.statusCode === 403) {
+        return NextResponse.json({ error: "请重新登录" }, { status: 401 });
+      }
       return NextResponse.json(
         { error: "分镜生成失败", detail: error.message },
         { status: 502 }

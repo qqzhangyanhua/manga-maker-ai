@@ -38,6 +38,7 @@ import { EmptyCanvasState } from './EmptyCanvasState';
 import { ChapterNavigator } from './ChapterNavigator';
 import { WindowNavigationPanel } from './WindowNavigationPanel';
 import { CharacterPreparationDrawer } from './CharacterPreparationDrawer';
+import { readCanvasError } from './utils/canvas-api';
 import { TopProgressPanel } from './TopProgressPanel';
 
 interface InfiniteCanvasViewProps {
@@ -202,8 +203,7 @@ export function InfiniteCanvasView({
         }),
       });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || '生成失败');
+        throw new Error(await readCanvasError(response, '生成失败'));
       }
       return response.json();
     },

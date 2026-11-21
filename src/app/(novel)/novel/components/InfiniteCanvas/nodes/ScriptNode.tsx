@@ -8,6 +8,7 @@ import { useOpenDetail, useCanvasStore } from '@/stores/canvas-store';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { ScriptNodeData } from '../nodes-types';
+import { readCanvasError } from '../utils/canvas-api';
 
 interface ScriptNodeProps {
   data: ScriptNodeData;
@@ -68,8 +69,7 @@ export const ScriptNode = memo(({ data }: ScriptNodeProps) => {
         method: 'POST',
       });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || '生成失败');
+        throw new Error(await readCanvasError(response, '生成失败'));
       }
       return response.json();
     },
