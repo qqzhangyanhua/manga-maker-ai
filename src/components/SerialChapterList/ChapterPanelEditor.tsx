@@ -18,9 +18,9 @@ import {
 import {
   SortableContext,
   verticalListSortingStrategy,
-  arrayMove,
 } from "@dnd-kit/sortable";
 import { Plus, ImageIcon, Sparkles, Loader2 } from "lucide-react";
+import { anchorForMove } from "@/app/scripts/[id]/hooks/drag-anchor";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -119,6 +119,7 @@ export function ChapterPanelEditor({
   const [isDragging, setIsDragging] = useState(false);
   const [insertDialogOpen, setInsertDialogOpen] = useState(false);
   const [insertAfterIndex, setInsertAfterIndex] = useState(0);
+  const [insertAfterPanelId, setInsertAfterPanelId] = useState<string | undefined>();
   const [splitDialogOpen, setSplitDialogOpen] = useState(false);
   const [splitPanel, setSplitPanel] = useState<Panel | null>(null);
   const [mergingPanels, setMergingPanels] = useState<{
@@ -175,19 +176,19 @@ export function ChapterPanelEditor({
     const oldIndex = chapterPanels.findIndex((p) => p.id === active.id);
     const newIndex = chapterPanels.findIndex((p) => p.id === over.id);
 
-    if (oldIndex === -1 || newIndex === -1) return;
-
-    const newPanels = arrayMove(chapterPanels, oldIndex, newIndex);
-    const updates = newPanels.map((panel, index) => ({
-      id: panel.id,
-      panel_order: index + 1,
-    }));
+    const orderedIds = chapterPanels.map((panel) => panel.id);
+    const anchor = anchorForMove(oldIndex, newIndex, orderedIds);
+    if (!anchor) return;
 
     try {
-      const response = await fetch("/api/panel/batch-update", {
-        method: "PATCH",
+      const response = await fetch("/api/panel/reorder", {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ updates, projectId }),
+        body: JSON.stringify({
+          panel_id: String(active.id),
+          project_id: projectId,
+          ...anchor,
+        }),
       });
 
       if (!response.ok) {
@@ -210,6 +211,7 @@ export function ChapterPanelEditor({
   // 在指定分镜之后插入
   const handleInsertAfter = (panel: Panel) => {
     setInsertAfterIndex(panel.panel_order || 0);
+    setInsertAfterPanelId(panel.id);
     setInsertDialogOpen(true);
   };
 
@@ -389,6 +391,7 @@ export function ChapterPanelEditor({
             open={insertDialogOpen}
             projectId={projectId}
             insertAfterIndex={insertAfterIndex}
+            insertAfterPanelId={insertAfterPanelId}
             onOpenChange={setInsertDialogOpen}
             onInserted={handleOperationComplete}
             onError={onError}

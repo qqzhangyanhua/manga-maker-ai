@@ -6,15 +6,11 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
-import { prisma } from "@/lib/db";
 import { ApiError } from "@/lib/api-helpers";
+import { prisma } from "@/lib/db";
 import { assertChapterInProject } from "@/lib/project";
-
-interface MoveRequest {
-  panel_id: string;
-  target_chapter_id: string;
-  target_order?: number; // 可选，不提供则追加到末尾
-}
+import { panels } from "@/lib/project/chapter-panels";
+import { parsePlaceAnchor } from "../place-anchor";
 
 export async function POST(req: Request) {
   try {
@@ -30,22 +26,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "无效的token" }, { status: 401 });
     }
 
-    const body: MoveRequest = await req.json();
-    const { panel_id, target_chapter_id, target_order } = body;
-
-    if (!panel_id || !target_chapter_id) {
-      return NextResponse.json(
-        { error: "缺少必需参数" },
-        { status: 400 }
-      );
+    const raw: unknown = await req.json();
+    const body = asRecord(raw);
+    if (!body) {
+      return NextResponse.json({ error: "请求体无效" }, { status: 400 });
     }
 
-    // 获取分镜及其项目信息
+    const panelId = body.panel_id;
+    const targetChapterId = body.target_chapter_id;
+    if (
+      typeof panelId !== "string" ||
+      panelId.length === 0 ||
+      typeof targetChapterId !== "string" ||
+      targetChapterId.length === 0
+    ) {
+      return NextResponse.json({ error: "缺少必需参数" }, { status: 400 });
+    }
+
     const panel = await prisma.panel.findUnique({
-      where: { id: panel_id },
+      where: { id: panelId },
       include: {
         project: { select: { user_id: true } },
-        chapter: { select: { story_id: true } },
       },
     });
 
@@ -57,78 +58,75 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "无权限操作" }, { status: 403 });
     }
 
-    // 目标章节必须属于分镜所在的项目（项目已校验归属当前用户）
-    await assertChapterInProject(prisma, target_chapter_id, panel.project_id);
+    // 章节归属在 place 之前校验，失败时不会开写事务
+    await assertChapterInProject(prisma, targetChapterId, panel.project_id);
 
-    // 如果分镜已在目标章节，直接返回
-    if (panel.chapter_id === target_chapter_id) {
+    if (panel.chapter_id === targetChapterId) {
       return NextResponse.json({
         success: true,
         message: "分镜已在目标章节中",
       });
     }
 
-    const sourceChapterId = panel.chapter_id;
-    const sourceOrder = panel.panel_order;
+    const anchorInput: Record<string, unknown> = {};
+    if (body.before !== undefined) anchorInput.before = body.before;
+    if (body.after !== undefined) anchorInput.after = body.after;
+    if (body.before === undefined && body.after === undefined) {
+      anchorInput.chapter_id = targetChapterId;
+    }
+    if (body.index !== undefined) anchorInput.index = body.index;
 
-    // 获取目标章节的最大 panel_order
-    const maxOrderResult = await prisma.panel.aggregate({
-      where: { chapter_id: target_chapter_id },
-      _max: { panel_order: true },
-    });
-    const maxOrder = maxOrderResult._max.panel_order || 0;
-    const finalTargetOrder = target_order ?? maxOrder + 1;
+    const parsed = parsePlaceAnchor(anchorInput);
+    if (parsed.ok === false) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
 
-    await prisma.$transaction(async (tx) => {
-      // 1. 如果有源章节，更新源章节中后续分镜的顺序
-      if (sourceChapterId) {
-        await tx.panel.updateMany({
-          where: {
-            chapter_id: sourceChapterId,
-            panel_order: { gt: sourceOrder },
-          },
-          data: { panel_order: { decrement: 1 } },
-        });
-      }
-
-      // 2. 如果插入到中间位置，更新目标章节中后续分镜的顺序
-      if (target_order !== undefined) {
-        await tx.panel.updateMany({
-          where: {
-            chapter_id: target_chapter_id,
-            panel_order: { gte: finalTargetOrder },
-          },
-          data: { panel_order: { increment: 1 } },
-        });
-      }
-
-      // 3. 移动分镜到目标章节
-      await tx.panel.update({
-        where: { id: panel_id },
-        data: {
-          chapter_id: target_chapter_id,
-          panel_order: finalTargetOrder,
-        },
+    if ("before" in parsed.anchor || "after" in parsed.anchor) {
+      const anchorId = "before" in parsed.anchor ? parsed.anchor.before : parsed.anchor.after;
+      const anchorPanel = await prisma.panel.findUnique({
+        where: { id: anchorId },
+        select: { id: true, chapter_id: true, project_id: true },
       });
-    });
+      if (
+        !anchorPanel ||
+        anchorPanel.chapter_id !== targetChapterId ||
+        anchorPanel.project_id !== panel.project_id
+      ) {
+        return NextResponse.json(
+          { error: "锚点分镜不存在或不在目标章节" },
+          { status: 400 },
+        );
+      }
+    }
+
+    const placed = await panels(panel.project_id).place([panelId], parsed.anchor);
+    const moved = placed.find((item) => item.id === panelId);
+    if (!moved) {
+      return NextResponse.json({ error: "移动分镜失败" }, { status: 500 });
+    }
 
     return NextResponse.json({
       success: true,
       message: "分镜已移动",
       data: {
-        panel_id,
-        target_chapter_id,
-        new_order: finalTargetOrder,
+        panel_id: panelId,
+        target_chapter_id: targetChapterId,
+        new_order: moved.panelOrder,
       },
     });
   } catch (error) {
     if (error instanceof ApiError) {
-      return NextResponse.json({ error: error.message, code: error.code }, { status: error.statusCode });
+      return NextResponse.json(error.toJSON(), { status: error.statusCode });
     }
     console.error("Panel move error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "移动失败" },
-      { status: 500 }
+      { status: 500 },
     );
   }
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
 }

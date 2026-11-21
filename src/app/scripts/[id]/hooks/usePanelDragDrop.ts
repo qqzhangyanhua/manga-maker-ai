@@ -9,6 +9,7 @@ import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
 import type { Panel } from "../types/script-editor.types";
 import { isGroupStart, isGroupMember } from "../types/layout.types";
+import { anchorForMove, type DragAnchor } from "./drag-anchor";
 
 interface UsePanelDragDropProps {
   panels: Panel[];
@@ -70,6 +71,20 @@ function getGroupPanelIds(panel: Panel, allPanels: Panel[]): string[] {
   return [panel.id];
 }
 
+function reorderByAnchor(panels: Panel[], movingIds: readonly string[], anchor: DragAnchor): Panel[] | null {
+  const moving = new Set(movingIds);
+  const movingPanels = panels.filter((panel) => moving.has(panel.id));
+  const rest = panels.filter((panel) => !moving.has(panel.id));
+  const anchorId = "before" in anchor ? anchor.before : anchor.after;
+  const anchorIndex = rest.findIndex((panel) => panel.id === anchorId);
+  if (anchorIndex < 0) return null;
+  const insertAt = "before" in anchor ? anchorIndex : anchorIndex + 1;
+  return [...rest.slice(0, insertAt), ...movingPanels, ...rest.slice(insertAt)].map((panel, index) => ({
+    ...panel,
+    panel_order: index + 1,
+  }));
+}
+
 export function usePanelDragDrop({
   panels,
   projectId,
@@ -116,10 +131,8 @@ export function usePanelDragDrop({
     const isGroupDrag = currentGroupIds.length > 1;
 
     if (isGroupDrag) {
-      // 布局组拖拽
-      await handleGroupDragEnd(currentGroupIds, overPanel);
+      await handleGroupDragEnd(currentGroupIds, String(active.id), String(over.id));
     } else {
-      // 单个Panel拖拽（原有逻辑）
       await handleSingleDragEnd(activePanel, overPanel);
     }
   };
@@ -128,119 +141,77 @@ export function usePanelDragDrop({
    * 处理单个Panel拖拽
    */
   const handleSingleDragEnd = async (activePanel: Panel, overPanel: Panel) => {
-    const oldIndex = panels.findIndex((p) => p.id === activePanel.id);
-    const newIndex = panels.findIndex((p) => p.id === overPanel.id);
+    const orderedIds = panels.map((panel) => panel.id);
+    const oldIndex = orderedIds.indexOf(activePanel.id);
+    const newIndex = orderedIds.indexOf(overPanel.id);
+    const anchor = anchorForMove(oldIndex, newIndex, orderedIds);
+    if (!anchor) return;
 
-    if (oldIndex === -1 || newIndex === -1) {
-      return;
-    }
-
-    // 乐观更新：立即更新 UI
-    const reordered = arrayMove(panels, oldIndex, newIndex).map((p, idx) => ({
-      ...p,
-      panel_order: idx + 1,
+    const reordered = arrayMove(panels, oldIndex, newIndex).map((panel, index) => ({
+      ...panel,
+      panel_order: index + 1,
     }));
     onPanelsChange(reordered);
 
-    // 后端同步
     try {
       if (!projectId) {
-        throw new Error("Project ID is missing");
+        throw new Error("缺少项目编号");
       }
 
-      const newOrder = newIndex + 1;
       const res = await fetch("/api/panel/reorder", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           panel_id: activePanel.id,
-          new_order: newOrder,
           project_id: projectId,
+          ...anchor,
         }),
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to reorder");
+        const data = (await res.json()) as { error?: string };
+        throw new Error(data.error || "重排序失败");
       }
     } catch (error) {
       console.error("Reorder error:", error);
-      // 回滚到原始顺序
       onPanelsChange(panels);
       onError(error instanceof Error ? error.message : "重排序失败");
     }
   };
 
-  /**
-   * 处理布局组拖拽
-   */
-  const handleGroupDragEnd = async (groupIds: string[], overPanel: Panel) => {
-    // 获取组内所有Panel（按顺序）
-    const groupPanels = groupIds
-      .map((id) => panels.find((p) => p.id === id))
-      .filter((p): p is Panel => p !== undefined)
-      .sort((a, b) => a.panel_order - b.panel_order);
+  const handleGroupDragEnd = async (groupIds: string[], activeId: string, overId: string) => {
+    if (groupIds.includes(overId)) return;
 
-    if (groupPanels.length === 0) return;
+    const orderedIds = panels.map((panel) => panel.id);
+    const anchor = anchorForMove(orderedIds.indexOf(activeId), orderedIds.indexOf(overId), orderedIds);
+    if (!anchor) return;
 
-    const groupStartOrder = groupPanels[0].panel_order;
-    const targetOrder = overPanel.panel_order;
-
-    // 如果目标在组内，不处理
-    if (groupIds.includes(overPanel.id)) {
-      return;
-    }
-
-    // 计算新的目标位置
-    // 如果目标在组之前，放在目标位置
-    // 如果目标在组之后，放在目标位置减去组大小
-    let newStartOrder: number;
-    if (targetOrder < groupStartOrder) {
-      newStartOrder = targetOrder;
-    } else {
-      // 目标在组之后，需要考虑组本身会被移走
-      newStartOrder = targetOrder - groupPanels.length + 1;
-    }
-
-    // 乐观更新 UI
-    const otherPanels = panels.filter((p) => !groupIds.includes(p.id));
-    const insertIndex = otherPanels.findIndex((p) => p.panel_order >= newStartOrder);
-    const finalInsertIndex = insertIndex === -1 ? otherPanels.length : insertIndex;
-
-    const reordered = [
-      ...otherPanels.slice(0, finalInsertIndex),
-      ...groupPanels,
-      ...otherPanels.slice(finalInsertIndex),
-    ].map((p, idx) => ({
-      ...p,
-      panel_order: idx + 1,
-    }));
-
+    const visualGroupIds = orderedIds.filter((id) => groupIds.includes(id));
+    const reordered = reorderByAnchor(panels, visualGroupIds, anchor);
+    if (!reordered) return;
     onPanelsChange(reordered);
 
-    // 后端同步
     try {
       if (!projectId) {
-        throw new Error("Project ID is missing");
+        throw new Error("缺少项目编号");
       }
 
       const res = await fetch("/api/panel/batch-reorder", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          panel_ids: groupIds,
-          target_order: newStartOrder,
+          panel_ids: visualGroupIds,
           project_id: projectId,
+          ...anchor,
         }),
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to reorder group");
+        const data = (await res.json()) as { error?: string };
+        throw new Error(data.error || "布局组重排序失败");
       }
     } catch (error) {
       console.error("Group reorder error:", error);
-      // 回滚到原始顺序
       onPanelsChange(panels);
       onError(error instanceof Error ? error.message : "布局组重排序失败");
     }

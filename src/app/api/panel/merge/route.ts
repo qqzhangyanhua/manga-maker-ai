@@ -187,7 +187,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // LLM 给出的角色 ID 只保留当前用户角色库中的，其余回落到原分镜角色或置空
+    // 只把用户角色库里的 id 补进项目角色。合并后的在场角色由模块取并集，不写分镜主角色列。
     const llmCharacterId =
       typeof mergedData.character_id === "string" && mergedData.character_id.length > 0
         ? mergedData.character_id
@@ -197,7 +197,6 @@ export async function POST(req: Request) {
     const characterId =
       candidateIds.find((id): id is string => !!id && ownedCharacterIds.has(id)) ?? null;
 
-    // 使用事务删除两个旧 panel 并创建新 panel
     const newPanel = await prisma.$transaction(async (tx) => {
       await ensureProjectCharacters(tx, {
         projectId: project_id,
@@ -215,7 +214,6 @@ export async function POST(req: Request) {
           visual_prompt: mergedData.visual_prompt || mergedData.description,
           prompt_used: mergedData.english_prompt,
           dialogue: mergedData.dialogue || null,
-          character_id: characterId,
           emotion: mergedData.emotion || null,
           camera_angle: mergedData.camera_angle || null,
           shot_size: mergedData.shot_size || null,

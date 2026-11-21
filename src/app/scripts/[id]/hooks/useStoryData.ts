@@ -284,8 +284,13 @@ export function useDeletePanel(storyId: string) {
     });
 }
 
+type ReorderAnchor =
+    | { before: string }
+    | { after: string }
+    | { chapter_id: string; index?: number };
+
 /**
- * 重排序分镜
+ * 重排序分镜。anchor 为 before / after，或 chapter_id 加可选 index（从 0 起）。
  */
 export function useReorderPanels(storyId: string) {
     const queryClient = useQueryClient();
@@ -293,23 +298,23 @@ export function useReorderPanels(storyId: string) {
     return useMutation({
         mutationFn: async ({
             panelId,
-            newOrder,
             projectId,
+            anchor,
         }: {
             panelId: string;
-            newOrder: number;
             projectId: string;
+            anchor: ReorderAnchor;
         }) => {
             const res = await fetch('/api/panel/reorder', {
-                method: 'POST',
+                method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     panel_id: panelId,
-                    new_order: newOrder,
                     project_id: projectId,
+                    ...anchor,
                 }),
             });
-            if (!res.ok) throw new Error('Failed to reorder');
+            if (!res.ok) throw new Error('重排序失败');
             return res.json();
         },
         onSuccess: () => {

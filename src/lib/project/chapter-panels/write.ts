@@ -1,64 +1,45 @@
-import type { Prisma, PrismaClient } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 
-import { ApiError } from "@/lib/api-error";
-
+import { normalizePanelCast } from "./cast";
+import type { Discarded } from "./discard";
+import { setLeadInTransaction } from "./lead";
+import { mergeInTransaction } from "./merge";
+import { placeInTransaction, type PlacedPanel } from "./place";
 import { plan } from "./plan";
-import type { CastMemberInput, InsertAt } from "./plan";
+import type { CastMemberInput } from "./plan";
+import { removeInTransaction } from "./remove";
+import { replaceChapterInTransaction, type ReplacedChapter } from "./replace-chapter";
+import {
+  applyOrders,
+  createPanelRecord,
+  loadDraft,
+  lockChapter,
+  requirePanel,
+  resolveChapterId,
+  toInsertAt,
+  withTransaction,
+  type AddedPanel,
+  type NewPanelInput,
+  type PanelInsertWhere,
+  type PanelWriterOptions,
+} from "./session";
+import { splitInTransaction } from "./split";
 
-type Tx = Prisma.TransactionClient;
-type Db = PrismaClient | Tx;
-
-const WRITE_TX_OPTIONS = { timeout: 60_000, maxWait: 10_000 };
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/** 新建一格时写入的内容。主角色由在场角色触发器派生，这里不接收。 */
-export interface NewPanelInput {
-  segmentId?: string | null;
-  panelType: string;
-  importance?: string;
-  description: string;
-  dialogue?: string | null;
-  cameraAngle?: string | null;
-  shotSize?: string | null;
-  compositionHint?: string | null;
-  locationKey?: string | null;
-  visualPrompt?: string | null;
-  negativePrompt?: string | null;
-  generationStatus?: string | null;
-  sceneId?: string | null;
-}
-
-export type PanelInsertWhere =
-  | { chapter: string; index?: number }
-  | { after: string }
-  | { before: string };
-
-export interface AddedPanel {
-  id: string;
-  panelOrder: number;
-}
-
-export interface PanelWriterOptions {
-  /** 不传 tx 时用它自己开事务。 */
-  db?: PrismaClient;
-  tx?: Tx;
-}
+export type { Discarded } from "./discard";
+export type { PlacedPanel } from "./place";
+export type { ReplacedChapter } from "./replace-chapter";
+export type { AddedPanel, NewPanelInput, PanelInsertWhere, PanelWriterOptions } from "./session";
+export { normalizePanelCast } from "./cast";
 
 export interface ChapterPanels {
   add(input: NewPanelInput | readonly NewPanelInput[], where: PanelInsertWhere): Promise<AddedPanel[]>;
+  remove(ids: readonly string[]): Promise<Discarded>;
+  place(ids: readonly string[], where: PanelInsertWhere): Promise<PlacedPanel[]>;
+  split(id: string, parts: readonly Partial<NewPanelInput>[]): Promise<AddedPanel[]>;
+  merge(ids: readonly string[], fields?: Partial<NewPanelInput>): Promise<AddedPanel>;
   setCast(panelId: string, cast: readonly CastMemberInput[]): Promise<void>;
-}
-
-interface DraftRow {
-  id: string;
-  panel_order: number;
-  project_id: string;
-}
-
-interface NormalizedCast {
-  projectCharacterId: string;
-  outfitId: string | null;
-  expression: string | null;
+  setLead(ids: readonly string[], projectCharacterId: string): Promise<void>;
+  replaceChapter(chapterId: string, fields: readonly NewPanelInput[]): Promise<ReplacedChapter>;
 }
 
 /**
@@ -72,63 +53,31 @@ export function panels(projectId: string, options: PanelWriterOptions = {}): Cha
       if (fields.length === 0) return Promise.resolve([]);
       return withTransaction(options, (tx) => addInTransaction(tx, projectId, fields, where));
     },
+    remove(ids) {
+      return withTransaction(options, (tx) => removeInTransaction(tx, projectId, ids));
+    },
+    place(ids, where) {
+      return withTransaction(options, (tx) => placeInTransaction(tx, projectId, ids, where));
+    },
+    split(id, parts) {
+      return withTransaction(options, (tx) => splitInTransaction(tx, projectId, id, parts));
+    },
+    merge(ids, fields) {
+      return withTransaction(options, (tx) => mergeInTransaction(tx, projectId, ids, fields));
+    },
     setCast(panelId, cast) {
       return withTransaction(options, (tx) => setCastInTransaction(tx, projectId, panelId, cast));
+    },
+    setLead(ids, projectCharacterId) {
+      return withTransaction(options, (tx) => setLeadInTransaction(tx, projectId, ids, projectCharacterId));
+    },
+    replaceChapter(chapterId, fields) {
+      return withTransaction(options, (tx) => replaceChapterInTransaction(tx, projectId, chapterId, fields));
     },
   };
 }
 
-/** 校验在场角色。通过后返回要写入的行，不改库。 */
-export async function normalizePanelCast(
-  db: Db,
-  projectId: string,
-  cast: readonly CastMemberInput[],
-): Promise<NormalizedCast[]> {
-  const seen = new Set<string>();
-  const normalized = cast.map((row) => {
-    const projectCharacterId = row.projectCharacterId.trim();
-    if (!UUID_RE.test(projectCharacterId)) {
-      throw new ApiError(400, "PROJECT_CHARACTER_REQUIRED", "出场角色必须是项目角色");
-    }
-    if (seen.has(projectCharacterId)) {
-      throw new ApiError(400, "DUPLICATE_PROJECT_CHARACTER", "同一格不能重复同一个项目角色");
-    }
-    seen.add(projectCharacterId);
-    return {
-      projectCharacterId,
-      outfitId: row.outfitId?.trim() || null,
-      expression: row.expression?.trim() || null,
-    };
-  });
-  if (normalized.length === 0) return [];
-
-  const found = await db.projectCharacter.findMany({
-    where: { id: { in: normalized.map((row) => row.projectCharacterId) }, project_id: projectId },
-    select: { id: true, character: { select: { outfits: { select: { id: true } } } } },
-  });
-  const byId = new Map(found.map((row) => [row.id, row]));
-  return normalized.map((row) => {
-    const projectCharacter = byId.get(row.projectCharacterId);
-    if (!projectCharacter) {
-      throw new ApiError(400, "PROJECT_CHARACTER_MISMATCH", "项目角色不属于这个项目");
-    }
-    if (row.outfitId && !projectCharacter.character.outfits.some((outfit) => outfit.id === row.outfitId)) {
-      throw new ApiError(400, "OUTFIT_MISMATCH", "服装不属于该项目角色");
-    }
-    return row;
-  });
-}
-
-async function withTransaction<T>(options: PanelWriterOptions, work: (tx: Tx) => Promise<T>): Promise<T> {
-  if (options.tx) return work(options.tx);
-  const client = options.db ?? (await loadPrisma());
-  return client.$transaction((tx) => work(tx), WRITE_TX_OPTIONS);
-}
-
-async function loadPrisma(): Promise<PrismaClient> {
-  const loaded = await import("@/lib/db");
-  return loaded.prisma;
-}
+type Tx = Prisma.TransactionClient;
 
 async function addInTransaction(
   tx: Tx,
@@ -149,29 +98,7 @@ async function addInTransaction(
     const field = fields[index];
     const inserted = diff.inserts[index];
     if (!field || !inserted) continue;
-    const panel = await tx.panel.create({
-      data: {
-        project_id: projectId,
-        chapter_id: chapterId,
-        panel_order: inserted.order,
-        panel_type: field.panelType,
-        importance: field.importance ?? "medium",
-        description: field.description,
-        segment_id: field.segmentId,
-        dialogue: field.dialogue,
-        camera_angle: field.cameraAngle,
-        shot_size: field.shotSize,
-        composition_hint: field.compositionHint,
-        location_key: field.locationKey,
-        visual_prompt: field.visualPrompt,
-        negative_prompt: field.negativePrompt,
-        generation_status: field.generationStatus,
-        scene_id: field.sceneId,
-        pipeline_state: { create: {} },
-      },
-      select: { id: true },
-    });
-    created.push({ id: panel.id, panelOrder: inserted.order });
+    created.push(await createPanelRecord(tx, projectId, chapterId, inserted.order, field));
   }
   return created;
 }
@@ -203,67 +130,4 @@ async function setCastInTransaction(
       pending_character_name: null,
     })),
   });
-}
-
-async function resolveChapterId(tx: Tx, projectId: string, where: PanelInsertWhere): Promise<string> {
-  if ("chapter" in where) {
-    await requireChapter(tx, projectId, where.chapter);
-    return where.chapter;
-  }
-  const panelId = "after" in where ? where.after : where.before;
-  const panel = await requirePanel(tx, projectId, panelId);
-  await requireChapter(tx, projectId, panel.chapter_id);
-  return panel.chapter_id;
-}
-
-function toInsertAt(where: PanelInsertWhere, length: number): InsertAt {
-  if (!("chapter" in where)) return where;
-  return { index: where.index ?? length };
-}
-
-async function requireChapter(tx: Tx, projectId: string, chapterId: string): Promise<void> {
-  const chapter = await tx.chapter.findUnique({
-    where: { id: chapterId },
-    select: { id: true, project_id: true },
-  });
-  if (!chapter) throw new ApiError(404, "NOT_FOUND", "章节不存在");
-  if (chapter.project_id !== projectId) {
-    throw new ApiError(400, "CHAPTER_PROJECT_MISMATCH", "章节不属于该项目");
-  }
-}
-
-async function requirePanel(tx: Tx, projectId: string, panelId: string): Promise<{ chapter_id: string }> {
-  const panel = await tx.panel.findUnique({
-    where: { id: panelId },
-    select: { id: true, project_id: true, chapter_id: true },
-  });
-  if (!panel) throw new ApiError(404, "NOT_FOUND", "分镜不存在");
-  if (panel.project_id !== projectId) {
-    throw new ApiError(400, "PANEL_PROJECT_MISMATCH", "分镜不属于该项目");
-  }
-  return panel;
-}
-
-async function lockChapter(tx: Tx, chapterId: string): Promise<void> {
-  // 与 canvas_renumber_chapter_panels 同一个锁键
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('canvas_panels'), hashtext(${chapterId}))`;
-}
-
-async function loadDraft(tx: Tx, projectId: string, chapterId: string): Promise<DraftRow[]> {
-  const rows = await tx.panel.findMany({
-    where: { chapter_id: chapterId },
-    orderBy: [{ panel_order: "asc" }, { created_at: "asc" }, { id: "asc" }],
-    select: { id: true, panel_order: true, project_id: true },
-  });
-  if (rows.some((row) => row.project_id !== projectId)) {
-    throw new ApiError(400, "PANEL_PROJECT_MISMATCH", "分镜不属于该项目");
-  }
-  return rows;
-}
-
-async function applyOrders(tx: Tx, orders: readonly { id: string; order: number }[]): Promise<void> {
-  const descending = [...orders].sort((left, right) => right.order - left.order);
-  for (const update of descending) {
-    await tx.panel.update({ where: { id: update.id }, data: { panel_order: update.order } });
-  }
 }

@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient, ScriptSegment } from "@prisma/client";
 import { panelReadingOrderBy } from "@/lib/project";
+import { panels, type NewPanelInput } from "@/lib/project/chapter-panels";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -63,7 +64,6 @@ export interface MergedPanelDraft {
   visual_prompt: string | null;
   prompt_used: string | null;
   dialogue: string | null;
-  character_id: string | null;
   emotion: string | null;
   camera_angle: string | null;
   shot_size: string | null;
@@ -204,48 +204,54 @@ export async function writeStoryboardOnChapter(
   };
 }
 
-/** 合并后的分镜留下顺序靠前那一格的剧本片段，不复制字符串片段 id。 */
+/** 合并后的分镜留下顺序靠前那一格的剧本片段。在场角色由分镜模块取并集，这里不写主角色。 */
 export async function mergePanelsKeepingSegment(db: Db, input: MergePanelsInput) {
-  const panels = await db.panel.findMany({
+  const found = await db.panel.findMany({
     where: { id: { in: input.panelIds }, project_id: input.projectId },
     orderBy: panelReadingOrderBy,
   });
-  if (panels.length !== 2) {
+  const earlier = found[0];
+  const later = found[1];
+  if (found.length !== 2 || !earlier || !later) {
     throw new Error("分镜不存在或不属于该项目");
   }
+  const fields: Partial<NewPanelInput> = {
+    panelType: input.panel.panel_type,
+    importance: input.panel.importance,
+    description: input.panel.description,
+    visualPrompt: input.panel.visual_prompt,
+    promptUsed: input.panel.prompt_used,
+    dialogue: input.panel.dialogue,
+    emotion: input.panel.emotion,
+    cameraAngle: input.panel.camera_angle,
+    shotSize: input.panel.shot_size,
+    segmentId: earlier.segment_id,
+    scriptStart: earlier.script_start,
+    scriptEnd: later.script_end,
+  };
+  const merged = await mergeThroughPanels(db, input.projectId, input.panelIds, fields);
+  const row = await db.panel.findUnique({ where: { id: merged.id } });
+  if (!row) {
+    throw new Error("分镜不存在或不属于该项目");
+  }
+  return row;
+}
 
-  const [earlier, later] = panels;
-  await db.panel.deleteMany({ where: { id: { in: input.panelIds } } });
-  const created = await db.panel.create({
-    data: {
-      project_id: input.projectId,
-      chapter_id: earlier.chapter_id,
-      panel_order: Math.min(earlier.panel_order, later.panel_order),
-      panel_type: input.panel.panel_type,
-      importance: input.panel.importance,
-      description: input.panel.description,
-      visual_prompt: input.panel.visual_prompt,
-      prompt_used: input.panel.prompt_used,
-      dialogue: input.panel.dialogue,
-      character_id: input.panel.character_id,
-      emotion: input.panel.emotion,
-      camera_angle: input.panel.camera_angle,
-      shot_size: input.panel.shot_size,
-      segment_id: earlier.segment_id,
-      script_start: earlier.script_start,
-      script_end: later.script_end,
-    },
-  });
+// 事务客户端没有 $transaction。已经在事务里就接着用，否则自己开一个。
+function isPrismaClient(db: Db): db is PrismaClient {
+  return "$transaction" in db;
+}
 
-  const laterOrder = Math.max(earlier.panel_order, later.panel_order);
-  await db.$executeRaw`
-    UPDATE panels
-    SET panel_order = panel_order - 1
-    WHERE project_id = ${input.projectId}::uuid
-      AND panel_order > ${laterOrder}
-  `;
-
-  return created;
+function mergeThroughPanels(
+  db: Db,
+  projectId: string,
+  panelIds: string[],
+  fields: Partial<NewPanelInput>,
+) {
+  if (isPrismaClient(db)) {
+    return db.$transaction((tx) => panels(projectId, { tx }).merge(panelIds, fields));
+  }
+  return panels(projectId, { tx: db }).merge(panelIds, fields);
 }
 
 async function chapterForSegments(

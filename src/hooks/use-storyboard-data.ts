@@ -25,7 +25,12 @@ type UseStoryboardDataReturn = {
   handlePanelUpdate: (panelId: string, updates: Partial<Panel>) => Promise<void>;
   handleMerge: (panelId: string) => Promise<void>;
   handleSplit: (panelId: string) => Promise<void>;
-  handleInsertPanel: (description: string, useLLM: boolean, insertAfterOrder: number | null) => Promise<void>;
+  handleInsertPanel: (
+    description: string,
+    useLLM: boolean,
+    insertAfterOrder: number | null,
+    insertAfterPanelId?: string | null,
+  ) => Promise<void>;
   handleGenerateSketch: (panelId: string, characterId?: string) => Promise<void>;
   handleGeneratePrompt: (
     panelId: string,
@@ -266,20 +271,36 @@ export function useStoryboardData(projectId: string): UseStoryboardDataReturn {
 
   // 执行插入分镜
   const handleInsertPanel = useCallback(
-    async (description: string, useLLM: boolean, insertAfterOrder: number | null) => {
+    async (
+      description: string,
+      useLLM: boolean,
+      insertAfterOrder: number | null,
+      insertAfterPanelId?: string | null,
+    ) => {
       if (!project || insertAfterOrder === null) return;
 
       setOperationLoading({ type: "insert" });
       try {
+        const payload: {
+          project_id: string;
+          insert_after_order: number;
+          description: string;
+          use_llm: boolean;
+          insert_after_panel_id?: string;
+        } = {
+          project_id: project.id,
+          insert_after_order: insertAfterOrder,
+          description,
+          use_llm: useLLM,
+        };
+        if (insertAfterPanelId) {
+          payload.insert_after_panel_id = insertAfterPanelId;
+        }
+
         const response = await fetch("/api/panel/insert", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            project_id: project.id,
-            insert_after_order: insertAfterOrder,
-            description,
-            use_llm: useLLM,
-          }),
+          body: JSON.stringify(payload),
         });
 
         if (!response.ok) {

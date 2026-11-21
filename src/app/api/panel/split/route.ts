@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ApiError } from "@/lib/api-helpers";
-import { ensureProjectCharacters, filterOwnedCharacterIds } from "@/lib/project";
+import { panels } from "@/lib/project/chapter-panels";
 import { migrateLegacyJsonSegments, readMigratedPanelSegmentIds } from "@/lib/script-segment";
 import { callChatCompletionStreamByType } from "@/lib/llm-provider";
 
@@ -133,93 +133,52 @@ export async function POST(req: Request) {
       );
     }
 
-    // LLM 给出的角色 ID 只保留当前用户角色库中的，其余回落到原分镜角色或置空
-    const asId = (value: unknown) => (typeof value === "string" && value.length > 0 ? value : null);
-    const candidateIds = [asId(splitData.panel1.character_id), asId(splitData.panel2.character_id), panel.character_id];
-    const ownedCharacterIds = await filterOwnedCharacterIds(prisma, payload.userId, candidateIds);
-    const pickCharacterId = (llmValue: unknown) =>
-      [asId(llmValue), panel.character_id].find((id): id is string => !!id && ownedCharacterIds.has(id)) ?? null;
-    const characterId1 = pickCharacterId(splitData.panel1.character_id);
-    const characterId2 = pickCharacterId(splitData.panel2.character_id);
-
     // 先迁旧 JSON，再把拆出来的格子指向章节上的片段。迁之前原格子还在，字符串 id 才指得到。
     await migrateLegacyJsonSegments(prisma, panel.project_id);
     const segmentId = (await readMigratedPanelSegmentIds(prisma, panel.project_id)).get(panel.id) ?? panel.segment_id;
 
-    // 使用事务删除旧 panel 并创建两个新 panel
-    const newPanels = await prisma.$transaction(async (tx) => {
-      await ensureProjectCharacters(tx, {
-        projectId: panel.project_id,
-        userId: payload.userId,
-        characterIds: [characterId1, characterId2],
-      });
-
-      // 后续 panels 的 order 都要 +1 (使用 Prisma query 代替 raw SQL)
-      await tx.panel.updateMany({
-        where: {
-          project_id: panel.project_id,
-          panel_order: { gt: panel.panel_order },
-        },
-        data: {
-          panel_order: { increment: 1 },
-        },
-      });
-
-      // 创建第一个新 panel（替换原位置）
-      const created1 = await tx.panel.create({
-        data: {
-          project_id: panel.project_id,
-          chapter_id: panel.chapter_id,
-          panel_order: panel.panel_order,
-          panel_type: splitData.panel1.panel_type,
+    // 在场角色由模块从原分镜继承。0 + 的优先级高于 ||，中点会算偏，保持原表达式不要加括号。
+    const splitPanels = await prisma.$transaction(async (tx) => {
+      const created = await panels(panel.project_id, { tx }).split(panel_id, [
+        {
+          panelType: splitData.panel1.panel_type,
           importance: splitData.panel1.importance,
           description: splitData.panel1.description,
-          visual_prompt: splitData.panel1.visual_prompt || splitData.panel1.description,
-          prompt_used: splitData.panel1.english_prompt,
+          visualPrompt: splitData.panel1.visual_prompt || splitData.panel1.description,
+          promptUsed: splitData.panel1.english_prompt,
           dialogue: splitData.panel1.dialogue || null,
-          character_id: characterId1,
           emotion: splitData.panel1.emotion || null,
-          camera_angle: splitData.panel1.camera_angle || null,
-          shot_size: splitData.panel1.shot_size || null,
-          segment_id: segmentId,
-          script_start: panel.script_start,
-          script_end: panel.script_end ? Math.floor((panel.script_start || 0 + (panel.script_end || 0)) / 2) : null,
+          cameraAngle: splitData.panel1.camera_angle || null,
+          shotSize: splitData.panel1.shot_size || null,
+          segmentId,
+          scriptStart: panel.script_start,
+          scriptEnd: panel.script_end ? Math.floor((panel.script_start || 0 + (panel.script_end || 0)) / 2) : null,
         },
-      });
-
-      // 创建第二个新 panel（插入到下一个位置）
-      const created2 = await tx.panel.create({
-        data: {
-          project_id: panel.project_id,
-          chapter_id: panel.chapter_id,
-          panel_order: panel.panel_order + 1,
-          panel_type: splitData.panel2.panel_type,
+        {
+          panelType: splitData.panel2.panel_type,
           importance: splitData.panel2.importance,
           description: splitData.panel2.description,
-          visual_prompt: splitData.panel2.visual_prompt || splitData.panel2.description,
-          prompt_used: splitData.panel2.english_prompt,
+          visualPrompt: splitData.panel2.visual_prompt || splitData.panel2.description,
+          promptUsed: splitData.panel2.english_prompt,
           dialogue: splitData.panel2.dialogue || null,
-          character_id: characterId2,
           emotion: splitData.panel2.emotion || null,
-          camera_angle: splitData.panel2.camera_angle || null,
-          shot_size: splitData.panel2.shot_size || null,
-          segment_id: segmentId,
-          script_start: panel.script_end ? Math.floor((panel.script_start || 0 + (panel.script_end || 0)) / 2) : null,
-          script_end: panel.script_end,
+          cameraAngle: splitData.panel2.camera_angle || null,
+          shotSize: splitData.panel2.shot_size || null,
+          segmentId,
+          scriptStart: panel.script_end ? Math.floor((panel.script_start || 0 + (panel.script_end || 0)) / 2) : null,
+          scriptEnd: panel.script_end,
         },
-      });
-
-      // 删除原 panel
-      await tx.panel.delete({
-        where: { id: panel_id },
-      });
-
-      return [created1, created2];
+      ]);
+      const ids = created.map((row) => row.id);
+      const rows = await tx.panel.findMany({ where: { id: { in: ids } } });
+      const order = new Map(ids.map((id, index) => [id, index]));
+      rows.sort((left, right) => (order.get(left.id) ?? 0) - (order.get(right.id) ?? 0));
+      return rows;
     });
 
     return NextResponse.json({
       success: true,
-      panels: newPanels,
+      panels: splitPanels,
       message: "分镜已拆分",
     });
   } catch (error) {

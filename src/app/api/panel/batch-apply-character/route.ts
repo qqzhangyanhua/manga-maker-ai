@@ -8,6 +8,7 @@ import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ApiError } from "@/lib/api-helpers";
 import { ensureProjectCharacters } from "@/lib/project";
+import { panels } from "@/lib/project/chapter-panels";
 // import { rateLimit } from "@/lib/rate-limit"; // TODO: 修复 rateLimit 导入
 import {
   successResponse,
@@ -64,20 +65,8 @@ export async function POST(req: Request) {
       return validationErrorResponse("一次最多应用到50个分镜");
     }
 
-    // 验证角色存在且属于当前用户
-    const character = await prisma.character.findFirst({
-      where: {
-        id: character_id,
-        user_id: payload.userId, // 修复：直接使用 user_id
-      },
-    });
-
-    if (!character) {
-      return notFoundResponse("角色不存在或无权限访问");
-    }
-
     // 获取所有分镜并验证权限
-    const panels = await prisma.panel.findMany({
+    const foundPanels = await prisma.panel.findMany({
       where: {
         id: { in: panel_ids },
       },
@@ -91,47 +80,54 @@ export async function POST(req: Request) {
       },
     });
 
-    if (panels.length === 0) {
+    if (foundPanels.length === 0) {
       return notFoundResponse("未找到要更新的分镜");
     }
 
     // 验证所有分镜属于当前用户
-    const unauthorizedPanels = panels.filter(
-      (p) => p.project.user_id !== payload.userId
+    const unauthorizedPanels = foundPanels.filter(
+      (row) => row.project.user_id !== payload.userId
     );
     if (unauthorizedPanels.length > 0) {
       return forbiddenResponse("存在无权限的分镜");
     }
 
-    // 分镜可能分属多个项目：角色要加入每个涉及的项目角色
-    const projectIds = Array.from(new Set(panels.map((p) => p.project_id)));
-    const result = await prisma.$transaction(async (tx) => {
+    // 主角色列由在场角色触发器派生。这里按项目把角色库 id 换成项目角色 id，再各调一次 setLead。
+    const projectIds = Array.from(new Set(foundPanels.map((row) => row.project_id)));
+    const updated = await prisma.$transaction(async (tx) => {
+      let count = 0;
       for (const projectId of projectIds) {
         await ensureProjectCharacters(tx, {
           projectId,
           userId: payload.userId,
           characterIds: [character_id],
         });
+        const projectCharacter = await tx.projectCharacter.findUnique({
+          where: {
+            project_id_character_id: {
+              project_id: projectId,
+              character_id,
+            },
+          },
+        });
+        if (!projectCharacter) {
+          throw new ApiError(400, "INVALID_CHARACTER", "角色不存在或不属于当前用户");
+        }
+        const ids = foundPanels.filter((row) => row.project_id === projectId).map((row) => row.id);
+        await panels(projectId, { tx }).setLead(ids, projectCharacter.id);
+        count += ids.length;
       }
-
-      return tx.panel.updateMany({
-        where: {
-          id: { in: panel_ids },
-        },
-        data: {
-          character_id: character_id,
-        },
-      });
+      return count;
     });
 
     return successResponse(
       {
-        updated: result.count,
-        message: `成功将角色应用到 ${result.count} 个分镜`,
+        updated,
+        message: `成功将角色应用到 ${updated} 个分镜`,
       },
       {
         total: panel_ids.length,
-        succeeded: result.count,
+        succeeded: updated,
       }
     );
   } catch (error) {

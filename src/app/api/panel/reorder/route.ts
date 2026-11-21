@@ -1,21 +1,19 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
+import { ApiError } from "@/lib/api-helpers";
 import { prisma } from "@/lib/db";
+import { panels } from "@/lib/project/chapter-panels";
+import { parsePlaceAnchor } from "../place-anchor";
 
 /**
- * PUT /api/panel/reorder - 重排序分镜
+ * PUT /api/panel/reorder - 按锚点重排一个分镜
  *
- * 请求体：
- * {
- *   panel_id: string;
- *   new_order: number;
- *   project_id: string;
- * }
+ * 请求体：panel_id、project_id，以及恰好一种锚点
+ * （before、after，或 chapter_id + 可选 index，index 从 0 起）。
  */
 export async function PUT(req: Request) {
   try {
-    // 验证用户身份
     const cookieStore = await cookies();
     const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
 
@@ -28,28 +26,34 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "无效的token" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const { panel_id, new_order, project_id } = body;
+    const raw: unknown = await req.json();
+    const body = asRecord(raw);
+    if (!body) {
+      return NextResponse.json({ error: "请求体无效" }, { status: 400 });
+    }
 
-    // 参数验证 - 使用 undefined 检查避免 0 被误判为缺失
-    if (!panel_id || new_order === undefined || new_order === null || !project_id) {
+    const panelId = body.panel_id;
+    const projectId = body.project_id;
+    if (
+      typeof panelId !== "string" ||
+      panelId.length === 0 ||
+      typeof projectId !== "string" ||
+      projectId.length === 0
+    ) {
       return NextResponse.json(
-        { error: "缺少必需参数：panel_id, new_order, project_id" },
-        { status: 400 }
+        { error: "缺少必需参数：panel_id、project_id" },
+        { status: 400 },
       );
     }
 
-    if (typeof new_order !== "number" || new_order < 1) {
-      return NextResponse.json(
-        { error: "new_order 必须是大于 0 的整数" },
-        { status: 400 }
-      );
+    const parsed = parsePlaceAnchor(body);
+    if (parsed.ok === false) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
-    // 检查 panel 是否存在且属于当前用户
     const existingPanel = await prisma.panel.findUnique({
-      where: { id: panel_id },
-      include: { project: true },
+      where: { id: panelId },
+      include: { project: { select: { user_id: true } } },
     });
 
     if (!existingPanel) {
@@ -60,65 +64,14 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "无权限操作此分镜" }, { status: 403 });
     }
 
-    if (existingPanel.project_id !== project_id) {
+    if (existingPanel.project_id !== projectId) {
       return NextResponse.json({ error: "分镜不属于指定项目" }, { status: 400 });
     }
 
-    const old_order = existingPanel.panel_order;
+    await panels(projectId).place([panelId], parsed.anchor);
 
-    // 如果顺序没有变化，直接返回
-    if (old_order === new_order) {
-      return NextResponse.json({
-        success: true,
-        panel: existingPanel,
-        message: "顺序未改变",
-      });
-    }
-
-    // 获取项目的所有 panels 数量，验证 new_order 是否有效
-    const totalPanels = await prisma.panel.count({
-      where: { project_id },
-    });
-
-    if (new_order > totalPanels) {
-      return NextResponse.json(
-        { error: `new_order 超出范围，项目共有 ${totalPanels} 个分镜` },
-        { status: 400 }
-      );
-    }
-
-    // 使用事务更新 panel 顺序
-    await prisma.$transaction(async (tx) => {
-      if (new_order < old_order) {
-        // 向前移动：将 [new_order, old_order) 之间的 panels 的 order +1
-        await tx.$executeRaw`
-          UPDATE panels
-          SET panel_order = panel_order + 1
-          WHERE project_id = ${project_id}::uuid
-          AND panel_order >= ${new_order}
-          AND panel_order < ${old_order}
-        `;
-      } else {
-        // 向后移动：将 (old_order, new_order] 之间的 panels 的 order -1
-        await tx.$executeRaw`
-          UPDATE panels
-          SET panel_order = panel_order - 1
-          WHERE project_id = ${project_id}::uuid
-          AND panel_order > ${old_order}
-          AND panel_order <= ${new_order}
-        `;
-      }
-
-      // 更新目标 panel 的 order
-      await tx.panel.update({
-        where: { id: panel_id },
-        data: { panel_order: new_order },
-      });
-    });
-
-    // 查询更新后的 panel
     const updatedPanel = await prisma.panel.findUnique({
-      where: { id: panel_id },
+      where: { id: panelId },
     });
 
     return NextResponse.json({
@@ -127,8 +80,16 @@ export async function PUT(req: Request) {
       message: "分镜顺序已更新",
     });
   } catch (error) {
+    if (error instanceof ApiError) {
+      return NextResponse.json(error.toJSON(), { status: error.statusCode });
+    }
     console.error("Reorder panel error:", error);
     const message = error instanceof Error ? error.message : "未知错误";
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
 }

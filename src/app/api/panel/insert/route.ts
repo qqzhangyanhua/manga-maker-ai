@@ -1,10 +1,28 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import type { Prisma } from "@prisma/client";
 import { AUTH_COOKIE_NAME, verifyAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ApiError } from "@/lib/api-helpers";
 import { ensureDefaultChapter, ensureProjectCharacters, filterOwnedCharacterIds } from "@/lib/project";
+import { panels } from "@/lib/project/chapter-panels";
+import type { NewPanelInput, PanelInsertWhere } from "@/lib/project/chapter-panels";
 import { callChatCompletionStreamByType } from "@/lib/llm-provider";
+
+interface GeneratedPanelFields {
+  panel_type?: string;
+  importance?: string;
+  description?: string;
+  visual_prompt?: string;
+  english_prompt?: string;
+  dialogue?: string | null;
+  character_id?: unknown;
+  emotion?: string | null;
+  camera_angle?: string | null;
+  shot_size?: string | null;
+}
+
+const INSERT_ANCHOR_REQUIRED = "无法按序号定位分镜，请带上 insert_after_panel_id";
 
 const insertSystemPrompt = `你是一位专业的漫画分镜编辑。
 
@@ -98,7 +116,7 @@ export async function POST(req: Request) {
       orderBy: { panel_order: "asc" },
     });
 
-    let panelData;
+    let panelData: GeneratedPanelFields;
 
     if (use_llm) {
       // 调用 LLM 生成分镜
@@ -133,7 +151,7 @@ ${contextInfo}
       }
 
       try {
-        panelData = JSON.parse(content);
+        panelData = JSON.parse(content) as GeneratedPanelFields;
       } catch {
         return NextResponse.json(
           { error: "LLM返回格式错误", raw_content: content },
@@ -159,60 +177,47 @@ ${contextInfo}
     // LLM 给出的角色 ID 只保留当前用户角色库中的，其余视为未绑定
     const llmCharacterId = typeof panelData.character_id === "string" ? panelData.character_id : null;
     const ownedCharacterIds = await filterOwnedCharacterIds(prisma, payload.userId, [llmCharacterId]);
-    const characterId = llmCharacterId && ownedCharacterIds.has(llmCharacterId) ? llmCharacterId : null;
+    const libraryCharacterId = llmCharacterId && ownedCharacterIds.has(llmCharacterId) ? llmCharacterId : null;
 
-    // 使用事务插入新 panel
     const newPanel = await prisma.$transaction(async (tx) => {
-      await ensureProjectCharacters(tx, {
-        projectId: project_id,
-        userId: payload.userId,
-        characterIds: [characterId],
-      });
+      const where = await resolveInsertWhere(tx, project_id, anchor?.id ?? null, insert_after_order);
 
-      // 有锚点时新分镜留在那一章，只平移这一章。否则仍按项目范围的 panel_order。
-      const chapterId = anchor
-        ? anchor.chapter_id
-        : contextPanels.find((p) => p.panel_order === insertAfterOrder)?.chapter_id ??
-          contextPanels[0]?.chapter_id ??
-          (await ensureDefaultChapter(tx, project_id));
-
-      if (anchor) {
-        await tx.$executeRaw`
-          UPDATE panels
-          SET panel_order = panel_order + 1
-          WHERE project_id = ${project_id}::uuid
-          AND chapter_id = ${anchor.chapter_id}::uuid
-          AND panel_order > ${insertAfterOrder}
-        `;
-      } else {
-        await tx.$executeRaw`
-          UPDATE panels
-          SET panel_order = panel_order + 1
-          WHERE project_id = ${project_id}::uuid
-          AND panel_order > ${insertAfterOrder}
-        `;
+      if (libraryCharacterId) {
+        await ensureProjectCharacters(tx, {
+          projectId: project_id,
+          userId: payload.userId,
+          characterIds: [libraryCharacterId],
+        });
       }
 
-      // 创建新 panel
-      const created = await tx.panel.create({
-        data: {
-          project_id,
-          chapter_id: chapterId,
-          panel_order: insertAfterOrder + 1,
-          panel_type: panelData.panel_type,
-          importance: panelData.importance,
-          description: panelData.description,
-          visual_prompt: panelData.visual_prompt || panelData.description,
-          prompt_used: panelData.english_prompt,
-          dialogue: panelData.dialogue || null,
-          character_id: characterId,
-          emotion: panelData.emotion || null,
-          camera_angle: panelData.camera_angle || null,
-          shot_size: panelData.shot_size || null,
-        },
-      });
+      const writer = panels(project_id, { tx });
+      const added = await writer.add(insertedPanelInput(panelData, description), where);
+      const created = added[0];
+      if (!created) {
+        throw new Error("插入分镜失败");
+      }
 
-      return created;
+      if (libraryCharacterId) {
+        const projectCharacter = await tx.projectCharacter.findUnique({
+          where: {
+            project_id_character_id: {
+              project_id,
+              character_id: libraryCharacterId,
+            },
+          },
+          select: { id: true },
+        });
+        if (!projectCharacter) {
+          throw new ApiError(400, "INVALID_CHARACTER", "角色不存在或不属于当前用户");
+        }
+        await writer.setLead([created.id], projectCharacter.id);
+      }
+
+      const panel = await tx.panel.findUnique({ where: { id: created.id } });
+      if (!panel) {
+        throw new Error("插入分镜失败");
+      }
+      return panel;
     });
 
     return NextResponse.json({
@@ -228,4 +233,43 @@ ${contextInfo}
     const message = error instanceof Error ? error.message : "未知错误";
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+function insertedPanelInput(panelData: GeneratedPanelFields, fallbackDescription: string): NewPanelInput {
+  return {
+    panelType: panelData.panel_type || "medium",
+    importance: panelData.importance || "medium",
+    description: panelData.description || fallbackDescription,
+    visualPrompt: panelData.visual_prompt || panelData.description || fallbackDescription,
+    promptUsed: panelData.english_prompt,
+    dialogue: panelData.dialogue || null,
+    emotion: panelData.emotion || null,
+    cameraAngle: panelData.camera_angle || null,
+    shotSize: panelData.shot_size || null,
+  };
+}
+
+// 有锚点就接在那一格后面。没有锚点时，0 表示默认章的章首；序号全项目恰好一格才接在它后面。
+async function resolveInsertWhere(
+  tx: Prisma.TransactionClient,
+  projectId: string,
+  anchorId: string | null,
+  insertAfterOrder: number,
+): Promise<PanelInsertWhere> {
+  if (anchorId) {
+    return { after: anchorId };
+  }
+  if (insertAfterOrder === 0) {
+    const chapterId = await ensureDefaultChapter(tx, projectId);
+    return { chapter: chapterId, index: 0 };
+  }
+  const matches = await tx.panel.findMany({
+    where: { project_id: projectId, panel_order: insertAfterOrder },
+    select: { id: true },
+  });
+  const match = matches.length === 1 ? matches[0] : undefined;
+  if (!match) {
+    throw new ApiError(400, "AMBIGUOUS_PANEL_ORDER", INSERT_ANCHOR_REQUIRED);
+  }
+  return { after: match.id };
 }

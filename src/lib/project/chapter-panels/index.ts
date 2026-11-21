@@ -12,4 +12,15 @@ export type {
 } from "./plan";
 export { panelReadingOrderBy, readingOrder } from "./reading-order";
 export { normalizePanelCast, panels } from "./write";
-export type { AddedPanel, ChapterPanels, NewPanelInput, PanelInsertWhere, PanelWriterOptions } from "./write";
+export { chapterPanelFromGenerated, panelsInWrittenOrder } from "./from-generated";
+export type { GeneratedChapterPanel } from "./from-generated";
+export type {
+  AddedPanel,
+  ChapterPanels,
+  Discarded,
+  NewPanelInput,
+  PanelInsertWhere,
+  PanelWriterOptions,
+  PlacedPanel,
+  ReplacedChapter,
+} from "./write";
