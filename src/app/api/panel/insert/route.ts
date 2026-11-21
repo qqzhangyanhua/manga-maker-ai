@@ -151,7 +151,14 @@ ${contextInfo}
       }
 
       try {
-        panelData = JSON.parse(content) as GeneratedPanelFields;
+        const generated = readGeneratedPanel(JSON.parse(content) as unknown);
+        if (!generated) {
+          return NextResponse.json(
+            { error: "LLM返回格式错误", raw_content: content },
+            { status: 500 }
+          );
+        }
+        panelData = generated;
       } catch {
         return NextResponse.json(
           { error: "LLM返回格式错误", raw_content: content },
@@ -233,6 +240,30 @@ ${contextInfo}
     const message = error instanceof Error ? error.message : "未知错误";
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+function readGeneratedPanel(value: unknown): GeneratedPanelFields | null {
+  if (!isRecord(value)) return null;
+  return {
+    panel_type: readOptionalString(value.panel_type),
+    importance: readOptionalString(value.importance),
+    description: readOptionalString(value.description),
+    visual_prompt: readOptionalString(value.visual_prompt),
+    english_prompt: readOptionalString(value.english_prompt),
+    dialogue: readOptionalString(value.dialogue) ?? null,
+    character_id: value.character_id,
+    emotion: readOptionalString(value.emotion) ?? null,
+    camera_angle: readOptionalString(value.camera_angle) ?? null,
+    shot_size: readOptionalString(value.shot_size) ?? null,
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readOptionalString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
 }
 
 function insertedPanelInput(panelData: GeneratedPanelFields, fallbackDescription: string): NewPanelInput {

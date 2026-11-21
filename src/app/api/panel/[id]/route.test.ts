@@ -130,12 +130,40 @@ describe("PATCH /api/panel/[id] 角色绑定", () => {
         },
       }),
     );
-    expect(setLead).toHaveBeenCalledWith([panelId], "pc-1");
+    expect(setLead).toHaveBeenCalledWith([panelId], "pc-1", undefined);
     expect(mocked.panel.update).not.toHaveBeenCalled();
     for (const call of mocked.panel.update.mock.calls) {
       const arg = call[0] as { data?: Record<string, unknown> } | undefined;
       expect(arg?.data ?? {}).not.toHaveProperty("character_id");
     }
+  });
+
+  it("同时改服装时交给 setLead，不直接改在场角色表", async () => {
+    mocked.character.findMany.mockResolvedValue([{ id: "my-character" }]);
+
+    const response = await patch({
+      character_id: "my-character",
+      outfit_id: "outfit-1",
+      expression_type: "happy",
+    });
+
+    expect(response.status).toBe(200);
+    expect(setLead).toHaveBeenCalledWith([panelId], "pc-1", {
+      outfitId: "outfit-1",
+      expression: "happy",
+    });
+    expect(mocked.panelCharacter.updateMany).not.toHaveBeenCalled();
+    expect(mocked.panel.update).not.toHaveBeenCalled();
+  });
+
+  it("只改服装时对当前主角色调用 setLead", async () => {
+    mocked.panelCharacter.findFirst.mockResolvedValue({ project_character_id: "pc-lead" });
+
+    const response = await patch({ outfit_id: "outfit-1" });
+
+    expect(response.status).toBe(200);
+    expect(setLead).toHaveBeenCalledWith([panelId], "pc-lead", { outfitId: "outfit-1" });
+    expect(mocked.panelCharacter.updateMany).not.toHaveBeenCalled();
   });
 
   it("解绑角色（character_id 为 null）时不校验角色", async () => {

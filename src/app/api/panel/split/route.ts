@@ -116,19 +116,19 @@ export async function POST(req: Request) {
       content += chunk;
     }
 
-    let splitData;
+    let splitData: { panel1: SplitHalf; panel2: SplitHalf };
     try {
-      splitData = JSON.parse(content);
+      const parsed = readSplitPayload(JSON.parse(content) as unknown);
+      if (!parsed) {
+        return NextResponse.json(
+          { error: "LLM返回数据不完整" },
+          { status: 500 }
+        );
+      }
+      splitData = parsed;
     } catch {
       return NextResponse.json(
         { error: "LLM返回格式错误", raw_content: content },
-        { status: 500 }
-      );
-    }
-
-    if (!splitData.panel1 || !splitData.panel2) {
-      return NextResponse.json(
-        { error: "LLM返回数据不完整" },
         { status: 500 }
       );
     }
@@ -189,4 +189,47 @@ export async function POST(req: Request) {
     const message = error instanceof Error ? error.message : "未知错误";
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+interface SplitHalf {
+  panel_type?: string;
+  importance?: string;
+  description?: string;
+  visual_prompt?: string;
+  english_prompt?: string;
+  dialogue?: string | null;
+  emotion?: string | null;
+  camera_angle?: string | null;
+  shot_size?: string | null;
+}
+
+function readSplitPayload(value: unknown): { panel1: SplitHalf; panel2: SplitHalf } | null {
+  if (!isRecord(value)) return null;
+  const panel1 = readSplitHalf(value.panel1);
+  const panel2 = readSplitHalf(value.panel2);
+  if (!panel1 || !panel2) return null;
+  return { panel1, panel2 };
+}
+
+function readSplitHalf(value: unknown): SplitHalf | null {
+  if (!isRecord(value)) return null;
+  return {
+    panel_type: readOptionalString(value.panel_type),
+    importance: readOptionalString(value.importance),
+    description: readOptionalString(value.description),
+    visual_prompt: readOptionalString(value.visual_prompt),
+    english_prompt: readOptionalString(value.english_prompt),
+    dialogue: readOptionalString(value.dialogue) ?? null,
+    emotion: readOptionalString(value.emotion) ?? null,
+    camera_angle: readOptionalString(value.camera_angle) ?? null,
+    shot_size: readOptionalString(value.shot_size) ?? null,
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readOptionalString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
 }
