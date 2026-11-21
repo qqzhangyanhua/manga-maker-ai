@@ -13,6 +13,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
+import { unauthorizedResponse } from "@/lib/api-response";
 import { prisma } from "@/lib/db";
 import { getNovelBackendClient, NovelBackendError } from "@/lib/novel-backend-client";
 import { logInfo, logError } from "@/lib/api-logger";
@@ -150,7 +151,7 @@ export async function POST(req: Request, { params }: RouteParams) {
             name: c.name,
             description: c.description || undefined,
           })),
-        });
+        }, token);
 
         // 将识别结果存入映射
         for (const [shotId, result] of Object.entries(identificationResult.results)) {
@@ -165,7 +166,10 @@ export async function POST(req: Request, { params }: RouteParams) {
           summary: identificationResult.summary,
         });
       } catch (error) {
-        // 识别失败不阻塞流程，使用章节角色作为降级
+        // 登录失效必须停下来；其它识别失败不阻塞，改用章节角色
+        if (error instanceof NovelBackendError && (error.statusCode === 401 || error.statusCode === 403)) {
+          throw error;
+        }
         logError("LLM 角色识别失败，使用章节角色降级", error, { chapterId });
       }
     }
@@ -214,7 +218,7 @@ export async function POST(req: Request, { params }: RouteParams) {
       })),
       comic_style: "manga",
       add_speech_bubbles: true,
-    });
+    }, token);
 
     if (!dialogueLayoutResult.success || dialogueLayoutResult.panels.length === 0) {
       throw new Error("对话框布局分析返回空结果");
@@ -291,6 +295,9 @@ export async function POST(req: Request, { params }: RouteParams) {
     });
 
     if (error instanceof NovelBackendError) {
+      if (error.statusCode === 401 || error.statusCode === 403) {
+        return unauthorizedResponse("请重新登录");
+      }
       return NextResponse.json(
         {
           error: "漫画图生成失败",

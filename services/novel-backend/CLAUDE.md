@@ -16,10 +16,12 @@
 - 服务入口：`services/novel-backend/app/main.py`
 - 本地启动：`cd services/novel-backend && uvicorn app.main:app --reload --port 8000`
 - 虚拟环境：`python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt`
+- 进程内测试：在本目录执行 `pip install -r requirements-dev.txt`，然后 `pytest`
+- 测试不需要真实数据库、模型密钥或已经启动的服务。`pytest` 只收集 `tests/`，不会执行根目录和 `test/` 下打真实服务的脚本
 - 健康检查：`GET /health`
 - API 文档：`GET /docs`（FastAPI Swagger UI）
 
-生命周期：启动时预热数据库连接池 + 初始化 RAG 向量服务（ChromaDB）。
+生命周期：启动时经 `app/startup.py` 的可替换钩子预热数据库连接池并初始化 RAG 向量服务（ChromaDB）。对象存储不在启动时连接，但同一个钩子对象上留有入口，测试可以一并替换。
 
 # 对外接口
 
@@ -203,7 +205,8 @@ SSE 端点注意事项：
 
 # 关键依赖与配置
 
-- 依赖清单：`services/novel-backend/requirements.txt`
+- 依赖清单：`services/novel-backend/requirements.txt`（生产镜像只安装这一份）
+- 开发依赖：`services/novel-backend/requirements-dev.txt`（含 pytest，不进入生产镜像）
 - 核心依赖：FastAPI 0.115, SQLAlchemy 2.0（async）, asyncpg, Pydantic 2.10, OpenAI, ChromaDB 0.4, tiktoken, jieba
 - 配置：`services/novel-backend/app/config.py`（Pydantic Settings）
 - 关键环境变量：
@@ -332,13 +335,16 @@ SSE 事件模型（流式提取进度）：
 
 # 测试与质量
 
-- 测试目录：`services/novel-backend/test/`
-- 测试文件：
-  - `test/test_rag.py` - RAG 检索测试
-  - `test/test_outline_continuation.py` - 大纲续写测试
-  - `test/test_plot_continuity.py` - 剧情连续性测试
-  - `test/test_chapter_detail_api.py` - 章节详情 API 测试
-  - `test/test_web_novel_features.py` - 网文功能测试
+- 进程内测试：在 `services/novel-backend` 执行 `pytest`（`pytest.ini` 的 `testpaths = tests`）
+- 夹具：`tests/conftest.py` 提供 TestClient（`client`）、为指定用户签发令牌的 `sign_user_token`、画布模型服务桩 `canvas_services`
+- 启动钩子：`app/startup.py` 的 `startup_hooks`（Postgres、向量库、对象存储）可在测试里替换
+- 打真实服务的脚本（默认 `pytest` 不收集）：
+  - `test/test_rag.py` - RAG 检索
+  - `test/test_outline_continuation.py` - 大纲续写
+  - `test/test_plot_continuity.py` - 剧情连续性
+  - `test/test_chapter_detail_api.py` - 章节详情 API
+  - `test/test_web_novel_features.py` - 网文功能
+  - 本目录根下的 `test_*.py`
 - 建议优先回归：RAG 检索、渐进式大纲、章节生成流式输出、canvas 流水线、灵感引导会话
 
 # 常见问题 (FAQ)
@@ -373,6 +379,7 @@ SSE 事件模型（流式提取进度）：
 # 相关文件清单
 
 - `services/novel-backend/app/main.py`
+- `services/novel-backend/app/startup.py` -- 可替换的启动钩子
 - `services/novel-backend/app/config.py`
 - `services/novel-backend/app/models.py`
 - `services/novel-backend/app/database.py`
@@ -389,7 +396,10 @@ SSE 事件模型（流式提取进度）：
 - `services/novel-backend/app/schemas/world_schemas.py` -- 世界观记忆库 Schema（含 XSS 防护）
 - `services/novel-backend/app/schemas/extraction_schemas.py` -- AI 世界观提取 Schema
 - `services/novel-backend/requirements.txt`
-- `services/novel-backend/test/*.py`（5 个测试文件）
+- `services/novel-backend/requirements-dev.txt` -- pytest，不进生产镜像
+- `services/novel-backend/pytest.ini`
+- `services/novel-backend/tests/` -- 进程内测试
+- `services/novel-backend/test/*.py`（5 个打真实服务的脚本）
 
 # 变更记录 (Changelog)
 

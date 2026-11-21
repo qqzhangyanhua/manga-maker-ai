@@ -25,6 +25,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import type { ScriptDetailListResponse } from '../detail-panel-types';
+import { readCanvasError } from '../utils/canvas-api';
 
 interface ScriptDetailPanelProps {
   chapterId: string;
@@ -161,7 +162,7 @@ export function ScriptDetailPanel({ chapterId }: ScriptDetailPanelProps) {
         method: 'POST',
       });
       if (!response.ok) {
-        throw new Error('重新生成失败');
+        throw new Error(await readCanvasError(response, '重新生成失败'));
       }
       return response.json();
     },

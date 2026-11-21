@@ -83,7 +83,8 @@ services:
       CORS_ORIGINS: http://localhost:3000,http://localhost:3001
       LOG_LEVEL: INFO
     ports:
-      - "${NOVEL_BACKEND_PORT:-8000}:8000"
+      # 默认只发布到宿主机回环地址。容器内健康检查仍访问容器端口 localhost:8000。
+      - "${NOVEL_BACKEND_BIND:-127.0.0.1}:${NOVEL_BACKEND_PORT:-8000}:8000"
     depends_on:
       postgres:
         condition: service_healthy

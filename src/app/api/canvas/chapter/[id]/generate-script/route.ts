@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
+import { unauthorizedResponse } from "@/lib/api-response";
 import { prisma } from "@/lib/db";
 import { getNovelBackendClient, NovelBackendError } from "@/lib/novel-backend-client";
 import { logInfo, logError } from "@/lib/api-logger";
@@ -198,7 +199,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     const analyzeResult = await client.analyzeScript({
       chapter_content: chapterContent,
       chapter_number: timelineChapter.chapter_number,
-    });
+    }, token);
 
     logInfo("剧本分析服务响应", {
       chapterId,
@@ -282,12 +283,15 @@ export async function POST(req: Request, { params }: RouteParams) {
 
     // 区分不同类型的错误
     if (error instanceof NovelBackendError) {
+      if (error.statusCode === 401 || error.statusCode === 403) {
+        return unauthorizedResponse("请重新登录");
+      }
       return NextResponse.json(
         {
           error: "剧本生成失败",
           detail: error.message,
         },
-        { status: 502 } // Bad Gateway
+        { status: 502 }
       );
     }
 

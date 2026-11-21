@@ -4,6 +4,12 @@ import { defineConfig } from "vitest/config";
 // Note: crypto is already available in Node.js v22+ as a global
 
 export default defineConfig({
+  // tsconfig 的 jsx 是 preserve。Vite 8 的 oxc 不会再转 JSX，组件测试需要 automatic。
+  oxc: {
+    jsx: {
+      runtime: "automatic",
+    },
+  },
   test: {
     globals: true,
     environment: "jsdom",

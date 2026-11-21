@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "./db";
 import { businessLogger } from "./logger";
 
@@ -175,57 +176,71 @@ export async function consumeCredits(params: ConsumeCreditsParams): Promise<{
 }
 
 /**
+ * 在已有事务里增加算力。行级锁和流水与单独调用时一致。
+ */
+async function addCreditsInTransaction(
+  tx: Prisma.TransactionClient,
+  params: AddCreditsParams,
+): Promise<{ newBalance: number; added: number }> {
+  const { userId, amount, action, description, refType, refId } = params;
+
+  // 使用 SELECT FOR UPDATE 获取行级锁
+  const users = await tx.$queryRaw<UserCreditsRow[]>`
+    SELECT credits
+    FROM users
+    WHERE id = ${userId}::uuid
+    FOR UPDATE
+  `;
+
+  if (!users || users.length === 0) {
+    throw new Error("用户不存在");
+  }
+
+  const user = users[0];
+  const newBalance = user.credits + amount;
+
+  await tx.user.update({
+    where: { id: userId },
+    data: { credits: newBalance },
+  });
+
+  await tx.creditTransaction.create({
+    data: {
+      user_id: userId,
+      amount, // 增加为正数
+      balance: newBalance,
+      action,
+      description: description ?? getDefaultDescription(action),
+      ref_type: refType ?? null,
+      ref_id: refId ?? null,
+    },
+  });
+
+  return { newBalance, added: amount };
+}
+
+/**
  * 增加算力（充值/赠送/管理员调整）
  *
  * @security 使用行级锁防止并发问题
+ * @param tx 调用方已开启的事务。传入后不再另开事务，便于和订单状态一起提交。
  */
-export async function addCredits(params: AddCreditsParams): Promise<{
+export async function addCredits(
+  params: AddCreditsParams,
+  tx?: Prisma.TransactionClient,
+): Promise<{
   newBalance: number;
   added: number;
 }> {
-  const { userId, amount, action, description, refType, refId } = params;
+  const { userId, amount, action, description } = params;
 
   if (amount <= 0) {
     throw new Error("增加算力必须大于0");
   }
 
-  const result = await prisma.$transaction(async (tx) => {
-    // 使用 SELECT FOR UPDATE 获取行级锁
-    const users = await tx.$queryRaw<UserCreditsRow[]>`
-      SELECT credits
-      FROM users
-      WHERE id = ${userId}::uuid
-      FOR UPDATE
-    `;
-
-    if (!users || users.length === 0) {
-      throw new Error("用户不存在");
-    }
-
-    const user = users[0];
-    const newBalance = user.credits + amount;
-
-    // 更新用户余额
-    await tx.user.update({
-      where: { id: userId },
-      data: { credits: newBalance },
-    });
-
-    // 记录交易
-    await tx.creditTransaction.create({
-      data: {
-        user_id: userId,
-        amount: amount, // 增加为正数
-        balance: newBalance,
-        action,
-        description: description ?? getDefaultDescription(action),
-        ref_type: refType ?? null,
-        ref_id: refId ?? null,
-      },
-    });
-
-    return { newBalance, added: amount };
-  });
+  const result = tx
+    ? await addCreditsInTransaction(tx, params)
+    : await prisma.$transaction((inner) => addCreditsInTransaction(inner, params));
 
   // 记录算力增加
   businessLogger.credits("added", userId, amount, {

@@ -4,6 +4,11 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  formatRechargePriceYuan,
+  getRechargePlan,
+  listRechargePlans,
+} from "@/lib/recharge-catalog";
 import { Check, Zap, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -13,23 +18,20 @@ interface RechargeDialogProps {
   onSuccess?: () => void;
 }
 
-interface RechargePlan {
-  id: string;
-  name: string;
-  credits: number;
-  price: number;
-  bonus?: number;
-  popular?: boolean;
-}
-
-const rechargePlans: RechargePlan[] = [
-  { id: "basic", name: "基础套餐", credits: 5000, price: 9.9 },
-  { id: "standard", name: "标准套餐", credits: 15000, price: 29.9, bonus: 1000, popular: true },
-  { id: "premium", name: "高级套餐", credits: 50000, price: 99.9, bonus: 5000 },
-  { id: "ultimate", name: "至尊套餐", credits: 100000, price: 199.9, bonus: 15000 },
-];
-
 type Step = "select" | "paying" | "success";
+
+/** 接口返回的是 UTC。弹窗按北京时间展示，避免本机时区把有效期看偏。 */
+function formatOrderExpiry(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  const shifted = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+  const year = shifted.getUTCFullYear();
+  const month = String(shifted.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(shifted.getUTCDate()).padStart(2, "0");
+  const hour = String(shifted.getUTCHours()).padStart(2, "0");
+  const minute = String(shifted.getUTCMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hour}:${minute}`;
+}
 
 export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialogProps) {
   const [step, setStep] = useState<Step>("select");
@@ -37,13 +39,15 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
   const [orderId, setOrderId] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"wechat" | "alipay">("wechat");
   const [creating, setCreating] = useState(false);
-  const [checking, setChecking] = useState(false);
   const [payingOrder, setPayingOrder] = useState<{
     planName: string;
     amount: number;
     credits: number;
+    expiresAt: string | null;
   } | null>(null);
   const [successData, setSuccessData] = useState<{ credits: number; newBalance: number } | null>(null);
+  const [simulatePayAvailable, setSimulatePayAvailable] = useState(false);
+  const [simulating, setSimulating] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const resetState = useCallback(() => {
@@ -51,6 +55,8 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
     setOrderId(null);
     setPayingOrder(null);
     setSuccessData(null);
+    setSimulatePayAvailable(false);
+    setSimulating(false);
     setPaymentMethod("wechat");
     if (pollRef.current) {
       clearInterval(pollRef.current);
@@ -65,7 +71,7 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
   }, [open, resetState]);
 
   const handleRecharge = async () => {
-    const plan = rechargePlans.find((p) => p.id === selectedPlan);
+    const plan = selectedPlan ? getRechargePlan(selectedPlan) : null;
     if (!plan) {
       toast.error("请选择充值套餐");
       return;
@@ -76,23 +82,30 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
       const res = await fetch("/api/payment/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          planId: plan.id,
-          amount: plan.price,
-          credits: plan.credits + (plan.bonus ?? 0),
-        }),
+        body: JSON.stringify({ planId: plan.id }),
       });
 
       const data = await res.json();
-      if (!res.ok) {
+      const order = data.data as
+        | {
+            orderId?: string;
+            amount?: number;
+            credits?: number;
+            expiresAt?: string;
+            simulatePayAvailable?: boolean;
+          }
+        | undefined;
+      if (!res.ok || !order?.orderId) {
         throw new Error(data.error ?? "创建订单失败");
       }
 
-      setOrderId(data.orderId);
+      setSimulatePayAvailable(order.simulatePayAvailable === true);
+      setOrderId(order.orderId);
       setPayingOrder({
         planName: plan.name,
-        amount: data.amount,
-        credits: data.credits,
+        amount: order.amount ?? 0,
+        credits: order.credits ?? 0,
+        expiresAt: typeof order.expiresAt === "string" ? order.expiresAt : null,
       });
       setStep("paying");
     } catch (err) {
@@ -107,14 +120,15 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
     try {
       const res = await fetch(`/api/payment/check-order?orderId=${encodeURIComponent(orderId)}`);
       const data = await res.json();
-      if (data.success && data.status === "paid") {
+      const order = data.data as { status?: string; credits?: number; newBalance?: number } | undefined;
+      if (data.success && order?.status === "paid") {
         if (pollRef.current) {
           clearInterval(pollRef.current);
           pollRef.current = null;
         }
         setSuccessData({
-          credits: data.credits ?? 0,
-          newBalance: data.newBalance ?? 0,
+          credits: order.credits ?? 0,
+          newBalance: order.newBalance ?? 0,
         });
         setStep("success");
         onSuccess?.();
@@ -136,36 +150,36 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
     }
   }, [step, orderId, checkOrderStatus]);
 
-  const handlePayComplete = async () => {
-    if (!orderId) return;
-    setChecking(true);
+  const handleSimulatePay = async () => {
+    if (!orderId || simulating) return;
+    setSimulating(true);
     try {
       const res = await fetch("/api/payment/simulate-paid", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderId }),
       });
-
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error ?? "处理失败");
+      const order = data.data as
+        | { status?: string; credits?: number; newBalance?: number }
+        | undefined;
+      if (!res.ok || !data.success || order?.status !== "paid") {
+        throw new Error(typeof data.error === "string" ? data.error : "模拟支付失败");
       }
-
       if (pollRef.current) {
         clearInterval(pollRef.current);
         pollRef.current = null;
       }
-
       setSuccessData({
-        credits: data.credits ?? 0,
-        newBalance: data.newBalance ?? 0,
+        credits: order.credits ?? payingOrder?.credits ?? 0,
+        newBalance: order.newBalance ?? 0,
       });
       setStep("success");
       onSuccess?.();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "处理失败");
+      toast.error(err instanceof Error ? err.message : "模拟支付失败");
     } finally {
-      setChecking(false);
+      setSimulating(false);
     }
   };
 
@@ -193,7 +207,7 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
           </DialogTitle>
           <DialogDescription className="text-zinc-400">
             {step === "select" && "选择合适的套餐为您的账户充值算力"}
-            {step === "paying" && "请使用微信或支付宝扫码完成支付"}
+            {step === "paying" && (simulatePayAvailable ? "确认后算力立即到账" : "支付功能即将上线")}
             {step === "success" && "充值成功"}
           </DialogDescription>
         </DialogHeader>
@@ -201,8 +215,10 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
         {step === "select" && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 py-6">
-              {rechargePlans.map((plan) => {
+              {listRechargePlans().map((plan) => {
                 const totalCredits = plan.credits + (plan.bonus ?? 0);
+                const priceYuanLabel = formatRechargePriceYuan(plan.priceFen);
+                const priceYuan = Number(priceYuanLabel);
                 const isSelected = selectedPlan === plan.id;
 
                 return (
@@ -244,7 +260,7 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
 
                       <div>
                         <div className="text-2xl font-bold text-orange-500">
-                          ¥{plan.price}
+                          ¥{priceYuanLabel}
                         </div>
                         {plan.bonus && (
                           <div className="text-xs text-zinc-500 mt-1">
@@ -254,7 +270,7 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
                       </div>
 
                       <div className="text-xs text-zinc-400">
-                        约 ¥{((plan.price / totalCredits) * 1000).toFixed(2)} / 千算力
+                        约 ¥{((priceYuan / totalCredits) * 1000).toFixed(2)} / 千算力
                       </div>
                     </div>
                   </div>
@@ -298,44 +314,57 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
               <div className="text-xl font-bold text-orange-500">
                 金额：¥{payingOrder.amount}
               </div>
+              {orderId && (
+                <div className="text-xs text-zinc-500 break-all">订单号：{orderId}</div>
+              )}
+              {payingOrder.expiresAt && (
+                <div className="text-xs text-zinc-500">
+                  有效期至 {formatOrderExpiry(payingOrder.expiresAt)}（北京时间）
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col items-center gap-4">
-              <div className="w-48 h-48 rounded-lg border-2 border-dashed border-zinc-600 flex flex-col items-center justify-center bg-zinc-800/30">
-                <span className="text-zinc-400 text-sm">扫码支付</span>
-                <span className="text-zinc-500 text-xs mt-1">（支付功能即将上线）</span>
-              </div>
+              {simulatePayAvailable ? (
+                <Button
+                  onClick={handleSimulatePay}
+                  disabled={simulating}
+                  className="bg-orange-500 hover:bg-orange-600 text-white"
+                >
+                  {simulating ? "确认中..." : "模拟支付完成"}
+                </Button>
+              ) : (
+                <div className="w-48 h-48 rounded-lg border-2 border-dashed border-zinc-600 flex flex-col items-center justify-center bg-zinc-800/30">
+                  <span className="text-zinc-400 text-sm">扫码支付</span>
+                  <span className="text-zinc-500 text-xs mt-1">（支付功能即将上线）</span>
+                </div>
+              )}
 
-              <div className="flex gap-2">
-                <Button
-                  variant={paymentMethod === "wechat" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setPaymentMethod("wechat")}
-                  className={paymentMethod === "wechat" ? "bg-green-600 hover:bg-green-700" : ""}
-                >
-                  微信支付
-                </Button>
-                <Button
-                  variant={paymentMethod === "alipay" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setPaymentMethod("alipay")}
-                  className={paymentMethod === "alipay" ? "bg-blue-600 hover:bg-blue-700" : ""}
-                >
-                  支付宝
-                </Button>
-              </div>
+              {simulatePayAvailable && (
+                <div className="flex gap-2">
+                  <Button
+                    variant={paymentMethod === "wechat" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setPaymentMethod("wechat")}
+                    className={paymentMethod === "wechat" ? "bg-green-600 hover:bg-green-700" : ""}
+                  >
+                    微信支付
+                  </Button>
+                  <Button
+                    variant={paymentMethod === "alipay" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setPaymentMethod("alipay")}
+                    className={paymentMethod === "alipay" ? "bg-blue-600 hover:bg-blue-700" : ""}
+                  >
+                    支付宝
+                  </Button>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3 justify-end">
               <Button variant="outline" onClick={handleBackFromPaying}>
                 取消
-              </Button>
-              <Button
-                onClick={handlePayComplete}
-                disabled={checking}
-                className="bg-orange-500 hover:bg-orange-600 text-white"
-              >
-                {checking ? "处理中..." : "我已完成支付"}
               </Button>
             </div>
           </div>

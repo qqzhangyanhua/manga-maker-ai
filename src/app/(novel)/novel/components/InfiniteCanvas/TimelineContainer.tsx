@@ -2,10 +2,12 @@
 
 import { useState, useCallback } from "react";
 import { Plus, Play, Settings, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ChapterRow } from "./ChapterRow";
 import { TimelineSettings } from "./TimelineSettings";
 import { AddChapterDialog } from "./AddChapterDialog";
+import { readCanvasError } from "./utils/canvas-api";
 import type { CanvasTimeline, TimelineChapter, CanvasTimelineConfig } from "./types";
 
 interface TimelineContainerProps {
@@ -38,7 +40,11 @@ export function TimelineContainer({
           { method: "POST" }
         );
         if (!response.ok) {
-          throw new Error("生成失败");
+          const message = await readCanvasError(response, "生成失败");
+          if (response.status === 401) {
+            toast.error("请重新登录");
+          }
+          throw new Error(message);
         }
         console.log(`章节步骤生成成功: ${step}`);
         onRefresh();
