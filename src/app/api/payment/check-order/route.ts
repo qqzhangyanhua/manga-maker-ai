@@ -7,6 +7,7 @@ import {
   unauthorizedResponse,
   validationErrorResponse,
 } from "@/lib/api-response";
+import { getUserCredits } from "@/lib/credits";
 import { prisma } from "@/lib/db";
 import { getRechargeOrder } from "@/lib/recharge-order";
 import { presentRechargeOrder } from "../present-order";
@@ -29,7 +30,9 @@ export async function GET(req: Request) {
     });
     if (!result.ok) return notFoundResponse("订单不存在");
 
-    return successResponse(presentRechargeOrder(result.order));
+    const newBalance =
+      result.order.status === "paid" ? await getUserCredits(payload.userId) : undefined;
+    return successResponse(presentRechargeOrder(result.order, newBalance));
   } catch (error) {
     console.error("check-order error:", error);
     return errorResponse("查询订单失败");

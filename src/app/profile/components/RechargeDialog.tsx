@@ -32,6 +32,8 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
     credits: number;
   } | null>(null);
   const [successData, setSuccessData] = useState<{ credits: number; newBalance: number } | null>(null);
+  const [simulatePayAvailable, setSimulatePayAvailable] = useState(false);
+  const [simulating, setSimulating] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const resetState = useCallback(() => {
@@ -39,6 +41,8 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
     setOrderId(null);
     setPayingOrder(null);
     setSuccessData(null);
+    setSimulatePayAvailable(false);
+    setSimulating(false);
     setPaymentMethod("wechat");
     if (pollRef.current) {
       clearInterval(pollRef.current);
@@ -69,12 +73,18 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
 
       const data = await res.json();
       const order = data.data as
-        | { orderId?: string; amount?: number; credits?: number }
+        | {
+            orderId?: string;
+            amount?: number;
+            credits?: number;
+            simulatePayAvailable?: boolean;
+          }
         | undefined;
       if (!res.ok || !order?.orderId) {
         throw new Error(data.error ?? "创建订单失败");
       }
 
+      setSimulatePayAvailable(order.simulatePayAvailable === true);
       setOrderId(order.orderId);
       setPayingOrder({
         planName: plan.name,
@@ -124,6 +134,39 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
     }
   }, [step, orderId, checkOrderStatus]);
 
+  const handleSimulatePay = async () => {
+    if (!orderId || simulating) return;
+    setSimulating(true);
+    try {
+      const res = await fetch("/api/payment/simulate-paid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId }),
+      });
+      const data = await res.json();
+      const order = data.data as
+        | { status?: string; credits?: number; newBalance?: number }
+        | undefined;
+      if (!res.ok || !data.success || order?.status !== "paid") {
+        throw new Error(typeof data.error === "string" ? data.error : "模拟支付失败");
+      }
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+      setSuccessData({
+        credits: order.credits ?? payingOrder?.credits ?? 0,
+        newBalance: order.newBalance ?? 0,
+      });
+      setStep("success");
+      onSuccess?.();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "模拟支付失败");
+    } finally {
+      setSimulating(false);
+    }
+  };
+
   const handleBackFromPaying = () => {
     if (pollRef.current) {
       clearInterval(pollRef.current);
@@ -148,7 +191,7 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
           </DialogTitle>
           <DialogDescription className="text-zinc-400">
             {step === "select" && "选择合适的套餐为您的账户充值算力"}
-            {step === "paying" && "支付功能即将上线"}
+            {step === "paying" && (simulatePayAvailable ? "确认后算力立即到账" : "支付功能即将上线")}
             {step === "success" && "充值成功"}
           </DialogDescription>
         </DialogHeader>
@@ -261,10 +304,20 @@ export function RechargeDialog({ open, onOpenChange, onSuccess }: RechargeDialog
             </div>
 
             <div className="flex flex-col items-center gap-4">
-              <div className="w-48 h-48 rounded-lg border-2 border-dashed border-zinc-600 flex flex-col items-center justify-center bg-zinc-800/30">
-                <span className="text-zinc-400 text-sm">扫码支付</span>
-                <span className="text-zinc-500 text-xs mt-1">（支付功能即将上线）</span>
-              </div>
+              {simulatePayAvailable ? (
+                <Button
+                  onClick={handleSimulatePay}
+                  disabled={simulating}
+                  className="bg-orange-500 hover:bg-orange-600 text-white"
+                >
+                  {simulating ? "确认中..." : "模拟支付完成"}
+                </Button>
+              ) : (
+                <div className="w-48 h-48 rounded-lg border-2 border-dashed border-zinc-600 flex flex-col items-center justify-center bg-zinc-800/30">
+                  <span className="text-zinc-400 text-sm">扫码支付</span>
+                  <span className="text-zinc-500 text-xs mt-1">（支付功能即将上线）</span>
+                </div>
+              )}
 
               <div className="flex gap-2">
                 <Button

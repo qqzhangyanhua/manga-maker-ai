@@ -49,9 +49,11 @@ function postCreate(body: Record<string, unknown>) {
   );
 }
 
+
 describe("充值订单接口", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    delete process.env.ALLOW_SIMULATE_PAYMENT;
   });
 
   it("未登录时下单返回 401", async () => {
@@ -317,5 +319,34 @@ describe("充值订单接口", () => {
       }),
     );
     expect(signedIn.status).toBe(404);
+  });
+
+  it("下单响应告知模拟支付是否可用，只有显式开启的非生产环境才为真", async () => {
+    const user = await db.user.create({ data: { email: "simulate-flag@example.com" } });
+    loginAs(user.id);
+
+    const off = await postCreate({ planId: "basic" });
+    expect((await off.json()).data.simulatePayAvailable).toBe(false);
+
+    process.env.ALLOW_SIMULATE_PAYMENT = "false";
+    const wordOff = await postCreate({ planId: "basic" });
+    expect((await wordOff.json()).data.simulatePayAvailable).toBe(false);
+
+    process.env.ALLOW_SIMULATE_PAYMENT = "1";
+    const numeric = await postCreate({ planId: "basic" });
+    expect((await numeric.json()).data.simulatePayAvailable).toBe(false);
+
+    process.env.ALLOW_SIMULATE_PAYMENT = "true";
+    const on = await postCreate({ planId: "basic" });
+    expect((await on.json()).data.simulatePayAvailable).toBe(true);
+
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const prod = await postCreate({ planId: "basic" });
+      expect((await prod.json()).data.simulatePayAvailable).toBe(false);
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv;
+    }
   });
 });

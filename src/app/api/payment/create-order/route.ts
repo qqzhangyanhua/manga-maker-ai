@@ -9,6 +9,7 @@ import {
 import { prisma } from "@/lib/db";
 import { createRechargeOrder } from "@/lib/recharge-order";
 import { presentRechargeOrder } from "../present-order";
+import { isSimulatePayEnabled } from "../simulate-flag";
 
 function readPlanId(body: unknown): string {
   if (typeof body !== "object" || body === null || !("planId" in body)) return "";
@@ -32,7 +33,10 @@ export async function POST(req: Request) {
     });
     if (!result.ok) return validationErrorResponse("未知套餐");
 
-    return successResponse(presentRechargeOrder(result.order));
+    return successResponse({
+      ...presentRechargeOrder(result.order),
+      simulatePayAvailable: isSimulatePayEnabled(),
+    });
   } catch (error) {
     console.error("create-order error:", error);
     return errorResponse("创建订单失败");

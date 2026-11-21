@@ -1,4 +1,5 @@
-import type { Prisma } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
+import { addCredits } from "@/lib/credits";
 import { getRechargePlan } from "@/lib/recharge-catalog";
 
 /** 待支付订单的有效期。 */
@@ -119,4 +120,106 @@ export async function getRechargeOrder(
   }
 
   return { ok: true, order: toRecord(found) };
+}
+
+export type ConfirmRechargeOrderResult =
+  | { ok: true; order: RechargeOrderRecord; newBalance?: number }
+  | { ok: false; reason: "not_found" };
+
+type RechargeOrderClient = PrismaClient | Prisma.TransactionClient;
+
+const CONFIRM_SAVEPOINT = "recharge_confirm";
+
+function opensOwnTransaction(db: RechargeOrderClient): db is PrismaClient {
+  return "$transaction" in db && typeof db.$transaction === "function";
+}
+
+/**
+ * 测试通道的客户端本身就是事务，没有嵌套的 $transaction。
+ * 保存点只撤销这一次确认，外层测试事务继续，失败后订单仍是待支付。
+ */
+async function withSavepoint<T>(
+  db: Prisma.TransactionClient,
+  work: () => Promise<T>,
+): Promise<T> {
+  await db.$executeRawUnsafe(`SAVEPOINT ${CONFIRM_SAVEPOINT}`);
+  try {
+    const result = await work();
+    await db.$executeRawUnsafe(`RELEASE SAVEPOINT ${CONFIRM_SAVEPOINT}`);
+    return result;
+  } catch (error) {
+    await db.$executeRawUnsafe(`ROLLBACK TO SAVEPOINT ${CONFIRM_SAVEPOINT}`);
+    await db.$executeRawUnsafe(`RELEASE SAVEPOINT ${CONFIRM_SAVEPOINT}`);
+    throw error;
+  }
+}
+
+async function confirmWithin(
+  db: Prisma.TransactionClient,
+  input: { userId: string; orderId: string; now: Date },
+): Promise<ConfirmRechargeOrderResult> {
+  if (!ORDER_ID_PATTERN.test(input.orderId)) {
+    return { ok: false, reason: "not_found" };
+  }
+
+  // 条件更新只命中仍待支付且未过期的订单。并发确认时只有一条更新成功。
+  const updated = await db.rechargeOrder.updateMany({
+    where: {
+      id: input.orderId,
+      user_id: input.userId,
+      status: "pending",
+      expires_at: { gt: input.now },
+    },
+    data: {
+      status: "paid",
+      paid_at: input.now,
+    },
+  });
+
+  if (updated.count !== 1) {
+    const current = await getRechargeOrder(db, input);
+    if (!current.ok || current.order.status !== "paid") return current;
+    const balance = await db.user.findUnique({
+      where: { id: input.userId },
+      select: { credits: true },
+    });
+    return { ok: true, order: current.order, newBalance: balance?.credits ?? 0 };
+  }
+
+  const paid = await db.rechargeOrder.findUnique({ where: { id: input.orderId } });
+  if (!paid || paid.user_id !== input.userId) {
+    return { ok: false, reason: "not_found" };
+  }
+
+  const order = toRecord(paid);
+  const credited = await addCredits(
+    {
+      userId: input.userId,
+      amount: order.credits,
+      action: "recharge",
+      refType: "order",
+      refId: order.id,
+      description: `充值 ${order.credits} 算力`,
+    },
+    db,
+  );
+
+  return { ok: true, order, newBalance: credited.newBalance };
+}
+
+/**
+ * 确认订单已支付。和算力到账在同一个事务里：到账失败时订单仍是待支付。
+ * 条件未命中时不到账，返回订单当前状态；订单不属于该用户时视为不存在。
+ */
+export async function confirmRechargeOrderPaid(
+  db: RechargeOrderClient,
+  input: { userId: string; orderId: string; now?: Date },
+): Promise<ConfirmRechargeOrderResult> {
+  const now = input.now ?? new Date();
+
+  if (opensOwnTransaction(db)) {
+    return db.$transaction((tx) => confirmWithin(tx, { ...input, now }));
+  }
+
+  return withSavepoint(db, () => confirmWithin(db, { ...input, now }));
 }
